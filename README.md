@@ -20,9 +20,10 @@ add feed http://hackerpublicradio.org/hpr_ogg_rss.php
 
 ## Roadmap
 - Improve asynchronism hadling;
-- Improve error handling
-- Add hash or urlencode
-- Add daemon interface
+- Improve error handling;
+- Add hash or urlencode;
+- Add daemon interface;
+- Add HTML support;
 
 ## Authors and acknowledgment
 - Schimon Jehudah, Attorney at Law.
