@@ -78,19 +78,10 @@ class EchoBot(slixmpp.ClientXMPP):
             # download_updates(msg['from'])
             message = " ".join(msg['body'].split())
             if message.startswith('update'):
-                print("sending to:  + msg['from'].bare")
-                print("sending to: " + msg['from'].bare)
-                news = initdb(msg['from'].bare,
+                action = "/me is scanning feeds for updates..."
+                initdb(msg['from'].bare,
                                 False,
                                 download_updates)
-                if news:
-                    today = str(date.today())
-                    news.insert = [0, 'News fetched on: ' + today]
-                    for new in news:
-                        msg.reply(new).send()
-                    action = "End of News update"
-                else:
-                    action = "No News update"
             elif message.startswith('recent updates '):
                 action = initdb(msg['from'].bare, 
                                   message[14:],
@@ -309,7 +300,6 @@ def download_updates(conn):
             except (IncompleteReadError, IncompleteRead, error.URLError) as e:
                 print(e)
                 continue
-            print("# " + source)
             # TODO Place these couple of lines back down
             # NOTE Need to correct the SQL statement to do so
             length = len(feed.entries)
@@ -322,8 +312,6 @@ def download_updates(conn):
                     if feed.bozo:
                         print('feed.bozo')
                         print(source)
-                    #print('entry')
-                    #print(entry)
                     if entry.has_key('summary'):
                         summary = entry.summary
                         # Remove HTML tags
@@ -416,7 +404,6 @@ def get_unread(conn):
     if id is None:
         return False
     id = id[0]
-    print(id)
     sql = "SELECT title FROM entries WHERE id = :id"
     cur.execute(sql, (id,))
     title = cur.fetchone()[0]
@@ -514,7 +501,7 @@ def list_subscriptions(conn):
     feeds_list = 'List of subscriptions: \n'
     for result in results:
         #feeds_list = feeds_list + '\n {}. {}'.format(str(result[0]), str(result[1]))
-        feeds_list = feeds_list + '\n {} \n {} \n Last updated: {} \n ID: {} \n'.format(str(result[0]), str(result[1]), str(result[2]), str(result[3]))
+        feeds_list = feeds_list + '\n{} \n{} \nLast updated: {} \nID: {} \n'.format(str(result[0]), str(result[1]), str(result[2]), str(result[3]))
     return feeds_list
 
 
