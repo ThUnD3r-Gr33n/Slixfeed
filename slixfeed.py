@@ -77,7 +77,9 @@ class EchoBot(slixmpp.ClientXMPP):
         if msg['type'] in ('chat', 'normal'):
             # download_updates(msg['from'])
             message = " ".join(msg['body'].split())
-            if message.startswith('update'):
+            if message.startswith('help'):
+                action = print_help()
+            elif message.startswith('update'):
                 action = "/me is scanning feeds for updates..."
                 initdb(msg['from'].bare,
                                 False,
@@ -172,6 +174,42 @@ class EchoBot(slixmpp.ClientXMPP):
 
         asyncio.ensure_future(check_updates(self))
         asyncio.ensure_future(send_updates(self))
+
+
+def print_help():
+    msg = """
+Slixfeed - News syndication bot for Jabber/XMPP
+
+DESCRIPTION:
+ Slixfeed is an aggregator bot for online news feeds.
+
+BASIC USAGE:
+ update
+   Update subscriptions.
+ list feeds
+   List subscriptions list.
+
+EDIT OPTIONS:
+ feed add URL
+   Add URL to the subscriptions list.
+ feed remove ID
+   Remove feed from subscription list.
+ status ID
+   Toggle update status of feed.
+
+SEARCH OPTIONS:
+ search TEXT
+   Search news items by given keywords.
+ recent updates N
+   List recent N news items.
+
+DOCUMENTATION:
+ feedparser
+   https://pythonhosted.org/feedparser
+ Slixmpp
+   https://slixmpp.readthedocs.io/
+"""
+    return msg
 
 # Function from buku
 # https://github.com/jarun/buku
@@ -300,18 +338,19 @@ def download_updates(conn):
             except (IncompleteReadError, IncompleteRead, error.URLError) as e:
                 print(e)
                 continue
+            if feed.bozo:
+                bozo = 'WARNING: Bozo detected for feed <{}>. For more information visit https://pythonhosted.org/feedparser/bozo.html'.format(source)
+                print(bozo)
             # TODO Place these couple of lines back down
             # NOTE Need to correct the SQL statement to do so
-            length = len(feed.entries)
+            entries = feed.entries
+            length = len(entries)
             remove_entry(conn, source, length)
-            for entry in feed.entries:
+            for entry in entries:
                 title = '*** No title ***' if not entry.title else entry.title
                 link = source if not entry.link else entry.link
                 exist = check_entry(conn, title, link)
                 if not exist:
-                    if feed.bozo:
-                        print('feed.bozo')
-                        print(source)
                     if entry.has_key('summary'):
                         summary = entry.summary
                         # Remove HTML tags
@@ -342,6 +381,7 @@ def check_feed(conn, url):
     cur = conn.cursor()
     sql = "SELECT id FROM feeds WHERE address = ?"
     cur.execute(sql, (url,))
+    print(cur.fetchone())
     return cur.fetchone()
 
 
