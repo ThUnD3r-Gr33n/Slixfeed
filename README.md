@@ -24,6 +24,7 @@ add feed http://hackerpublicradio.org/hpr_ogg_rss.php
 - Add hash or urlencode;
 - Add daemon interface;
 - Add HTML support;
+- Add feed history tables of last week and last month.
 
 ## Authors and acknowledgment
 - Schimon Jehudah, Attorney at Law.
@@ -35,3 +36,6 @@ add feed http://hackerpublicradio.org/hpr_ogg_rss.php
 
 ## License
 AGPL-3.0 license
+
+## Copyright
+Schimon Jehudah 2022
