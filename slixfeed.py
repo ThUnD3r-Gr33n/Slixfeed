@@ -25,7 +25,7 @@ from sqlite3 import Error
 import sys
 #import xdg
 
-class EchoBot(slixmpp.ClientXMPP):
+class Slixfeed(slixmpp.ClientXMPP):
     """
     Slixmpp bot that will send updates of feeds it
     receives.
@@ -40,11 +40,13 @@ class EchoBot(slixmpp.ClientXMPP):
         # listen for this event so that we we can initialize
         # our roster.
         self.add_event_handler("session_start", self.start)
+        self.add_event_handler("session_start", self.send_updates)
 
         # The message event is triggered whenever a message
         # stanza is received. Be aware that that includes
         # MUC messages and error messages.
         self.add_event_handler("message", self.message)
+        self.add_event_handler("disconnected", self.disconnected)
 
     async def start(self, event):
         """
@@ -61,6 +63,10 @@ class EchoBot(slixmpp.ClientXMPP):
         """
         self.send_presence()
         await self.get_roster()
+
+    def disconnected(self):
+        print("disconnected")
+        return True
 
     def message(self, msg):
         """
@@ -79,136 +85,138 @@ class EchoBot(slixmpp.ClientXMPP):
             message = " ".join(msg['body'].split())
             if message.startswith('help'):
                 action = print_help()
-            elif message.startswith('update'):
+            # NOTE: Might not need it
+            elif message.startswith('feed update'):
                 action = "/me is scanning feeds for updates..."
+                msg.reply(action).send()
                 initdb(msg['from'].bare,
                                 False,
                                 download_updates)
-            elif message.startswith('recent updates '):
+            elif message.startswith('feed recent '):
                 action = initdb(msg['from'].bare, 
-                                  message[14:],
+                                  message[12:],
                                   last_entries)
-            elif message.startswith('list feeds'):
+            elif message.startswith('feed search '):
+                action = initdb(msg['from'].bare, 
+                                  message[12:],
+                                  search_entries)
+            elif message.startswith('feed list'):
                 action = initdb(msg['from'].bare, 
                                   False,
                                   list_subscriptions)
-            elif message.startswith('add feed '):
+            elif message.startswith('feed add '):
                 action = initdb(msg['from'].bare,
                                   message[9:],
                                   add_feed)
-            elif message.startswith('remove feed '):
+            elif message.startswith('feed remove '):
                 action = initdb(msg['from'].bare,
                                   message[12:],
                                   remove_feed)
-            elif message.startswith('status '):
+            elif message.startswith('feed status '):
                 action = initdb(msg['from'].bare,
-                                  message[7:],
+                                  message[12:],
                                   toggle_status)
+            else:
+                action = "Unknown command. Press \"help\" for list of commands"
             msg.reply(action).send()
 
+    async def check_updates():
+        while True:
+            db_dir = get_default_dbdir()
+            if not os.path.isdir(db_dir):
+            # NOTE: Impossible scenario
+                msg = """
+                No database directory was found. \n
+                To create News database,send these messages to bot: \n
+                add feed https://reclaimthenet.org/feed/
+                update
+                """
+                print(msg)
+            else:
+                os.chdir(db_dir)
+                files = os.listdir()
+                for file in files:
+                    jid = file[:-3]
+                    initdb(jid,
+                           False,
+                           download_updates)
+            await asyncio.sleep(30)
+            #await asyncio.sleep(60 * 30)
+            #await asyncio.sleep(180 * 60)
 
-        async def check_updates(self):
+    async def send_updates(self, event):
+        while True:
+            db_dir = get_default_dbdir()
+            if not os.path.isdir(db_dir):
+            # NOTE: Impossible scenario
+                msg = """
+                No database directory was found. \n
+                To create News database,send these messages to bot: \n
+                add feed https://reclaimthenet.org/feed/
+                update
+                """
+                print(msg)
+            else:
+                os.chdir(db_dir)
+                files = os.listdir()
+                for file in files:
+                    jid = file[:-3]
+                    new = initdb(jid, False, get_unread)
+                    if new:
+                        msg = self.make_message(mto=jid, mbody=new,
+                                                mtype='chat')
+                        msg.send()
+                        # today = str(date.today())
+                        # news.insert = [0, 'News fetched on: ' + today]
+                        #news.append('End of News update')
+                        #for new in news:
+                            #print("sending to: jid")
+                            #print("sending to: " + jid)
+                            # self.send_message(mto=jid,
+                            #                   mbody=new,
+                            #                   mtype='normal').send()
+                            #msg = self.make_message(mto=jid,
+                            #                  mbody=new,
+                            #                  mtype='chat')
+                            #print(msg)
+                            #msg.send()
+            await asyncio.sleep(10)
 
-            while True:
-                db_dir = get_default_dbdir()
-                if not os.path.isdir(db_dir):
-                    msg = """
-                    No database directory was found. \n
-                    To create News database,send these messages to bot: \n
-                    add feed https://reclaimthenet.org/feed/
-                    update
-                    """
-                    print(msg)
-                else:
-                    os.chdir(db_dir)
-                    files = os.listdir()
-                    for file in files:
-                        jid = file[:-3]
-                        initdb(jid,
-                               False,
-                               download_updates)
-                await asyncio.sleep(60 * 30)
-                #await asyncio.sleep(180 * 60)
-
-
-        async def send_updates(self):
-
-            while True:
-                db_dir = get_default_dbdir()
-                if not os.path.isdir(db_dir):
-                    msg = """
-                    No database directory was found. \n
-                    To create News database,send these messages to bot: \n
-                    add feed https://reclaimthenet.org/feed/
-                    update
-                    """
-                    print(msg)
-                else:
-                    os.chdir(db_dir)
-                    files = os.listdir()
-                    for file in files:
-                        jid = file[:-3]
-                        new = initdb(jid,
-                                      False,
-                                      get_unread)
-                        if new:
-                            msg = self.make_message(mto=jid,
-                                                    mbody=new,
-                                                    mtype='chat')
-                            msg.send()
-                            # today = str(date.today())
-                            # news.insert = [0, 'News fetched on: ' + today]
-                            #news.append('End of News update')
-                            #for new in news:
-                                #print("sending to: jid")
-                                #print("sending to: " + jid)
-                                # self.send_message(mto=jid,
-                                #                   mbody=new,
-                                #                   mtype='normal').send()
-                                #msg = self.make_message(mto=jid,
-                                #                  mbody=new,
-                                #                  mtype='chat')
-                                #print(msg)
-                                #msg.send()
-                await asyncio.sleep(10)
-
-        asyncio.ensure_future(check_updates(self))
-        asyncio.ensure_future(send_updates(self))
-
+    #asyncio.ensure_future(check_updates())
+    #asyncio.ensure_future(send_updates())
 
 def print_help():
-    msg = """
-Slixfeed - News syndication bot for Jabber/XMPP
+    msg = ("Slixfeed - News syndication bot for Jabber/XMPP \n"
+           "\n"
+           "DESCRIPTION: \n"
+           " Slixfeed is an aggregator bot for online news feeds. \n"
+           "\n"
+           "BASIC USAGE: \n"
+           " feed update \n"
+           "   Update subscriptions. \n"
+           " feed list \n"
+           "   List subscriptions list. \n"
+           "\n"
+           "EDIT OPTIONS: \n"
+           " feed add URL \n"
+           "   Add URL to the subscriptions list. \n"
+           " feed remove ID \n"
+           "   Remove feed from subscription list. \n"
+           " feed status ID \n"
+           "   Toggle update status of feed. \n"
+           "\n"
+           "SEARCH OPTIONS: \n"
+           " feed search TEXT \n"
+           "   Search news items by given keywords. \n"
+           " feed recent N \n"
+           "   List recent N news items. \n"
+           "\n"
+           "DOCUMENTATION: \n"
+           " feedparser \n"
+           "   https://pythonhosted.org/feedparser \n"
+           " Slixmpp \n"
+           "   https://slixmpp.readthedocs.io/")
 
-DESCRIPTION:
- Slixfeed is an aggregator bot for online news feeds.
-
-BASIC USAGE:
- update
-   Update subscriptions.
- list feeds
-   List subscriptions list.
-
-EDIT OPTIONS:
- feed add URL
-   Add URL to the subscriptions list.
- feed remove ID
-   Remove feed from subscription list.
- status ID
-   Toggle update status of feed.
-
-SEARCH OPTIONS:
- search TEXT
-   Search news items by given keywords.
- recent updates N
-   List recent N news items.
-
-DOCUMENTATION:
- feedparser
-   https://pythonhosted.org/feedparser
- Slixmpp
-   https://slixmpp.readthedocs.io/
-"""
     return msg
 
 # Function from buku
@@ -244,11 +252,9 @@ def get_default_dbdir():
 
     return os.path.join(data_home, 'slixfeed')
 
-
 # TODO Perhaps this needs to be executed
 # just once per program execution
 def initdb(jid, message, callback):
-
     db_dir = get_default_dbdir()
     if not os.path.isdir(db_dir):
         os.mkdir(db_dir)
@@ -290,7 +296,6 @@ def initdb(jid, message, callback):
     else:
         return callback(conn)
 
-
 def create_connection(db_file):
     """
     Create a database connection to the SQLite database
@@ -307,7 +312,6 @@ def create_connection(db_file):
 
     return conn
 
-
 def create_table(conn, create_table_sql):
     """
     Create a table from the create_table_sql statement
@@ -320,7 +324,6 @@ def create_table(conn, create_table_sql):
         c.execute(create_table_sql)
     except Error as e:
         print(e)
-
 
 # def setup_info(jid):
 # def start_process(jid):
@@ -335,12 +338,15 @@ def download_updates(conn):
             source = url[0]
             try:
                 feed = feedparser.parse(source)
+                if feed.bozo:
+                    bozo = ("WARNING: Bozo detected for feed <{}>. "
+                            "For more information, visit "
+                            "https://pythonhosted.org/feedparser/bozo.html"
+                            .format(source))
+                    print(bozo)
             except (IncompleteReadError, IncompleteRead, error.URLError) as e:
                 print(e)
                 continue
-            if feed.bozo:
-                bozo = 'WARNING: Bozo detected for feed <{}>. For more information visit https://pythonhosted.org/feedparser/bozo.html'.format(source)
-                print(bozo)
             # TODO Place these couple of lines back down
             # NOTE Need to correct the SQL statement to do so
             entries = feed.entries
@@ -351,11 +357,12 @@ def download_updates(conn):
                 link = source if not entry.link else entry.link
                 exist = check_entry(conn, title, link)
                 if not exist:
-                    if entry.has_key('summary'):
+                    if entry.has_key("summary"):
                         summary = entry.summary
                         # Remove HTML tags
                         summary = BeautifulSoup(summary, "lxml").text
                         # TODO Limit text length
+                        summary = summary.replace("\n\n", "\n")
                     else:
                         summary = '*** No summary ***'
                         #print('~~~~~~summary not in entry')
@@ -368,7 +375,6 @@ def download_updates(conn):
     #                 news.append(message)
     #                 print(len(news))
     # return news
-
 
 def check_feed(conn, url):
     """
@@ -384,7 +390,6 @@ def check_feed(conn, url):
     print(cur.fetchone())
     return cur.fetchone()
 
-
 def add_feed(conn, url):
     """
     Add a new feed into the feeds table
@@ -395,17 +400,22 @@ def add_feed(conn, url):
     #conn = create_connection(db_file)
     exist = check_feed(conn, url)
     if not exist:
-        title = feedparser.parse(url)['feed']['title']
+        feed = feedparser.parse(url)
+        if feed.bozo:
+            bozo = ("WARNING: Bozo detected. Failed to load URL.")
+            print(bozo)
+            return "Failed to parse URL as feed"
+        title = feedparser.parse(url)["feed"]["title"]
         feed = (title, url, 1)
         cur = conn.cursor()
-        sql = """ INSERT INTO feeds(name,address,status)
-                  VALUES(?,?,?) """
+        sql = """INSERT INTO feeds(name,address,status)
+                 VALUES(?,?,?) """
         cur.execute(sql, feed)
         conn.commit()
         # source = title if not '' else url
         source = title if title else url
-    return 'News source "{}" has been added to subscriptions list'.format(source)
-
+    return """News source "{}" has been added to subscriptions list
+           """.format(source)
 
 def remove_feed(conn, id):
     """
@@ -417,18 +427,18 @@ def remove_feed(conn, id):
     # Enter "delete" to confirm removal.
     #conn = create_connection(db_file)
     cur = conn.cursor()
-    sql = 'SELECT address FROM feeds WHERE id = ?'
+    sql = "SELECT address FROM feeds WHERE id = ?"
     # NOTE [0][1][2]
     url = cur.execute(sql, (id,))
     for i in url:
         url = i[0]
-    sql = 'DELETE FROM entries WHERE source = ? '
+    sql = "DELETE FROM entries WHERE source = ?"
     cur.execute(sql, (url,))
-    sql = 'DELETE FROM feeds WHERE id = ?'
+    sql = "DELETE FROM feeds WHERE id = ?"
     cur.execute(sql, (id,))
     conn.commit()
-    return 'News source "{}" has been removed from subscriptions list'.format(url)
-
+    return """News source "{}" has been removed from subscriptions list
+           """.format(url)
 
 def get_unread(conn):
     """
@@ -462,11 +472,10 @@ def get_unread(conn):
     #     cur.execute(sql, {"column": column, "id": id})
     #     str = cur.fetchone()[0]
     #     entry.append(str)
-    entry = '{}\n\n{}\n\nLink: {}'.format(entry[0], entry[1], entry[2])
+    entry = "{}\n\n{}\n\nMore information at:\n{}".format(entry[0], entry[1], entry[2])
     mark_as_read(conn, id)
     conn.commit()
     return entry
-
 
 def mark_as_read(conn, id):
     """
@@ -480,7 +489,6 @@ def mark_as_read(conn, id):
     conn.commit()
     return
 
-
 # TODO test
 def toggle_status(conn, id):
     """
@@ -490,18 +498,26 @@ def toggle_status(conn, id):
     """
     #conn = create_connection(db_file)
     cur = conn.cursor()
+    sql = "SELECT name FROM feeds WHERE id = :id"
+    cur.execute(sql, (id,))
+    title = cur.fetchone()[0]
     sql = "SELECT status FROM feeds WHERE id = ?"
     # NOTE [0][1][2]
-    status = cur.execute(sql, (id,))
+    cur.execute(sql, (id,))
+    status = cur.fetchone()[0]
     # FIXME always set to 1
     # NOTE Maybe because is not integer
     # TODO Reset feed table before further testing
-    status = 0 if status == 1 else 1
+    if status == 1:
+        status = 0
+        notice =  "News updates for '{}' are now disabled".format(title)
+    else:
+        status = 1
+        notice =  "News updates for '{}' are now enabled".format(title)
     sql = "UPDATE feeds SET status = :status WHERE id = :id"
     cur.execute(sql, {"status": status, "id": id})
     conn.commit()
-    return 'News source status has changed to {}'.format(status)
-
+    return notice
 
 def set_date(conn, url):
     """
@@ -515,7 +531,6 @@ def set_date(conn, url):
     cur.execute(sql, {"today": today, "url": url})
     conn.commit()
 
-
 def get_subscriptions(conn):
     """
     Query feeds
@@ -523,10 +538,9 @@ def get_subscriptions(conn):
     :return: rows (tuple)
     """
     cur = conn.cursor()
-    sql = "SELECT address FROM feeds"
+    sql = "SELECT address FROM feeds WHERE status = 1"
     result = cur.execute(sql)
     return result
-
 
 def list_subscriptions(conn):
     """
@@ -536,14 +550,15 @@ def list_subscriptions(conn):
     """
     cur = conn.cursor()
     #sql = "SELECT id, address FROM feeds"
-    sql = "SELECT name, address, updated, id FROM feeds"
+    sql = "SELECT name, address, updated, id, status FROM feeds"
     results = cur.execute(sql)
-    feeds_list = 'List of subscriptions: \n'
+    feeds_list = "List of subscriptions: \n"
     for result in results:
         #feeds_list = feeds_list + '\n {}. {}'.format(str(result[0]), str(result[1]))
-        feeds_list = feeds_list + '\n{} \n{} \nLast updated: {} \nID: {} \n'.format(str(result[0]), str(result[1]), str(result[2]), str(result[3]))
+        feeds_list += """\n{} \n{} \nLast updated: {} \nID: {} [{}]
+        """.format(str(result[0]), str(result[1]), str(result[2]),
+                   str(result[3]), str(result[4]))
     return feeds_list
-
 
 def check_entry(conn, title, link):
     """
@@ -559,7 +574,6 @@ def check_entry(conn, title, link):
     cur.execute(sql, {"title": title, "link": link})
     return cur.fetchone()
 
-
 def add_entry(conn, entry):
     """
     Add a new entry into the entries table
@@ -572,7 +586,6 @@ def add_entry(conn, entry):
     cur = conn.cursor()
     cur.execute(sql, entry)
     conn.commit()
-
 
 def remove_entry(conn, source, length):
     """
@@ -598,14 +611,17 @@ def remove_entry(conn, source, length):
     if limit:
     #if limit > 0:
         limit = limit;
-        sql = "DELETE FROM entries WHERE id IN (SELECT id FROM entries WHERE source = :source ORDER BY id ASC LIMIT :limit)"
+        sql = """DELETE FROM entries WHERE id IN (
+                 SELECT id FROM entries
+                 WHERE source = :source
+                 ORDER BY id
+                 ASC LIMIT :limit)"""
         cur.execute(sql, {"source": source, "limit": limit})
         conn.commit()
 
-
 if __name__ == '__main__':
     # Setup the command line arguments.
-    parser = ArgumentParser(description=EchoBot.__doc__)
+    parser = ArgumentParser(description=Slixfeed.__doc__)
 
     # Output verbosity options.
     parser.add_argument("-q", "--quiet", help="set logging to ERROR",
@@ -632,10 +648,10 @@ if __name__ == '__main__':
     if args.password is None:
         args.password = getpass("Password: ")
 
-    # Setup the EchoBot and register plugins. Note that while plugins may
+    # Setup the Slixfeed and register plugins. Note that while plugins may
     # have interdependencies, the order in which you register them does
     # not matter.
-    xmpp = EchoBot(args.jid, args.password)
+    xmpp = Slixfeed(args.jid, args.password)
     xmpp.register_plugin('xep_0030') # Service Discovery
     xmpp.register_plugin('xep_0004') # Data Forms
     xmpp.register_plugin('xep_0060') # PubSub
