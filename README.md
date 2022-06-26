@@ -28,10 +28,11 @@ add feed http://hackerpublicradio.org/hpr_ogg_rss.php
 
 ## Authors and acknowledgment
 - Schimon Jehudah, Attorney at Law.
-- [imattau](https://github.com/imattau/atomtopubsub) (Some code, mostly URL handling, was taken from imattau)
 - [edhelas](https://github.com/edhelas/atomtopubsub)
-- magicfelix (async)
+- [imattau](https://github.com/imattau/atomtopubsub) (Some code, mostly URL handling, was taken from imattau)
+- [Laura](xmpp:lauranna@404.city)
 - [Link Mauve](https://linkmauve.fr/contact.xhtml)
+- magicfelix (async)
 - Slixmpp participants who chose to remain anonymous or not to appear in this list.
 
 ## License
