@@ -65,7 +65,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         await self.get_roster()
 
     def disconnected(self):
-        print("disconnected")
+        print("disconnected disconnected disconnected")
         return True
 
     def message(self, msg):
@@ -81,17 +81,10 @@ class Slixfeed(slixmpp.ClientXMPP):
                    how it may be used.
         """
         if msg['type'] in ('chat', 'normal'):
-            # download_updates(msg['from'])
             message = " ".join(msg['body'].split())
             if message.startswith('help'):
                 action = print_help()
             # NOTE: Might not need it
-            elif message.startswith('feed update'):
-                action = "/me is scanning feeds for updates..."
-                msg.reply(action).send()
-                initdb(msg['from'].bare,
-                                False,
-                                download_updates)
             elif message.startswith('feed recent '):
                 action = initdb(msg['from'].bare, 
                                   message[12:],
@@ -140,9 +133,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     initdb(jid,
                            False,
                            download_updates)
-            await asyncio.sleep(30)
-            #await asyncio.sleep(60 * 30)
-            #await asyncio.sleep(180 * 60)
+            await asyncio.sleep(60 * 30)
 
     async def send_updates(self, event):
         while True:
@@ -180,10 +171,10 @@ class Slixfeed(slixmpp.ClientXMPP):
                             #                  mtype='chat')
                             #print(msg)
                             #msg.send()
-            await asyncio.sleep(10)
+            await asyncio.sleep(15)
 
-    #asyncio.ensure_future(check_updates())
-    #asyncio.ensure_future(send_updates())
+    # asyncio.ensure_future(send_updates(self))
+    asyncio.ensure_future(check_updates())
 
 def print_help():
     msg = ("Slixfeed - News syndication bot for Jabber/XMPP \n"
@@ -192,8 +183,6 @@ def print_help():
            " Slixfeed is an aggregator bot for online news feeds. \n"
            "\n"
            "BASIC USAGE: \n"
-           " feed update \n"
-           "   Update subscriptions. \n"
            " feed list \n"
            "   List subscriptions list. \n"
            "\n"
@@ -387,7 +376,6 @@ def check_feed(conn, url):
     cur = conn.cursor()
     sql = "SELECT id FROM feeds WHERE address = ?"
     cur.execute(sql, (url,))
-    print(cur.fetchone())
     return cur.fetchone()
 
 def add_feed(conn, url):
@@ -414,8 +402,11 @@ def add_feed(conn, url):
         conn.commit()
         # source = title if not '' else url
         source = title if title else url
-    return """News source "{}" has been added to subscriptions list
-           """.format(source)
+        msg = """News source "{}" has been added to subscriptions list
+              """.format(source)
+    else:
+        msg = "News source already listed in the subscription list"
+    return msg
 
 def remove_feed(conn, id):
     """
@@ -437,7 +428,7 @@ def remove_feed(conn, id):
     sql = "DELETE FROM feeds WHERE id = ?"
     cur.execute(sql, (id,))
     conn.commit()
-    return """News source "{}" has been removed from subscriptions list
+    return """News source <{}> has been removed from subscriptions list
            """.format(url)
 
 def get_unread(conn):
@@ -472,7 +463,7 @@ def get_unread(conn):
     #     cur.execute(sql, {"column": column, "id": id})
     #     str = cur.fetchone()[0]
     #     entry.append(str)
-    entry = "{}\n\n{}\n\nMore information at:\n{}".format(entry[0], entry[1], entry[2])
+    entry = "{}\n\n{}\n\nLink to article:\n{}".format(entry[0], entry[1], entry[2])
     mark_as_read(conn, id)
     conn.commit()
     return entry
