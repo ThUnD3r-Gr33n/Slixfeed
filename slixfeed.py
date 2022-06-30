@@ -560,13 +560,22 @@ def list_subscriptions(conn):
     #sql = "SELECT id, address FROM feeds"
     sql = "SELECT name, address, updated, id, status FROM feeds"
     results = cur.execute(sql)
-    feeds_list = "List of subscriptions: \n"
-    for result in results:
-        #feeds_list = feeds_list + '\n {}. {}'.format(str(result[0]), str(result[1]))
-        feeds_list += """\n{} \n{} \nLast updated: {} \nID: {} [{}]
-        """.format(str(result[0]), str(result[1]), str(result[2]),
-                   str(result[3]), str(result[4]))
-    return feeds_list
+    if results.fetchone() is None:
+        # TODO Print the Slixfeed's JID .format(self.jid)
+        msg = ("List of subscriptions is empty. \n"
+               "To add feed, send me a message as follows: \n"
+               "feed add URL \n"
+               "For example: \n"
+               "feed add https://reclaimthenet.org/feed/")
+        return msg
+    else:
+        feeds_list = "List of subscriptions: \n"
+        for result in results:
+            #feeds_list = feeds_list + '\n {}. {}'.format(str(result[0]), str(result[1]))
+            feeds_list += """\n{} \n{} \nLast updated: {} \nID: {} [{}]
+            """.format(str(result[0]), str(result[1]), str(result[2]),
+                       str(result[3]), str(result[4]))
+        return feeds_list
 
 def check_entry(conn, title, link):
     """
