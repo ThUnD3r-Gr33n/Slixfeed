@@ -125,13 +125,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         while True:
             db_dir = get_default_dbdir()
             if not os.path.isdir(db_dir):
-            # NOTE: Impossible scenario
-                msg = """
-                No database directory was found. \n
-                To create News database,send these messages to bot: \n
-                add feed https://reclaimthenet.org/feed/
-                update
-                """
+                # TODO Print the Slixfeed's JID .format(self.jid)
+                msg = ("Slixfeed can not work without a database. \n"
+                       "To create a database, follow these steps: \n"
+                       "Add Slixfeed contact to your roster \n"
+                       "Send a feed to the bot by: \n"
+                       "feed add https://reclaimthenet.org/feed/")
                 print(msg)
             else:
                 os.chdir(db_dir)
@@ -147,13 +146,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         while True:
             db_dir = get_default_dbdir()
             if not os.path.isdir(db_dir):
-            # NOTE: Impossible scenario
-                msg = """
-                No database directory was found. \n
-                To create News database,send these messages to bot: \n
-                add feed https://reclaimthenet.org/feed/
-                update
-                """
+                msg = ("Slixfeed can not work without a database. \n"
+                       "To create a database, follow these steps: \n"
+                       "Add Slixfeed contact to your roster \n"
+                       "Send a feed to the bot by: \n"
+                       "feed add https://reclaimthenet.org/feed/")
                 print(msg)
             else:
                 os.chdir(db_dir)
@@ -219,10 +216,12 @@ def print_help():
            "   List recent N news items. \n"
            "\n"
            "DOCUMENTATION: \n"
-           " feedparser \n"
-           "   https://pythonhosted.org/feedparser \n"
+           " Slixfeed \n"
+           "   https://gitgud.io/sjehuda/slixfeed \n"
            " Slixmpp \n"
-           "   https://slixmpp.readthedocs.io/")
+           "   https://slixmpp.readthedocs.io/ \n"
+           " feedparser \n"
+           "   https://pythonhosted.org/feedparser")
 
     return msg
 
