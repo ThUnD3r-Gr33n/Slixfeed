@@ -109,6 +109,14 @@ class Slixfeed(slixmpp.ClientXMPP):
                 action = initdb(msg['from'].bare,
                                   message[12:],
                                   toggle_status)
+            elif message.startswith('feed enable'):
+                action = initdb(msg['from'].bare,
+                                  message[11:],
+                                  toggle_state)
+            elif message.startswith('feed disable'):
+                action = initdb(msg['from'].bare,
+                                  message[12:],
+                                  toggle_state)
             else:
                 action = "Unknown command. Press \"help\" for list of commands"
             msg.reply(action).send()
@@ -151,26 +159,32 @@ class Slixfeed(slixmpp.ClientXMPP):
                 os.chdir(db_dir)
                 files = os.listdir()
                 for file in files:
-                    jid = file[:-3]
-                    new = initdb(jid, False, get_unread)
-                    if new:
-                        msg = self.make_message(mto=jid, mbody=new,
-                                                mtype='chat')
-                        msg.send()
-                        # today = str(date.today())
-                        # news.insert = [0, 'News fetched on: ' + today]
-                        #news.append('End of News update')
-                        #for new in news:
-                            #print("sending to: jid")
-                            #print("sending to: " + jid)
-                            # self.send_message(mto=jid,
-                            #                   mbody=new,
-                            #                   mtype='normal').send()
-                            #msg = self.make_message(mto=jid,
-                            #                  mbody=new,
-                            #                  mtype='chat')
-                            #print(msg)
-                            #msg.send()
+                    if not file.endswith('.db-jour.db'):
+                        jid = file[:-3]
+                        # TODO check if jid online
+                        # https://slixmpp.readthedocs.io/en/latest/api/plugins/xep_0199.html
+                        # d = self.send_ping(self, jid)
+                        # print('d')
+                        # print(d)
+                        new = initdb(jid, False, get_unread)
+                        if new:
+                            msg = self.make_message(mto=jid, mbody=new,
+                                                    mtype='chat')
+                            msg.send()
+                            # today = str(date.today())
+                            # news.insert = [0, 'News fetched on: ' + today]
+                            #news.append('End of News update')
+                            #for new in news:
+                                #print("sending to: jid")
+                                #print("sending to: " + jid)
+                                # self.send_message(mto=jid,
+                                #                   mbody=new,
+                                #                   mtype='normal').send()
+                                #msg = self.make_message(mto=jid,
+                                #                  mbody=new,
+                                #                  mtype='chat')
+                                #print(msg)
+                                #msg.send()
             await asyncio.sleep(15)
 
     # asyncio.ensure_future(send_updates(self))
@@ -183,6 +197,10 @@ def print_help():
            " Slixfeed is an aggregator bot for online news feeds. \n"
            "\n"
            "BASIC USAGE: \n"
+           " feed enable \n"
+           "   Send updates. \n"
+           " feed disable \n"
+           "   Don't send updates. \n"
            " feed list \n"
            "   List subscriptions list. \n"
            "\n"
