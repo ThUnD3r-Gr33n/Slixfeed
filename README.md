@@ -9,13 +9,15 @@ Password:
 ```
 
 ## Usage
-- Open chat with Slixfeed.
-- Add news source with `add feed URL`
+- Start bot;
+- Add contact JID of Slixfeed to your roster;
+- Open chat with Slixfeed;
+- Add news source with `feed add URL`
 
 ```
-add feed https://xmpp.org/feeds/all.atom.xml
-add feed https://redecentralize.org/podcast/feed.rss
-add feed http://hackerpublicradio.org/hpr_ogg_rss.php
+feed add https://xmpp.org/feeds/all.atom.xml
+feed add https://redecentralize.org/podcast/feed.rss
+feed add http://hackerpublicradio.org/hpr_ogg_rss.php
 ```
 
 ## Roadmap
@@ -28,6 +30,7 @@ add feed http://hackerpublicradio.org/hpr_ogg_rss.php
 
 ## Authors and acknowledgment
 - Schimon Jehudah, Attorney at Law.
+- [Alixander Court](https://alixandercourt.com/)
 - [edhelas](https://github.com/edhelas/atomtopubsub)
 - [imattau](https://github.com/imattau/atomtopubsub) (Some code, mostly URL handling, was taken from imattau)
 - [Laura](xmpp:lauranna@404.city)
