@@ -47,6 +47,15 @@ class Slixfeed(slixmpp.ClientXMPP):
         # MUC messages and error messages.
         self.add_event_handler("message", self.message)
         self.add_event_handler("disconnected", self.disconnected)
+        self.add_event_handler("disconnected", self._reconnect)
+
+    async def _reconnect(self, event):
+        await asyncio.sleep(10)
+        self.connect()
+
+    def disconnected(self):
+        print("disconnected disconnected disconnected")
+        return True
 
     async def start(self, event):
         """
@@ -63,10 +72,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         """
         self.send_presence()
         await self.get_roster()
-
-    def disconnected(self):
-        print("disconnected disconnected disconnected")
-        return True
 
     def message(self, msg):
         """
@@ -121,27 +126,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                 action = "Unknown command. Press \"help\" for list of commands"
             msg.reply(action).send()
 
-    async def check_updates():
-        while True:
-            db_dir = get_default_dbdir()
-            if not os.path.isdir(db_dir):
-                # TODO Print the Slixfeed's JID .format(self.jid)
-                msg = ("Slixfeed can not work without a database. \n"
-                       "To create a database, follow these steps: \n"
-                       "Add Slixfeed contact to your roster \n"
-                       "Send a feed to the bot by: \n"
-                       "feed add https://reclaimthenet.org/feed/")
-                print(msg)
-            else:
-                os.chdir(db_dir)
-                files = os.listdir()
-                for file in files:
-                    jid = file[:-3]
-                    initdb(jid,
-                           False,
-                           download_updates)
-            await asyncio.sleep(60 * 30)
-
     async def send_updates(self, event):
         while True:
             db_dir = get_default_dbdir()
@@ -182,10 +166,31 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 #                  mtype='chat')
                                 #print(msg)
                                 #msg.send()
-            await asyncio.sleep(15)
+            await asyncio.sleep(60 * 3)
 
     # asyncio.ensure_future(send_updates(self))
-    asyncio.ensure_future(check_updates())
+
+async def check_updates():
+    while True:
+        db_dir = get_default_dbdir()
+        if not os.path.isdir(db_dir):
+            msg = ("Slixfeed can not work without a database. \n"
+                   "To create a database, follow these steps: \n"
+                   "Add Slixfeed contact to your roster \n"
+                   "Send a feed to the bot by: \n"
+                   "feed add https://reclaimthenet.org/feed/")
+            print(msg)
+        else:
+            os.chdir(db_dir)
+            files = os.listdir()
+            for file in files:
+                jid = file[:-3]
+                initdb(jid,
+                       False,
+                       download_updates)
+        await asyncio.sleep(60 * 30)
+
+asyncio.ensure_future(check_updates())
 
 def print_help():
     msg = ("Slixfeed - News syndication bot for Jabber/XMPP \n"
@@ -359,7 +364,10 @@ def download_updates(conn):
             length = len(entries)
             remove_entry(conn, source, length)
             for entry in entries:
-                title = '*** No title ***' if not entry.title else entry.title
+                if entry.has_key("title"):
+                    title = entry.title
+                else:
+                    title = feed["feed"]["title"]
                 link = source if not entry.link else entry.link
                 exist = check_entry(conn, title, link)
                 if not exist:
@@ -422,7 +430,7 @@ def add_feed(conn, url):
         msg = """News source "{}" has been added to subscriptions list
               """.format(source)
     else:
-        msg = "News source already listed in the subscription list"
+        msg = "News source is already listed in the subscription list"
     return msg
 
 def remove_feed(conn, id):
@@ -560,22 +568,23 @@ def list_subscriptions(conn):
     #sql = "SELECT id, address FROM feeds"
     sql = "SELECT name, address, updated, id, status FROM feeds"
     results = cur.execute(sql)
-    if results.fetchone() is None:
-        # TODO Print the Slixfeed's JID .format(self.jid)
+    feeds_list = "List of subscriptions: \n"
+    counter = 0
+    for result in results:
+        counter += 1
+        #feeds_list = feeds_list + '\n {}. {}'.format(str(result[0]), str(result[1]))
+        feeds_list += """\n{} \n{} \nLast updated: {} \nID: {} [{}]
+        """.format(str(result[0]), str(result[1]), str(result[2]),
+                   str(result[3]), str(result[4]))
+    if counter:
+        return feeds_list + "\n Total of {} subscriptions".format(counter)
+    else:
         msg = ("List of subscriptions is empty. \n"
                "To add feed, send me a message as follows: \n"
                "feed add URL \n"
                "For example: \n"
                "feed add https://reclaimthenet.org/feed/")
         return msg
-    else:
-        feeds_list = "List of subscriptions: \n"
-        for result in results:
-            #feeds_list = feeds_list + '\n {}. {}'.format(str(result[0]), str(result[1]))
-            feeds_list += """\n{} \n{} \nLast updated: {} \nID: {} [{}]
-            """.format(str(result[0]), str(result[1]), str(result[2]),
-                       str(result[3]), str(result[4]))
-        return feeds_list
 
 def check_entry(conn, title, link):
     """
