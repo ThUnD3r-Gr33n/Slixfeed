@@ -23,7 +23,10 @@ import slixmpp
 import sqlite3
 from sqlite3 import Error
 import sys
+import time
 #import xdg
+
+offline = False
 
 class Slixfeed(slixmpp.ClientXMPP):
     """
@@ -46,16 +49,15 @@ class Slixfeed(slixmpp.ClientXMPP):
         # stanza is received. Be aware that that includes
         # MUC messages and error messages.
         self.add_event_handler("message", self.message)
-        self.add_event_handler("disconnected", self.disconnected)
-        self.add_event_handler("disconnected", self._reconnect)
+        self.add_event_handler("disconnected", self.reconnect)
 
-    async def _reconnect(self, event):
+    async def reconnect(self, event):
         await asyncio.sleep(10)
+        offline = True
+        print(time.strftime("%H:%M:%S"))
+        print(offline)
         self.connect()
-
-    def disconnected(self):
-        print("disconnected disconnected disconnected")
-        return True
+        #return True
 
     async def start(self, event):
         """
@@ -91,34 +93,50 @@ class Slixfeed(slixmpp.ClientXMPP):
                 action = print_help()
             # NOTE: Might not need it
             elif message.startswith('feed recent '):
+                print("COMMAND: feed recent")
+                print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare, 
                                   message[12:],
                                   last_entries)
             elif message.startswith('feed search '):
+                print("COMMAND: feed search")
+                print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare, 
                                   message[12:],
                                   search_entries)
             elif message.startswith('feed list'):
+                print("COMMAND: feed list")
+                print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare, 
                                   False,
                                   list_subscriptions)
             elif message.startswith('feed add '):
+                print("COMMAND: feed add")
+                print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare,
                                   message[9:],
                                   add_feed)
             elif message.startswith('feed remove '):
+                print("COMMAND: feed remove")
+                print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare,
                                   message[12:],
                                   remove_feed)
             elif message.startswith('feed status '):
+                print("COMMAND: feed status")
+                print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare,
                                   message[12:],
                                   toggle_status)
             elif message.startswith('feed enable'):
+                print("COMMAND: feed enable")
+                print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare,
                                   message[11:],
                                   toggle_state)
             elif message.startswith('feed disable'):
+                print("COMMAND: feed disable")
+                print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare,
                                   message[12:],
                                   toggle_state)
@@ -127,7 +145,10 @@ class Slixfeed(slixmpp.ClientXMPP):
             msg.reply(action).send()
 
     async def send_updates(self, event):
+        #while not offline:
         while True:
+            print(time.strftime("%H:%M:%S"))
+            print(offline)
             db_dir = get_default_dbdir()
             if not os.path.isdir(db_dir):
                 msg = ("Slixfeed can not work without a database. \n"
@@ -341,9 +362,10 @@ def create_table(conn, create_table_sql):
 def download_updates(conn):
 
     with conn:
+        cur = conn.cursor()
         # get current date
         #today = date.today()
-        urls = get_subscriptions(conn)
+        urls = get_subscriptions(cur)
         for url in urls:
             #"".join(url)
             source = url[0]
@@ -369,7 +391,7 @@ def download_updates(conn):
                 else:
                     title = feed["feed"]["title"]
                 link = source if not entry.link else entry.link
-                exist = check_entry(conn, title, link)
+                exist = check_entry(cur, title, link)
                 if not exist:
                     if entry.has_key("summary"):
                         summary = entry.summary
@@ -390,7 +412,7 @@ def download_updates(conn):
     #                 print(len(news))
     # return news
 
-def check_feed(conn, url):
+def check_feed(cur, url):
     """
     Check whether a feed exists
     Query for feeds by url
@@ -398,7 +420,6 @@ def check_feed(conn, url):
     :param url:
     :return: row
     """
-    cur = conn.cursor()
     sql = "SELECT id FROM feeds WHERE address = ?"
     cur.execute(sql, (url,))
     return cur.fetchone()
@@ -411,7 +432,8 @@ def add_feed(conn, url):
     :return: string
     """
     #conn = create_connection(db_file)
-    exist = check_feed(conn, url)
+    cur = conn.cursor()
+    exist = check_feed(cur, url)
     if not exist:
         feed = feedparser.parse(url)
         if feed.bozo:
@@ -420,7 +442,6 @@ def add_feed(conn, url):
             return "Failed to parse URL as feed"
         title = feedparser.parse(url)["feed"]["title"]
         feed = (title, url, 1)
-        cur = conn.cursor()
         sql = """INSERT INTO feeds(name,address,status)
                  VALUES(?,?,?) """
         cur.execute(sql, feed)
@@ -462,36 +483,37 @@ def get_unread(conn):
     :param id: id of the entry
     :return: string
     """
-    entry = []
-    cur = conn.cursor()
-    sql = "SELECT id FROM entries WHERE read = 0"
-    #id = cur.execute(sql).fetchone()[0]
-    id = cur.execute(sql).fetchone()
-    if id is None:
-        return False
-    id = id[0]
-    sql = "SELECT title FROM entries WHERE id = :id"
-    cur.execute(sql, (id,))
-    title = cur.fetchone()[0]
-    entry.append(title)
-    sql = "SELECT summary FROM entries WHERE id = :id"
-    cur.execute(sql, (id,))
-    summary = cur.fetchone()[0]
-    entry.append(summary)
-    sql = "SELECT link FROM entries WHERE id = :id"
-    cur.execute(sql, (id,))
-    link = cur.fetchone()[0]
-    entry.append(link)
-    # columns = ['title', 'summary', 'link']
-    # for column in columns:
-    #     sql = "SELECT :column FROM entries WHERE id = :id"
-    #     cur.execute(sql, {"column": column, "id": id})
-    #     str = cur.fetchone()[0]
-    #     entry.append(str)
-    entry = "{}\n\n{}\n\nLink to article:\n{}".format(entry[0], entry[1], entry[2])
-    mark_as_read(conn, id)
-    conn.commit()
-    return entry
+
+    with conn:
+        entry = []
+        cur = conn.cursor()
+        sql = "SELECT id FROM entries WHERE read = 0"
+        #id = cur.execute(sql).fetchone()[0]
+        id = cur.execute(sql).fetchone()
+        if id is None:
+            return False
+        id = id[0]
+        sql = "SELECT title FROM entries WHERE id = :id"
+        cur.execute(sql, (id,))
+        title = cur.fetchone()[0]
+        entry.append(title)
+        sql = "SELECT summary FROM entries WHERE id = :id"
+        cur.execute(sql, (id,))
+        summary = cur.fetchone()[0]
+        entry.append(summary)
+        sql = "SELECT link FROM entries WHERE id = :id"
+        cur.execute(sql, (id,))
+        link = cur.fetchone()[0]
+        entry.append(link)
+        # columns = ['title', 'summary', 'link']
+        # for column in columns:
+        #     sql = "SELECT :column FROM entries WHERE id = :id"
+        #     cur.execute(sql, {"column": column, "id": id})
+        #     str = cur.fetchone()[0]
+        #     entry.append(str)
+        entry = "{}\n\n{}\n\nLink to article:\n{}".format(entry[0], entry[1], entry[2])
+        mark_as_read(conn, id)
+        return entry
 
 def mark_as_read(conn, id):
     """
@@ -503,6 +525,7 @@ def mark_as_read(conn, id):
     sql = "UPDATE entries SET summary = '', read = 1 WHERE id = ?"
     cur.execute(sql, (id,))
     conn.commit()
+    #conn.close()
     return
 
 # TODO test
@@ -547,13 +570,12 @@ def set_date(conn, url):
     cur.execute(sql, {"today": today, "url": url})
     conn.commit()
 
-def get_subscriptions(conn):
+def get_subscriptions(cur):
     """
     Query feeds
     :param conn:
     :return: rows (tuple)
     """
-    cur = conn.cursor()
     sql = "SELECT address FROM feeds WHERE status = 1"
     result = cur.execute(sql)
     return result
@@ -586,7 +608,7 @@ def list_subscriptions(conn):
                "feed add https://reclaimthenet.org/feed/")
         return msg
 
-def check_entry(conn, title, link):
+def check_entry(cur, title, link):
     """
     Check whether an entry exists
     Query entries by title and link
@@ -595,7 +617,6 @@ def check_entry(conn, title, link):
     :param title:
     :return: row
     """
-    cur = conn.cursor()
     sql = "SELECT id FROM entries WHERE title = :title and link = :link"
     cur.execute(sql, {"title": title, "link": link})
     return cur.fetchone()
