@@ -360,15 +360,15 @@ def create_table(conn, create_table_sql):
 # def setup_info(jid):
 # def start_process(jid):
 def download_updates(conn):
-
     with conn:
-        cur = conn.cursor()
+        # cur = conn.cursor()
         # get current date
         #today = date.today()
-        urls = get_subscriptions(cur)
+        urls = get_subscriptions(conn)
         for url in urls:
             #"".join(url)
             source = url[0]
+            print(source)
             try:
                 feed = feedparser.parse(source)
                 if feed.bozo:
@@ -391,7 +391,7 @@ def download_updates(conn):
                 else:
                     title = feed["feed"]["title"]
                 link = source if not entry.link else entry.link
-                exist = check_entry(cur, title, link)
+                exist = check_entry(conn, title, link)
                 if not exist:
                     if entry.has_key("summary"):
                         summary = entry.summary
@@ -412,7 +412,7 @@ def download_updates(conn):
     #                 print(len(news))
     # return news
 
-def check_feed(cur, url):
+def check_feed(conn, url):
     """
     Check whether a feed exists
     Query for feeds by url
@@ -420,6 +420,7 @@ def check_feed(cur, url):
     :param url:
     :return: row
     """
+    cur = conn.cursor()
     sql = "SELECT id FROM feeds WHERE address = ?"
     cur.execute(sql, (url,))
     return cur.fetchone()
@@ -433,7 +434,7 @@ def add_feed(conn, url):
     """
     #conn = create_connection(db_file)
     cur = conn.cursor()
-    exist = check_feed(cur, url)
+    exist = check_feed(conn, url)
     if not exist:
         feed = feedparser.parse(url)
         if feed.bozo:
@@ -483,7 +484,6 @@ def get_unread(conn):
     :param id: id of the entry
     :return: string
     """
-
     with conn:
         entry = []
         cur = conn.cursor()
@@ -570,12 +570,13 @@ def set_date(conn, url):
     cur.execute(sql, {"today": today, "url": url})
     conn.commit()
 
-def get_subscriptions(cur):
+def get_subscriptions(conn):
     """
     Query feeds
     :param conn:
     :return: rows (tuple)
     """
+    cur = conn.cursor()
     sql = "SELECT address FROM feeds WHERE status = 1"
     result = cur.execute(sql)
     return result
@@ -608,7 +609,7 @@ def list_subscriptions(conn):
                "feed add https://reclaimthenet.org/feed/")
         return msg
 
-def check_entry(cur, title, link):
+def check_entry(conn, title, link):
     """
     Check whether an entry exists
     Query entries by title and link
@@ -617,6 +618,7 @@ def check_entry(cur, title, link):
     :param title:
     :return: row
     """
+    cur = conn.cursor()
     sql = "SELECT id FROM entries WHERE title = :title and link = :link"
     cur.execute(sql, {"title": title, "link": link})
     return cur.fetchone()
