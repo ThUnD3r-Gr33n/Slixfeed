@@ -15,6 +15,7 @@ from urllib import error
 #from urllib.parse import urlparse
 #from xdg import BaseDirectory
 
+import aiohttp
 import asyncio
 import feedparser
 import logging
@@ -359,7 +360,7 @@ def create_table(conn, create_table_sql):
 
 # def setup_info(jid):
 # def start_process(jid):
-def download_updates(conn):
+async def download_updates(conn):
     with conn:
         # cur = conn.cursor()
         # get current date
@@ -368,9 +369,10 @@ def download_updates(conn):
         for url in urls:
             #"".join(url)
             source = url[0]
-            print(source)
+            html = await download_page(url[0])
+            print(url[0])
             try:
-                feed = feedparser.parse(source)
+                feed = feedparser.parse(html)
                 if feed.bozo:
                     bozo = ("WARNING: Bozo detected for feed <{}>. "
                             "For more information, visit "
@@ -411,6 +413,16 @@ def download_updates(conn):
     #                 news.append(message)
     #                 print(len(news))
     # return news
+
+async def download_page(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+
+            print("Status:", response.status)
+            print("Content-type:", response.headers['content-type'])
+
+            html = await response.text()
+            return html
 
 def check_feed(conn, url):
     """
