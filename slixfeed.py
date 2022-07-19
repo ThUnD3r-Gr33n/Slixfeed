@@ -91,6 +91,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         if msg['type'] in ('chat', 'normal'):
             message = " ".join(msg['body'].split())
             if message.startswith('help'):
+                print("COMMAND: help")
+                print("ACCOUNT: " + str(msg['from']))
                 action = print_help()
             # NOTE: Might not need it
             elif message.startswith('feed recent '):
@@ -207,7 +209,7 @@ async def check_updates():
             files = os.listdir()
             for file in files:
                 jid = file[:-3]
-                initdb(jid,
+                await initdb(jid,
                        False,
                        download_updates)
         await asyncio.sleep(60 * 30)
@@ -354,6 +356,7 @@ def create_table(conn, create_table_sql):
     """
     try:
         c = conn.cursor()
+        print(time.strftime("%H:%M:%S"), "conn.cursor() from create_table(conn, create_table_sql)")
         c.execute(create_table_sql)
     except Error as e:
         print(e)
@@ -417,12 +420,16 @@ async def download_updates(conn):
 async def download_page(url):
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
+            if response.status == 200:
+                html = await response.text()
+                return html
 
             print("Status:", response.status)
             print("Content-type:", response.headers['content-type'])
 
-            html = await response.text()
-            return html
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete
 
 def check_feed(conn, url):
     """
@@ -433,6 +440,7 @@ def check_feed(conn, url):
     :return: row
     """
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from check_feed(conn, url)")
     sql = "SELECT id FROM feeds WHERE address = ?"
     cur.execute(sql, (url,))
     return cur.fetchone()
@@ -446,6 +454,7 @@ def add_feed(conn, url):
     """
     #conn = create_connection(db_file)
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from add_feed(conn, url)")
     exist = check_feed(conn, url)
     if not exist:
         feed = feedparser.parse(url)
@@ -459,6 +468,7 @@ def add_feed(conn, url):
                  VALUES(?,?,?) """
         cur.execute(sql, feed)
         conn.commit()
+        print(time.strftime("%H:%M:%S"), "conn.commit() from add_feed(conn, url)")
         # source = title if not '' else url
         source = title if title else url
         msg = """News source "{}" has been added to subscriptions list
@@ -477,6 +487,7 @@ def remove_feed(conn, id):
     # Enter "delete" to confirm removal.
     #conn = create_connection(db_file)
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from remove_feed(conn, id)")
     sql = "SELECT address FROM feeds WHERE id = ?"
     # NOTE [0][1][2]
     url = cur.execute(sql, (id,))
@@ -487,6 +498,7 @@ def remove_feed(conn, id):
     sql = "DELETE FROM feeds WHERE id = ?"
     cur.execute(sql, (id,))
     conn.commit()
+    print(time.strftime("%H:%M:%S"), "conn.commit() from remove_feed(conn, id)")
     return """News source <{}> has been removed from subscriptions list
            """.format(url)
 
@@ -499,6 +511,7 @@ def get_unread(conn):
     with conn:
         entry = []
         cur = conn.cursor()
+        print(time.strftime("%H:%M:%S"), "conn.cursor() from get_unread(conn)")
         sql = "SELECT id FROM entries WHERE read = 0"
         #id = cur.execute(sql).fetchone()[0]
         id = cur.execute(sql).fetchone()
@@ -531,14 +544,14 @@ def mark_as_read(conn, id):
     """
     Set read status of entry
     :param id: id of the entry
-    :return:
     """
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from mark_as_read(conn, id)")
     sql = "UPDATE entries SET summary = '', read = 1 WHERE id = ?"
     cur.execute(sql, (id,))
     conn.commit()
+    print(time.strftime("%H:%M:%S"), "conn.commit() from mark_as_read(conn, id)")
     #conn.close()
-    return
 
 # TODO test
 def toggle_status(conn, id):
@@ -549,6 +562,7 @@ def toggle_status(conn, id):
     """
     #conn = create_connection(db_file)
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from toggle_status(conn, id)")
     sql = "SELECT name FROM feeds WHERE id = :id"
     cur.execute(sql, (id,))
     title = cur.fetchone()[0]
@@ -568,6 +582,7 @@ def toggle_status(conn, id):
     sql = "UPDATE feeds SET status = :status WHERE id = :id"
     cur.execute(sql, {"status": status, "id": id})
     conn.commit()
+    print(time.strftime("%H:%M:%S"), "conn.commit() from toggle_status(conn, id)")
     return notice
 
 def set_date(conn, url):
@@ -578,9 +593,11 @@ def set_date(conn, url):
     """
     today = date.today()
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from set_date(conn, url)")
     sql = "UPDATE feeds SET updated = :today WHERE address = :url"
     cur.execute(sql, {"today": today, "url": url})
     conn.commit()
+    print(time.strftime("%H:%M:%S"), "conn.commit() from set_date(conn, url)")
 
 def get_subscriptions(conn):
     """
@@ -589,6 +606,7 @@ def get_subscriptions(conn):
     :return: rows (tuple)
     """
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from get_subscriptions(conn)")
     sql = "SELECT address FROM feeds WHERE status = 1"
     result = cur.execute(sql)
     return result
@@ -600,6 +618,7 @@ def list_subscriptions(conn):
     :return: rows (string)
     """
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from list_subscriptions(conn)")
     #sql = "SELECT id, address FROM feeds"
     sql = "SELECT name, address, updated, id, status FROM feeds"
     results = cur.execute(sql)
@@ -631,6 +650,7 @@ def check_entry(conn, title, link):
     :return: row
     """
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from check_entry(conn, title, link)")
     sql = "SELECT id FROM entries WHERE title = :title and link = :link"
     cur.execute(sql, {"title": title, "link": link})
     return cur.fetchone()
@@ -645,8 +665,10 @@ def add_entry(conn, entry):
     sql = """ INSERT INTO entries(title,summary,link,source,read)
               VALUES(?,?,?,?,?) """
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from add_entry(conn, entry)")
     cur.execute(sql, entry)
     conn.commit()
+    print(time.strftime("%H:%M:%S"), "conn.commit() from add_entry(conn, entry)")
 
 def remove_entry(conn, source, length):
     """
@@ -659,6 +681,7 @@ def remove_entry(conn, source, length):
     :return:
     """
     cur = conn.cursor()
+    print(time.strftime("%H:%M:%S"), "conn.cursor() from remove_entry(conn, source, length)")
     # FIXED
     # Dino empty titles are not counted https://dino.im/index.xml
     # SOLVED
@@ -679,6 +702,7 @@ def remove_entry(conn, source, length):
                  ASC LIMIT :limit)"""
         cur.execute(sql, {"source": source, "limit": limit})
         conn.commit()
+        print(time.strftime("%H:%M:%S"), "conn.commit() from remove_entry(conn, source, length)")
 
 if __name__ == '__main__':
     # Setup the command line arguments.
@@ -713,8 +737,9 @@ if __name__ == '__main__':
     # have interdependencies, the order in which you register them does
     # not matter.
     xmpp = Slixfeed(args.jid, args.password)
-    xmpp.register_plugin('xep_0030') # Service Discovery
     xmpp.register_plugin('xep_0004') # Data Forms
+    xmpp.register_plugin('xep_0030') # Service Discovery
+    xmpp.register_plugin('xep_0045') # Multi-User Chat
     xmpp.register_plugin('xep_0060') # PubSub
     xmpp.register_plugin('xep_0199') # XMPP Ping
 
