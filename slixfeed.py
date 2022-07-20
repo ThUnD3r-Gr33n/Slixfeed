@@ -374,17 +374,18 @@ async def download_updates(conn):
             source = url[0]
             html = await download_page(url[0])
             print(url[0])
-            try:
-                feed = feedparser.parse(html)
-                if feed.bozo:
-                    bozo = ("WARNING: Bozo detected for feed <{}>. "
-                            "For more information, visit "
-                            "https://pythonhosted.org/feedparser/bozo.html"
-                            .format(source))
-                    print(bozo)
-            except (IncompleteReadError, IncompleteRead, error.URLError) as e:
-                print(e)
-                continue
+            if html:
+                try:
+                    feed = feedparser.parse(html)
+                    if feed.bozo:
+                        bozo = ("WARNING: Bozo detected for feed <{}>. "
+                                "For more information, visit "
+                                "https://pythonhosted.org/feedparser/bozo.html"
+                                .format(source))
+                        print(bozo)
+                except (IncompleteReadError, IncompleteRead, error.URLError) as e:
+                    print(e)
+                    return
             # TODO Place these couple of lines back down
             # NOTE Need to correct the SQL statement to do so
             entries = feed.entries
