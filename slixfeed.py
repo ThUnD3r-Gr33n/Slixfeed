@@ -705,6 +705,8 @@ def search_entries(conn, query):
     :param query: string
     :return: rows (string)
     """
+    if len(query) < 2:
+        return "Please enter at least 2 characters to search"
     cur = conn.cursor()
     sql = "SELECT title, link FROM entries WHERE title LIKE '%{}%' LIMIT 50".format(query)
     # sql = "SELECT title, link FROM entries WHERE title OR link LIKE '%{}%'".format(query)
@@ -719,7 +721,7 @@ def search_entries(conn, query):
     if counter:
         return results_list + "\n Total of {} results".format(counter)
     else:
-        return "No results found for: {}.".format(query)
+        return "No results found for: {}".format(query)
 
 def check_entry(conn, title, link):
     """
