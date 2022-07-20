@@ -684,10 +684,11 @@ def last_entries(conn, num):
     :param num: integer
     :return: rows (string)
     """
-    if int(num) > 50:
-        num = str(50)
-    elif int(num) < 1:
-        num = str(1)
+    num = int(num)
+    if num > 50:
+        num = 50
+    elif num < 1:
+        num = 1
     cur = conn.cursor()
     sql = "SELECT title, link FROM entries ORDER BY ROWID DESC LIMIT {}".format(num)
     results = cur.execute(sql)
