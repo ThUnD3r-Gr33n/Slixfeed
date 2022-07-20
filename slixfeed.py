@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from datetime import date
 from getpass import getpass
 from http.client import IncompleteRead
+from os import path
 from urllib import error
 #from urllib.parse import urlparse
 #from xdg import BaseDirectory
@@ -20,6 +21,7 @@ import asyncio
 import feedparser
 import logging
 import os
+import os.path
 import slixmpp
 import sqlite3
 from sqlite3 import Error
@@ -131,18 +133,16 @@ class Slixfeed(slixmpp.ClientXMPP):
                 action = initdb(msg['from'].bare,
                                   message[12:],
                                   toggle_status)
-            elif message.startswith('feed enable'):
-                print("COMMAND: feed enable")
+            elif message.startswith('enable'):
+                print("COMMAND: enable")
                 print("ACCOUNT: " + str(msg['from']))
-                action = initdb(msg['from'].bare,
-                                  message[11:],
-                                  toggle_state)
-            elif message.startswith('feed disable'):
-                print("COMMAND: feed disable")
+                action = toggle_state(msg['from'].bare,
+                                  True)
+            elif message.startswith('disable'):
+                print("COMMAND: disable")
                 print("ACCOUNT: " + str(msg['from']))
-                action = initdb(msg['from'].bare,
-                                  message[12:],
-                                  toggle_state)
+                action = toggle_state(msg['from'].bare,
+                                  False)
             else:
                 action = "Unknown command. Press \"help\" for list of commands"
             msg.reply(action).send()
@@ -216,6 +216,18 @@ async def check_updates():
 
 asyncio.ensure_future(check_updates())
 
+# async def tasks():
+#     # Begin scanning feeds
+#     task = asyncio.create_task(check_updates())
+#     await task
+
+async def tasks(jid, password):
+    # Begin scanning feeds
+    await asyncio.gather(
+        check_updates(),
+        Slixfeed(jid, password).send_updates()
+    )
+
 def print_help():
     msg = ("Slixfeed - News syndication bot for Jabber/XMPP \n"
            "\n"
@@ -223,10 +235,10 @@ def print_help():
            " Slixfeed is an aggregator bot for online news feeds. \n"
            "\n"
            "BASIC USAGE: \n"
-           " feed enable \n"
+           " enable \n"
            "   Send updates. \n"
-           " feed disable \n"
-           "   Don't send updates. \n"
+           " disable \n"
+           "   Stop sending updates. \n"
            " feed list \n"
            "   List subscriptions list. \n"
            "\n"
@@ -242,7 +254,7 @@ def print_help():
            " feed search TEXT \n"
            "   Search news items by given keywords. \n"
            " feed recent N \n"
-           "   List recent N news items. \n"
+           "   List recent N news items (up to 50 items). \n"
            "\n"
            "DOCUMENTATION: \n"
            " Slixfeed \n"
@@ -271,7 +283,6 @@ def get_default_dbdir():
     str
     Path to database file.
     """
-
 #    data_home = xdg.BaseDirectory.xdg_data_home
     data_home = os.environ.get('XDG_DATA_HOME')
     if data_home is None:
@@ -481,6 +492,7 @@ def add_feed(conn, url):
 def remove_feed(conn, id):
     """
     Delete a feed by feed id
+    :param conn:
     :param id: id of the feed
     :return: string
     """
@@ -506,6 +518,7 @@ def remove_feed(conn, id):
 def get_unread(conn):
     """
     Check read status of entry
+    :param conn:
     :param id: id of the entry
     :return: string
     """
@@ -544,6 +557,7 @@ def get_unread(conn):
 def mark_as_read(conn, id):
     """
     Set read status of entry
+    :param conn:
     :param id: id of the entry
     """
     cur = conn.cursor()
@@ -558,6 +572,7 @@ def mark_as_read(conn, id):
 def toggle_status(conn, id):
     """
     Set status of feed
+    :param conn:
     :param id: id of the feed
     :return: string
     """
@@ -585,6 +600,37 @@ def toggle_status(conn, id):
     conn.commit()
     print(time.strftime("%H:%M:%S"), "conn.commit() from toggle_status(conn, id)")
     return notice
+
+def toggle_state(jid, state):
+    """
+    Set status of update
+    :param jid: jid of the user
+    :param state: boolean
+    :return:
+    """
+    db_dir = get_default_dbdir()
+    os.chdir(db_dir)
+    db_file = r"{}.db".format(jid)
+    bk_file = r"{}.db.bak".format(jid)
+    if state:
+        if path.exists(db_file):
+            return "Updates are already enabled"
+        elif path.exists(bk_file):
+            os.renames(bk_file, db_file)
+            return "Updates are now enabled"
+    else:
+        if path.exists(bk_file):
+            return "Updates are already disabled"
+        elif path.exists(db_file):
+            os.renames(db_file, bk_file)
+            return "Updates are now disabled"
+    
+    # if path.exists(db_file):
+    #     os.renames(db_file, db_file + ".bak")
+    #     break
+    # db_file = r"{}.db.bak".format(jid)
+    # if path.exists(db_file):
+    #     os.renames(db_file, jid,+".db")
 
 def set_date(conn, url):
     """
@@ -635,11 +681,32 @@ def list_subscriptions(conn):
         return feeds_list + "\n Total of {} subscriptions".format(counter)
     else:
         msg = ("List of subscriptions is empty. \n"
-               "To add feed, send me a message as follows: \n"
+               "To add feed, send a message as follows: \n"
                "feed add URL \n"
-               "For example: \n"
+               "Example: \n"
                "feed add https://reclaimthenet.org/feed/")
         return msg
+
+def last_entries(conn, num):
+    """
+    Query feeds
+    :param conn:
+    :param num: integer
+    :return: rows (string)
+    """
+    if int(num) > 50:
+        num = str(50)
+    elif int(num) < 1:
+        num = str(1)
+    cur = conn.cursor()
+    sql = "SELECT title, link FROM entries ORDER BY ROWID DESC LIMIT {}".format(num)
+    results = cur.execute(sql)
+    titles_list = "Recent {} titles: \n".format(num)
+    for result in results:
+        # titles_list += """\nTitle: {} \nLink: {}
+        titles_list += """\n{} \n{}
+        """.format(str(result[0]), str(result[1]))
+    return titles_list
 
 def check_entry(conn, title, link):
     """
