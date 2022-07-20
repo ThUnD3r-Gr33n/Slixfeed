@@ -263,7 +263,6 @@ def print_help():
            "   https://slixmpp.readthedocs.io/ \n"
            " feedparser \n"
            "   https://pythonhosted.org/feedparser")
-
     return msg
 
 # Function from buku
@@ -295,7 +294,6 @@ def get_default_dbdir():
                 return os.path.abspath('.')
         else:
             data_home = os.path.join(os.environ.get('HOME'), '.local', 'share')
-
     return os.path.join(data_home, 'slixfeed')
 
 # TODO Perhaps this needs to be executed
@@ -306,7 +304,6 @@ def initdb(jid, message, callback):
         os.mkdir(db_dir)
     os.chdir(db_dir)
     db_file = r"{}.db".format(jid)
-
     feeds_table_sql = """
         CREATE TABLE IF NOT EXISTS feeds (
             id integer PRIMARY KEY,
@@ -315,7 +312,6 @@ def initdb(jid, message, callback):
             status integer,
             updated text
         ); """
-
     entries_table_sql = """
         CREATE TABLE IF NOT EXISTS entries (
             id integer PRIMARY KEY,
@@ -325,10 +321,8 @@ def initdb(jid, message, callback):
             source text,
             read integer
         ); """
-
     # create a database connection
     conn = create_connection(db_file)
-
     # create tables
     if conn is not None:
         # create projects table
@@ -336,7 +330,6 @@ def initdb(jid, message, callback):
         create_table(conn, entries_table_sql)
     else:
         print("Error! cannot create the database connection.")
-
     if message:
         return callback(conn, message)
     else:
@@ -355,7 +348,6 @@ def create_connection(db_file):
         return conn
     except Error as e:
         print(e)
-
     return conn
 
 def create_table(conn, create_table_sql):
@@ -435,10 +427,8 @@ async def download_page(url):
             if response.status == 200:
                 html = await response.text()
                 return html
-
             print("Status:", response.status)
             print("Content-type:", response.headers['content-type'])
-
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete
@@ -707,6 +697,29 @@ def last_entries(conn, num):
         titles_list += """\n{} \n{}
         """.format(str(result[0]), str(result[1]))
     return titles_list
+
+def search_entries(conn, query):
+    """
+    Query feeds
+    :param conn:
+    :param query: string
+    :return: rows (string)
+    """
+    cur = conn.cursor()
+    sql = "SELECT title, link FROM entries WHERE title LIKE '%{}%' LIMIT 50".format(query)
+    # sql = "SELECT title, link FROM entries WHERE title OR link LIKE '%{}%'".format(query)
+    results = cur.execute(sql)
+    results_list = "Search results for '{}': \n".format(query)
+    counter = 0
+    for result in results:
+        counter += 1
+        # titles_list += """\nTitle: {} \nLink: {}
+        results_list += """\n{} \n{}
+        """.format(str(result[0]), str(result[1]))
+    if counter:
+        return results_list + "\n Total of {} results".format(counter)
+    else:
+        return "No results found for: {}.".format(query)
 
 def check_entry(conn, title, link):
     """
