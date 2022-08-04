@@ -29,7 +29,7 @@ import sys
 import time
 #import xdg
 
-offline = False
+# offline = False
 
 class Slixfeed(slixmpp.ClientXMPP):
     """
@@ -54,13 +54,13 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.add_event_handler("message", self.message)
         self.add_event_handler("disconnected", self.reconnect)
 
-    async def reconnect(self, event):
-        await asyncio.sleep(10)
-        offline = True
-        print(time.strftime("%H:%M:%S"))
-        print(offline)
-        self.connect()
-        #return True
+    # async def reconnect(self, event):
+    #     await asyncio.sleep(10)
+    #     offline = True
+    #     print(time.strftime("%H:%M:%S"))
+    #     print(offline)
+    #     self.connect()
+    #     #return True
 
     async def start(self, event):
         """
@@ -92,53 +92,53 @@ class Slixfeed(slixmpp.ClientXMPP):
         """
         if msg['type'] in ('chat', 'normal'):
             message = " ".join(msg['body'].split())
-            if message.startswith('help'):
+            if message.lower().startswith('help'):
                 print("COMMAND: help")
                 print("ACCOUNT: " + str(msg['from']))
                 action = print_help()
             # NOTE: Might not need it
-            elif message.startswith('feed recent '):
+            elif message.lower().startswith('feed recent '):
                 print("COMMAND: feed recent")
                 print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare, 
                                   message[12:],
                                   last_entries)
-            elif message.startswith('feed search '):
+            elif message.lower().startswith('feed search '):
                 print("COMMAND: feed search")
                 print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare, 
                                   message[12:],
                                   search_entries)
-            elif message.startswith('feed list'):
+            elif message.lower().startswith('feed list'):
                 print("COMMAND: feed list")
                 print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare, 
                                   False,
                                   list_subscriptions)
-            elif message.startswith('feed add '):
+            elif message.lower().startswith('feed add '):
                 print("COMMAND: feed add")
                 print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare,
                                   message[9:],
                                   add_feed)
-            elif message.startswith('feed remove '):
+            elif message.lower().startswith('feed remove '):
                 print("COMMAND: feed remove")
                 print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare,
                                   message[12:],
                                   remove_feed)
-            elif message.startswith('feed status '):
+            elif message.lower().startswith('feed status '):
                 print("COMMAND: feed status")
                 print("ACCOUNT: " + str(msg['from']))
                 action = initdb(msg['from'].bare,
                                   message[12:],
                                   toggle_status)
-            elif message.startswith('enable'):
+            elif message.lower().startswith('enable'):
                 print("COMMAND: enable")
                 print("ACCOUNT: " + str(msg['from']))
                 action = toggle_state(msg['from'].bare,
                                   True)
-            elif message.startswith('disable'):
+            elif message.lower().startswith('disable'):
                 print("COMMAND: disable")
                 print("ACCOUNT: " + str(msg['from']))
                 action = toggle_state(msg['from'].bare,
@@ -151,7 +151,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         #while not offline:
         while True:
             print(time.strftime("%H:%M:%S"))
-            print(offline)
+            # print(offline)
             db_dir = get_default_dbdir()
             if not os.path.isdir(db_dir):
                 msg = ("Slixfeed can not work without a database. \n"
@@ -472,7 +472,7 @@ def add_feed(conn, url):
         conn.commit()
         print(time.strftime("%H:%M:%S"), "conn.commit() from add_feed(conn, url)")
         # source = title if not '' else url
-        source = title if title else url
+        source = title if title else '<' + url + '>'
         msg = """News source "{}" has been added to subscriptions list
               """.format(source)
     else:
