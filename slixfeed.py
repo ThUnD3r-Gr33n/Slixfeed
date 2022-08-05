@@ -543,7 +543,7 @@ async def get_unread(conn):
         #     str = cur.fetchone()[0]
         #     entry.append(str)
         entry = "{}\n\n{}\n\nLink to article:\n{}".format(entry[0], entry[1], entry[2])
-        mark_as_read(conn, id)
+        await mark_as_read(conn, id)
         return entry
 
 async def mark_as_read(conn, id):
