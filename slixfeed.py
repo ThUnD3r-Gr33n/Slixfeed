@@ -78,7 +78,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.send_presence()
         await self.get_roster()
 
-    def message(self, msg):
+    async def message(self, msg):
         """
         Process incoming message stanzas. Be aware that this also
         includes MUC messages and error messages. It is usually
@@ -100,37 +100,37 @@ class Slixfeed(slixmpp.ClientXMPP):
             elif message.lower().startswith('feed recent '):
                 print("COMMAND: feed recent")
                 print("ACCOUNT: " + str(msg['from']))
-                action = initdb(msg['from'].bare, 
+                action = await initdb(msg['from'].bare, 
                                   message[12:],
                                   last_entries)
             elif message.lower().startswith('feed search '):
                 print("COMMAND: feed search")
                 print("ACCOUNT: " + str(msg['from']))
-                action = initdb(msg['from'].bare, 
+                action = await initdb(msg['from'].bare, 
                                   message[12:],
                                   search_entries)
             elif message.lower().startswith('feed list'):
                 print("COMMAND: feed list")
                 print("ACCOUNT: " + str(msg['from']))
-                action = initdb(msg['from'].bare, 
+                action = await initdb(msg['from'].bare, 
                                   False,
                                   list_subscriptions)
             elif message.lower().startswith('feed add '):
                 print("COMMAND: feed add")
                 print("ACCOUNT: " + str(msg['from']))
-                action = initdb(msg['from'].bare,
+                action = await initdb(msg['from'].bare,
                                   message[9:],
                                   add_feed)
             elif message.lower().startswith('feed remove '):
                 print("COMMAND: feed remove")
                 print("ACCOUNT: " + str(msg['from']))
-                action = initdb(msg['from'].bare,
+                action = await initdb(msg['from'].bare,
                                   message[12:],
                                   remove_feed)
             elif message.lower().startswith('feed status '):
                 print("COMMAND: feed status")
                 print("ACCOUNT: " + str(msg['from']))
-                action = initdb(msg['from'].bare,
+                action = await initdb(msg['from'].bare,
                                   message[12:],
                                   toggle_status)
             elif message.lower().startswith('enable'):
@@ -171,7 +171,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         # d = self.send_ping(self, jid)
                         # print('d')
                         # print(d)
-                        new = initdb(jid, False, get_unread)
+                        new = await initdb(jid, False, get_unread)
                         if new:
                             msg = self.make_message(mto=jid, mbody=new,
                                                     mtype='chat')
@@ -209,9 +209,11 @@ async def check_updates():
             files = os.listdir()
             for file in files:
                 jid = file[:-3]
-                await initdb(jid,
+                await initdb(
+                       jid,
                        False,
-                       download_updates)
+                       download_updates
+                )
         await asyncio.sleep(60 * 30)
 
 asyncio.ensure_future(check_updates())
@@ -298,7 +300,7 @@ def get_default_dbdir():
 
 # TODO Perhaps this needs to be executed
 # just once per program execution
-def initdb(jid, message, callback):
+async def initdb(jid, message, callback):
     db_dir = get_default_dbdir()
     if not os.path.isdir(db_dir):
         os.mkdir(db_dir)
@@ -331,9 +333,9 @@ def initdb(jid, message, callback):
     else:
         print("Error! cannot create the database connection.")
     if message:
-        return callback(conn, message)
+        return await callback(conn, message)
     else:
-        return callback(conn)
+        return await callback(conn)
 
 def create_connection(db_file):
     """
@@ -371,7 +373,7 @@ async def download_updates(conn):
         # cur = conn.cursor()
         # get current date
         #today = date.today()
-        urls = get_subscriptions(conn)
+        urls = await get_subscriptions(conn)
         for url in urls:
             #"".join(url)
             source = url[0]
@@ -393,14 +395,14 @@ async def download_updates(conn):
             # NOTE Need to correct the SQL statement to do so
             entries = feed.entries
             length = len(entries)
-            remove_entry(conn, source, length)
+            await remove_entry(conn, source, length)
             for entry in entries:
                 if entry.has_key("title"):
                     title = entry.title
                 else:
                     title = feed["feed"]["title"]
                 link = source if not entry.link else entry.link
-                exist = check_entry(conn, title, link)
+                exist = await check_entry(conn, title, link)
                 if not exist:
                     if entry.has_key("summary"):
                         summary = entry.summary
@@ -412,8 +414,8 @@ async def download_updates(conn):
                         summary = '*** No summary ***'
                         #print('~~~~~~summary not in entry')
                     entry = (title, summary, link, source, 0);
-                    add_entry(conn, entry)
-                    set_date(conn, source)
+                    await add_entry(conn, entry)
+                    await set_date(conn, source)
                     #make_message
     #                 message = title + '\n\n' + summary + '\n\nLink: ' + link
     #                 print(message)
@@ -433,7 +435,7 @@ async def download_page(url):
 loop = asyncio.get_event_loop()
 loop.run_until_complete
 
-def check_feed(conn, url):
+async def check_feed(conn, url):
     """
     Check whether a feed exists
     Query for feeds by url
@@ -447,7 +449,7 @@ def check_feed(conn, url):
     cur.execute(sql, (url,))
     return cur.fetchone()
 
-def add_feed(conn, url):
+async def add_feed(conn, url):
     """
     Add a new feed into the feeds table
     :param conn:
@@ -457,7 +459,7 @@ def add_feed(conn, url):
     #conn = create_connection(db_file)
     cur = conn.cursor()
     print(time.strftime("%H:%M:%S"), "conn.cursor() from add_feed(conn, url)")
-    exist = check_feed(conn, url)
+    exist = await check_feed(conn, url)
     if not exist:
         feed = feedparser.parse(url)
         if feed.bozo:
@@ -479,7 +481,7 @@ def add_feed(conn, url):
         msg = "News source is already listed in the subscription list"
     return msg
 
-def remove_feed(conn, id):
+async def remove_feed(conn, id):
     """
     Delete a feed by feed id
     :param conn:
@@ -505,7 +507,7 @@ def remove_feed(conn, id):
     return """News source <{}> has been removed from subscriptions list
            """.format(url)
 
-def get_unread(conn):
+async def get_unread(conn):
     """
     Check read status of entry
     :param conn:
@@ -544,7 +546,7 @@ def get_unread(conn):
         mark_as_read(conn, id)
         return entry
 
-def mark_as_read(conn, id):
+async def mark_as_read(conn, id):
     """
     Set read status of entry
     :param conn:
@@ -559,7 +561,7 @@ def mark_as_read(conn, id):
     #conn.close()
 
 # TODO test
-def toggle_status(conn, id):
+async def toggle_status(conn, id):
     """
     Set status of feed
     :param conn:
@@ -591,7 +593,7 @@ def toggle_status(conn, id):
     print(time.strftime("%H:%M:%S"), "conn.commit() from toggle_status(conn, id)")
     return notice
 
-def toggle_state(jid, state):
+async def toggle_state(jid, state):
     """
     Set status of update
     :param jid: jid of the user
@@ -622,7 +624,7 @@ def toggle_state(jid, state):
     # if path.exists(db_file):
     #     os.renames(db_file, jid,+".db")
 
-def set_date(conn, url):
+async def set_date(conn, url):
     """
     Set last update date of feed
     :param url: url of the feed
@@ -636,7 +638,7 @@ def set_date(conn, url):
     conn.commit()
     print(time.strftime("%H:%M:%S"), "conn.commit() from set_date(conn, url)")
 
-def get_subscriptions(conn):
+async def get_subscriptions(conn):
     """
     Query feeds
     :param conn:
@@ -648,7 +650,7 @@ def get_subscriptions(conn):
     result = cur.execute(sql)
     return result
 
-def list_subscriptions(conn):
+async def list_subscriptions(conn):
     """
     Query feeds
     :param conn:
@@ -677,7 +679,7 @@ def list_subscriptions(conn):
                "feed add https://reclaimthenet.org/feed/")
         return msg
 
-def last_entries(conn, num):
+async def last_entries(conn, num):
     """
     Query feeds
     :param conn:
@@ -699,7 +701,7 @@ def last_entries(conn, num):
         """.format(str(result[0]), str(result[1]))
     return titles_list
 
-def search_entries(conn, query):
+async def search_entries(conn, query):
     """
     Query feeds
     :param conn:
@@ -724,7 +726,7 @@ def search_entries(conn, query):
     else:
         return "No results found for: {}".format(query)
 
-def check_entry(conn, title, link):
+async def check_entry(conn, title, link):
     """
     Check whether an entry exists
     Query entries by title and link
@@ -739,7 +741,7 @@ def check_entry(conn, title, link):
     cur.execute(sql, {"title": title, "link": link})
     return cur.fetchone()
 
-def add_entry(conn, entry):
+async def add_entry(conn, entry):
     """
     Add a new entry into the entries table
     :param conn:
@@ -754,7 +756,7 @@ def add_entry(conn, entry):
     conn.commit()
     print(time.strftime("%H:%M:%S"), "conn.commit() from add_entry(conn, entry)")
 
-def remove_entry(conn, source, length):
+async def remove_entry(conn, source, length):
     """
     Maintain list of entries
     Check the number returned by feed and delete
