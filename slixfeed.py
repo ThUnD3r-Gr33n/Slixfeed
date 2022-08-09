@@ -311,8 +311,11 @@ async def initdb(jid, message, callback):
             id integer PRIMARY KEY,
             name text,
             address text NOT NULL,
+            enabled integer NOT NULL,
+            scanned text,
+            updated text,
             status integer,
-            updated text
+            valid integer
         ); """
     entries_table_sql = """
         CREATE TABLE IF NOT EXISTS entries (
@@ -377,17 +380,29 @@ async def download_updates(conn):
         for url in urls:
             #"".join(url)
             source = url[0]
-            html = await download_page(url[0])
-            print(url[0])
-            if html:
+            res = await download_feed(conn, source)
+            cur = conn.cursor()
+            sql = "UPDATE feeds SET status = :status WHERE address = :url"
+            cur.execute(sql, {"status": res[1], "url": source})
+            conn.commit()
+            sql = "UPDATE feeds SET scanned = :scanned WHERE address = :url"
+            cur.execute(sql, {"scanned": date.today(), "url": source})
+            conn.commit()
+            if res[0]:
                 try:
-                    feed = feedparser.parse(html)
+                    feed = feedparser.parse(res[0])
                     if feed.bozo:
                         bozo = ("WARNING: Bozo detected for feed <{}>. "
                                 "For more information, visit "
                                 "https://pythonhosted.org/feedparser/bozo.html"
                                 .format(source))
                         print(bozo)
+                        cur = conn.cursor()
+                        sql = "UPDATE feeds SET valid = 0 WHERE address = ?"
+                    else:
+                        sql = "UPDATE feeds SET valid = 1 WHERE address = ?"
+                    cur.execute(sql, (source,))
+                    conn.commit()
                 except (IncompleteReadError, IncompleteRead, error.URLError) as e:
                     print(e)
                     return
@@ -409,7 +424,7 @@ async def download_updates(conn):
                         # Remove HTML tags
                         summary = BeautifulSoup(summary, "lxml").text
                         # TODO Limit text length
-                        summary = summary.replace("\n\n", "\n")
+                        summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
                     else:
                         summary = '*** No summary ***'
                         #print('~~~~~~summary not in entry')
@@ -423,14 +438,15 @@ async def download_updates(conn):
     #                 print(len(news))
     # return news
 
-async def download_page(url):
+async def download_feed(conn, url):
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
+            status = response.status
             if response.status == 200:
-                html = await response.text()
-                return html
-            print("Status:", response.status)
-            print("Content-type:", response.headers['content-type'])
+                doc = await response.text()
+                return [doc,status]
+            else:
+                return [False,status]
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete
@@ -461,17 +477,32 @@ async def add_feed(conn, url):
     print(time.strftime("%H:%M:%S"), "conn.cursor() from add_feed(conn, url)")
     exist = await check_feed(conn, url)
     if not exist:
-        feed = feedparser.parse(url)
-        if feed.bozo:
-            bozo = ("WARNING: Bozo detected. Failed to load URL.")
-            print(bozo)
-            return "Failed to parse URL as feed"
-        title = feedparser.parse(url)["feed"]["title"]
-        feed = (title, url, 1)
-        sql = """INSERT INTO feeds(name,address,status)
-                 VALUES(?,?,?) """
-        cur.execute(sql, feed)
-        conn.commit()
+        res = await download_feed(conn, url)
+        if res[0]:
+            feed = feedparser.parse(res[0])
+            if feed.bozo:
+                feed = (url, 1, res[1], 0)
+                sql = """INSERT INTO feeds(address,enabled,status,valid)
+                         VALUES(?,?,?,?) """
+                cur.execute(sql, feed)
+                conn.commit()
+                bozo = ("WARNING: Bozo detected. Failed to load URL.")
+                print(bozo)
+                return "Failed to parse URL as feed"
+            else:
+                title = feed["feed"]["title"]
+                feed = (title, url, 1, res[1], 1)
+                sql = """INSERT INTO feeds(name,address,enabled,status,valid)
+                         VALUES(?,?,?,?,?) """
+                cur.execute(sql, feed)
+                conn.commit()
+        else:
+            feed = (url, 1, res[1], 0)
+            sql = """INSERT INTO feeds(address,enabled,status,valid)
+                     VALUES(?,?,?,?) """
+            cur.execute(sql, feed)
+            conn.commit()
+            return "Failed to get URL.  HTTP Error {}".format(res[1])
         print(time.strftime("%H:%M:%S"), "conn.commit() from add_feed(conn, url)")
         # source = title if not '' else url
         source = title if title else '<' + url + '>'
@@ -560,7 +591,19 @@ async def mark_as_read(conn, id):
     print(time.strftime("%H:%M:%S"), "conn.commit() from mark_as_read(conn, id)")
     #conn.close()
 
-# TODO test
+async def feed_refresh(conn, id):
+    cur = conn.cursor()
+    sql = "SELECT address FROM feeds WHERE id = :id"
+    cur.execute(sql, (id,))
+    url = cur.fetchone()[0]
+    res = await download_feed(conn, url)
+    feed = feedparser.parse(res[0])
+    title = feed["feed"]["title"]
+    sql = "UPDATE feeds SET name = :name WHERE address = :url"
+    cur.execute(sql, {"name": title, "url": url})
+    conn.commit()
+
+# TODO mark_all_read for entries of feed
 async def toggle_status(conn, id):
     """
     Set status of feed
@@ -574,7 +617,7 @@ async def toggle_status(conn, id):
     sql = "SELECT name FROM feeds WHERE id = :id"
     cur.execute(sql, (id,))
     title = cur.fetchone()[0]
-    sql = "SELECT status FROM feeds WHERE id = ?"
+    sql = "SELECT enabled FROM feeds WHERE id = ?"
     # NOTE [0][1][2]
     cur.execute(sql, (id,))
     status = cur.fetchone()[0]
@@ -587,7 +630,7 @@ async def toggle_status(conn, id):
     else:
         status = 1
         notice =  "News updates for '{}' are now enabled".format(title)
-    sql = "UPDATE feeds SET status = :status WHERE id = :id"
+    sql = "UPDATE feeds SET enabled = :status WHERE id = :id"
     cur.execute(sql, {"status": status, "id": id})
     conn.commit()
     print(time.strftime("%H:%M:%S"), "conn.commit() from toggle_status(conn, id)")
@@ -646,7 +689,7 @@ async def get_subscriptions(conn):
     """
     cur = conn.cursor()
     print(time.strftime("%H:%M:%S"), "conn.cursor() from get_subscriptions(conn)")
-    sql = "SELECT address FROM feeds WHERE status = 1"
+    sql = "SELECT address FROM feeds WHERE enabled = 1"
     result = cur.execute(sql)
     return result
 
@@ -659,7 +702,7 @@ async def list_subscriptions(conn):
     cur = conn.cursor()
     print(time.strftime("%H:%M:%S"), "conn.cursor() from list_subscriptions(conn)")
     #sql = "SELECT id, address FROM feeds"
-    sql = "SELECT name, address, updated, id, status FROM feeds"
+    sql = "SELECT name, address, updated, id, enabled FROM feeds"
     results = cur.execute(sql)
     feeds_list = "List of subscriptions: \n"
     counter = 0
