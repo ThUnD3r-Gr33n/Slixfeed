@@ -31,13 +31,15 @@ import time
 
 # offline = False
 
-lock =  asyncio.Lock()
-
 class Slixfeed(slixmpp.ClientXMPP):
     """
     Slixmpp bot that will send updates of feeds it
     receives.
     """
+
+    lock = asyncio.Lock()
+    print("locked?")
+    print(lock.locked())
 
     def __init__(self, jid, password):
         slixmpp.ClientXMPP.__init__(self, jid, password)
@@ -103,36 +105,42 @@ class Slixfeed(slixmpp.ClientXMPP):
                 print("COMMAND: feed recent")
                 print("ACCOUNT: " + str(msg['from']))
                 action = await initdb(msg['from'].bare, 
+                                  self.lock,
                                   message[12:],
                                   last_entries)
             elif message.lower().startswith('feed search '):
                 print("COMMAND: feed search")
                 print("ACCOUNT: " + str(msg['from']))
                 action = await initdb(msg['from'].bare, 
+                                  self.lock,
                                   message[12:],
                                   search_entries)
             elif message.lower().startswith('feed list'):
                 print("COMMAND: feed list")
                 print("ACCOUNT: " + str(msg['from']))
                 action = await initdb(msg['from'].bare, 
+                                  self.lock,
                                   False,
                                   list_subscriptions)
             elif message.lower().startswith('feed add '):
                 print("COMMAND: feed add")
                 print("ACCOUNT: " + str(msg['from']))
                 action = await initdb(msg['from'].bare,
+                                  self.lock,
                                   message[9:],
                                   add_feed)
             elif message.lower().startswith('feed remove '):
                 print("COMMAND: feed remove")
                 print("ACCOUNT: " + str(msg['from']))
                 action = await initdb(msg['from'].bare,
+                                  self.lock,
                                   message[12:],
                                   remove_feed)
             elif message.lower().startswith('feed status '):
                 print("COMMAND: feed status")
                 print("ACCOUNT: " + str(msg['from']))
                 action = await initdb(msg['from'].bare,
+                                  self.lock,
                                   message[12:],
                                   toggle_status)
             elif message.lower().startswith('enable'):
@@ -152,7 +160,7 @@ class Slixfeed(slixmpp.ClientXMPP):
     async def send_updates(self, event):
         #while not offline:
         #while True:
-        async with lock:
+        async with self.lock:
             print(time.strftime("%H:%M:%S"))
             # print(offline)
             db_dir = get_default_dbdir()
@@ -174,7 +182,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         # d = self.send_ping(self, jid)
                         # print('d')
                         # print(d)
-                        new = await initdb(jid, False, get_unread)
+                        new = await initdb(jid, self.lock, False, get_unread)
                         if new:
                             msg = self.make_message(mto=jid, mbody=new,
                                                     mtype='chat')
@@ -197,9 +205,9 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     # asyncio.ensure_future(send_updates(self))
 
-async def check_updates(lock):
-    #while True:
-    async with lock:
+async def check_updates():
+    #async with lock:
+    while True:
         db_dir = get_default_dbdir()
         if not os.path.isdir(db_dir):
             msg = ("Slixfeed can not work without a database. \n"
@@ -215,12 +223,13 @@ async def check_updates(lock):
                 jid = file[:-3]
                 await initdb(
                        jid,
+                       Slixfeed.lock,
                        False,
                        download_updates
                 )
         await asyncio.sleep(60 * 30)
 
-asyncio.ensure_future(check_updates(lock))
+asyncio.ensure_future(check_updates())
 
 # async def tasks():
 #     # Begin scanning feeds
@@ -230,7 +239,7 @@ asyncio.ensure_future(check_updates(lock))
 async def tasks(jid, password):
     # Begin scanning feeds
     await asyncio.gather(
-        check_updates(lock),
+        check_updates(),
         Slixfeed(jid, password).send_updates()
     )
 
@@ -304,7 +313,8 @@ def get_default_dbdir():
 
 # TODO Perhaps this needs to be executed
 # just once per program execution
-async def initdb(jid, message, callback):
+async def initdb(jid, lock, message, callback):
+    print("initdb(jid, lock, message, callback)")
     db_dir = get_default_dbdir()
     if not os.path.isdir(db_dir):
         os.mkdir(db_dir)
@@ -341,10 +351,16 @@ async def initdb(jid, message, callback):
         print("Error! cannot create the database connection.")
     if lock:
         if message:
-            return await callback(conn, message, lock)
+            print("if message")
+            print(message)
+            print(lock.locked())
+            return await callback(conn, lock, message)
         else:
+            print("if message else")
+            print(lock.locked())
             return await callback(conn, lock)
     else:
+        print("lock else")
         return await callback(conn)
 
 def create_connection(db_file):
@@ -379,69 +395,72 @@ def create_table(conn, create_table_sql):
 # def setup_info(jid):
 # def start_process(jid):
 async def download_updates(conn, lock):
-    async with lock:
-        with conn:
-            # cur = conn.cursor()
-            # get current date
-            #today = date.today()
-            urls = await get_subscriptions(conn)
-            for url in urls:
-                #"".join(url)
-                source = url[0]
-                res = await download_feed(conn, source)
-                cur = conn.cursor()
-                sql = "UPDATE feeds SET status = :status, scanned = :scanned WHERE address = :url"
-                cur.execute(sql, {"status": res[1], "scanned": date.today(), "url": source})
-                conn.commit()
-                if res[0]:
-                    try:
-                        feed = feedparser.parse(res[0])
-                        if feed.bozo:
-                            bozo = ("WARNING: Bozo detected for feed <{}>. "
-                                    "For more information, visit "
-                                    "https://pythonhosted.org/feedparser/bozo.html"
-                                    .format(source))
-                            print(bozo)
-                            valid = 0
-                        else:
-                            valid = 1
-                        sql = "UPDATE feeds SET valid = :validity WHERE address = :url"
-                        cur.execute(sql, {"validity": valid, "url": source})
-                        conn.commit()
-                    except (IncompleteReadError, IncompleteRead, error.URLError) as e:
-                        print(e)
-                        return
-                # TODO Place these couple of lines back down
-                # NOTE Need to correct the SQL statement to do so
-                entries = feed.entries
-                length = len(entries)
-                await remove_entry(conn, source, length)
-                for entry in entries:
-                    if entry.has_key("title"):
-                        title = entry.title
+    print("download_updates(conn, lock)")
+    with conn:
+        # cur = conn.cursor()
+        # get current date
+        #today = date.today()
+        urls = await get_subscriptions(conn)
+        for url in urls:
+            #"".join(url)
+            source = url[0]
+            res = await download_feed(conn, source)
+            await lock.acquire()
+            cur = conn.cursor()
+            sql = "UPDATE feeds SET status = :status, scanned = :scanned WHERE address = :url"
+            cur.execute(sql, {"status": res[1], "scanned": date.today(), "url": source})
+            conn.commit()
+            if res[0]:
+                try:
+                    feed = feedparser.parse(res[0])
+                    if feed.bozo:
+                        bozo = ("WARNING: Bozo detected for feed <{}>. "
+                                "For more information, visit "
+                                "https://pythonhosted.org/feedparser/bozo.html"
+                                .format(source))
+                        print(bozo)
+                        valid = 0
                     else:
-                        title = feed["feed"]["title"]
-                    link = source if not entry.link else entry.link
-                    exist = await check_entry(conn, title, link)
-                    if not exist:
-                        if entry.has_key("summary"):
-                            summary = entry.summary
-                            # Remove HTML tags
-                            summary = BeautifulSoup(summary, "lxml").text
-                            # TODO Limit text length
-                            summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
-                        else:
-                            summary = '*** No summary ***'
-                            #print('~~~~~~summary not in entry')
-                        entry = (title, summary, link, source, 0);
-                        await add_entry(conn, entry)
-                        await set_date(conn, source)
-                        #make_message
-        #                 message = title + '\n\n' + summary + '\n\nLink: ' + link
-        #                 print(message)
-        #                 news.append(message)
-        #                 print(len(news))
-        # return news
+                        valid = 1
+                    sql = "UPDATE feeds SET valid = :validity WHERE address = :url"
+                    cur.execute(sql, {"validity": valid, "url": source})
+                    conn.commit()
+                except (IncompleteReadError, IncompleteRead, error.URLError) as e:
+                    print(e)
+                    lock.release()
+                    return
+            # TODO Place these couple of lines back down
+            # NOTE Need to correct the SQL statement to do so
+            entries = feed.entries
+            length = len(entries)
+            await remove_entry(conn, source, length)
+            for entry in entries:
+                if entry.has_key("title"):
+                    title = entry.title
+                else:
+                    title = feed["feed"]["title"]
+                link = source if not entry.link else entry.link
+                exist = await check_entry(conn, title, link)
+                if not exist:
+                    if entry.has_key("summary"):
+                        summary = entry.summary
+                        # Remove HTML tags
+                        summary = BeautifulSoup(summary, "lxml").text
+                        # TODO Limit text length
+                        summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
+                    else:
+                        summary = '*** No summary ***'
+                        #print('~~~~~~summary not in entry')
+                    entry = (title, summary, link, source, 0);
+                    await add_entry(conn, entry)
+                    await set_date(conn, source)
+            lock.release()
+                    #make_message
+    #                 message = title + '\n\n' + summary + '\n\nLink: ' + link
+    #                 print(message)
+    #                 news.append(message)
+    #                 print(len(news))
+    # return news
 
 async def download_feed(conn, url):
     async with aiohttp.ClientSession() as session:
@@ -470,13 +489,14 @@ async def check_feed(conn, url):
     cur.execute(sql, (url,))
     return cur.fetchone()
 
-async def add_feed(conn, url, lock):
+async def add_feed(conn, lock, url):
     """
     Add a new feed into the feeds table
     :param conn:
     :param feed:
     :return: string
     """
+    print("add_feed(conn, lock, url)")
     #TODO consider async with lock
     await lock.acquire()
     #conn = create_connection(db_file)
@@ -522,13 +542,14 @@ async def add_feed(conn, url, lock):
         msg = "News source is already listed in the subscription list"
     return msg
 
-async def remove_feed(conn, id, lock):
+async def remove_feed(conn, lock, id):
     """
     Delete a feed by feed id
     :param conn:
     :param id: id of the feed
     :return: string
     """
+    print("remove_feed(conn, lock, id)")
     # You have chose to remove feed (title, url) from your feed list.
     # Enter "delete" to confirm removal.
     await lock.acquire()
@@ -616,13 +637,14 @@ async def feed_refresh(conn, id):
     conn.commit()
 
 # TODO mark_all_read for entries of feed
-async def toggle_status(conn, id, lock):
+async def toggle_status(conn, lock, id):
     """
     Set status of feed
     :param conn:
     :param id: id of the feed
     :return: string
     """
+    print("toggle_status(conn, lock, id)")
     await lock.acquire()
     #conn = create_connection(db_file)
     cur = conn.cursor()
@@ -713,6 +735,7 @@ async def list_subscriptions(conn, lock):
     :param conn:
     :return: rows (string)
     """
+    print("list_subscriptions(conn, lock)")
     await lock.acquire()
     cur = conn.cursor()
     print(time.strftime("%H:%M:%S"), "conn.cursor() from list_subscriptions(conn)")
@@ -738,13 +761,14 @@ async def list_subscriptions(conn, lock):
                "feed add https://reclaimthenet.org/feed/")
         return msg
 
-async def last_entries(conn, num, lock):
+async def last_entries(conn, lock, num):
     """
     Query feeds
     :param conn:
     :param num: integer
     :return: rows (string)
     """
+    print("last_entries(conn, lock, num)")
     num = int(num)
     if num > 50:
         num = 50
@@ -762,13 +786,14 @@ async def last_entries(conn, num, lock):
         """.format(str(result[0]), str(result[1]))
     return titles_list
 
-async def search_entries(conn, query, lock):
+async def search_entries(conn, lock, query):
     """
     Query feeds
     :param conn:
     :param query: string
     :return: rows (string)
     """
+    print("search_entries(conn, lock, query)")
     if len(query) < 2:
         return "Please enter at least 2 characters to search"
     await lock.acquire()
