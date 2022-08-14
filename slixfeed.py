@@ -159,8 +159,9 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def send_updates(self, event):
         #while not offline:
-        #while True:
-        async with self.lock:
+        while True:
+        #async with self.lock:
+            await self.lock.acquire()
             print(time.strftime("%H:%M:%S"))
             # print(offline)
             db_dir = get_default_dbdir()
@@ -182,7 +183,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         # d = self.send_ping(self, jid)
                         # print('d')
                         # print(d)
-                        new = await initdb(jid, self.lock, False, get_unread)
+                        new = await initdb(jid, False, False, get_unread)
                         if new:
                             msg = self.make_message(mto=jid, mbody=new,
                                                     mtype='chat')
@@ -201,6 +202,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 #                  mtype='chat')
                                 #print(msg)
                                 #msg.send()
+            self.lock.release()
             await asyncio.sleep(60 * 3)
 
     # asyncio.ensure_future(send_updates(self))
