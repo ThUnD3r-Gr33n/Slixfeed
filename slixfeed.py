@@ -397,66 +397,64 @@ def create_table(conn, create_table_sql):
 # def setup_info(jid):
 # def start_process(jid):
 async def download_updates(conn, lock):
-    print("download_updates(conn, lock)")
-    with conn:
-        # cur = conn.cursor()
-        # get current date
-        #today = date.today()
-        urls = await get_subscriptions(conn)
-        for url in urls:
-            #"".join(url)
-            source = url[0]
-            res = await download_feed(conn, source)
-            await lock.acquire()
-            cur = conn.cursor()
-            sql = "UPDATE feeds SET status = :status, scanned = :scanned WHERE address = :url"
-            cur.execute(sql, {"status": res[1], "scanned": date.today(), "url": source})
-            conn.commit()
-            if res[0]:
-                try:
-                    feed = feedparser.parse(res[0])
-                    if feed.bozo:
-                        bozo = ("WARNING: Bozo detected for feed <{}>. "
-                                "For more information, visit "
-                                "https://pythonhosted.org/feedparser/bozo.html"
-                                .format(source))
-                        print(bozo)
-                        valid = 0
+    async with lock:
+        print("download_updates(conn, lock)")
+        with conn:
+            # cur = conn.cursor()
+            # get current date
+            #today = date.today()
+            urls = await get_subscriptions(conn)
+            for url in urls:
+                #"".join(url)
+                source = url[0]
+                res = await download_feed(conn, source)
+                cur = conn.cursor()
+                sql = "UPDATE feeds SET status = :status, scanned = :scanned WHERE address = :url"
+                cur.execute(sql, {"status": res[1], "scanned": date.today(), "url": source})
+                conn.commit()
+                if res[0]:
+                    try:
+                        feed = feedparser.parse(res[0])
+                        if feed.bozo:
+                            bozo = ("WARNING: Bozo detected for feed <{}>. "
+                                    "For more information, visit "
+                                    "https://pythonhosted.org/feedparser/bozo.html"
+                                    .format(source))
+                            print(bozo)
+                            valid = 0
+                        else:
+                            valid = 1
+                        sql = "UPDATE feeds SET valid = :validity WHERE address = :url"
+                        cur.execute(sql, {"validity": valid, "url": source})
+                        conn.commit()
+                    except (IncompleteReadError, IncompleteRead, error.URLError) as e:
+                        print(e)
+                        return
+                # TODO Place these couple of lines back down
+                # NOTE Need to correct the SQL statement to do so
+                entries = feed.entries
+                length = len(entries)
+                await remove_entry(conn, source, length)
+                for entry in entries:
+                    if entry.has_key("title"):
+                        title = entry.title
                     else:
-                        valid = 1
-                    sql = "UPDATE feeds SET valid = :validity WHERE address = :url"
-                    cur.execute(sql, {"validity": valid, "url": source})
-                    conn.commit()
-                except (IncompleteReadError, IncompleteRead, error.URLError) as e:
-                    print(e)
-                    lock.release()
-                    return
-            # TODO Place these couple of lines back down
-            # NOTE Need to correct the SQL statement to do so
-            entries = feed.entries
-            length = len(entries)
-            await remove_entry(conn, source, length)
-            for entry in entries:
-                if entry.has_key("title"):
-                    title = entry.title
-                else:
-                    title = feed["feed"]["title"]
-                link = source if not entry.link else entry.link
-                exist = await check_entry(conn, title, link)
-                if not exist:
-                    if entry.has_key("summary"):
-                        summary = entry.summary
-                        # Remove HTML tags
-                        summary = BeautifulSoup(summary, "lxml").text
-                        # TODO Limit text length
-                        summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
-                    else:
-                        summary = '*** No summary ***'
-                        #print('~~~~~~summary not in entry')
-                    entry = (title, summary, link, source, 0);
-                    await add_entry(conn, entry)
-                    await set_date(conn, source)
-            lock.release()
+                        title = feed["feed"]["title"]
+                    link = source if not entry.link else entry.link
+                    exist = await check_entry(conn, title, link)
+                    if not exist:
+                        if entry.has_key("summary"):
+                            summary = entry.summary
+                            # Remove HTML tags
+                            summary = BeautifulSoup(summary, "lxml").text
+                            # TODO Limit text length
+                            summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
+                        else:
+                            summary = '*** No summary ***'
+                            #print('~~~~~~summary not in entry')
+                        entry = (title, summary, link, source, 0);
+                        await add_entry(conn, entry)
+                        await set_date(conn, source)
                     #make_message
     #                 message = title + '\n\n' + summary + '\n\nLink: ' + link
     #                 print(message)
@@ -485,13 +483,12 @@ async def check_feed(conn, lock, url):
     :param url:
     :return: row
     """
-    await lock.acquire()
-    cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from check_feed(conn, url)")
-    sql = "SELECT id FROM feeds WHERE address = ?"
-    cur.execute(sql, (url,))
-    lock.release()
-    return cur.fetchone()
+    async with lock:
+        cur = conn.cursor()
+        print(time.strftime("%H:%M:%S"), "conn.cursor() from check_feed(conn, url)")
+        sql = "SELECT id FROM feeds WHERE address = ?"
+        cur.execute(sql, (url,))
+        return cur.fetchone()
 
 async def add_feed(conn, lock, url):
     """
@@ -500,51 +497,48 @@ async def add_feed(conn, lock, url):
     :param feed:
     :return: string
     """
-    print("add_feed(conn, lock, url)")
-    #TODO consider async with lock
-    #conn = create_connection(db_file)
-    cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from add_feed(conn, url)")
-    exist = await check_feed(conn, lock, url)
-    if not exist:
-        res = await download_feed(conn, url)
-        if res[0]:
-            feed = feedparser.parse(res[0])
-            await lock.acquire()
-            if feed.bozo:
+    async with lock:
+        print("add_feed(conn, lock, url)")
+        #TODO consider async with lock
+        #conn = create_connection(db_file)
+        cur = conn.cursor()
+        print(time.strftime("%H:%M:%S"), "conn.cursor() from add_feed(conn, url)")
+        exist = await check_feed(conn, lock, url)
+        if not exist:
+            res = await download_feed(conn, url)
+            if res[0]:
+                feed = feedparser.parse(res[0])
+                if feed.bozo:
+                    feed = (url, 1, res[1], 0)
+                    sql = """INSERT INTO feeds(address,enabled,status,valid)
+                             VALUES(?,?,?,?) """
+                    cur.execute(sql, feed)
+                    conn.commit()
+                    bozo = ("WARNING: Bozo detected. Failed to load URL.")
+                    print(bozo)
+                    return "Failed to parse URL as feed"
+                else:
+                    title = feed["feed"]["title"]
+                    feed = (title, url, 1, res[1], 1)
+                    sql = """INSERT INTO feeds(name,address,enabled,status,valid)
+                             VALUES(?,?,?,?,?) """
+                    cur.execute(sql, feed)
+                    conn.commit()
+            else:
                 feed = (url, 1, res[1], 0)
                 sql = """INSERT INTO feeds(address,enabled,status,valid)
                          VALUES(?,?,?,?) """
                 cur.execute(sql, feed)
                 conn.commit()
-                lock.release()
-                bozo = ("WARNING: Bozo detected. Failed to load URL.")
-                print(bozo)
-                return "Failed to parse URL as feed"
-            else:
-                title = feed["feed"]["title"]
-                feed = (title, url, 1, res[1], 1)
-                sql = """INSERT INTO feeds(name,address,enabled,status,valid)
-                         VALUES(?,?,?,?,?) """
-                cur.execute(sql, feed)
-                conn.commit()
-                lock.release()
+                return "Failed to get URL.  HTTP Error {}".format(res[1])
+            print(time.strftime("%H:%M:%S"), "conn.commit() from add_feed(conn, url)")
+            # source = title if not '' else url
+            source = title if title else '<' + url + '>'
+            msg = """News source "{}" has been added to subscriptions list
+                  """.format(source)
         else:
-            feed = (url, 1, res[1], 0)
-            sql = """INSERT INTO feeds(address,enabled,status,valid)
-                     VALUES(?,?,?,?) """
-            cur.execute(sql, feed)
-            conn.commit()
-            lock.release()
-            return "Failed to get URL.  HTTP Error {}".format(res[1])
-        print(time.strftime("%H:%M:%S"), "conn.commit() from add_feed(conn, url)")
-        # source = title if not '' else url
-        source = title if title else '<' + url + '>'
-        msg = """News source "{}" has been added to subscriptions list
-              """.format(source)
-    else:
-        msg = "News source is already listed in the subscription list"
-    return msg
+            msg = "News source is already listed in the subscription list"
+        return msg
 
 async def remove_feed(conn, lock, id):
     """
@@ -553,27 +547,26 @@ async def remove_feed(conn, lock, id):
     :param id: id of the feed
     :return: string
     """
-    print("remove_feed(conn, lock, id)")
-    # You have chose to remove feed (title, url) from your feed list.
-    # Enter "delete" to confirm removal.
-    await lock.acquire()
-    #conn = create_connection(db_file)
-    cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from remove_feed(conn, id)")
-    sql = "SELECT address FROM feeds WHERE id = ?"
-    # NOTE [0][1][2]
-    url = cur.execute(sql, (id,))
-    for i in url:
-        url = i[0]
-    sql = "DELETE FROM entries WHERE source = ?"
-    cur.execute(sql, (url,))
-    sql = "DELETE FROM feeds WHERE id = ?"
-    cur.execute(sql, (id,))
-    conn.commit()
-    lock.release()
-    print(time.strftime("%H:%M:%S"), "conn.commit() from remove_feed(conn, id)")
-    return """News source <{}> has been removed from subscriptions list
-           """.format(url)
+    async with lock:
+        print("remove_feed(conn, lock, id)")
+        # You have chose to remove feed (title, url) from your feed list.
+        # Enter "delete" to confirm removal.
+        #conn = create_connection(db_file)
+        cur = conn.cursor()
+        print(time.strftime("%H:%M:%S"), "conn.cursor() from remove_feed(conn, id)")
+        sql = "SELECT address FROM feeds WHERE id = ?"
+        # NOTE [0][1][2]
+        url = cur.execute(sql, (id,))
+        for i in url:
+            url = i[0]
+        sql = "DELETE FROM entries WHERE source = ?"
+        cur.execute(sql, (url,))
+        sql = "DELETE FROM feeds WHERE id = ?"
+        cur.execute(sql, (id,))
+        conn.commit()
+        print(time.strftime("%H:%M:%S"), "conn.commit() from remove_feed(conn, id)")
+        return """News source <{}> has been removed from subscriptions list
+               """.format(url)
 
 async def get_unread(conn, lock):
     """
@@ -620,29 +613,27 @@ async def mark_as_read(conn, lock, id):
     :param conn:
     :param id: id of the entry
     """
-    cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from mark_as_read(conn, id)")
-    sql = "UPDATE entries SET summary = '', read = 1 WHERE id = ?"
-    await lock.acquire()
-    cur.execute(sql, (id,))
-    conn.commit()
-    lock.release()
-    print(time.strftime("%H:%M:%S"), "conn.commit() from mark_as_read(conn, id)")
-    #conn.close()
+    async with lock:
+        cur = conn.cursor()
+        print(time.strftime("%H:%M:%S"), "conn.cursor() from mark_as_read(conn, id)")
+        sql = "UPDATE entries SET summary = '', read = 1 WHERE id = ?"
+        cur.execute(sql, (id,))
+        conn.commit()
+        print(time.strftime("%H:%M:%S"), "conn.commit() from mark_as_read(conn, id)")
+        #conn.close()
 
 async def feed_refresh(conn, lock, id):
-    cur = conn.cursor()
-    sql = "SELECT address FROM feeds WHERE id = :id"
-    cur.execute(sql, (id,))
-    url = cur.fetchone()[0]
-    res = await download_feed(conn, url)
-    feed = feedparser.parse(res[0])
-    title = feed["feed"]["title"]
-    sql = "UPDATE feeds SET name = :name WHERE address = :url"
-    await lock.acquire()
-    cur.execute(sql, {"name": title, "url": url})
-    conn.commit()
-    lock.release()
+    async with lock:
+        cur = conn.cursor()
+        sql = "SELECT address FROM feeds WHERE id = :id"
+        cur.execute(sql, (id,))
+        url = cur.fetchone()[0]
+        res = await download_feed(conn, url)
+        feed = feedparser.parse(res[0])
+        title = feed["feed"]["title"]
+        sql = "UPDATE feeds SET name = :name WHERE address = :url"
+        cur.execute(sql, {"name": title, "url": url})
+        conn.commit()
 
 # TODO mark_all_read for entries of feed
 async def toggle_status(conn, lock, id):
@@ -653,32 +644,31 @@ async def toggle_status(conn, lock, id):
     :return: string
     """
     print("toggle_status(conn, lock, id)")
-    await lock.acquire()
+    async with lock:
     #conn = create_connection(db_file)
-    cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from toggle_status(conn, id)")
-    sql = "SELECT name FROM feeds WHERE id = :id"
-    cur.execute(sql, (id,))
-    title = cur.fetchone()[0]
-    sql = "SELECT enabled FROM feeds WHERE id = ?"
-    # NOTE [0][1][2]
-    cur.execute(sql, (id,))
-    status = cur.fetchone()[0]
-    # FIXME always set to 1
-    # NOTE Maybe because is not integer
-    # TODO Reset feed table before further testing
-    if status == 1:
-        status = 0
-        notice =  "News updates for '{}' are now disabled".format(title)
-    else:
-        status = 1
-        notice =  "News updates for '{}' are now enabled".format(title)
-    sql = "UPDATE feeds SET enabled = :status WHERE id = :id"
-    cur.execute(sql, {"status": status, "id": id})
-    conn.commit()
-    lock.release()
-    print(time.strftime("%H:%M:%S"), "conn.commit() from toggle_status(conn, id)")
-    return notice
+        cur = conn.cursor()
+        print(time.strftime("%H:%M:%S"), "conn.cursor() from toggle_status(conn, id)")
+        sql = "SELECT name FROM feeds WHERE id = :id"
+        cur.execute(sql, (id,))
+        title = cur.fetchone()[0]
+        sql = "SELECT enabled FROM feeds WHERE id = ?"
+        # NOTE [0][1][2]
+        cur.execute(sql, (id,))
+        status = cur.fetchone()[0]
+        # FIXME always set to 1
+        # NOTE Maybe because is not integer
+        # TODO Reset feed table before further testing
+        if status == 1:
+            status = 0
+            notice =  "News updates for '{}' are now disabled".format(title)
+        else:
+            status = 1
+            notice =  "News updates for '{}' are now enabled".format(title)
+        sql = "UPDATE feeds SET enabled = :status WHERE id = :id"
+        cur.execute(sql, {"status": status, "id": id})
+        conn.commit()
+        print(time.strftime("%H:%M:%S"), "conn.commit() from toggle_status(conn, id)")
+        return notice
 
 async def toggle_state(jid, state):
     """
