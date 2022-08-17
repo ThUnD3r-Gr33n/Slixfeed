@@ -105,21 +105,21 @@ class Slixfeed(slixmpp.ClientXMPP):
                 print("COMMAND: feed recent")
                 print("ACCOUNT: " + str(msg['from']))
                 action = await initdb(msg['from'].bare, 
-                                  self.lock,
+                                  False,
                                   message[12:],
                                   last_entries)
             elif message.lower().startswith('feed search '):
                 print("COMMAND: feed search")
                 print("ACCOUNT: " + str(msg['from']))
                 action = await initdb(msg['from'].bare, 
-                                  self.lock,
+                                  False,
                                   message[12:],
                                   search_entries)
             elif message.lower().startswith('feed list'):
                 print("COMMAND: feed list")
                 print("ACCOUNT: " + str(msg['from']))
                 action = await initdb(msg['from'].bare, 
-                                  self.lock,
+                                  False,
                                   False,
                                   list_subscriptions)
             elif message.lower().startswith('feed add '):
@@ -161,7 +161,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         #while not offline:
         while True:
         #async with self.lock:
-            await self.lock.acquire()
             print(time.strftime("%H:%M:%S"))
             # print(offline)
             db_dir = get_default_dbdir()
@@ -183,7 +182,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         # d = self.send_ping(self, jid)
                         # print('d')
                         # print(d)
-                        new = await initdb(jid, False, False, get_unread)
+                        new = await initdb(jid, self.lock, False, get_unread)
                         if new:
                             msg = self.make_message(mto=jid, mbody=new,
                                                     mtype='chat')
@@ -202,13 +201,12 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 #                  mtype='chat')
                                 #print(msg)
                                 #msg.send()
-            self.lock.release()
             await asyncio.sleep(60 * 3)
 
     # asyncio.ensure_future(send_updates(self))
 
 async def check_updates():
-    #async with lock:
+    #async with Slixfeed.lock:
     while True:
         db_dir = get_default_dbdir()
         if not os.path.isdir(db_dir):
@@ -361,6 +359,8 @@ async def initdb(jid, lock, message, callback):
             print("if message else")
             print(lock.locked())
             return await callback(conn, lock)
+    elif message:
+        return await callback(conn, message)
     else:
         print("lock else")
         return await callback(conn)
@@ -477,7 +477,7 @@ async def download_feed(conn, url):
 loop = asyncio.get_event_loop()
 loop.run_until_complete
 
-async def check_feed(conn, url):
+async def check_feed(conn, lock, url):
     """
     Check whether a feed exists
     Query for feeds by url
@@ -485,10 +485,12 @@ async def check_feed(conn, url):
     :param url:
     :return: row
     """
+    await lock.acquire()
     cur = conn.cursor()
     print(time.strftime("%H:%M:%S"), "conn.cursor() from check_feed(conn, url)")
     sql = "SELECT id FROM feeds WHERE address = ?"
     cur.execute(sql, (url,))
+    lock.release()
     return cur.fetchone()
 
 async def add_feed(conn, lock, url):
@@ -500,15 +502,15 @@ async def add_feed(conn, lock, url):
     """
     print("add_feed(conn, lock, url)")
     #TODO consider async with lock
-    await lock.acquire()
     #conn = create_connection(db_file)
     cur = conn.cursor()
     print(time.strftime("%H:%M:%S"), "conn.cursor() from add_feed(conn, url)")
-    exist = await check_feed(conn, url)
+    exist = await check_feed(conn, lock, url)
     if not exist:
         res = await download_feed(conn, url)
         if res[0]:
             feed = feedparser.parse(res[0])
+            await lock.acquire()
             if feed.bozo:
                 feed = (url, 1, res[1], 0)
                 sql = """INSERT INTO feeds(address,enabled,status,valid)
@@ -573,7 +575,7 @@ async def remove_feed(conn, lock, id):
     return """News source <{}> has been removed from subscriptions list
            """.format(url)
 
-async def get_unread(conn):
+async def get_unread(conn, lock):
     """
     Check read status of entry
     :param conn:
@@ -609,10 +611,10 @@ async def get_unread(conn):
         #     str = cur.fetchone()[0]
         #     entry.append(str)
         entry = "{}\n\n{}\n\nLink to article:\n{}".format(entry[0], entry[1], entry[2])
-        await mark_as_read(conn, id)
+        await mark_as_read(conn, lock, id)
         return entry
 
-async def mark_as_read(conn, id):
+async def mark_as_read(conn, lock, id):
     """
     Set read status of entry
     :param conn:
@@ -621,12 +623,14 @@ async def mark_as_read(conn, id):
     cur = conn.cursor()
     print(time.strftime("%H:%M:%S"), "conn.cursor() from mark_as_read(conn, id)")
     sql = "UPDATE entries SET summary = '', read = 1 WHERE id = ?"
+    await lock.acquire()
     cur.execute(sql, (id,))
     conn.commit()
+    lock.release()
     print(time.strftime("%H:%M:%S"), "conn.commit() from mark_as_read(conn, id)")
     #conn.close()
 
-async def feed_refresh(conn, id):
+async def feed_refresh(conn, lock, id):
     cur = conn.cursor()
     sql = "SELECT address FROM feeds WHERE id = :id"
     cur.execute(sql, (id,))
@@ -635,8 +639,10 @@ async def feed_refresh(conn, id):
     feed = feedparser.parse(res[0])
     title = feed["feed"]["title"]
     sql = "UPDATE feeds SET name = :name WHERE address = :url"
+    await lock.acquire()
     cur.execute(sql, {"name": title, "url": url})
     conn.commit()
+    lock.release()
 
 # TODO mark_all_read for entries of feed
 async def toggle_status(conn, lock, id):
@@ -731,20 +737,18 @@ async def get_subscriptions(conn):
     result = cur.execute(sql)
     return result
 
-async def list_subscriptions(conn, lock):
+async def list_subscriptions(conn):
     """
     Query feeds
     :param conn:
     :return: rows (string)
     """
-    print("list_subscriptions(conn, lock)")
-    await lock.acquire()
+    print("list_subscriptions(conn)")
     cur = conn.cursor()
     print(time.strftime("%H:%M:%S"), "conn.cursor() from list_subscriptions(conn)")
     #sql = "SELECT id, address FROM feeds"
     sql = "SELECT name, address, updated, id, enabled FROM feeds"
     results = cur.execute(sql)
-    lock.release()
     feeds_list = "List of subscriptions: \n"
     counter = 0
     for result in results:
@@ -763,24 +767,22 @@ async def list_subscriptions(conn, lock):
                "feed add https://reclaimthenet.org/feed/")
         return msg
 
-async def last_entries(conn, lock, num):
+async def last_entries(conn, num):
     """
     Query feeds
     :param conn:
     :param num: integer
     :return: rows (string)
     """
-    print("last_entries(conn, lock, num)")
+    print("last_entries(conn, num)")
     num = int(num)
     if num > 50:
         num = 50
     elif num < 1:
         num = 1
-    await lock.acquire()
     cur = conn.cursor()
     sql = "SELECT title, link FROM entries ORDER BY ROWID DESC LIMIT {}".format(num)
     results = cur.execute(sql)
-    lock.release()
     titles_list = "Recent {} titles: \n".format(num)
     for result in results:
         # titles_list += """\nTitle: {} \nLink: {}
@@ -788,22 +790,20 @@ async def last_entries(conn, lock, num):
         """.format(str(result[0]), str(result[1]))
     return titles_list
 
-async def search_entries(conn, lock, query):
+async def search_entries(conn, query):
     """
     Query feeds
     :param conn:
     :param query: string
     :return: rows (string)
     """
-    print("search_entries(conn, lock, query)")
+    print("search_entries(conn, query)")
     if len(query) < 2:
         return "Please enter at least 2 characters to search"
-    await lock.acquire()
     cur = conn.cursor()
     sql = "SELECT title, link FROM entries WHERE title LIKE '%{}%' LIMIT 50".format(query)
     # sql = "SELECT title, link FROM entries WHERE title OR link LIKE '%{}%'".format(query)
     results = cur.execute(sql)
-    lock.release()
     results_list = "Search results for '{}': \n".format(query)
     counter = 0
     for result in results:
