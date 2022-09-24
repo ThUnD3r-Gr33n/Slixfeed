@@ -1,46 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Sun May 15 17:09:05 2022
-
-@author: Schimon Jehudah, Adv.
-"""
+import os
 from argparse import ArgumentParser
 from asyncio.exceptions import IncompleteReadError
-from bs4 import BeautifulSoup
 from datetime import date
 from getpass import getpass
 from http.client import IncompleteRead
-from os import path
 from urllib import error
-#from urllib.parse import urlparse
-#from xdg import BaseDirectory
-
-import aiohttp
 import asyncio
-import feedparser
 import logging
-import os
-import os.path
-import slixmpp
 import sqlite3
 from sqlite3 import Error
 import sys
-import time
-#import xdg
 
-# offline = False
+import aiohttp
+from bs4 import BeautifulSoup
+import feedparser
+import slixmpp
+
+DBLOCK = asyncio.Lock()
+
 
 class Slixfeed(slixmpp.ClientXMPP):
     """
     Slixmpp bot that will send updates of feeds it
     receives.
     """
-
-    lock = asyncio.Lock()
-    print("locked?")
-    print(lock.locked())
-
     def __init__(self, jid, password):
         slixmpp.ClientXMPP.__init__(self, jid, password)
 
@@ -51,20 +36,13 @@ class Slixfeed(slixmpp.ClientXMPP):
         # our roster.
         self.add_event_handler("session_start", self.start)
         self.add_event_handler("session_start", self.send_updates)
+        self.add_event_handler("session_start", self.check_updates)
 
         # The message event is triggered whenever a message
         # stanza is received. Be aware that that includes
         # MUC messages and error messages.
         self.add_event_handler("message", self.message)
         self.add_event_handler("disconnected", self.reconnect)
-
-    # async def reconnect(self, event):
-    #     await asyncio.sleep(10)
-    #     offline = True
-    #     print(time.strftime("%H:%M:%S"))
-    #     print(offline)
-    #     self.connect()
-    #     #return True
 
     async def start(self, event):
         """
@@ -104,65 +82,59 @@ class Slixfeed(slixmpp.ClientXMPP):
             elif message.lower().startswith('feed recent '):
                 print("COMMAND: feed recent")
                 print("ACCOUNT: " + str(msg['from']))
-                action = await initdb(msg['from'].bare, 
-                                  False,
-                                  message[12:],
-                                  last_entries)
+                action = await initdb(msg['from'].bare, last_entries, message[12:])
             elif message.lower().startswith('feed search '):
                 print("COMMAND: feed search")
                 print("ACCOUNT: " + str(msg['from']))
-                action = await initdb(msg['from'].bare, 
-                                  False,
-                                  message[12:],
-                                  search_entries)
+                action = await initdb( msg['from'].bare, search_entries, message[12:])
             elif message.lower().startswith('feed list'):
                 print("COMMAND: feed list")
                 print("ACCOUNT: " + str(msg['from']))
-                action = await initdb(msg['from'].bare, 
-                                  False,
-                                  False,
-                                  list_subscriptions)
+                action = await initdb(msg['from'].bare, list_subscriptions)
             elif message.lower().startswith('feed add '):
                 print("COMMAND: feed add")
                 print("ACCOUNT: " + str(msg['from']))
-                action = await initdb(msg['from'].bare,
-                                  self.lock,
-                                  message[9:],
-                                  add_feed)
+                action = await initdb(msg['from'].bare, add_feed, message[9:])
             elif message.lower().startswith('feed remove '):
                 print("COMMAND: feed remove")
                 print("ACCOUNT: " + str(msg['from']))
-                action = await initdb(msg['from'].bare,
-                                  self.lock,
-                                  message[12:],
-                                  remove_feed)
+                action = await initdb(msg['from'].bare, remove_feed, message[12:])
             elif message.lower().startswith('feed status '):
                 print("COMMAND: feed status")
                 print("ACCOUNT: " + str(msg['from']))
-                action = await initdb(msg['from'].bare,
-                                  self.lock,
-                                  message[12:],
-                                  toggle_status)
+                action = await initdb(msg['from'].bare, toggle_status, message[12:])
             elif message.lower().startswith('enable'):
                 print("COMMAND: enable")
                 print("ACCOUNT: " + str(msg['from']))
-                action = toggle_state(msg['from'].bare,
-                                  True)
+                action = toggle_state(msg['from'].bare, True)
             elif message.lower().startswith('disable'):
                 print("COMMAND: disable")
                 print("ACCOUNT: " + str(msg['from']))
-                action = toggle_state(msg['from'].bare,
-                                  False)
+                action = toggle_state(msg['from'].bare, False)
             else:
-                action = "Unknown command. Press \"help\" for list of commands"
+                action = 'Unknown command. Press "help" for list of commands'
             msg.reply(action).send()
 
-    async def send_updates(self, event):
-        #while not offline:
+    async def check_updates(self, event):
         while True:
-        #async with self.lock:
-            print(time.strftime("%H:%M:%S"))
-            # print(offline)
+            print("Checking update")
+            db_dir = get_default_dbdir()
+            if not os.path.isdir(db_dir):
+                msg = ("Slixfeed can not work without a database. \n"
+                       "To create a database, follow these steps: \n"
+                       "Add Slixfeed contact to your roster \n"
+                       "Send a feed to the bot by: \n"
+                       "feed add https://reclaimthenet.org/feed/")
+                print(msg)
+            else:
+                files = os.listdir(db_dir)
+                for file in files:
+                    jid = file[:-3]
+                    await initdb(jid, download_updates)
+            await asyncio.sleep(9)
+
+    async def send_updates(self, event):
+        while True:
             db_dir = get_default_dbdir()
             if not os.path.isdir(db_dir):
                 msg = ("Slixfeed can not work without a database. \n"
@@ -177,71 +149,19 @@ class Slixfeed(slixmpp.ClientXMPP):
                 for file in files:
                     if not file.endswith('.db-jour.db'):
                         jid = file[:-3]
-                        # TODO check if jid online
-                        # https://slixmpp.readthedocs.io/en/latest/api/plugins/xep_0199.html
-                        # d = self.send_ping(self, jid)
-                        # print('d')
-                        # print(d)
-                        new = await initdb(jid, self.lock, False, get_unread)
+                        new = await initdb(
+                            jid,
+                            get_unread
+                        )
                         if new:
-                            msg = self.make_message(mto=jid, mbody=new,
-                                                    mtype='chat')
+                            msg = self.make_message(
+                                mto=jid,
+                                mbody=new,
+                                mtype='chat'
+                            )
                             msg.send()
-                            # today = str(date.today())
-                            # news.insert = [0, 'News fetched on: ' + today]
-                            #news.append('End of News update')
-                            #for new in news:
-                                #print("sending to: jid")
-                                #print("sending to: " + jid)
-                                # self.send_message(mto=jid,
-                                #                   mbody=new,
-                                #                   mtype='normal').send()
-                                #msg = self.make_message(mto=jid,
-                                #                  mbody=new,
-                                #                  mtype='chat')
-                                #print(msg)
-                                #msg.send()
             await asyncio.sleep(60 * 3)
 
-    # asyncio.ensure_future(send_updates(self))
-
-async def check_updates():
-    #async with Slixfeed.lock:
-    while True:
-        db_dir = get_default_dbdir()
-        if not os.path.isdir(db_dir):
-            msg = ("Slixfeed can not work without a database. \n"
-                   "To create a database, follow these steps: \n"
-                   "Add Slixfeed contact to your roster \n"
-                   "Send a feed to the bot by: \n"
-                   "feed add https://reclaimthenet.org/feed/")
-            print(msg)
-        else:
-            os.chdir(db_dir)
-            files = os.listdir()
-            for file in files:
-                jid = file[:-3]
-                await initdb(
-                       jid,
-                       Slixfeed.lock,
-                       False,
-                       download_updates
-                )
-        await asyncio.sleep(60 * 30)
-
-asyncio.ensure_future(check_updates())
-
-# async def tasks():
-#     # Begin scanning feeds
-#     task = asyncio.create_task(check_updates())
-#     await task
-
-async def tasks(jid, password):
-    # Begin scanning feeds
-    await asyncio.gather(
-        check_updates(),
-        Slixfeed(jid, password).send_updates()
-    )
 
 def print_help():
     msg = ("Slixfeed - News syndication bot for Jabber/XMPP \n"
@@ -280,6 +200,7 @@ def print_help():
            "   https://pythonhosted.org/feedparser")
     return msg
 
+
 # Function from buku
 # https://github.com/jarun/buku
 # Arun Prakash Jana (jarun)
@@ -311,59 +232,49 @@ def get_default_dbdir():
             data_home = os.path.join(os.environ.get('HOME'), '.local', 'share')
     return os.path.join(data_home, 'slixfeed')
 
+
 # TODO Perhaps this needs to be executed
 # just once per program execution
-async def initdb(jid, lock, message, callback):
-    print("initdb(jid, lock, message, callback)")
+async def initdb(jid, callback, message=None):
     db_dir = get_default_dbdir()
     if not os.path.isdir(db_dir):
         os.mkdir(db_dir)
-    os.chdir(db_dir)
-    db_file = r"{}.db".format(jid)
-    feeds_table_sql = """
-        CREATE TABLE IF NOT EXISTS feeds (
-            id integer PRIMARY KEY,
-            name text,
-            address text NOT NULL,
-            enabled integer NOT NULL,
-            scanned text,
-            updated text,
-            status integer,
-            valid integer
-        ); """
-    entries_table_sql = """
-        CREATE TABLE IF NOT EXISTS entries (
-            id integer PRIMARY KEY,
-            title text NOT NULL,
-            summary text NOT NULL,
-            link text NOT NULL,
-            source text,
-            read integer
-        ); """
-    # create a database connection
-    conn = create_connection(db_file)
-    # create tables
-    if conn is not None:
-        # create projects table
-        create_table(conn, feeds_table_sql)
-        create_table(conn, entries_table_sql)
+    db_file = os.path.join(db_dir, r"{}.db".format(jid))
+    create_tables(db_file)
+
+    if message:
+        return await callback(db_file, message)
     else:
-        print("Error! cannot create the database connection.")
-    if lock:
-        if message:
-            print("if message")
-            print(message)
-            print(lock.locked())
-            return await callback(conn, lock, message)
-        else:
-            print("if message else")
-            print(lock.locked())
-            return await callback(conn, lock)
-    elif message:
-        return await callback(conn, message)
-    else:
-        print("lock else")
-        return await callback(conn)
+        return await callback(db_file)
+
+
+def create_tables(db_file):
+    with create_connection(db_file) as conn:
+        feeds_table_sql = """
+            CREATE TABLE IF NOT EXISTS feeds (
+                id integer PRIMARY KEY,
+                name text,
+                address text NOT NULL,
+                enabled integer NOT NULL,
+                scanned text,
+                updated text,
+                status integer,
+                valid integer
+            ); """
+        entries_table_sql = """
+            CREATE TABLE IF NOT EXISTS entries (
+                id integer PRIMARY KEY,
+                title text NOT NULL,
+                summary text NOT NULL,
+                link text NOT NULL,
+                source text,
+                read integer
+            ); """
+
+        c = conn.cursor()
+        c.execute(feeds_table_sql)
+        c.execute(entries_table_sql)
+
 
 def create_connection(db_file):
     """
@@ -380,102 +291,87 @@ def create_connection(db_file):
         print(e)
     return conn
 
-def create_table(conn, create_table_sql):
-    """
-    Create a table from the create_table_sql statement
-    :param conn: Connection object
-    :param create_table_sql: a CREATE TABLE statement
-    :return:
-    """
-    try:
-        c = conn.cursor()
-        print(time.strftime("%H:%M:%S"), "conn.cursor() from create_table(conn, create_table_sql)")
-        c.execute(create_table_sql)
-    except Error as e:
-        print(e)
 
-# def setup_info(jid):
-# def start_process(jid):
-async def download_updates(conn, lock):
-    async with lock:
-        print("download_updates(conn, lock)")
-        with conn:
-            # cur = conn.cursor()
-            # get current date
-            #today = date.today()
-            urls = await get_subscriptions(conn)
-            for url in urls:
-                #"".join(url)
-                source = url[0]
-                res = await download_feed(conn, source)
+async def download_updates(db_file):
+    with create_connection(db_file) as conn:
+        urls = await get_subscriptions(conn)
+
+    for url in urls:
+        source = url[0]
+        res = await download_feed(source)
+
+        sql = "UPDATE feeds SET status = :status, scanned = :scanned WHERE address = :url"
+        async with DBLOCK:
+            with create_connection(db_file) as conn:
                 cur = conn.cursor()
-                sql = "UPDATE feeds SET status = :status, scanned = :scanned WHERE address = :url"
                 cur.execute(sql, {"status": res[1], "scanned": date.today(), "url": source})
-                conn.commit()
-                if res[0]:
-                    try:
-                        feed = feedparser.parse(res[0])
-                        if feed.bozo:
-                            bozo = ("WARNING: Bozo detected for feed <{}>. "
-                                    "For more information, visit "
-                                    "https://pythonhosted.org/feedparser/bozo.html"
-                                    .format(source))
-                            print(bozo)
-                            valid = 0
-                        else:
-                            valid = 1
-                        sql = "UPDATE feeds SET valid = :validity WHERE address = :url"
+
+        if res[0]:
+            try:
+                feed = feedparser.parse(res[0])
+                if feed.bozo:
+                    bozo = ("WARNING: Bozo detected for feed <{}>. "
+                            "For more information, visit "
+                            "https://pythonhosted.org/feedparser/bozo.html"
+                            .format(source))
+                    print(bozo)
+                    valid = 0
+                else:
+                    valid = 1
+                sql = "UPDATE feeds SET valid = :validity WHERE address = :url"
+                async with DBLOCK:
+                    with create_connection(db_file) as conn:
+                        cur = conn.cursor()
                         cur.execute(sql, {"validity": valid, "url": source})
-                        conn.commit()
-                    except (IncompleteReadError, IncompleteRead, error.URLError) as e:
-                        print(e)
-                        return
-                # TODO Place these couple of lines back down
-                # NOTE Need to correct the SQL statement to do so
-                entries = feed.entries
-                length = len(entries)
+            except (IncompleteReadError, IncompleteRead, error.URLError) as e:
+                print(e)
+                return
+        # TODO Place these couple of lines back down
+        # NOTE Need to correct the SQL statement to do so
+        entries = feed.entries
+        length = len(entries)
+        async with DBLOCK:
+            with create_connection(db_file) as conn:
                 await remove_entry(conn, source, length)
-                for entry in entries:
-                    if entry.has_key("title"):
-                        title = entry.title
-                    else:
-                        title = feed["feed"]["title"]
-                    link = source if not entry.link else entry.link
-                    exist = await check_entry(conn, title, link)
-                    if not exist:
-                        if entry.has_key("summary"):
-                            summary = entry.summary
-                            # Remove HTML tags
-                            summary = BeautifulSoup(summary, "lxml").text
-                            # TODO Limit text length
-                            summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
-                        else:
-                            summary = '*** No summary ***'
-                            #print('~~~~~~summary not in entry')
-                        entry = (title, summary, link, source, 0);
+
+        for entry in entries:
+            if entry.has_key("title"):
+                title = entry.title
+            else:
+                title = feed["feed"]["title"]
+            link = source if not entry.link else entry.link
+            with create_connection(db_file) as conn:
+                exist = await check_entry(conn, title, link)
+
+            if not exist:
+                if entry.has_key("summary"):
+                    summary = entry.summary
+                    # Remove HTML tags
+                    summary = BeautifulSoup(summary, "lxml").text
+                    # TODO Limit text length
+                    summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
+                else:
+                    summary = '*** No summary ***'
+                    #print('~~~~~~summary not in entry')
+                entry = (title, summary, link, source, 0);
+                async with DBLOCK:
+                    with create_connection(db_file) as conn:
                         await add_entry(conn, entry)
                         await set_date(conn, source)
-                    #make_message
-    #                 message = title + '\n\n' + summary + '\n\nLink: ' + link
-    #                 print(message)
-    #                 news.append(message)
-    #                 print(len(news))
-    # return news
 
-async def download_feed(conn, url):
+
+async def download_feed(url):
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             status = response.status
             if response.status == 200:
                 doc = await response.text()
-                return [doc,status]
+                return [doc, status]
             else:
-                return [False,status]
+                return [False, status]
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete
 
-async def check_feed(conn, lock, url):
+async def check_feed(conn, url):
     """
     Check whether a feed exists
     Query for feeds by url
@@ -483,29 +379,32 @@ async def check_feed(conn, lock, url):
     :param url:
     :return: row
     """
-    async with lock:
-        cur = conn.cursor()
-        print(time.strftime("%H:%M:%S"), "conn.cursor() from check_feed(conn, url)")
-        sql = "SELECT id FROM feeds WHERE address = ?"
-        cur.execute(sql, (url,))
-        return cur.fetchone()
+    cur = conn.cursor()
+    sql = "SELECT id FROM feeds WHERE address = ?"
+    cur.execute(sql, (url,))
+    return cur.fetchone()
 
-async def add_feed(conn, lock, url):
+
+async def add_feed(db_file, url):
     """
     Add a new feed into the feeds table
     :param conn:
     :param feed:
     :return: string
     """
-    async with lock:
-        print("add_feed(conn, lock, url)")
-        #TODO consider async with lock
-        #conn = create_connection(db_file)
-        cur = conn.cursor()
-        print(time.strftime("%H:%M:%S"), "conn.cursor() from add_feed(conn, url)")
-        exist = await check_feed(conn, lock, url)
-        if not exist:
-            res = await download_feed(conn, url)
+    #TODO consider async with DBLOCK
+    #conn = create_connection(db_file)
+    with create_connection(db_file) as conn:
+        exist = await check_feed(conn, url)
+
+    if not exist:
+        res = await download_feed(url)
+    else:
+        return "News source is already listed in the subscription list"
+
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
             if res[0]:
                 feed = feedparser.parse(res[0])
                 if feed.bozo:
@@ -513,7 +412,6 @@ async def add_feed(conn, lock, url):
                     sql = """INSERT INTO feeds(address,enabled,status,valid)
                              VALUES(?,?,?,?) """
                     cur.execute(sql, feed)
-                    conn.commit()
                     bozo = ("WARNING: Bozo detected. Failed to load URL.")
                     print(bozo)
                     return "Failed to parse URL as feed"
@@ -523,154 +421,114 @@ async def add_feed(conn, lock, url):
                     sql = """INSERT INTO feeds(name,address,enabled,status,valid)
                              VALUES(?,?,?,?,?) """
                     cur.execute(sql, feed)
-                    conn.commit()
             else:
                 feed = (url, 1, res[1], 0)
-                sql = """INSERT INTO feeds(address,enabled,status,valid)
-                         VALUES(?,?,?,?) """
+                sql = "INSERT INTO feeds(address,enabled,status,valid) VALUES(?,?,?,?) "
                 cur.execute(sql, feed)
-                conn.commit()
                 return "Failed to get URL.  HTTP Error {}".format(res[1])
-            print(time.strftime("%H:%M:%S"), "conn.commit() from add_feed(conn, url)")
-            # source = title if not '' else url
-            source = title if title else '<' + url + '>'
-            msg = """News source "{}" has been added to subscriptions list
-                  """.format(source)
-        else:
-            msg = "News source is already listed in the subscription list"
-        return msg
 
-async def remove_feed(conn, lock, id):
+    source = title if title else '<' + url + '>'
+    msg = 'News source "{}" has been added to subscriptions list'.format(source)
+    return msg
+
+
+async def remove_feed(db_file, ix):
     """
     Delete a feed by feed id
     :param conn:
     :param id: id of the feed
     :return: string
     """
-    async with lock:
-        print("remove_feed(conn, lock, id)")
-        # You have chose to remove feed (title, url) from your feed list.
-        # Enter "delete" to confirm removal.
-        #conn = create_connection(db_file)
+    with create_connection(db_file) as conn:
         cur = conn.cursor()
-        print(time.strftime("%H:%M:%S"), "conn.cursor() from remove_feed(conn, id)")
         sql = "SELECT address FROM feeds WHERE id = ?"
-        # NOTE [0][1][2]
-        url = cur.execute(sql, (id,))
+        url = cur.execute(sql, (ix,))
         for i in url:
             url = i[0]
         sql = "DELETE FROM entries WHERE source = ?"
         cur.execute(sql, (url,))
         sql = "DELETE FROM feeds WHERE id = ?"
-        cur.execute(sql, (id,))
-        conn.commit()
-        print(time.strftime("%H:%M:%S"), "conn.commit() from remove_feed(conn, id)")
+        cur.execute(sql, (ix,))
         return """News source <{}> has been removed from subscriptions list
                """.format(url)
 
-async def get_unread(conn, lock):
+
+async def get_unread(db_file):
     """
     Check read status of entry
     :param conn:
     :param id: id of the entry
     :return: string
     """
-    with conn:
-        entry = []
-        cur = conn.cursor()
-        print(time.strftime("%H:%M:%S"), "conn.cursor() from get_unread(conn)")
-        sql = "SELECT id FROM entries WHERE read = 0"
-        #id = cur.execute(sql).fetchone()[0]
-        id = cur.execute(sql).fetchone()
-        if id is None:
-            return False
-        id = id[0]
-        sql = "SELECT title FROM entries WHERE id = :id"
-        cur.execute(sql, (id,))
-        title = cur.fetchone()[0]
-        entry.append(title)
-        sql = "SELECT summary FROM entries WHERE id = :id"
-        cur.execute(sql, (id,))
-        summary = cur.fetchone()[0]
-        entry.append(summary)
-        sql = "SELECT link FROM entries WHERE id = :id"
-        cur.execute(sql, (id,))
-        link = cur.fetchone()[0]
-        entry.append(link)
-        # columns = ['title', 'summary', 'link']
-        # for column in columns:
-        #     sql = "SELECT :column FROM entries WHERE id = :id"
-        #     cur.execute(sql, {"column": column, "id": id})
-        #     str = cur.fetchone()[0]
-        #     entry.append(str)
-        entry = "{}\n\n{}\n\nLink to article:\n{}".format(entry[0], entry[1], entry[2])
-        await mark_as_read(conn, lock, id)
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            entry = []
+            cur = conn.cursor()
+            sql = "SELECT id FROM entries WHERE read = 0"
+            ix = cur.execute(sql).fetchone()
+            if ix is None:
+                return False
+            ix = ix[0]
+            sql = "SELECT title FROM entries WHERE id = :id"
+            cur.execute(sql, (ix,))
+            title = cur.fetchone()[0]
+            entry.append(title)
+            sql = "SELECT summary FROM entries WHERE id = :id"
+            cur.execute(sql, (ix,))
+            summary = cur.fetchone()[0]
+            entry.append(summary)
+            sql = "SELECT link FROM entries WHERE id = :id"
+            cur.execute(sql, (ix,))
+            link = cur.fetchone()[0]
+            entry.append(link)
+            entry = "{}\n\n{}\n\nLink to article:\n{}".format(entry[0], entry[1], entry[2])
+            await mark_as_read(cur, ix)
         return entry
 
-async def mark_as_read(conn, lock, id):
+
+async def mark_as_read(cur, ix):
     """
     Set read status of entry
-    :param conn:
-    :param id: id of the entry
+    :param cur:
+    :param ix: index of the entry
     """
-    async with lock:
-        cur = conn.cursor()
-        print(time.strftime("%H:%M:%S"), "conn.cursor() from mark_as_read(conn, id)")
-        sql = "UPDATE entries SET summary = '', read = 1 WHERE id = ?"
-        cur.execute(sql, (id,))
-        conn.commit()
-        print(time.strftime("%H:%M:%S"), "conn.commit() from mark_as_read(conn, id)")
-        #conn.close()
+    sql = "UPDATE entries SET summary = '', read = 1 WHERE id = ?"
+    cur.execute(sql, (ix,))
 
-async def feed_refresh(conn, lock, id):
-    async with lock:
-        cur = conn.cursor()
-        sql = "SELECT address FROM feeds WHERE id = :id"
-        cur.execute(sql, (id,))
-        url = cur.fetchone()[0]
-        res = await download_feed(conn, url)
-        feed = feedparser.parse(res[0])
-        title = feed["feed"]["title"]
-        sql = "UPDATE feeds SET name = :name WHERE address = :url"
-        cur.execute(sql, {"name": title, "url": url})
-        conn.commit()
 
 # TODO mark_all_read for entries of feed
-async def toggle_status(conn, lock, id):
+async def toggle_status(db_file, ix):
     """
     Set status of feed
     :param conn:
     :param id: id of the feed
     :return: string
     """
-    print("toggle_status(conn, lock, id)")
-    async with lock:
-    #conn = create_connection(db_file)
-        cur = conn.cursor()
-        print(time.strftime("%H:%M:%S"), "conn.cursor() from toggle_status(conn, id)")
-        sql = "SELECT name FROM feeds WHERE id = :id"
-        cur.execute(sql, (id,))
-        title = cur.fetchone()[0]
-        sql = "SELECT enabled FROM feeds WHERE id = ?"
-        # NOTE [0][1][2]
-        cur.execute(sql, (id,))
-        status = cur.fetchone()[0]
-        # FIXME always set to 1
-        # NOTE Maybe because is not integer
-        # TODO Reset feed table before further testing
-        if status == 1:
-            status = 0
-            notice =  "News updates for '{}' are now disabled".format(title)
-        else:
-            status = 1
-            notice =  "News updates for '{}' are now enabled".format(title)
-        sql = "UPDATE feeds SET enabled = :status WHERE id = :id"
-        cur.execute(sql, {"status": status, "id": id})
-        conn.commit()
-        print(time.strftime("%H:%M:%S"), "conn.commit() from toggle_status(conn, id)")
-        return notice
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = "SELECT name FROM feeds WHERE id = :id"
+            cur.execute(sql, (ix,))
+            title = cur.fetchone()[0]
+            sql = "SELECT enabled FROM feeds WHERE id = ?"
+            # NOTE [0][1][2]
+            cur.execute(sql, (ix,))
+            status = cur.fetchone()[0]
+            # FIXME always set to 1
+            # NOTE Maybe because is not integer
+            # TODO Reset feed table before further testing
+            if status == 1:
+                status = 0
+                notice =  "News updates for '{}' are now disabled".format(title)
+            else:
+                status = 1
+                notice =  "News updates for '{}' are now enabled".format(title)
+            sql = "UPDATE feeds SET enabled = :status WHERE id = :id"
+            cur.execute(sql, {"status": status, "id": ix})
+    return notice
 
-async def toggle_state(jid, state):
+
+def toggle_state(jid, state):
     """
     Set status of update
     :param jid: jid of the user
@@ -678,28 +536,22 @@ async def toggle_state(jid, state):
     :return:
     """
     db_dir = get_default_dbdir()
-    os.chdir(db_dir)
-    db_file = r"{}.db".format(jid)
-    bk_file = r"{}.db.bak".format(jid)
+    db_file = os.path.join(db_dir, r"{}.db".format(jid))
+    bk_file = os.path.join(db_dir, r"{}.db.bak".format(jid))
+
     if state:
-        if path.exists(db_file):
+        if os.path.exists(db_file):
             return "Updates are already enabled"
-        elif path.exists(bk_file):
+        elif os.path.exists(bk_file):
             os.renames(bk_file, db_file)
             return "Updates are now enabled"
     else:
-        if path.exists(bk_file):
+        if os.path.exists(bk_file):
             return "Updates are already disabled"
-        elif path.exists(db_file):
+        elif os.path.exists(db_file):
             os.renames(db_file, bk_file)
             return "Updates are now disabled"
-    
-    # if path.exists(db_file):
-    #     os.renames(db_file, db_file + ".bak")
-    #     break
-    # db_file = r"{}.db.bak".format(jid)
-    # if path.exists(db_file):
-    #     os.renames(db_file, jid,+".db")
+
 
 async def set_date(conn, url):
     """
@@ -709,11 +561,9 @@ async def set_date(conn, url):
     """
     today = date.today()
     cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from set_date(conn, url)")
     sql = "UPDATE feeds SET updated = :today WHERE address = :url"
     cur.execute(sql, {"today": today, "url": url})
-    conn.commit()
-    print(time.strftime("%H:%M:%S"), "conn.commit() from set_date(conn, url)")
+
 
 async def get_subscriptions(conn):
     """
@@ -722,28 +572,26 @@ async def get_subscriptions(conn):
     :return: rows (tuple)
     """
     cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from get_subscriptions(conn)")
     sql = "SELECT address FROM feeds WHERE enabled = 1"
     result = cur.execute(sql)
     return result
 
-async def list_subscriptions(conn):
+
+async def list_subscriptions(db_file):
     """
     Query feeds
     :param conn:
     :return: rows (string)
     """
-    print("list_subscriptions(conn)")
-    cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from list_subscriptions(conn)")
-    #sql = "SELECT id, address FROM feeds"
-    sql = "SELECT name, address, updated, id, enabled FROM feeds"
-    results = cur.execute(sql)
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = "SELECT name, address, updated, id, enabled FROM feeds"
+        results = cur.execute(sql)
+
     feeds_list = "List of subscriptions: \n"
     counter = 0
     for result in results:
         counter += 1
-        #feeds_list = feeds_list + '\n {}. {}'.format(str(result[0]), str(result[1]))
         feeds_list += """\n{} \n{} \nLast updated: {} \nID: {} [{}]
         """.format(str(result[0]), str(result[1]), str(result[2]),
                    str(result[3]), str(result[4]))
@@ -757,54 +605,56 @@ async def list_subscriptions(conn):
                "feed add https://reclaimthenet.org/feed/")
         return msg
 
-async def last_entries(conn, num):
+
+async def last_entries(db_file, num):
     """
     Query feeds
     :param conn:
     :param num: integer
     :return: rows (string)
     """
-    print("last_entries(conn, num)")
     num = int(num)
     if num > 50:
         num = 50
     elif num < 1:
         num = 1
-    cur = conn.cursor()
-    sql = "SELECT title, link FROM entries ORDER BY ROWID DESC LIMIT {}".format(num)
-    results = cur.execute(sql)
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = "SELECT title, link FROM entries ORDER BY ROWID DESC LIMIT {}".format(num)
+        results = cur.execute(sql)
+
     titles_list = "Recent {} titles: \n".format(num)
     for result in results:
-        # titles_list += """\nTitle: {} \nLink: {}
-        titles_list += """\n{} \n{}
-        """.format(str(result[0]), str(result[1]))
+        titles_list += "\n{} \n{}".format(str(result[0]), str(result[1]))
     return titles_list
 
-async def search_entries(conn, query):
+
+async def search_entries(db_file, query):
     """
     Query feeds
     :param conn:
     :param query: string
     :return: rows (string)
     """
-    print("search_entries(conn, query)")
     if len(query) < 2:
         return "Please enter at least 2 characters to search"
-    cur = conn.cursor()
-    sql = "SELECT title, link FROM entries WHERE title LIKE '%{}%' LIMIT 50".format(query)
-    # sql = "SELECT title, link FROM entries WHERE title OR link LIKE '%{}%'".format(query)
-    results = cur.execute(sql)
+
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = "SELECT title, link FROM entries WHERE title LIKE '%{}%' LIMIT 50".format(query)
+        results = cur.execute(sql)
+
     results_list = "Search results for '{}': \n".format(query)
     counter = 0
     for result in results:
         counter += 1
-        # titles_list += """\nTitle: {} \nLink: {}
         results_list += """\n{} \n{}
         """.format(str(result[0]), str(result[1]))
     if counter:
         return results_list + "\n Total of {} results".format(counter)
     else:
         return "No results found for: {}".format(query)
+
 
 async def check_entry(conn, title, link):
     """
@@ -816,10 +666,10 @@ async def check_entry(conn, title, link):
     :return: row
     """
     cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from check_entry(conn, title, link)")
     sql = "SELECT id FROM entries WHERE title = :title and link = :link"
     cur.execute(sql, {"title": title, "link": link})
     return cur.fetchone()
+
 
 async def add_entry(conn, entry):
     """
@@ -831,10 +681,8 @@ async def add_entry(conn, entry):
     sql = """ INSERT INTO entries(title,summary,link,source,read)
               VALUES(?,?,?,?,?) """
     cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from add_entry(conn, entry)")
     cur.execute(sql, entry)
-    conn.commit()
-    print(time.strftime("%H:%M:%S"), "conn.commit() from add_entry(conn, entry)")
+
 
 async def remove_entry(conn, source, length):
     """
@@ -847,7 +695,6 @@ async def remove_entry(conn, source, length):
     :return:
     """
     cur = conn.cursor()
-    print(time.strftime("%H:%M:%S"), "conn.cursor() from remove_entry(conn, source, length)")
     # FIXED
     # Dino empty titles are not counted https://dino.im/index.xml
     # SOLVED
@@ -856,10 +703,8 @@ async def remove_entry(conn, source, length):
     sql = "SELECT count(id) FROM entries WHERE source = ?"
     count = cur.execute(sql, (source,))
     count = cur.fetchone()[0]
-    #limit = count - length
     limit = count - length
     if limit:
-    #if limit > 0:
         limit = limit;
         sql = """DELETE FROM entries WHERE id IN (
                  SELECT id FROM entries
@@ -867,20 +712,23 @@ async def remove_entry(conn, source, length):
                  ORDER BY id
                  ASC LIMIT :limit)"""
         cur.execute(sql, {"source": source, "limit": limit})
-        conn.commit()
-        print(time.strftime("%H:%M:%S"), "conn.commit() from remove_entry(conn, source, length)")
+
 
 if __name__ == '__main__':
     # Setup the command line arguments.
     parser = ArgumentParser(description=Slixfeed.__doc__)
 
     # Output verbosity options.
-    parser.add_argument("-q", "--quiet", help="set logging to ERROR",
-                        action="store_const", dest="loglevel",
-                        const=logging.ERROR, default=logging.INFO)
-    parser.add_argument("-d", "--debug", help="set logging to DEBUG",
-                        action="store_const", dest="loglevel",
-                        const=logging.DEBUG, default=logging.INFO)
+    parser.add_argument(
+         "-q", "--quiet", help="set logging to ERROR",
+         action="store_const", dest="loglevel",
+         const=logging.ERROR, default=logging.INFO
+    )
+    parser.add_argument(
+        "-d", "--debug", help="set logging to DEBUG",
+        action="store_const", dest="loglevel",
+        const=logging.DEBUG, default=logging.INFO
+    )
 
     # JID and password options.
     parser.add_argument("-j", "--jid", dest="jid",
