@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+# vars and their meanings:
+# cur = Cursor (SQL)
+# jid = Jabber ID (XMPP)
+# res = response (HTTP)
+
 import os
 from argparse import ArgumentParser
 from asyncio.exceptions import IncompleteReadError
@@ -167,7 +173,7 @@ def print_help():
     msg = ("Slixfeed - News syndication bot for Jabber/XMPP \n"
            "\n"
            "DESCRIPTION: \n"
-           " Slixfeed is an aggregator bot for online news feeds. \n"
+           " Slixfeed is a news aggregator bot for online news feeds. \n"
            "\n"
            "BASIC USAGE: \n"
            " enable \n"
@@ -179,7 +185,7 @@ def print_help():
            "\n"
            "EDIT OPTIONS: \n"
            " feed add URL \n"
-           "   Add URL to the subscriptions list. \n"
+           "   Add URL to subscription list. \n"
            " feed remove ID \n"
            "   Remove feed from subscription list. \n"
            " feed status ID \n"
@@ -190,6 +196,16 @@ def print_help():
            "   Search news items by given keywords. \n"
            " feed recent N \n"
            "   List recent N news items (up to 50 items). \n"
+           "\n"
+           "BACKUP OPTIONS: \n"
+           " export opml \n"
+           "   Send an OPML file with your feeds. \n"
+           " backup news html\n"
+           "   Send an HTML formatted file of your news items. \n"
+           " backup news md \n"
+           "   Send a Markdown file of your news items. \n"
+           " backup news text \n"
+           "   Send a Plain Text file of your news items. \n"
            "\n"
            "DOCUMENTATION: \n"
            " Slixfeed \n"
@@ -328,36 +344,42 @@ async def download_updates(db_file):
                 return
         # TODO Place these couple of lines back down
         # NOTE Need to correct the SQL statement to do so
-        entries = feed.entries
-        length = len(entries)
-        async with DBLOCK:
-            with conn:
-                await remove_entry(conn, source, length)
+        # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
+        
+        if res[1] == 200:
+        # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
+        # TODO Place these couple of lines back down
+        # NOTE Need to correct the SQL statement to do so
+            entries = feed.entries
+            length = len(entries)
+            async with DBLOCK:
+                with conn:
+                    await remove_entry(conn, source, length)
 
-        for entry in entries:
-            if entry.has_key("title"):
-                title = entry.title
-            else:
-                title = feed["feed"]["title"]
-            link = source if not entry.link else entry.link
-            with conn:
-                exist = await check_entry(conn, title, link)
-
-            if not exist:
-                if entry.has_key("summary"):
-                    summary = entry.summary
-                    # Remove HTML tags
-                    summary = BeautifulSoup(summary, "lxml").text
-                    # TODO Limit text length
-                    summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
+            for entry in entries:
+                if entry.has_key("title"):
+                    title = entry.title
                 else:
-                    summary = '*** No summary ***'
-                    #print('~~~~~~summary not in entry')
-                entry = (title, summary, link, source, 0);
-                async with DBLOCK:
-                    with conn:
-                        await add_entry(conn, entry)
-                        await set_date(conn, source)
+                    title = feed["feed"]["title"]
+                link = source if not entry.link else entry.link
+                with conn:
+                    exist = await check_entry(conn, title, link)
+    
+                if not exist:
+                    if entry.has_key("summary"):
+                        summary = entry.summary
+                        # Remove HTML tags
+                        summary = BeautifulSoup(summary, "lxml").text
+                        # TODO Limit text length
+                        summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
+                    else:
+                        summary = '*** No summary ***'
+                        #print('~~~~~~summary not in entry')
+                    entry = (title, summary, link, source, 0);
+                    async with DBLOCK:
+                        with conn:
+                            await add_entry(conn, entry)
+                            await set_date(conn, source)
 
 
 async def download_feed(url):
