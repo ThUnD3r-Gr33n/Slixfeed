@@ -302,7 +302,7 @@ async def download_updates(db_file):
 
         sql = "UPDATE feeds SET status = :status, scanned = :scanned WHERE address = :url"
         async with DBLOCK:
-            with create_connection(db_file) as conn:
+            with conn:
                 cur = conn.cursor()
                 cur.execute(sql, {"status": res[1], "scanned": date.today(), "url": source})
 
@@ -320,7 +320,7 @@ async def download_updates(db_file):
                     valid = 1
                 sql = "UPDATE feeds SET valid = :validity WHERE address = :url"
                 async with DBLOCK:
-                    with create_connection(db_file) as conn:
+                    with conn:
                         cur = conn.cursor()
                         cur.execute(sql, {"validity": valid, "url": source})
             except (IncompleteReadError, IncompleteRead, error.URLError) as e:
@@ -331,7 +331,7 @@ async def download_updates(db_file):
         entries = feed.entries
         length = len(entries)
         async with DBLOCK:
-            with create_connection(db_file) as conn:
+            with conn:
                 await remove_entry(conn, source, length)
 
         for entry in entries:
@@ -340,7 +340,7 @@ async def download_updates(db_file):
             else:
                 title = feed["feed"]["title"]
             link = source if not entry.link else entry.link
-            with create_connection(db_file) as conn:
+            with conn:
                 exist = await check_entry(conn, title, link)
 
             if not exist:
@@ -355,7 +355,7 @@ async def download_updates(db_file):
                     #print('~~~~~~summary not in entry')
                 entry = (title, summary, link, source, 0);
                 async with DBLOCK:
-                    with create_connection(db_file) as conn:
+                    with conn:
                         await add_entry(conn, entry)
                         await set_date(conn, source)
 
