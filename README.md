@@ -32,6 +32,7 @@ feed add http://hackerpublicradio.org/hpr_ogg_rss.php
 - Schimon Jehudah, Attorney at Law.
 - [Alixander Court](https://alixandercourt.com/)
 - [edhelas](https://github.com/edhelas/atomtopubsub)
+- habnabit_ from #python on irc.libera.chat (SQL security)
 - [imattau](https://github.com/imattau/atomtopubsub) (Some code, mostly URL handling, was taken from imattau)
 - [Laura](xmpp:lauranna@404.city)
 - [Link Mauve](https://linkmauve.fr/contact.xhtml)
