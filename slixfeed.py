@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# TODO
+#
+# 0) sql prepared statements
+# 1) Autodetect feed:
+#    if page is not feed (or HTML) and contains <link rel="alternate">
+# 2) OPML import/export
+
 # vars and their meanings:
 # cur = Cursor (SQL)
 # jid = Jabber ID (XMPP)
@@ -181,7 +188,7 @@ def print_help():
            " disable \n"
            "   Stop sending updates. \n"
            " feed list \n"
-           "   List subscriptions list. \n"
+           "   List subscriptions. \n"
            "\n"
            "EDIT OPTIONS: \n"
            " feed add URL \n"
@@ -308,6 +315,8 @@ def create_connection(db_file):
     return conn
 
 
+# NOTE I don't think there should be "return"
+# because then we might stop scanning next URLs
 async def download_updates(db_file):
     with create_connection(db_file) as conn:
         urls = await get_subscriptions(conn)
@@ -315,6 +324,13 @@ async def download_updates(db_file):
     for url in urls:
         source = url[0]
         res = await download_feed(source)
+
+        # TypeError: 'NoneType' object is not subscriptable
+        if res is None:
+            # Skip to next feed
+            # urls.next()
+            # next(urls)
+            continue
 
         sql = "UPDATE feeds SET status = :status, scanned = :scanned WHERE address = :url"
         async with DBLOCK:
@@ -341,7 +357,7 @@ async def download_updates(db_file):
                         cur.execute(sql, {"validity": valid, "url": source})
             except (IncompleteReadError, IncompleteRead, error.URLError) as e:
                 print(e)
-                return
+                # return
         # TODO Place these couple of lines back down
         # NOTE Need to correct the SQL statement to do so
         # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
@@ -377,20 +393,33 @@ async def download_updates(db_file):
                         #print('~~~~~~summary not in entry')
                     entry = (title, summary, link, source, 0);
                     async with DBLOCK:
+                        # print("add entry:", entry)
                         with conn:
                             await add_entry(conn, entry)
                             await set_date(conn, source)
 
+        #del length
+        #entries = 0
+
 
 async def download_feed(url):
+    timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            status = response.status
-            if response.status == 200:
-                doc = await response.text()
-                return [doc, status]
-            else:
-                return [False, status]
+#    async with aiohttp.ClientSession(trust_env=True) as session:
+        try:
+            async with session.get(url, timeout=timeout) as response:
+                status = response.status
+                if response.status == 200:
+                    doc = await response.text()
+                    return [doc, status]
+                else:
+                    return [False, status]
+        except aiohttp.ClientError as e:
+            print('Error', str(e))
+            return [False, "error"]
+        except asyncio.TimeoutError as e:
+            print('Timeout', str(e))
+            return [False, "timeout"]
 
 
 async def check_feed(conn, url):
@@ -425,7 +454,7 @@ async def add_feed(db_file, url):
         return "News source is already listed in the subscription list"
 
     async with DBLOCK:
-        with create_connection(db_file) as conn:
+        with conn:
             cur = conn.cursor()
             if res[0]:
                 feed = feedparser.parse(res[0])
@@ -450,7 +479,7 @@ async def add_feed(db_file, url):
                 return "Failed to get URL.  HTTP Error {}".format(res[1])
 
     source = title if title else '<' + url + '>'
-    msg = 'News source "{}" has been added to subscriptions list'.format(source)
+    msg = 'News source "{}" has been added to subscription list'.format(source)
     return msg
 
 
@@ -471,7 +500,7 @@ async def remove_feed(db_file, ix):
         cur.execute(sql, (url,))
         sql = "DELETE FROM feeds WHERE id = ?"
         cur.execute(sql, (ix,))
-        return """News source <{}> has been removed from subscriptions list
+        return """News source <{}> has been removed from subscription list
                """.format(url)
 
 
@@ -482,40 +511,42 @@ async def get_unread(db_file):
     :param id: id of the entry
     :return: string
     """
-    async with DBLOCK:
-        with create_connection(db_file) as conn:
-            entry = []
-            cur = conn.cursor()
-            sql = "SELECT id FROM entries WHERE read = 0"
-            ix = cur.execute(sql).fetchone()
-            if ix is None:
-                return False
-            ix = ix[0]
-            sql = "SELECT title FROM entries WHERE id = :id"
-            cur.execute(sql, (ix,))
-            title = cur.fetchone()[0]
-            entry.append(title)
-            sql = "SELECT summary FROM entries WHERE id = :id"
-            cur.execute(sql, (ix,))
-            summary = cur.fetchone()[0]
-            entry.append(summary)
-            sql = "SELECT link FROM entries WHERE id = :id"
-            cur.execute(sql, (ix,))
-            link = cur.fetchone()[0]
-            entry.append(link)
-            entry = "{}\n\n{}\n\nLink to article:\n{}".format(entry[0], entry[1], entry[2])
-            await mark_as_read(cur, ix)
-        return entry
+    with create_connection(db_file) as conn:
+        entry = []
+        cur = conn.cursor()
+        sql = "SELECT id FROM entries WHERE read = 0"
+        ix = cur.execute(sql).fetchone()
+        if ix is None:
+            return False
+        ix = ix[0]
+        sql = "SELECT title FROM entries WHERE id = :id"
+        cur.execute(sql, (ix,))
+        title = cur.fetchone()[0]
+        entry.append(title)
+        sql = "SELECT summary FROM entries WHERE id = :id"
+        cur.execute(sql, (ix,))
+        summary = cur.fetchone()[0]
+        entry.append(summary)
+        sql = "SELECT link FROM entries WHERE id = :id"
+        cur.execute(sql, (ix,))
+        link = cur.fetchone()[0]
+        entry.append(link)
+        entry = "{}\n\n{}\n\nLink to article:\n{}".format(entry[0], entry[1], entry[2])
+        print(entry)
+        await mark_as_read(conn, ix)
+    return entry
 
 
-async def mark_as_read(cur, ix):
+async def mark_as_read(conn, ix):
     """
     Set read status of entry
     :param cur:
     :param ix: index of the entry
     """
-    sql = "UPDATE entries SET summary = '', read = 1 WHERE id = ?"
-    cur.execute(sql, (ix,))
+    async with DBLOCK:
+        sql = "UPDATE entries SET summary = '', read = 1 WHERE id = ?"
+        cur = conn.cursor()
+        cur.execute(sql, (ix,))
 
 
 # TODO mark_all_read for entries of feed
@@ -582,8 +613,8 @@ async def set_date(conn, url):
     :return:
     """
     today = date.today()
-    cur = conn.cursor()
     sql = "UPDATE feeds SET updated = :today WHERE address = :url"
+    cur = conn.cursor()
     cur.execute(sql, {"today": today, "url": url})
 
 
@@ -642,8 +673,9 @@ async def last_entries(db_file, num):
         num = 1
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        sql = "SELECT title, link FROM entries ORDER BY ROWID DESC LIMIT {}".format(num)
-        results = cur.execute(sql)
+        sql = "SELECT title, link FROM entries ORDER BY ROWID DESC LIMIT :num"
+        results = cur.execute(sql, (num,))
+
 
     titles_list = "Recent {} titles: \n".format(num)
     for result in results:
@@ -663,8 +695,8 @@ async def search_entries(db_file, query):
 
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        sql = "SELECT title, link FROM entries WHERE title LIKE '%{}%' LIMIT 50".format(query)
-        results = cur.execute(sql)
+        sql = "SELECT title, link FROM entries WHERE title LIKE ? LIMIT 50"
+        results = cur.execute(sql, [f'%{query}%'])
 
     results_list = "Search results for '{}': \n".format(query)
     counter = 0
@@ -679,6 +711,8 @@ async def search_entries(db_file, query):
 
 
 async def check_entry(conn, title, link):
+    #print("check_entry")
+    #time.sleep(1)
     """
     Check whether an entry exists
     Query entries by title and link
@@ -687,8 +721,8 @@ async def check_entry(conn, title, link):
     :param title:
     :return: row
     """
-    cur = conn.cursor()
     sql = "SELECT id FROM entries WHERE title = :title and link = :link"
+    cur = conn.cursor()
     cur.execute(sql, {"title": title, "link": link})
     return cur.fetchone()
 
