@@ -34,7 +34,7 @@ feed add http://hackerpublicradio.org/hpr_ogg_rss.php
 - [edhelas](https://github.com/edhelas/atomtopubsub)
 - habnabit_ from #python on irc.libera.chat (SQL security)
 - [imattau](https://github.com/imattau/atomtopubsub) (Some code, mostly URL handling, was taken from imattau)
-- [Laura](xmpp:lauranna@404.city)
+- [Laura](xmpp:lauranna@404.city) (Instructor, Mentor and Coauthor)
 - [Link Mauve](https://linkmauve.fr/contact.xhtml)
 - magicfelix (async)
 - Slixmpp participants who chose to remain anonymous or not to appear in this list.
@@ -43,4 +43,5 @@ feed add http://hackerpublicradio.org/hpr_ogg_rss.php
 AGPL-3.0 license
 
 ## Copyright
-Schimon Jehudah 2022
+Schimon Jehudah 2022 - 2023
+Laura 2022 - 2023
