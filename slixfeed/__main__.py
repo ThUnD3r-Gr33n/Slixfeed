@@ -27,14 +27,18 @@ import time
 
 import aiohttp
 from bs4 import BeautifulSoup
+from xml.etree.ElementTree import ElementTree, ParseError
+from urllib.parse import urlparse
+from lxml import html
 import feedparser
 import slixmpp
 
-from eliot import start_action, to_file
+# from eliot import start_action, to_file
+# # to_file(open("slixfeed.log", "w"))
+# # with start_action(action_type="set_date()", jid=jid):
+# # with start_action(action_type="message()", msg=msg):
 
-from . import database
-
-to_file(open("slixfeed.log", "w"))
+import database
 
 
 class Slixfeed(slixmpp.ClientXMPP):
@@ -51,7 +55,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         # listen for this event so that we we can initialize
         # our roster.
         self.add_event_handler("session_start", self.start)
-        self.add_event_handler("session_start", self.send_updates)
+        self.add_event_handler("session_start", self.send_update)
+        self.add_event_handler("session_start", self.send_status)
         self.add_event_handler("session_start", self.check_updates)
 
         # The message event is triggered whenever a message
@@ -91,102 +96,145 @@ class Slixfeed(slixmpp.ClientXMPP):
                    for stanza objects and the Message stanza to see
                    how it may be used.
         """
-        with start_action(action_type="message()", msg=msg):
-            if msg['type'] in ('chat', 'normal'):
-                message = " ".join(msg['body'].split())
-                if message.lower().startswith('help'):
-                    print("COMMAND: help")
-                    print("ACCOUNT: " + str(msg['from']))
-                    action = print_help()
-                # NOTE: Might not need it
-                elif message.lower().startswith('feed recent '):
-                    print("COMMAND: feed recent")
-                    print("ACCOUNT: " + str(msg['from']))
-                    action = await initdb(msg['from'].bare, database.last_entries, message[12:])
-                elif message.lower().startswith('feed search '):
-                    print("COMMAND: feed search")
-                    print("ACCOUNT: " + str(msg['from']))
-                    action = await initdb( msg['from'].bare, database.search_entries, message[12:])
-                elif message.lower().startswith('feed list'):
-                    print("COMMAND: feed list")
-                    print("ACCOUNT: " + str(msg['from']))
-                    action = await initdb(msg['from'].bare, database.list_subscriptions)
-                elif message.lower().startswith('feed add '):
-                    print("COMMAND: feed add")
-                    print("ACCOUNT: " + str(msg['from']))
-                    action = await initdb(msg['from'].bare, is_feed_exist, message[9:])
-                elif message.lower().startswith('feed remove '):
-                    print("COMMAND: feed remove")
-                    print("ACCOUNT: " + str(msg['from']))
-                    action = await initdb(msg['from'].bare, database.remove_feed, message[12:])
-                elif message.lower().startswith('feed status '):
-                    print("COMMAND: feed status")
-                    print("ACCOUNT: " + str(msg['from']))
-                    action = await initdb(msg['from'].bare, database.toggle_status, message[12:])
-                elif message.lower().startswith('enable'):
-                    print("COMMAND: enable")
-                    print("ACCOUNT: " + str(msg['from']))
-                    action = toggle_state(msg['from'].bare, True)
-                elif message.lower().startswith('disable'):
-                    print("COMMAND: disable")
-                    print("ACCOUNT: " + str(msg['from']))
-                    action = toggle_state(msg['from'].bare, False)
-                else:
-                    action = 'Unknown command. Press "help" for list of commands'
-                msg.reply(action).send()
+        if msg['type'] in ('chat', 'normal'):
+            message = " ".join(msg['body'].split())
+            if message.lower().startswith('help'):
+                print("COMMAND: help")
+                print("ACCOUNT: " + str(msg['from']))
+                action = print_help()
+            # NOTE: Might not need it
+            elif message.lower().startswith('feed recent '):
+                print("COMMAND: feed recent")
+                print("ACCOUNT: " + str(msg['from']))
+                action = await initdb(msg['from'].bare, database.last_entries, message[12:])
+            elif message.lower().startswith('feed search '):
+                print("COMMAND: feed search")
+                print("ACCOUNT: " + str(msg['from']))
+                action = await initdb( msg['from'].bare, database.search_entries, message[12:])
+            elif message.lower().startswith('feed list'):
+                print("COMMAND: feed list")
+                print("ACCOUNT: " + str(msg['from']))
+                action = await initdb(msg['from'].bare, database.list_subscriptions)
+            elif message.lower().startswith('feed add '):
+                print("COMMAND: feed add")
+                print("ACCOUNT: " + str(msg['from']))
+                action = await initdb(msg['from'].bare, add_feed, message[9:])
+            elif message.lower().startswith('feed remove '):
+                print("COMMAND: feed remove")
+                print("ACCOUNT: " + str(msg['from']))
+                action = await initdb(msg['from'].bare, database.remove_feed, message[12:])
+            elif message.lower().startswith('feed status '):
+                print("COMMAND: feed status")
+                print("ACCOUNT: " + str(msg['from']))
+                action = await initdb(msg['from'].bare, database.toggle_status, message[12:])
+            elif message.lower().startswith('enable'):
+                print("COMMAND: enable")
+                print("ACCOUNT: " + str(msg['from']))
+                action = toggle_state(msg['from'].bare, True)
+            elif message.lower().startswith('disable'):
+                print("COMMAND: disable")
+                print("ACCOUNT: " + str(msg['from']))
+                action = toggle_state(msg['from'].bare, False)
+            else:
+                action = 'Unknown command. Press "help" for list of commands'
+            msg.reply(action).send()
 
     async def check_updates(self, event):
         # print("check_updates")
         # time.sleep(1)
-        with start_action(action_type="check_updates()", event=event):
-            while True:
-                print("Checking update")
-                db_dir = get_default_dbdir()
-                if not os.path.isdir(db_dir):
-                    msg = ("Slixfeed can not work without a database. \n"
-                           "To create a database, follow these steps: \n"
-                           "Add Slixfeed contact to your roster \n"
-                           "Send a feed to the bot by: \n"
-                           "feed add https://reclaimthenet.org/feed/")
-                    print(msg)
-                else:
-                    files = os.listdir(db_dir)
-                    for file in files:
-                        jid = file[:-3]
-                        await initdb(jid, download_updates)
-                await asyncio.sleep(9)
+        while True:
+            print("Checking update")
+            db_dir = get_default_dbdir()
+            if not os.path.isdir(db_dir):
+                msg = ("Slixfeed can not work without a database. \n"
+                       "To create a database, follow these steps: \n"
+                       "Add Slixfeed contact to your roster \n"
+                       "Send a feed to the bot by: \n"
+                       "feed add https://reclaimthenet.org/feed/")
+                print(msg)
+            else:
+                files = os.listdir(db_dir)
+                for file in files:
+                    jid = file[:-3]
+                    await initdb(jid, download_updates)
+            # await asyncio.sleep(9)
+            await asyncio.sleep(90)
 
-    async def send_updates(self, event):
-        # print("send_updates")
+    async def send_update(self, event):
+        # print("send_update")
         # time.sleep(1)
-        with start_action(action_type="send_updates()", event=event):
-            while True:
-                db_dir = get_default_dbdir()
-                if not os.path.isdir(db_dir):
-                    msg = ("Slixfeed can not work without a database. \n"
-                           "To create a database, follow these steps: \n"
-                           "Add Slixfeed contact to your roster \n"
-                           "Send a feed to the bot by: \n"
-                           "feed add https://reclaimthenet.org/feed/")
-                    print(msg)
-                else:
-                    os.chdir(db_dir)
-                    files = os.listdir()
-                    for file in files:
-                        if not file.endswith('.db-jour.db'):
-                            jid = file[:-3]
-                            new = await initdb(
-                                jid,
-                                database.get_unread
+        while True:
+            db_dir = get_default_dbdir()
+            if not os.path.isdir(db_dir):
+                msg = ("Slixfeed can not work without a database. \n"
+                       "To create a database, follow these steps: \n"
+                       "Add Slixfeed contact to your roster \n"
+                       "Send a feed to the bot by: \n"
+                       "feed add https://reclaimthenet.org/feed/")
+                print(msg)
+            else:
+                os.chdir(db_dir)
+                files = os.listdir()
+                for file in files:
+                    if not file.endswith('.db-jour.db'):
+                        jid = file[:-3]
+
+                        new = await initdb(
+                            jid,
+                            database.get_unread
+                        )
+
+                        if new:
+                            # NOTE Consider send_message
+                            msg = self.make_message(
+                                mto=jid,
+                                mbody=new,
+                                mtype='chat'
                             )
-                            if new:
-                                msg = self.make_message(
-                                    mto=jid,
-                                    mbody=new,
-                                    mtype='chat'
-                                )
-                                msg.send()
-                await asyncio.sleep(15)
+
+                            msg.send()
+
+            # await asyncio.sleep(15)
+            await asyncio.sleep(60 * 3)
+
+    async def send_status(self, event):
+        while True:
+            db_dir = get_default_dbdir()
+            if not os.path.isdir(db_dir):
+                msg = ("Slixfeed can not work without a database. \n"
+                       "To create a database, follow these steps: \n"
+                       "Add Slixfeed contact to your roster \n"
+                       "Send a feed to the bot by: \n"
+                       "feed add https://reclaimthenet.org/feed/")
+                print(msg)
+            else:
+                files = os.listdir(db_dir)
+                for file in files:
+                    jid = file[:-3]
+
+                    unread = await initdb(
+                        jid,
+                        database.get_unread_entries_number
+                    )
+
+                    if unread:
+                        msg_status = ('News', str(unread))
+                        msg_status = ' '.join(msg_status)
+                    else:
+                        msg_status = 'No News'
+                    print(msg_status, 'for', jid)
+                    
+                    # NOTE Consider send_presence
+                    sts = self.make_presence(
+                        pstatus=msg_status,
+                        pto=jid,
+                        pfrom=jid,
+                        pnick='Slixfeed'
+                    )
+                    
+                    sts.send()
+
+            await asyncio.sleep(60)
 
 
 def print_help():
@@ -278,17 +326,16 @@ def get_default_dbdir():
 async def initdb(jid, callback, message=None):
     # print("initdb")
     # time.sleep(1)
-    with start_action(action_type="initdb()", jid=jid):
-        db_dir = get_default_dbdir()
-        if not os.path.isdir(db_dir):
-            os.mkdir(db_dir)
-        db_file = os.path.join(db_dir, r"{}.db".format(jid))
-        database.create_tables(db_file)
-    
-        if message:
-            return await callback(db_file, message)
-        else:
-            return await callback(db_file)
+    db_dir = get_default_dbdir()
+    if not os.path.isdir(db_dir):
+        os.mkdir(db_dir)
+    db_file = os.path.join(db_dir, r"{}.db".format(jid))
+    database.create_tables(db_file)
+
+    if message:
+        return await callback(db_file, message)
+    else:
+        return await callback(db_file)
 
 # NOTE I don't think there should be "return"
 # because then we might stop scanning next URLs
@@ -297,99 +344,125 @@ async def download_updates(db_file):
     # print("db_file")
     # print(db_file)
     # time.sleep(1)
-    with start_action(action_type="download_updates()", db=db_file):
-        urls = await database.get_subscriptions(db_file)
+    urls = await database.get_subscriptions(db_file)
 
     for url in urls:
-        with start_action(action_type="download_updates()", url=url):
-            # print("for url in urls")
-            source = url[0]
-            # print("source: ", source)
-            res = await download_feed(source)
-            # TypeError: 'NoneType' object is not subscriptable
-            if res is None:
-                # Skip to next feed
-                # urls.next()
-                # next(urls)
-                continue
-            
-            await database.update_source_status(db_file, res[1], source)
-    
-            if res[0]:
-                try:
-                    feed = feedparser.parse(res[0])
-                    if feed.bozo:
-                        bozo = ("WARNING: Bozo detected for feed <{}>. "
-                                "For more information, visit "
-                                "https://pythonhosted.org/feedparser/bozo.html"
-                                .format(source))
-                        print(bozo)
-                        valid = 0
-                    else:
-                        valid = 1
-
-                    await database.update_source_validity(db_file, source, valid)
-                except (IncompleteReadError, IncompleteRead, error.URLError) as e:
-                    print(e)
-                    # return
-            # TODO Place these couple of lines back down
-            # NOTE Need to correct the SQL statement to do so
-            # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
-            
-            if res[1] == 200:
-            # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
-            # TODO Place these couple of lines back down
-            # NOTE Need to correct the SQL statement to do so
-                entries = feed.entries
-                length = len(entries)
-                await database.remove_entry(db_file, source, length)
-    
-                for entry in entries:
-                    if entry.has_key("title"):
-                        title = entry.title
-                    else:
-                        title = feed["feed"]["title"]
-                    link = source if not entry.link else entry.link
-                    exist = await database.check_entry(db_file, title, link)
+        # print("for url in urls")
+        source = url[0]
+        # print("source: ", source)
+        res = await download_feed(source)
+        # TypeError: 'NoneType' object is not subscriptable
+        if res is None:
+            # Skip to next feed
+            # urls.next()
+            # next(urls)
+            continue
         
-                    if not exist:
-                        if entry.has_key("summary"):
-                            summary = entry.summary
-                            # Remove HTML tags
-                            summary = BeautifulSoup(summary, "lxml").text
-                            # TODO Limit text length
-                            summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
-                        else:
-                            summary = '*** No summary ***'
-                            #print('~~~~~~summary not in entry')
-                        entry = (title, summary, link, source, 0);
-                        await database.add_entry_and_set_date(db_file, source, entry)
+        await database.update_source_status(db_file, res[1], source)
+
+        if res[0]:
+            try:
+                feed = feedparser.parse(res[0])
+                if feed.bozo:
+                    bozo = ("WARNING: Bozo detected for feed <{}>. "
+                            "For more information, visit "
+                            "https://pythonhosted.org/feedparser/bozo.html"
+                            .format(source))
+                    print(bozo)
+                    valid = 0
+                else:
+                    valid = 1
+
+                await database.update_source_validity(db_file, source, valid)
+            except (IncompleteReadError, IncompleteRead, error.URLError) as e:
+                print(e)
+                # return
+        # TODO Place these couple of lines back down
+        # NOTE Need to correct the SQL statement to do so
+        # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
+        
+        if res[1] == 200:
+        # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
+        # TODO Place these couple of lines back down
+        # NOTE Need to correct the SQL statement to do so
+            entries = feed.entries
+            length = len(entries)
+            # breakpoint()
+            # await database.remove_entry(db_file, source, length)
+            await database.remove_nonexistent_entries(db_file, feed, source)
+            # breakpoint()
+
+            new_entry = 0
+            for entry in entries:
+
+                if entry.has_key("title"):
+                    title = entry.title
+                else:
+                    title = feed["feed"]["title"]
+
+                if entry.has_key("link"):
+                    link = entry.link
+                else:
+                    link = source
+                    # print('source:', source)
+
+                exist = await database.check_entry_exist(db_file, title, link)
+                # breakpoint()
+                # if exist:
+                #     print("//////// OLD ////////")
+                #     print(source)
+                #     print('ex:',exist)
+                #     if entry.has_key("id"):
+                #         print('id:',entry.id)
+
+                if not exist:
+                    # breakpoint()
+                    new_entry = new_entry + 1
+                    # print("******** NEW ********")
+                    # print('T',title)
+                    # if entry.has_key("date"):
+                    #   print('D',entry.date)
+                    # print('L',link)
+                    # print('ex',exist)
+                    # TODO Enhance summary
+                    if entry.has_key("summary"):
+                        summary = entry.summary
+                        # Remove HTML tags
+                        summary = BeautifulSoup(summary, "lxml").text
+                        # TODO Limit text length
+                        summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
+                    else:
+                        summary = '*** No summary ***'
+                        #print('~~~~~~summary not in entry')
+                    entry = (title, summary, link, source, 0);
+                    await database.add_entry_and_set_date(db_file, source, entry)
+            # print("### added", new_entry, "entries")
 
 
 async def download_feed(url):
-    with start_action(action_type="download_feed()", url=url):
     # print("download_feed")
-        # time.sleep(1)
-        timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession() as session:
-    #    async with aiohttp.ClientSession(trust_env=True) as session:
-            try:
-                async with session.get(url, timeout=timeout) as response:
-                    status = response.status
-                    if response.status == 200:
-                        doc = await response.text()
-                        return [doc, status]
-                    else:
-                        return [False, status]
-            except aiohttp.ClientError as e:
-                print('Error', str(e))
-                return [False, "error"]
-            except asyncio.TimeoutError as e:
-                print('Timeout', str(e))
-                return [False, "timeout"]
+    # time.sleep(1)
+    timeout = aiohttp.ClientTimeout(total=10)
+    async with aiohttp.ClientSession() as session:
+#    async with aiohttp.ClientSession(trust_env=True) as session:
+        try:
+            async with session.get(url, timeout=timeout) as response:
+                status = response.status
+                if response.status == 200:
+                    doc = await response.text()
+                    # print (response.content_type)
+                    return [doc, status]
+                else:
+                    return [False, status]
+        except aiohttp.ClientError as e:
+            print('Error', str(e))
+            return [False, "error"]
+        except asyncio.TimeoutError as e:
+            print('Timeout', str(e))
+            return [False, "timeout"]
 
 
-async def is_feed_exist(db_file, url):
+async def add_feed(db_file, url):
     # print("add_feed")
     # print("db_file")
     # print(db_file)
@@ -400,13 +473,157 @@ async def is_feed_exist(db_file, url):
     :param url:
     :return: string
     """
-    exist = await database.check_feed(db_file, url)
+    exist = await database.check_feed_exist(db_file, url)
     
     if not exist:
         res = await download_feed(url)
-        await database.add_feed(db_file, url, res)
+        if res[0]:
+            feed = feedparser.parse(res[0])
+            if feed.bozo:
+                bozo = ("WARNING: Bozo detected. Failed to load <{}>.".format(url))
+                print(bozo)
+                try:
+                    # tree = etree.fromstring(res[0]) # etree -> html
+                    tree = html.fromstring(res[0])
+                except:
+                    return "Failed to parse {} as feed".format(url)
+
+                print("RSS Auto-Discovery Engaged")
+                xpath_query = """//link[(@rel="alternate") and (@type="application/atom+xml" or @type="application/rdf+xml" or @type="application/rss+xml")]"""
+                # xpath_query = """//link[(@rel="alternate") and (@type="application/atom+xml" or @type="application/rdf+xml" or @type="application/rss+xml")]/@href"""
+                # xpath_query = "//link[@rel='alternate' and @type='application/atom+xml' or @rel='alternate' and @type='application/rss+xml' or @rel='alternate' and @type='application/rdf+xml']/@href"
+                feeds = tree.xpath(xpath_query)
+                if len(feeds) > 1:
+                    msg = "RSS Auto-Discovery has found {} feeds:\n\n".format(len(feeds))
+                    for feed in feeds:
+                        # # The following code works;
+                        # # The following code will catch
+                        # # only valid resources (i.e. not 404);
+                        # # The following code requires more bandwidth.
+                        # res = await download_feed(feed)
+                        # if res[0]:
+                        #     disco = feedparser.parse(res[0])
+                        #     title = disco["feed"]["title"]
+                        #     msg += "{} \n {} \n\n".format(title, feed)
+                        feed_name = feed.xpath('@title')[0]
+                        feed_addr = feed.xpath('@href')[0]
+                        msg += "{}\n{}\n\n".format(feed_name, feed_addr)
+                    msg += "The above feeds were extracted from\n{}".format(url)
+                    return msg
+                elif feeds:
+                    url = feeds[0].xpath('@href')[0]
+                    # Why wouldn't add_feed return a message
+                    # upon success unless return is explicitly
+                    # mentioned, yet upon failure it wouldn't?
+                    return await add_feed(db_file, url)
+
+                # Search for feeds by file extension and path
+                paths = ["/atom",
+                         "/atom.php",
+                         "/atom.xml",
+                         "/rdf",
+                         "/rdf.php",
+                         "/rdf.xml",
+                         "/rss",
+                         "/rss.php",
+                         "/rss.xml",
+                         "/feed",
+                         "/feed.atom",
+                         "/feed.rdf",
+                         "/feed.rss",
+                         "/feed.xml",
+                         "/news",
+                         "/news/feed",
+                         "?format=rss",
+                         "/feeds/news_feed",
+                         "/content-feeds/",
+                         "/app.php/feed", # phpBB
+                         "/posts.rss"     # Discourse
+                        ] # More paths "rss.json", "feed.json"
+
+                print("RSS Scan Mode Engaged")
+                feeds = {}
+                for path in paths:
+                    # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
+                    xpath_query = "//a[contains(@href,'{}')]".format(path)
+                    addresses = tree.xpath(xpath_query)
+                    parted_url = urlparse(url)
+                    for address in addresses:
+                        address = address.xpath('@href')[0]
+                        if address.startswith('/'):
+                            address = parted_url.netloc + address
+                        res = await download_feed(address)
+                        # print(address)
+                        if res[1] == 200:
+                            # print(address)
+                            try:
+                                feeds[address] = feedparser.parse(res[0])["feed"]["title"]
+                                # print(feeds)
+                            except:
+                                # print('Not a feed')
+                                continue
+                if len(feeds) > 1:
+                    msg = "RSS URL scan has found {} feeds:\n\n".format(len(feeds))
+                    for feed in feeds:
+                        # try:
+                        #     res = await download_feed(feed)
+                        # except:
+                        #     continue
+                        feed_name = feeds[feed]
+                        feed_addr = feed
+                        msg += "{}\n{}\n\n".format(feed_name, feed_addr)
+                    msg += "The above feeds were extracted from\n{}".format(url)
+                    return msg
+                elif feeds:
+                    url = list(feeds)[0]
+                    return await add_feed(db_file, url)
+
+                # (HTTP) Request(s) Paths
+                print("RSS Arbitrary Mode Engaged")
+                feeds = {}
+                parted_url = urlparse(url)
+                for path in paths:
+                    # print(path)
+                    if parted_url.path.split('/')[1]:
+                        paths.extend([".atom", ".feed", ".rdf", ".rss"]) if '.rss' not in paths else -1
+                        # if paths.index('.rss'):
+                        #     paths.extend([".atom", ".feed", ".rdf", ".rss"])
+                        address = parted_url.scheme + '://' + parted_url.netloc + '/' + parted_url.path.split('/')[1] + path
+                        res = await download_feed(address)
+                        if res[1] == 200:
+                            # print('2res[1]')
+                            # print(res[1])
+                            # print(feedparser.parse(res[0])["feed"]["title"])
+                            feeds[address] = feedparser.parse(res[0])["feed"]["title"]
+                            # print(feeds)
+                    else:
+                        address = parted_url.scheme + '://' + parted_url.netloc + path
+                        res = await download_feed(address)
+                        if res[1] == 200:
+                            # print('1res[1]')
+                            # print(res[1])
+                            # print(feedparser.parse(res[0])["feed"]["title"])
+                            feeds[address] = feedparser.parse(res[0])["feed"]["title"]
+                            # print(feeds)
+                if len(feeds) > 1:
+                    msg = "RSS URL discovery has found {} feeds:\n\n".format(len(feeds))
+                    for feed in feeds:
+                        feed_name = feeds[feed]
+                        feed_addr = feed
+                        msg += "{}\n{}\n\n".format(feed_name, feed_addr)
+                    msg += "The above feeds were extracted from\n{}".format(url)
+                    return msg
+                elif feeds:
+                    url = list(feeds)[0]
+                    return await add_feed(db_file, url)
+                else:
+                    return "No news feeds were found for URL <{}>.".format(url)
+            else:
+                return await database.add_feed(db_file, feed, url, res)
+        else:
+            return "Failed to get URL <{}>.  HTTP Error {}".format(url, res[1])
     else:
-        return "News source is already listed in the subscription list"
+        return "News source <{}> is already listed in the subscription list".format(url)
 
 
 def toggle_state(jid, state):
@@ -418,23 +635,22 @@ def toggle_state(jid, state):
     :param state: boolean
     :return:
     """
-    with start_action(action_type="set_date()", jid=jid):
-        db_dir = get_default_dbdir()
-        db_file = os.path.join(db_dir, r"{}.db".format(jid))
-        bk_file = os.path.join(db_dir, r"{}.db.bak".format(jid))
-    
-        if state:
-            if os.path.exists(db_file):
-                return "Updates are already enabled"
-            elif os.path.exists(bk_file):
-                os.renames(bk_file, db_file)
-                return "Updates are now enabled"
-        else:
-            if os.path.exists(bk_file):
-                return "Updates are already disabled"
-            elif os.path.exists(db_file):
-                os.renames(db_file, bk_file)
-                return "Updates are now disabled"
+    db_dir = get_default_dbdir()
+    db_file = os.path.join(db_dir, r"{}.db".format(jid))
+    bk_file = os.path.join(db_dir, r"{}.db.bak".format(jid))
+
+    if state:
+        if os.path.exists(db_file):
+            return "Updates are already enabled"
+        elif os.path.exists(bk_file):
+            os.renames(bk_file, db_file)
+            return "Updates are now enabled"
+    else:
+        if os.path.exists(bk_file):
+            return "Updates are already disabled"
+        elif os.path.exists(db_file):
+            os.renames(db_file, bk_file)
+            return "Updates are now disabled"
 
 
 if __name__ == '__main__':
