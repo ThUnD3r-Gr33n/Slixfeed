@@ -7,7 +7,6 @@ from sqlite3 import Error
 import asyncio
 
 from datetime import date
-import feedparser
 
 # from eliot import start_action, to_file
 # # with start_action(action_type="list_subscriptions()", db=db_file):
@@ -23,15 +22,12 @@ DBLOCK = asyncio.Lock()
 CURSORS = {}
 
 def create_connection(db_file):
-    # print("create_connection")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
     """
     Create a database connection to the SQLite database
-    specified by db_file
-    :param db_file: database file
-    :return: Connection object or None
+    specified by db_file.
+    
+    :param db_file: Database filename.
+    :return: Connection object or None.
     """
     conn = None
     try:
@@ -43,10 +39,11 @@ def create_connection(db_file):
 
 
 def create_tables(db_file):
-    # print("create_tables")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
+    """
+    Create SQLite tables.
+    
+    :param db_file: Database filename.
+    """
     with create_connection(db_file) as conn:
         feeds_table_sql = """
             CREATE TABLE IF NOT EXISTS feeds (
@@ -68,18 +65,26 @@ def create_tables(db_file):
                 source text,
                 read integer
             ); """
+        # statistics_table_sql = """
+        #     CREATE TABLE IF NOT EXISTS statistics (
+        #         id integer PRIMARY KEY,
+        #         title text NOT NULL,
+        #         number integer
+        #     ); """
     
         c = conn.cursor()
         # c = get_cursor(db_file)
         c.execute(feeds_table_sql)
         c.execute(entries_table_sql)
+        # c.execute(statistics_table_sql)
 
 
 def get_cursor(db_file):
     """
     Allocate a cursor to connection per database.
-    :param db_file: database file
-    :return: Cursor
+    
+    :param db_file: Database filename.
+    :return: Cursor.
     """
     if db_file in CURSORS:
         return CURSORS[db_file]
@@ -91,15 +96,14 @@ def get_cursor(db_file):
 
 
 async def add_feed(db_file, feed, url, res):
-    # print("add_feed")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
     """
-    Add a new feed into the feeds table
-    :param conn:
-    :param feed:
-    :return: string
+    Add a new feed into the feeds table.
+    
+    :param db_file: Database filename.
+    :param feed: Parsed XML document.
+    :param url: URL.
+    :param res: XML document.
+    :return: Message.
     """
     #TODO consider async with DBLOCK
     #conn = create_connection(db_file)
@@ -128,15 +132,12 @@ async def add_feed(db_file, feed, url, res):
 
 
 async def remove_feed(db_file, ix):
-    # print("remove_feed")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
     """
-    Delete a feed by feed id
-    :param conn:
-    :param id: id of the feed
-    :return: string
+    Delete a feed by feed id.
+    
+    :param db_file: Database filename.
+    :param ix: Index of feed.
+    :return: Message.
     """
     with create_connection(db_file) as conn:
         async with DBLOCK:
@@ -158,16 +159,13 @@ async def remove_feed(db_file, ix):
 
 
 async def check_feed_exist(db_file, url):
-    # print("is_feed_exist")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
     """
-    Check whether a feed exists
-    Query for feeds by url
-    :param conn:
-    :param url:
-    :return: row
+    Check whether a feed exists.
+    Query for feeds by given url.
+    
+    :param db_file: Database filename.
+    :param url: URL.
+    :return: SQL row or None.
     """
     cur = get_cursor(db_file)
     sql = "SELECT id FROM feeds WHERE address = ?"
@@ -175,11 +173,29 @@ async def check_feed_exist(db_file, url):
     return cur.fetchone()
 
 
-async def get_unread_entries_number(db_file):
+async def get_number_of_items(db_file, str):
     """
-    Check number of unread items
-    :param db_file
-    :return: string
+    Return number of entries or feeds.
+    
+    :param cur: Cursor object.
+    :param str: "entries" or "feeds".
+    :return: Number of rows.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = "SELECT count(id) FROM {}".format(str)
+        count = cur.execute(sql)
+        count = cur.fetchone()[0]
+        return count
+
+
+async def get_number_of_entries_unread(db_file):
+    """
+    Return number of unread items.
+    
+    :param db_file: Database filename.
+    :param cur: Cursor object.
+    :return: Number of rows.
     """
     with create_connection(db_file) as conn:
         cur = conn.cursor()
@@ -187,24 +203,18 @@ async def get_unread_entries_number(db_file):
         count = cur.execute(sql)
         count = cur.fetchone()[0]
         return count
-    
 
 
-async def get_unread(db_file):
-    # print("get_unread")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
+async def get_entry_unread(db_file):
     """
-    Check read status of entry
-    :param conn:
-    :param id: id of the entry
-    :return: string
+    Check read status of entry.
+    
+    :param db_file: Database filename.
+    :return: News item as message.
     """
     with create_connection(db_file) as conn:
-        entry = []
         cur = conn.cursor()
-        # cur = get_cursor(db_file)
+        entry = []
         sql = "SELECT id FROM entries WHERE read = 0"
         ix = cur.execute(sql).fetchone()
         if ix is None:
@@ -222,36 +232,72 @@ async def get_unread(db_file):
         cur.execute(sql, (ix,))
         link = cur.fetchone()[0]
         entry.append(link)
-        entry = "{}\n\n{}\n\nLink to article:\n{}".format(entry[0], entry[1], entry[2])
+        entry = "{}\n\n{}\n\n{}".format(entry[0], entry[1], entry[2])
         # print(entry)
         async with DBLOCK:
             await mark_as_read(cur, ix)
+        # async with DBLOCK:
+        #     await update_statistics(db_file)
         return entry
 
 
 async def mark_as_read(cur, ix):
-    # print("mark_as_read", ix)
-    # time.sleep(1)
     """
-    Set read status of entry
-    :param cur:
-    :param ix: index of the entry
+    Set read status of entry.
+    
+    :param cur: Cursor object.
+    :param ix: Index of entry.
     """
     sql = "UPDATE entries SET summary = '', read = 1 WHERE id = ?"
     cur.execute(sql, (ix,))
 
 
+async def statistics(db_file):
+    """
+    Return table statistics.
+    
+    :param db_file: Database filename.
+    :return: News item as message.
+    """
+    feeds = await get_number_of_items(db_file, 'feeds')
+    entries = await get_number_of_items(db_file, 'entries')
+    unread_entries = await get_number_of_entries_unread(db_file)
+    return "You have {} unread news items out of {} from {} news sources.".format(unread_entries, entries, feeds)
+
+
+async def update_statistics(cur):
+    """
+    Update table statistics.
+    
+    :param cur: Cursor object.
+    """
+    stat_dict = {}
+    stat_dict["feeds"] = await get_number_of_items(cur, 'feeds')
+    stat_dict["entries"] = await get_number_of_items(cur, 'entries')
+    stat_dict["unread"] = await get_number_of_entries_unread(cur=cur)
+    for i in stat_dict:
+        sql = "SELECT id FROM statistics WHERE title = ?"
+        cur.execute(sql, (i,))
+        if cur.fetchone():
+            sql = "UPDATE statistics SET number = :num WHERE title = :title"
+            cur.execute(sql, {"title": i, "num": stat_dict[i]})
+        else:
+            sql = "SELECT count(id) FROM statistics"
+            count = cur.execute(sql)
+            count = cur.fetchone()[0]
+            ix = count + 1
+            sql = "INSERT INTO statistics VALUES(?,?,?)"
+            cur.execute(sql, (ix, i, stat_dict[i]))
+
+
 # TODO mark_all_read for entries of feed
 async def toggle_status(db_file, ix):
-    # print("toggle_status")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
     """
-    Set status of feed
-    :param conn:
-    :param id: id of the feed
-    :return: string
+    Toggle status of feed.
+    
+    :param db_file: Database filename.
+    :param ix: Index of entry.
+    :return: Message
     """
     async with DBLOCK:
         with create_connection(db_file) as conn:
@@ -279,12 +325,11 @@ async def toggle_status(db_file, ix):
 
 
 async def set_date(cur, url):
-    # print("set_date")
-    # time.sleep(1)
     """
-    Set last update date of feed
-    :param url: url of the feed
-    :return:
+    Set last update date of feed.
+    
+    :param cur: Cursor object.
+    :param url: URL.
     """
     today = date.today()
     sql = "UPDATE feeds SET updated = :today WHERE address = :url"
@@ -293,6 +338,9 @@ async def set_date(cur, url):
 
 
 async def add_entry_and_set_date(db_file, source, entry):
+    """
+    TODO
+    """
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -301,6 +349,9 @@ async def add_entry_and_set_date(db_file, source, entry):
 
 
 async def update_source_status(db_file, status, source):
+    """
+    TODO
+    """
     sql = "UPDATE feeds SET status = :status, scanned = :scanned WHERE address = :url"
     async with DBLOCK:
         with create_connection(db_file) as conn:
@@ -309,6 +360,9 @@ async def update_source_status(db_file, status, source):
 
 
 async def update_source_validity(db_file, source, valid):
+    """
+    TODO
+    """
     sql = "UPDATE feeds SET valid = :validity WHERE address = :url"
     async with DBLOCK:
         with create_connection(db_file) as conn:
@@ -317,29 +371,25 @@ async def update_source_validity(db_file, source, valid):
 
 
 async def add_entry(cur, entry):
-    # print("add_entry")
-    # time.sleep(1)
     """
-    Add a new entry into the entries table
-    :param conn:
+    Add a new entry into the entries table.
+    
+    :param cur: Cursor object.
     :param entry:
-    :return:
     """
     sql = """ INSERT INTO entries(title,summary,link,source,read)
               VALUES(?,?,?,?,?) """
-    # cur = conn.cursor()
     cur.execute(sql, entry)
 
 
 # This function doesn't work as expected with bbs and wiki feeds
 async def remove_entry(db_file, source, length):
-    # print("remove_entry")
-    # time.sleep(1)
     """
-    Maintain list of entries
+    Maintain list of entries equal to feed.
     Check the number returned by feed and delete
-    existing entries up to the same returned amount
-    :param conn:
+    existing entries up to the same returned amount.
+    
+    :param db_file: Database filename.
     :param source:
     :param length:
     :return:
@@ -364,18 +414,17 @@ async def remove_entry(db_file, source, length):
                          ORDER BY id
                          ASC LIMIT :limit)"""
                 cur.execute(sql, {"source": source, "limit": limit})
-                print('### removed', limit, 'from', source)
 
 
 async def remove_nonexistent_entries(db_file, feed, source):
     """
-    Remove entries that don't exist in feed'
-    Check the entries returned from feed and delete
-    non existing entries
-    :param conn:
-    :param source:
-    :param length:
-    :return:
+    Remove entries that don't exist in a given parsed feed.
+    Check the entries returned from feed and delete non
+    existing entries
+    
+    :param db_file: Database filename.
+    :param feed: URL of parsed feed.
+    :param source: URL of associated feed.
     """
     async with DBLOCK:
         with create_connection(db_file) as conn:
@@ -420,12 +469,11 @@ async def remove_nonexistent_entries(db_file, feed, source):
 
 
 async def get_subscriptions(db_file):
-    # print("get_subscriptions")
-    # time.sleep(1)
     """
-    Query feeds
-    :param conn:
-    :return: rows (tuple)
+    Query table feeds.
+    
+    :param db_file: Database filename.
+    :return: List of feeds.
     """
     with create_connection(db_file) as conn:
         cur = conn.cursor()
@@ -435,20 +483,15 @@ async def get_subscriptions(db_file):
 
 
 async def list_subscriptions(db_file):
-    # print("list_subscriptions")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
     """
-    Query feeds
-    :param conn:
-    :return: rows (string)
+    Query table feeds and list items.
+    
+    :param db_file: Database filename.
+    :return: List of feeds.
     """
-    with create_connection(db_file) as conn:
-        # cur = conn.cursor()
-        cur = get_cursor(db_file)
-        sql = "SELECT name, address, updated, id, enabled FROM feeds"
-        results = cur.execute(sql)
+    cur = get_cursor(db_file)
+    sql = "SELECT name, address, updated, id, enabled FROM feeds"
+    results = cur.execute(sql)
 
     feeds_list = "List of subscriptions: \n"
     counter = 0
@@ -464,31 +507,26 @@ async def list_subscriptions(db_file):
                "To add feed, send a message as follows: \n"
                "feed add URL \n"
                "Example: \n"
-               "feed add https://reclaimthenet.org/feed/")
+               "add https://reclaimthenet.org/feed/")
         return msg
 
 
 async def last_entries(db_file, num):
-    # print("last_entries")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
     """
-    Query feeds
-    :param conn:
-    :param num: integer
-    :return: rows (string)
+    Query entries
+    
+    :param db_file: Database filename.
+    :param num: Number
+    :return: List of recent N entries
     """
     num = int(num)
     if num > 50:
         num = 50
     elif num < 1:
         num = 1
-    with create_connection(db_file) as conn:
-        # cur = conn.cursor()
-        cur = get_cursor(db_file)
-        sql = "SELECT title, link FROM entries ORDER BY ROWID DESC LIMIT :num"
-        results = cur.execute(sql, (num,))
+    cur = get_cursor(db_file)
+    sql = "SELECT title, link FROM entries ORDER BY ROWID DESC LIMIT :num"
+    results = cur.execute(sql, (num,))
 
 
     titles_list = "Recent {} titles: \n".format(num)
@@ -498,24 +536,19 @@ async def last_entries(db_file, num):
 
 
 async def search_entries(db_file, query):
-    # print("search_entries")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
     """
-    Query feeds
-    :param conn:
-    :param query: string
-    :return: rows (string)
+    Query entries
+    
+    :param db_file: Database filename.
+    :param query: Search query
+    :return: Entries with specified keywords
     """
     if len(query) < 2:
         return "Please enter at least 2 characters to search"
 
-    with create_connection(db_file) as conn:
-        # cur = conn.cursor()
-        cur = get_cursor(db_file)
-        sql = "SELECT title, link FROM entries WHERE title LIKE ? LIMIT 50"
-        results = cur.execute(sql, [f'%{query}%'])
+    cur = get_cursor(db_file)
+    sql = "SELECT title, link FROM entries WHERE title LIKE ? LIMIT 50"
+    results = cur.execute(sql, [f'%{query}%'])
 
     results_list = "Search results for '{}': \n".format(query)
     counter = 0
@@ -530,15 +563,14 @@ async def search_entries(db_file, query):
 
 
 async def check_entry_exist(db_file, title, link):
-    # print("check_entry")
-    # time.sleep(1)
     """
-    Check whether an entry exists
-    Query entries by title and link
-    :param conn:
-    :param link:
-    :param title:
-    :return: row
+    Check whether an entry exists.
+    Query entries by title and link.
+    
+    :param db_file: Database filename.
+    :param link: Entry URL.
+    :param title: Entry title.
+    :return: SQL row or None.
     """
     cur = get_cursor(db_file)
     sql = "SELECT id FROM entries WHERE title = :title and link = :link"

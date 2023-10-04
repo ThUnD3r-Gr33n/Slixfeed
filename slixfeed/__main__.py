@@ -43,8 +43,8 @@ import database
 
 class Slixfeed(slixmpp.ClientXMPP):
     """
-    Slixmpp bot that will send updates of feeds it
-    receives.
+    Slixmpp news bot that will send updates
+    from feeds it receives.
     """
     def __init__(self, jid, password):
         slixmpp.ClientXMPP.__init__(self, jid, password)
@@ -66,7 +66,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.add_event_handler("disconnected", self.reconnect)
 
     async def start(self, event):
-        # print("start")
         """
         Process the session_start event.
 
@@ -83,8 +82,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         await self.get_roster()
 
     async def message(self, msg):
-        # print("message")
-        # time.sleep(1)
         """
         Process incoming message stanzas. Be aware that this also
         includes MUC messages and error messages. It is usually
@@ -99,49 +96,34 @@ class Slixfeed(slixmpp.ClientXMPP):
         if msg['type'] in ('chat', 'normal'):
             message = " ".join(msg['body'].split())
             if message.lower().startswith('help'):
-                print("COMMAND: help")
-                print("ACCOUNT: " + str(msg['from']))
                 action = print_help()
             # NOTE: Might not need it
-            elif message.lower().startswith('feed recent '):
-                print("COMMAND: feed recent")
-                print("ACCOUNT: " + str(msg['from']))
-                action = await initdb(msg['from'].bare, database.last_entries, message[12:])
-            elif message.lower().startswith('feed search '):
-                print("COMMAND: feed search")
-                print("ACCOUNT: " + str(msg['from']))
-                action = await initdb( msg['from'].bare, database.search_entries, message[12:])
-            elif message.lower().startswith('feed list'):
-                print("COMMAND: feed list")
-                print("ACCOUNT: " + str(msg['from']))
+            elif message.lower().startswith('recent '):
+                action = await initdb(msg['from'].bare, database.last_entries, message[7:])
+            elif message.lower().startswith('search '):
+                action = await initdb( msg['from'].bare, database.search_entries, message[7:])
+            elif message.lower().startswith('list'):
                 action = await initdb(msg['from'].bare, database.list_subscriptions)
-            elif message.lower().startswith('feed add '):
-                print("COMMAND: feed add")
-                print("ACCOUNT: " + str(msg['from']))
-                action = await initdb(msg['from'].bare, add_feed, message[9:])
-            elif message.lower().startswith('feed remove '):
-                print("COMMAND: feed remove")
-                print("ACCOUNT: " + str(msg['from']))
-                action = await initdb(msg['from'].bare, database.remove_feed, message[12:])
-            elif message.lower().startswith('feed status '):
-                print("COMMAND: feed status")
-                print("ACCOUNT: " + str(msg['from']))
-                action = await initdb(msg['from'].bare, database.toggle_status, message[12:])
+            elif message.lower().startswith('add '):
+                action = await initdb(msg['from'].bare, add_feed, message[4:])
+            elif message.lower().startswith('remove '):
+                action = await initdb(msg['from'].bare, database.remove_feed, message[7:])
+            elif message.lower().startswith('status '):
+                action = await initdb(msg['from'].bare, database.toggle_status, message[7:])
+            elif message.lower().startswith('unread'):
+                action = await initdb(msg['from'].bare, database.statistics)
             elif message.lower().startswith('enable'):
-                print("COMMAND: enable")
-                print("ACCOUNT: " + str(msg['from']))
                 action = toggle_state(msg['from'].bare, True)
             elif message.lower().startswith('disable'):
-                print("COMMAND: disable")
-                print("ACCOUNT: " + str(msg['from']))
                 action = toggle_state(msg['from'].bare, False)
             else:
                 action = 'Unknown command. Press "help" for list of commands'
             msg.reply(action).send()
 
+            print("COMMAND:", message)
+            print("ACCOUNT: " + str(msg['from']))
+
     async def check_updates(self, event):
-        # print("check_updates")
-        # time.sleep(1)
         while True:
             print("Checking update")
             db_dir = get_default_dbdir()
@@ -156,13 +138,11 @@ class Slixfeed(slixmpp.ClientXMPP):
                 files = os.listdir(db_dir)
                 for file in files:
                     jid = file[:-3]
+                    print("download_updates",jid)
                     await initdb(jid, download_updates)
-            # await asyncio.sleep(9)
             await asyncio.sleep(90)
 
     async def send_update(self, event):
-        # print("send_update")
-        # time.sleep(1)
         while True:
             db_dir = get_default_dbdir()
             if not os.path.isdir(db_dir):
@@ -178,21 +158,39 @@ class Slixfeed(slixmpp.ClientXMPP):
                 for file in files:
                     if not file.endswith('.db-jour.db'):
                         jid = file[:-3]
+                        print("get_entry_unread",jid)
 
                         new = await initdb(
                             jid,
-                            database.get_unread
+                            database.get_entry_unread
                         )
 
                         if new:
-                            # NOTE Consider send_message
-                            msg = self.make_message(
+                            msg = self.send_message(
                                 mto=jid,
                                 mbody=new,
                                 mtype='chat'
                             )
 
-                            msg.send()
+                            unread = await initdb(
+                                jid,
+                                database.get_number_of_entries_unread
+                            )
+
+                            if unread:
+                                msg_status = ('📰 News items:', str(unread))
+                                msg_status = ' '.join(msg_status)
+                            else:
+                                msg_status = '🗞 No News'
+
+                            print(msg_status, 'for', jid)
+
+                            # Send status message
+                            self.send_presence(
+                                pstatus=msg_status,
+                                pto=jid,
+                                #pfrom=None
+                            )
 
             # await asyncio.sleep(15)
             await asyncio.sleep(60 * 3)
@@ -212,60 +210,52 @@ class Slixfeed(slixmpp.ClientXMPP):
                 for file in files:
                     jid = file[:-3]
 
-                    unread = await initdb(
-                        jid,
-                        database.get_unread_entries_number
-                    )
-
-                    if unread:
-                        msg_status = ('News', str(unread))
-                        msg_status = ' '.join(msg_status)
-                    else:
-                        msg_status = 'No News'
-                    print(msg_status, 'for', jid)
-                    
-                    # NOTE Consider send_presence
-                    sts = self.make_presence(
-                        pstatus=msg_status,
-                        pto=jid,
-                        pfrom=jid,
-                        pnick='Slixfeed'
-                    )
-                    
-                    sts.send()
-
             await asyncio.sleep(60)
 
 
 def print_help():
-    # print("print_help")
-    # time.sleep(1)
+    """
+    Print help manual.
+    """
     msg = ("Slixfeed - News syndication bot for Jabber/XMPP \n"
            "\n"
            "DESCRIPTION: \n"
            " Slixfeed is a news aggregator bot for online news feeds. \n"
+           " Supported filetypes: Atom, RDF and RSS. \n"
            "\n"
            "BASIC USAGE: \n"
            " enable \n"
            "   Send updates. \n"
            " disable \n"
            "   Stop sending updates. \n"
+           " batch N \n"
+           "   Send N updates on ech interval. \n"
+           " interval N \n"
+           "   Send an update each N minutes. \n"
            " feed list \n"
            "   List subscriptions. \n"
            "\n"
            "EDIT OPTIONS: \n"
-           " feed add URL \n"
+           " add URL \n"
            "   Add URL to subscription list. \n"
-           " feed remove ID \n"
+           " remove ID \n"
            "   Remove feed from subscription list. \n"
-           " feed status ID \n"
+           " status ID \n"
            "   Toggle update status of feed. \n"
            "\n"
            "SEARCH OPTIONS: \n"
-           " feed search TEXT \n"
+           " search TEXT \n"
            "   Search news items by given keywords. \n"
-           " feed recent N \n"
+           " recent N \n"
            "   List recent N news items (up to 50 items). \n"
+           "\n"
+           "STATISTICS OPTIONS: \n"
+           " analyses \n"
+           "   Show report and statistics of feeds. \n"
+           " obsolete \n"
+           "   List feeds that are not available. \n"
+           " unread \n"
+           "   Print number of unread news items. \n"
            "\n"
            "BACKUP OPTIONS: \n"
            " export opml \n"
@@ -287,13 +277,10 @@ def print_help():
     return msg
 
 
-# Function from buku
-# https://github.com/jarun/buku
+# Function from jarun/buku
 # Arun Prakash Jana (jarun)
 # Dmitry Marakasov (AMDmi3)
 def get_default_dbdir():
-    # print("get_default_dbdir")
-    # time.sleep(1)
     """Determine the directory path where dbfile will be stored.
 
     If $XDG_DATA_HOME is defined, use it
@@ -301,10 +288,11 @@ def get_default_dbdir():
     else if the platform is Windows, use %APPDATA%
     else use the current directory.
 
-    Returns
-    -------
-    str
-    Path to database file.
+    :return: Path to database file.
+    
+    Note
+    ----
+    This code was taken from the buku project.
     """
 #    data_home = xdg.BaseDirectory.xdg_data_home
     data_home = os.environ.get('XDG_DATA_HOME')
@@ -324,8 +312,13 @@ def get_default_dbdir():
 # TODO Perhaps this needs to be executed
 # just once per program execution
 async def initdb(jid, callback, message=None):
-    # print("initdb")
-    # time.sleep(1)
+    """
+    Callback function to instantiate action on database.
+    
+    :param jid: JID (Jabber ID).
+    :param callback: Function name.
+    :param massage: Optional kwarg when a message is a part or required argument.
+    """
     db_dir = get_default_dbdir()
     if not os.path.isdir(db_dir):
         os.mkdir(db_dir)
@@ -340,10 +333,11 @@ async def initdb(jid, callback, message=None):
 # NOTE I don't think there should be "return"
 # because then we might stop scanning next URLs
 async def download_updates(db_file):
-    # print("download_updates")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
+    """
+    Chack feeds for new entries.
+    
+    :param db_file: Database filename.
+    """
     urls = await database.get_subscriptions(db_file)
 
     for url in urls:
@@ -386,11 +380,9 @@ async def download_updates(db_file):
         # TODO Place these couple of lines back down
         # NOTE Need to correct the SQL statement to do so
             entries = feed.entries
-            length = len(entries)
-            # breakpoint()
+            # length = len(entries)
             # await database.remove_entry(db_file, source, length)
             await database.remove_nonexistent_entries(db_file, feed, source)
-            # breakpoint()
 
             new_entry = 0
             for entry in entries:
@@ -407,23 +399,9 @@ async def download_updates(db_file):
                     # print('source:', source)
 
                 exist = await database.check_entry_exist(db_file, title, link)
-                # breakpoint()
-                # if exist:
-                #     print("//////// OLD ////////")
-                #     print(source)
-                #     print('ex:',exist)
-                #     if entry.has_key("id"):
-                #         print('id:',entry.id)
 
                 if not exist:
-                    # breakpoint()
                     new_entry = new_entry + 1
-                    # print("******** NEW ********")
-                    # print('T',title)
-                    # if entry.has_key("date"):
-                    #   print('D',entry.date)
-                    # print('L',link)
-                    # print('ex',exist)
                     # TODO Enhance summary
                     if entry.has_key("summary"):
                         summary = entry.summary
@@ -433,45 +411,50 @@ async def download_updates(db_file):
                         summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
                     else:
                         summary = '*** No summary ***'
-                        #print('~~~~~~summary not in entry')
                     entry = (title, summary, link, source, 0);
                     await database.add_entry_and_set_date(db_file, source, entry)
             # print("### added", new_entry, "entries")
 
 
 async def download_feed(url):
+    """
+    Download content of given URL.
+    
+    :param url: URL.
+    :return: Document or error message.
+    """
     # print("download_feed")
     # time.sleep(1)
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession() as session:
-#    async with aiohttp.ClientSession(trust_env=True) as session:
+    # async with aiohttp.ClientSession(trust_env=True) as session:
         try:
             async with session.get(url, timeout=timeout) as response:
                 status = response.status
                 if response.status == 200:
-                    doc = await response.text()
-                    # print (response.content_type)
-                    return [doc, status]
+                    try:
+                        doc = await response.text()
+                        # print (response.content_type)
+                        return [doc, status]
+                    except:
+                        return [False, "The content of this document doesn't appear to be textual"]
                 else:
-                    return [False, status]
+                    return [False, "HTTP Error: " + str(status)]
         except aiohttp.ClientError as e:
             print('Error', str(e))
-            return [False, "error"]
+            return [False, "Error: " + str(e)]
         except asyncio.TimeoutError as e:
             print('Timeout', str(e))
-            return [False, "timeout"]
+            return [False, "Timeout"]
 
 
 async def add_feed(db_file, url):
-    # print("add_feed")
-    # print("db_file")
-    # print(db_file)
-    # time.sleep(1)
     """
-    Check whether feed exist, otherwise process it
-    :param db_file:
-    :param url:
-    :return: string
+    Check whether feed exist, otherwise process it.
+
+    :param db_file: Database filename.
+    :param url: URL.
+    :return: Status message.
     """
     exist = await database.check_feed_exist(db_file, url)
     
@@ -483,10 +466,10 @@ async def add_feed(db_file, url):
                 bozo = ("WARNING: Bozo detected. Failed to load <{}>.".format(url))
                 print(bozo)
                 try:
-                    # tree = etree.fromstring(res[0]) # etree -> html
+                    # tree = etree.fromstring(res[0]) # etree is for xml
                     tree = html.fromstring(res[0])
                 except:
-                    return "Failed to parse {} as feed".format(url)
+                    return "Failed to parse URL <{}> as feed".format(url)
 
                 print("RSS Auto-Discovery Engaged")
                 xpath_query = """//link[(@rel="alternate") and (@type="application/atom+xml" or @type="application/rdf+xml" or @type="application/rss+xml")]"""
@@ -518,28 +501,48 @@ async def add_feed(db_file, url):
                     return await add_feed(db_file, url)
 
                 # Search for feeds by file extension and path
-                paths = ["/atom",
-                         "/atom.php",
-                         "/atom.xml",
-                         "/rdf",
-                         "/rdf.php",
-                         "/rdf.xml",
-                         "/rss",
-                         "/rss.php",
-                         "/rss.xml",
-                         "/feed",
-                         "/feed.atom",
-                         "/feed.rdf",
-                         "/feed.rss",
-                         "/feed.xml",
-                         "/news",
-                         "/news/feed",
-                         "?format=rss",
-                         "/feeds/news_feed",
-                         "/content-feeds/",
-                         "/app.php/feed", # phpBB
-                         "/posts.rss"     # Discourse
-                        ] # More paths "rss.json", "feed.json"
+                paths = [
+                    "/app.php/feed", # phpbb
+                    "/atom",
+                    "/atom.php",
+                    "/atom.xml",
+                    "/content-feeds/",
+                    "/external.php?type=RSS2",
+                    "/feed", # good practice
+                    "/feed.atom",
+                    # "/feed.json",
+                    "/feed.php",
+                    "/feed.rdf",
+                    "/feed.rss",
+                    "/feed.xml",
+                    "/feed/atom/",
+                    "/feeds/news_feed",
+                    "/feeds/rss/news.xml.php",
+                    "/forum_rss.php",
+                    "/index.php/feed",
+                    "/index.php?type=atom;action=.xml", #smf
+                    "/index.php?type=rss;action=.xml", #smf
+                    "/index.rss",
+                    "/latest.rss",
+                    "/news",
+                    "/news.xml",
+                    "/news.xml.php",
+                    "/news/feed",
+                    "/posts.rss", # discourse
+                    "/rdf",
+                    "/rdf.php",
+                    "/rdf.xml",
+                    "/rss",
+                    # "/rss.json",
+                    "/rss.php",
+                    "/rss.xml",
+                    "/timeline.rss",
+                    "/xml/feed.rss",
+                    # "?format=atom",
+                    # "?format=rdf",
+                    # "?format=rss",
+                    # "?format=xml"
+                    ]
 
                 print("RSS Scan Mode Engaged")
                 feeds = {}
@@ -551,16 +554,12 @@ async def add_feed(db_file, url):
                     for address in addresses:
                         address = address.xpath('@href')[0]
                         if address.startswith('/'):
-                            address = parted_url.netloc + address
+                            address = parted_url.scheme + '://' + parted_url.netloc + address
                         res = await download_feed(address)
-                        # print(address)
                         if res[1] == 200:
-                            # print(address)
                             try:
                                 feeds[address] = feedparser.parse(res[0])["feed"]["title"]
-                                # print(feeds)
                             except:
-                                # print('Not a feed')
                                 continue
                 if len(feeds) > 1:
                     msg = "RSS URL scan has found {} feeds:\n\n".format(len(feeds))
@@ -583,7 +582,18 @@ async def add_feed(db_file, url):
                 feeds = {}
                 parted_url = urlparse(url)
                 for path in paths:
-                    # print(path)
+                    address = parted_url.scheme + '://' + parted_url.netloc + path
+                    res = await download_feed(address)
+                    if res[1] == 200:
+                        # print(feedparser.parse(res[0])["feed"]["title"])
+                        # feeds[address] = feedparser.parse(res[0])["feed"]["title"]
+                        try:
+                            title = feedparser.parse(res[0])["feed"]["title"]
+                        except:
+                            title = '*** No Title ***'
+                        feeds[address] = title
+
+                    # Check whether URL has path (i.e. not root)
                     if parted_url.path.split('/')[1]:
                         paths.extend([".atom", ".feed", ".rdf", ".rss"]) if '.rss' not in paths else -1
                         # if paths.index('.rss'):
@@ -591,20 +601,13 @@ async def add_feed(db_file, url):
                         address = parted_url.scheme + '://' + parted_url.netloc + '/' + parted_url.path.split('/')[1] + path
                         res = await download_feed(address)
                         if res[1] == 200:
-                            # print('2res[1]')
-                            # print(res[1])
-                            # print(feedparser.parse(res[0])["feed"]["title"])
-                            feeds[address] = feedparser.parse(res[0])["feed"]["title"]
-                            # print(feeds)
-                    else:
-                        address = parted_url.scheme + '://' + parted_url.netloc + path
-                        res = await download_feed(address)
-                        if res[1] == 200:
-                            # print('1res[1]')
-                            # print(res[1])
-                            # print(feedparser.parse(res[0])["feed"]["title"])
-                            feeds[address] = feedparser.parse(res[0])["feed"]["title"]
-                            # print(feeds)
+                            print('ATTENTION')
+                            print(address)
+                            try:
+                                title = feedparser.parse(res[0])["feed"]["title"]
+                            except:
+                                title = '*** No Title ***'
+                            feeds[address] = title
                 if len(feeds) > 1:
                     msg = "RSS URL discovery has found {} feeds:\n\n".format(len(feeds))
                     for feed in feeds:
@@ -621,19 +624,19 @@ async def add_feed(db_file, url):
             else:
                 return await database.add_feed(db_file, feed, url, res)
         else:
-            return "Failed to get URL <{}>.  HTTP Error {}".format(url, res[1])
+            return "Failed to get URL <{}>.  Reason: {}".format(url, res[1])
     else:
-        return "News source <{}> is already listed in the subscription list".format(url)
+        ix = exist[0]
+        return "News source <{}> is already listed in the subscription list at index {}".format(url, ix)
 
 
 def toggle_state(jid, state):
-    # print("toggle_state")
-    # time.sleep(1)
     """
-    Set status of update
-    :param jid: jid of the user
-    :param state: boolean
-    :return:
+    Set status of update.
+    
+    :param jid: JID (Jabber ID).
+    :param state: True or False.
+    :return: Status message.
     """
     db_dir = get_default_dbdir()
     db_file = os.path.join(db_dir, r"{}.db".format(jid))
