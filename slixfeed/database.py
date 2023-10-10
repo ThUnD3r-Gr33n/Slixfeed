@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import sqlite3
-from sqlite3 import Error
-
 import asyncio
-
+from sqlite3 import Error
 from datetime import date
+import settings
+
 
 # from eliot import start_action, to_file
 # # with start_action(action_type="list_subscriptions()", db=db_file):
@@ -71,12 +71,18 @@ def create_tables(db_file):
         #         title text NOT NULL,
         #         number integer
         #     ); """
-    
-        c = conn.cursor()
-        # c = get_cursor(db_file)
-        c.execute(feeds_table_sql)
-        c.execute(entries_table_sql)
-        # c.execute(statistics_table_sql)
+        settings_table_sql = """
+            CREATE TABLE IF NOT EXISTS settings (
+                id integer PRIMARY KEY,
+                key text NOT NULL,
+                value integer
+            ); """
+        cur = conn.cursor()
+        # cur = get_cursor(db_file)
+        cur.execute(feeds_table_sql)
+        cur.execute(entries_table_sql)
+        # cur.execute(statistics_table_sql)
+        cur.execute(settings_table_sql)
 
 
 def get_cursor(db_file):
@@ -122,12 +128,12 @@ async def add_feed(db_file, feed, url, res):
             cur = conn.cursor()
             title = feed["feed"]["title"]
             feed = (title, url, 1, res[1], 1)
-            sql = """INSERT INTO feeds(name,address,enabled,status,valid)
-                     VALUES(?,?,?,?,?) """
+            sql = """INSERT INTO feeds(name, address, enabled, status, valid)
+                     VALUES(?, ?, ?, ?, ?) """
             cur.execute(sql, feed)
 
     source = title if title else '<' + url + '>'
-    msg = 'News source "{}" has been added to subscription list'.format(source)
+    msg = '> {}\nNews source "{}" has been added to subscription list'.format(url, source)
     return msg
 
 
@@ -152,10 +158,11 @@ async def remove_feed(db_file, ix):
                 cur.execute(sql, (url,))
                 sql = "DELETE FROM feeds WHERE id = ?"
                 cur.execute(sql, (ix,))
-                return """News source <{}> has been removed from subscription list
-                       """.format(url)
+                msg = """News source <{}> has been removed from subscription list
+                      """.format(url)
             except:
-                return """No news source with ID {}""".format(ix)
+                msg = """No news source with ID {}""".format(ix)
+    return msg
 
 
 async def check_feed_exist(db_file, url):
@@ -165,12 +172,13 @@ async def check_feed_exist(db_file, url):
     
     :param db_file: Database filename.
     :param url: URL.
-    :return: SQL row or None.
+    :return: Index ID and Name or None.
     """
     cur = get_cursor(db_file)
-    sql = "SELECT id FROM feeds WHERE address = ?"
+    sql = "SELECT id, name FROM feeds WHERE address = ?"
     cur.execute(sql, (url,))
-    return cur.fetchone()
+    result = cur.fetchone()
+    return result
 
 
 async def get_number_of_items(db_file, str):
@@ -262,7 +270,8 @@ async def statistics(db_file):
     feeds = await get_number_of_items(db_file, 'feeds')
     entries = await get_number_of_items(db_file, 'entries')
     unread_entries = await get_number_of_entries_unread(db_file)
-    return "You have {} unread news items out of {} from {} news sources.".format(unread_entries, entries, feeds)
+    msg = "You have {} unread news items out of {} from {} news sources.".format(unread_entries, entries, feeds)
+    return msg
 
 
 async def update_statistics(cur):
@@ -321,7 +330,8 @@ async def toggle_status(db_file, ix):
                 state = "enabled"
             sql = "UPDATE feeds SET enabled = :status WHERE id = :id"
             cur.execute(sql, {"status": status, "id": ix})
-    return "Updates for '{}' are now {}".format(title, state)
+    msg = "Updates for '{}' are now {}".format(title, state)
+    return msg
 
 
 async def set_date(cur, url):
@@ -377,8 +387,8 @@ async def add_entry(cur, entry):
     :param cur: Cursor object.
     :param entry:
     """
-    sql = """ INSERT INTO entries(title,summary,link,source,read)
-              VALUES(?,?,?,?,?) """
+    sql = """ INSERT INTO entries(title, summary, link, source, read)
+              VALUES(?, ?, ?, ?, ?) """
     cur.execute(sql, entry)
 
 
@@ -432,16 +442,9 @@ async def remove_nonexistent_entries(db_file, feed, source):
             sql = "SELECT id, title, link FROM entries WHERE source = ?"
             cur.execute(sql, (source,))
             entries_db = cur.fetchall()
-            # print('entries_db')
-            # print(entries_db)
             for entry_db in entries_db:
-                # entry_db[1] = id
-                # entry_db[2] = title
-                # entry_db[3] = link
                 exist = False
-                # print("check-db")
                 for entry_feed in feed.entries:
-                    # print("check-feed")
                     # TODO better check and don't repeat code
                     if entry_feed.has_key("title"):
                         title = entry_feed.title
@@ -454,18 +457,13 @@ async def remove_nonexistent_entries(db_file, feed, source):
                         link = source
                     # TODO better check and don't repeat code
                     if entry_db[1] == title and entry_db[2] == link:
-                        # print('exist')
-                        # print(title)
                         exist = True
                         break
                 if not exist:
-                    # print('>>> not exist')
-                    # print(entry_db[1])
                     # TODO Send to table archive
                     # TODO Also make a regular/routine check for sources that have been changed (though that can only happen when manually editing)
                     sql = "DELETE FROM entries WHERE id = ?"
                     cur.execute(sql, (entry_db[0],))
-            # breakpoint()
 
 
 async def get_subscriptions(db_file):
@@ -479,7 +477,8 @@ async def get_subscriptions(db_file):
         cur = conn.cursor()
         sql = "SELECT address FROM feeds WHERE enabled = 1"
         cur.execute(sql)
-        return cur.fetchall()
+        result = cur.fetchall()
+        return result
 
 
 async def list_subscriptions(db_file):
@@ -570,9 +569,107 @@ async def check_entry_exist(db_file, title, link):
     :param db_file: Database filename.
     :param link: Entry URL.
     :param title: Entry title.
-    :return: SQL row or None.
+    :return: Index ID or None.
     """
     cur = get_cursor(db_file)
     sql = "SELECT id FROM entries WHERE title = :title and link = :link"
     cur.execute(sql, {"title": title, "link": link})
-    return cur.fetchone()
+    result = cur.fetchone()
+    return result
+
+# TODO dictionary
+# settings = {
+#     "enabled"   : {
+#         "message": "Updates are {}".format(status),
+#         "value": val
+#         },
+#     "interval" : {
+#         "message": "Updates will be sent every {} minutes".format(val),
+#         "value": val
+#         },
+#     "quantom"  : {
+#         "message": "Every updates will contain {} news items".format(val),
+#         "value": val
+#         }
+#     }
+
+async def set_settings_value(db_file, key_value):
+    """
+    Set settings value.
+    
+    :param db_file: Database filename.
+    :param key_value: List of key ("enabled", "interval", "quantum") and value (Integer).
+    :return: Message.
+    """
+    if isinstance(key_value, list):
+        key = key_value[0]
+        val = key_value[1]
+    elif key_value == "enable":
+        key = "enabled"
+        val = 1
+    else:
+        key = "enabled"
+        val = 0
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            await set_settings_value_default(cur, key)
+            sql = "UPDATE settings SET value = :value WHERE key = :key"
+            cur.execute(sql, {"key": key, "value": val})
+    if key == 'quantum':
+        msg = "Every update will contain {} news items.".format(val)
+    elif key == 'interval':
+        msg = "Updates will be sent every {} minutes.".format(val)
+    else:
+        msg = "Updates are {}d.".format(key_value)
+    return msg
+
+
+async def set_settings_value_default(cur, key):
+# async def set_settings_value_default(cur):
+#     keys = ["enabled", "interval", "quantum"]
+#     for i in keys:
+#         sql = "SELECT id FROM settings WHERE key = ?"
+#         cur.execute(sql, (i,))
+#         if not cur.fetchone():
+#             val = await settings.get_value_default(i)
+#             sql = "INSERT INTO settings(key,value) VALUES(?,?)"
+#             cur.execute(sql, (i, val))
+    sql = "SELECT id FROM settings WHERE key = ?"
+    cur.execute(sql, (key,))
+    if not cur.fetchone():
+        val = await settings.get_value_default(key)
+        sql = "INSERT INTO settings(key,value) VALUES(?,?)"
+        cur.execute(sql, (key, val))
+        return val
+
+
+async def get_settings_value(db_file, key):
+    """
+    Get settings value.
+    
+    :param db_file: Database filename.
+    :param key: "enabled", "interval", "quantum".
+    """
+    # try:
+    #     with create_connection(db_file) as conn:
+    #         cur = conn.cursor()
+    #         sql = "SELECT value FROM settings WHERE key = ?"
+    #         cur.execute(sql, (key,))
+    #         result = cur.fetchone()
+    # except:
+    #     result = await settings.get_value_default(key)
+    # if not result:
+    #     result = await settings.get_value_default(key)
+    # return result
+    with create_connection(db_file) as conn:
+        try:
+            cur = conn.cursor()
+            sql = "SELECT value FROM settings WHERE key = ?"
+            cur.execute(sql, (key,))
+            result = cur.fetchone()[0]
+        except:
+            result = await set_settings_value_default(cur, key)
+        if not result:
+            result = await set_settings_value_default(cur, key)
+        return result
