@@ -101,12 +101,12 @@ def get_cursor(db_file):
     return CURSORS[db_file]
 
 
-async def add_feed(db_file, feed, url, res):
+async def add_feed(db_file, title, url, res):
     """
     Add a new feed into the feeds table.
     
     :param db_file: Database filename.
-    :param feed: Parsed XML document.
+    :param title: Feed title.
     :param url: URL.
     :param res: XML document.
     :return: Message.
@@ -126,7 +126,7 @@ async def add_feed(db_file, feed, url, res):
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
-            title = feed["feed"]["title"]
+            # title = feed["feed"]["title"]
             feed = (title, url, 1, res[1], 1)
             sql = """INSERT INTO feeds(name, address, enabled, status, valid)
                      VALUES(?, ?, ?, ?, ?) """
