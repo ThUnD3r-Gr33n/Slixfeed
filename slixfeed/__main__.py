@@ -64,6 +64,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         # MUC messages and error messages.
         self.add_event_handler("message", self.message)
         self.add_event_handler("disconnected", self.reconnect)
+        # Initialize event loop
+        self.loop = asyncio.get_event_loop()
 
     async def start(self, event):
         """
@@ -185,6 +187,8 @@ class Slixfeed(slixmpp.ClientXMPP):
             print("> CHCK UPDATE",jid)
             await initdb(jid, download_updates)
             await asyncio.sleep(60 * 90)
+            # Schedule to call this function again in 90 minutes
+            # self.loop.call_at(self.loop.time() + 60 * 90, self.loop.create_task, self.check_updates(event, jid))
 
     async def send_update(self, event, jid):
         """
@@ -194,19 +198,20 @@ class Slixfeed(slixmpp.ClientXMPP):
         :param event:
         :param jid: Jabber ID
         """
-        print("> SEND UPDATE",jid)
         new = await initdb(
             jid,
             database.get_entry_unread
         )
         if new:
+            print("> SEND UPDATE",jid)
             self.send_message(
                 mto=jid,
                 mbody=new,
                 mtype='chat'
             )
         interval = await initdb(jid, database.get_settings_value, 'interval')
-        await asyncio.sleep(60 * interval)
+        # await asyncio.sleep(60 * interval)
+        self.loop.call_at(self.loop.time() + 60 * interval, self.loop.create_task, self.send_update(event, jid))
 
     async def send_status(self, event, jid):
         """
@@ -231,7 +236,8 @@ class Slixfeed(slixmpp.ClientXMPP):
             pto=jid,
             #pfrom=None
         )
-        await asyncio.sleep(60 * 20)
+        # await asyncio.sleep(60 * 20)
+        self.loop.call_at(self.loop.time() + 60 * 20, self.loop.create_task, self.send_status(event, jid))
 
 
 def print_help():
@@ -362,6 +368,7 @@ async def download_updates(db_file):
     urls = await database.get_subscriptions(db_file)
 
     for url in urls:
+        # print(os.path.basename(db_file), url[0])
         source = url[0]
         res = await download_feed(source)
         # TypeError: 'NoneType' object is not subscriptable
@@ -476,6 +483,7 @@ async def add_feed(db_file, url):
         res = await download_feed(url)
         if res[0]:
             feed = feedparser.parse(res[0])
+            title = await get_title(url, feed)
             if feed.bozo:
                 bozo = ("WARNING: Bozo detected. Failed to load <{}>.".format(url))
                 print(bozo)
@@ -635,7 +643,7 @@ async def add_feed(db_file, url):
                 else:
                     msg = "No news feeds were found for URL <{}>.".format(url)
             else:
-                msg = await database.add_feed(db_file, feed, url, res)
+                msg = await database.add_feed(db_file, title, url, res)
         else:
             msg = "Failed to get URL <{}>.  Reason: {}".format(url, res[1])
     else:
@@ -643,6 +651,21 @@ async def add_feed(db_file, url):
         name = exist[1]
         msg = "> {}\nNews source \"{}\" is already listed in the subscription list at index {}".format(url, name, ix)
     return msg
+
+
+async def get_title(url, feed):
+    """
+    Get title of feed.
+    
+    :param url: URL
+    :param feed: Parsed feed
+    :return: Title or URL hostname.
+    """
+    try:
+        title = feed["feed"]["title"]
+    except:
+        title = urlparse(url).netloc
+    return title
 
 
 def toggle_state(jid, state):
