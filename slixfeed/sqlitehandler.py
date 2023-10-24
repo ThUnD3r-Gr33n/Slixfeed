@@ -3,10 +3,11 @@
 
 import sqlite3
 import asyncio
+
 from sqlite3 import Error
 from datetime import date
-import settings
 
+import confighandler
 
 # from eliot import start_action, to_file
 # # with start_action(action_type="list_subscriptions()", db=db_file):
@@ -638,7 +639,7 @@ async def set_settings_value_default(cur, key):
     sql = "SELECT id FROM settings WHERE key = ?"
     cur.execute(sql, (key,))
     if not cur.fetchone():
-        val = await settings.get_value_default(key)
+        val = await confighandler.get_value_default(key)
         sql = "INSERT INTO settings(key,value) VALUES(?,?)"
         cur.execute(sql, (key, val))
         return val
