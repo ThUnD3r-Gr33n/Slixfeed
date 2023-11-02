@@ -13,6 +13,7 @@ import sqlitehandler
 
 jid_tasker = {}
 task_manager = {}
+loop = asyncio.get_event_loop()
 
 time_now = datetime.now()
 # time_now = time_now.strftime("%H:%M:%S")
@@ -52,7 +53,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.add_event_handler("message", self.message)
         self.add_event_handler("disconnected", self.reconnect)
         # Initialize event loop
-        self.loop = asyncio.get_event_loop()
+        # self.loop = asyncio.get_event_loop()
 
 
     async def start(self, event):
@@ -96,6 +97,11 @@ class Slixfeed(slixmpp.ClientXMPP):
             jid = msg["from"].bare
             message = " ".join(msg["body"].split())
             message = message.lower()
+
+            print(print_time(), "COMMAND ACCOUNT")
+            print("COMMAND:", message)
+            print("ACCOUNT: " + str(msg["from"]))
+
             if message.startswith("help"):
                 action = print_help()
             # NOTE: Might not need it
@@ -132,7 +138,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 # action = "Updates are enabled."
                 key = "enabled"
                 val = 1
-                actiona = await initdb(jid, sqlitehandler.set_settings_value, [key, val])
+                action = await initdb(jid, sqlitehandler.set_settings_value, [key, val])
                 asyncio.create_task(self.task_jid(jid))
                 # print(print_time(), "task_manager[jid]")
                 # print(task_manager[jid])
@@ -144,25 +150,23 @@ class Slixfeed(slixmpp.ClientXMPP):
             elif message.startswith("stop"):
                 # action = "Updates are disabled."
                 try:
+                    print(print_time(), "task_manager[jid]")
+                    print(task_manager[jid])
                     task_manager[jid]["check"].cancel()
                     # task_manager[jid]["status"].cancel()
                     task_manager[jid]["interval"].cancel()
                     key = "enabled"
                     val = 0
-                    actiona = await initdb(jid, sqlitehandler.set_settings_value, [key, val])
-                    await self.send_status(jid)
-                    print(print_time(), "task_manager[jid]")
-                    print(task_manager[jid])
+                    action = await initdb(jid, sqlitehandler.set_settings_value, [key, val])
                 except:
-                    # action = "Updates are already disabled."
-                    await self.send_status(jid)
+                    action = "Updates are already disabled."
+                    print("Updates are already disabled. Nothing to do.")
+                # await self.send_status(jid)
             else:
                 action = "Unknown command. Press \"help\" for list of commands"
+            # NOTE Message won't be sent if status is send before it
+            # await self.send_status(jid)
             if action: msg.reply(action).send()
-
-            print(print_time(), "COMMAND ACCOUNT")
-            print("COMMAND:", message)
-            print("ACCOUNT: " + str(msg["from"]))
 
 
     async def select_file(self):
@@ -264,12 +268,19 @@ class Slixfeed(slixmpp.ClientXMPP):
             sqlitehandler.get_settings_value,
             "interval"
         )
+        print(print_time(), "asyncio.get_event_loop().time()")
+        print(print_time(), asyncio.get_event_loop().time())
         # await asyncio.sleep(60 * interval)
-        self.loop.call_at(
-            self.loop.time() + 60 * interval,
-            self.loop.create_task,
+        task_manager[jid]["interval"] = loop.call_at(
+            loop.time() + 60 * interval,
+            loop.create_task,
             self.send_update(jid)
         )
+        # loop.call_later(
+        #     60 * interval,
+        #     loop.create_task,
+        #     self.send_update(jid)
+        # )
 
     async def send_status(self, jid):
         """
@@ -310,9 +321,9 @@ class Slixfeed(slixmpp.ClientXMPP):
 
         await asyncio.sleep(60 * 20)
 
-        # self.loop.call_at(
-        #     self.loop.time() + 60 * 20,
-        #     self.loop.create_task,
+        # loop.call_at(
+        #     loop.time() + 60 * 20,
+        #     loop.create_task,
         #     self.send_status(jid)
         # )
 
@@ -331,12 +342,20 @@ class Slixfeed(slixmpp.ClientXMPP):
             loop = asyncio.get_event_loop()
             print(print_time(), "loop")
             print(loop)
-            print(print_time(), "loop")
+            print(print_time(), "loop.time()")
+            print(print_time(), loop.time())
+            print(print_time(), "self.loop.time()")
+            print(print_time(), self.loop.time())
             task_manager[jid][key] = loop.call_at(
                 loop.time() + 60 * float(val),
                 loop.create_task,
                 self.send_update(jid)
             )
+            # task_manager[jid][key] = loop.call_later(
+            #     60 * float(val),
+            #     loop.create_task,
+            #     self.send_update(jid)
+            # )
             # task_manager[jid][key] = self.send_update.loop.call_at(
             #     self.send_update.loop.time() + 60 * val,
             #     self.send_update.loop.create_task,
@@ -357,9 +376,9 @@ async def check_updates(jid):
         await initdb(jid, datahandler.download_updates)
         await asyncio.sleep(60 * 90)
         # Schedule to call this function again in 90 minutes
-        # self.loop.call_at(
-        #     self.loop.time() + 60 * 90,
-        #     self.loop.create_task,
+        # loop.call_at(
+        #     loop.time() + 60 * 90,
+        #     loop.create_task,
         #     self.check_updates(jid)
         # )
 
@@ -375,7 +394,7 @@ def print_help():
            " Supported filetypes: Atom, RDF and RSS. \n"
            "\n"
            "BASIC USAGE: \n"
-           " start \n"
+           " Start \n"
            "   Enable bot and send updates. \n"
            " Stop \n"
            "   Disable bot and stop updates. \n"
