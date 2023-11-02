@@ -154,4 +154,3 @@ def get_default_list():
     #     file = open(cfg_file, "w")
     #     file.writelines("\n".join(paths))
     #     file.close()
-
