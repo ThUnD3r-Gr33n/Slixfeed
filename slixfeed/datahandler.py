@@ -4,9 +4,9 @@
 import feedparser
 import aiohttp
 import asyncio
-
-import feedhandler
+import os
 import sqlitehandler
+import confighandler
 
 from http.client import IncompleteRead
 from asyncio.exceptions import IncompleteReadError
@@ -19,7 +19,7 @@ from lxml import html
 async def download_updates(db_file):
     """
     Check feeds for new entries.
-    
+
     :param db_file: Database filename.
     """
     urls = await sqlitehandler.get_subscriptions(db_file)
@@ -112,7 +112,7 @@ async def add_feed(db_file, url):
         res = await download_feed(url)
         if res[0]:
             feed = feedparser.parse(res[0])
-            title = await feedhandler.get_title(url, feed)
+            title = await get_title(url, feed)
             if feed.bozo:
                 bozo = ("WARNING: Bozo detected. Failed to load <{}>.".format(url))
                 print(bozo)
@@ -151,69 +151,24 @@ async def add_feed(db_file, url):
                     # mentioned, yet upon failure it wouldn't?
                     return await add_feed(db_file, url)
 
-                # Search for feeds by file extension and path
-                paths = [
-                    ".atom",
-                    ".rss",
-                    ".xml",
-                    "/?feed=atom",
-                    "/?feed=rdf",
-                    "/?feed=rss",
-                    "/?feed=xml", # wordpress
-                    "/?format=atom",
-                    "/?format=rdf",
-                    "/?format=rss",
-                    "/?format=xml", # phpbb
-                    "/app.php/feed",
-                    "/atom",
-                    "/atom.php",
-                    "/atom.xml",
-                    "/blog/feed/",
-                    "/content-feeds/",
-                    "/external.php?type=RSS2",
-                    "/en/feed/",
-                    "/feed", # good practice
-                    "/feed.atom",
-                    # "/feed.json",
-                    "/feed.php",
-                    "/feed.rdf",
-                    "/feed.rss",
-                    "/feed.xml",
-                    "/feed/atom/",
-                    "/feeds/news_feed",
-                    "/feeds/posts/default",
-                    "/feeds/posts/default?alt=atom",
-                    "/feeds/posts/default?alt=rss",
-                    "/feeds/rss/news.xml.php",
-                    "/forum_rss.php",
-                    "/index.atom",
-                    "/index.php/feed",
-                    "/index.php?type=atom;action=.xml", #smf
-                    "/index.php?type=rss;action=.xml", #smf
-                    "/index.rss",
-                    "/jekyll/feed.xml",
-                    "/latest.rss",
-                    "/news",
-                    "/news.xml",
-                    "/news.xml.php",
-                    "/news/feed",
-                    "/posts.rss", # discourse
-                    "/rdf",
-                    "/rdf.php",
-                    "/rdf.xml",
-                    "/rss",
-                    # "/rss.json",
-                    "/rss.php",
-                    "/rss.xml",
-                    "/timeline.rss",
-                    "/videos.atom",
-                    # "/videos.json",
-                    "/videos.xml",
-                    "/xml/feed.rss"
-                    ]
-
                 print("RSS Scan Mode Engaged")
                 feeds = {}
+                paths = []
+                # TODO Test
+                cfg_dir = confighandler.get_default_confdir()
+                if not os.path.isdir(cfg_dir):
+                    os.mkdir(cfg_dir)
+                cfg_file = os.path.join(cfg_dir, r"url_paths.txt")
+                if not os.path.isfile(cfg_file):
+                    # confighandler.generate_dictionary()
+                    list = confighandler.get_default_list()
+                    file = open(cfg_file, "w")
+                    file.writelines("\n".join(list))
+                    file.close()
+                file = open(cfg_file, "r")
+                lines = file.readlines()
+                for line in lines:
+                    paths.extend([line.strip()])
                 for path in paths:
                     # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
                     xpath_query = "//a[contains(@href,'{}')]".format(path)
@@ -271,8 +226,6 @@ async def add_feed(db_file, url):
                         address = parted_url.scheme + '://' + parted_url.netloc + '/' + parted_url.path.split('/')[1] + path
                         res = await download_feed(address)
                         if res[1] == 200:
-                            print('ATTENTION')
-                            print(address)
                             try:
                                 title = feedparser.parse(res[0])["feed"]["title"]
                             except:
@@ -304,7 +257,7 @@ async def add_feed(db_file, url):
 async def download_feed(url):
     """
     Download content of given URL.
-    
+
     :param url: URL.
     :return: Document or error message.
     """
@@ -320,7 +273,8 @@ async def download_feed(url):
                         # print (response.content_type)
                         return [doc, status]
                     except:
-                        return [False, "The content of this document doesn't appear to be textual"]
+                        # return [False, "The content of this document doesn't appear to be textual."]
+                        return [False, "Document is too large or is not textual."]
                 else:
                     return [False, "HTTP Error: " + str(status)]
         except aiohttp.ClientError as e:
@@ -329,3 +283,18 @@ async def download_feed(url):
         except asyncio.TimeoutError as e:
             # print('Timeout:', str(e))
             return [False, "Timeout: " + str(e)]
+
+
+async def get_title(url, feed):
+    """
+    Get title of feed.
+
+    :param url: URL
+    :param feed: Parsed feed
+    :return: Title or URL hostname.
+    """
+    try:
+        title = feed["feed"]["title"]
+    except:
+        title = urlparse(url).netloc
+    return title
