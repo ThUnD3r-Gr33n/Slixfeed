@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+
+TODO
+
+1) Use file settings.csv and pathnames.txt instead:
+    See get_value_default and get_default_list
+
+"""
+
 import os
 import sys
 
@@ -8,16 +17,21 @@ def get_default_dbdir():
     """
     Determine the directory path where dbfile will be stored.
 
-    If $XDG_DATA_HOME is defined, use it
-    else if $HOME exists, use it
-    else if the platform is Windows, use %APPDATA%
-    else use the current directory.
+    * If $XDG_DATA_HOME is defined, use it;
+    * else if $HOME exists, use it;
+    * else if the platform is Windows, use %APPDATA%;
+    * else use the current directory.
 
-    :return: Path to database file.
+    Returns
+    -------
+    str
+        Path to database file.
 
     Note
     ----
-    This code was taken from the buku project.
+    This function was taken from project buku.
+    
+    See https://github.com/jarun/buku
 
     * Arun Prakash Jana (jarun)
     * Dmitry Marakasov (AMDmi3)
@@ -41,12 +55,15 @@ def get_default_confdir():
     """
     Determine the directory path where configuration will be stored.
 
-    If $XDG_CONFIG_HOME is defined, use it
-    else if $HOME exists, use it
-    else if the platform is Windows, use %APPDATA%
-    else use the current directory.
+    * If $XDG_CONFIG_HOME is defined, use it;
+    * else if $HOME exists, use it;
+    * else if the platform is Windows, use %APPDATA%;
+    * else use the current directory.
 
-    :return: Path to configueation directory.
+    Returns
+    -------
+    str
+        Path to configueation directory.
     """
 #    config_home = xdg.BaseDirectory.xdg_config_home
     config_home = os.environ.get('XDG_CONFIG_HOME')
@@ -67,16 +84,58 @@ async def get_value_default(key):
     """
     Get settings default value.
 
-    :param key: "enabled", "interval", "quantum".
-    :return: Integer.
+    Parameters
+    ----------
+    key : str
+        Key: enabled, filter-allow, filter-deny,
+             interval, quantum, random.
+
+    Returns
+    -------
+    result : int or str
+        Value.
     """
-    if key == "enabled":
-        result = 1
-    elif key == "quantum":
-        result = 4
-    elif key == "interval":
-        result = 30
+    match key:
+        case "enabled":
+            result = 1
+        case "filter-allow":
+            result = "hitler,sadam,saddam"
+        case "filter-deny":
+            result = "crim,dead,death,disaster,holocaust,murder,war"
+        case "interval":
+            result = 30
+        case "quantum":
+            result = 4
+        case "random":
+            result = 0
     return result
+
+
+def get_list():
+    """
+    Get dictionary file.
+
+    Returns
+    -------
+    paths : list
+        Dictionary of pathnames.
+    """
+    paths = []
+    cfg_dir = get_default_confdir()
+    if not os.path.isdir(cfg_dir):
+        os.mkdir(cfg_dir)
+    cfg_file = os.path.join(cfg_dir, r"url_paths.txt")
+    if not os.path.isfile(cfg_file):
+        # confighandler.generate_dictionary()
+        list = get_default_list()
+        file = open(cfg_file, "w")
+        file.writelines("\n".join(list))
+        file.close()
+    file = open(cfg_file, "r")
+    lines = file.readlines()
+    for line in lines:
+        paths.extend([line.strip()])
+    return paths
 
 
 # async def generate_dictionary():
@@ -84,7 +143,10 @@ def get_default_list():
     """
     Generate a dictionary file.
 
-    :return: List.
+    Returns
+    -------
+    paths : list
+        Dictionary of pathnames.
     """
     paths = [
         ".atom",
@@ -139,6 +201,8 @@ def get_default_list():
         # "/rss.json",
         "/rss.php",
         "/rss.xml",
+        "/syndication.php?type=atom1.0", #mybb
+        "/syndication.php?type=rss2.0",
         "/timeline.rss",
         "/videos.atom",
         # "/videos.json",
