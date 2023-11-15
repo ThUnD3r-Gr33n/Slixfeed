@@ -4,7 +4,6 @@
 import aiohttp
 import asyncio
 import feedparser
-import os
 
 import sqlitehandler
 import confighandler
@@ -20,39 +19,6 @@ from urllib.parse import urljoin
 from urllib.parse import urlsplit
 from urllib.parse import urlunsplit
 from lxml import html
-
-
-# NOTE Perhaps this needs to be executed
-# just once per program execution
-async def initdb(jid, callback, message=None):
-    """
-    Callback function to instantiate action on database.
-
-    Parameters
-    ----------
-    jid : str
-        Jabber ID.
-    callback : ?
-        Function name.
-    message : str, optional
-        Optional kwarg when a message is a part or
-        required argument. The default is None.
-
-    Returns
-    -------
-    object
-        Coroutine object.
-    """
-    db_dir = confighandler.get_default_dbdir()
-    if not os.path.isdir(db_dir):
-        os.mkdir(db_dir)
-    db_file = os.path.join(db_dir, r"{}.db".format(jid))
-    sqlitehandler.create_tables(db_file)
-    # await sqlitehandler.set_default_values(db_file)
-    if message:
-        return await callback(db_file, message)
-    else:
-        return await callback(db_file)
 
 
 async def download_updates(db_file, url=None):
@@ -207,7 +173,7 @@ async def download_updates(db_file, url=None):
                             string
                             )
                         if reject_list:
-                            print(">>> REJECTED", title)
+                            # print(">>> REJECTED", title)
                             summary = "REJECTED"
                             # summary = ""
                             read_status = 1
@@ -630,21 +596,39 @@ async def feed_mode_request(db_file, url, tree):
             res = await download_feed(address)
             if res[1] == 200:
                 try:
-                    title = feedparser.parse(res[0])["feed"]["title"]
+                    feeds[address] = feedparser.parse(res[0])
+                    # print(feeds)
                 except:
-                    title = '*** No Title ***'
-                feeds[address] = title
+                    continue
     if len(feeds) > 1:
+        positive = 0
         msg = (
             "RSS URL discovery has found {} feeds:\n```\n"
             ).format(len(feeds))
         for feed in feeds:
-            feed_name = feeds[feed]
+            feed_name = feeds[feed]["feed"]["title"]
             feed_addr = feed
-            msg += "{}\n{}\n\n".format(feed_name, feed_addr)
+            feed_amnt = len(feeds[feed].entries)
+            if feed_amnt:
+                positive = 1
+                msg += (
+                    "Title: {}\n"
+                    " Link: {}\n"
+                    "Count: {}\n"
+                    "\n"
+                    ).format(
+                        feed_name,
+                        feed_addr,
+                        feed_amnt
+                        )
         msg += (
             "```\nThe above feeds were extracted from\n{}"
             ).format(url)
+        if not positive:
+            msg = (
+                "No feeds were found for {}."
+                ).format(url)
+        return msg
     elif feeds:
         feed_addr = list(feeds)[0]
         msg = await add_feed(db_file, feed_addr)
@@ -709,11 +693,12 @@ async def feed_mode_scan(db_file, url, tree):
             res = await download_feed(address)
             if res[1] == 200:
                 try:
-                    feeds[address] = feedparser.parse(res[0])["feed"]["title"]
-                    print(feeds)
+                    feeds[address] = feedparser.parse(res[0])
+                    # print(feeds)
                 except:
                     continue
     if len(feeds) > 1:
+        positive = 0
         msg = (
             "RSS URL scan has found {} feeds:\n```\n"
             ).format(len(feeds))
@@ -722,12 +707,28 @@ async def feed_mode_scan(db_file, url, tree):
             #     res = await download_feed(feed)
             # except:
             #     continue
-            feed_name = feeds[feed]
+            feed_name = feeds[feed]["feed"]["title"]
             feed_addr = feed
-            msg += "{}\n{}\n\n".format(feed_name, feed_addr)
+            feed_amnt = len(feeds[feed].entries)
+            if feed_amnt:
+                positive = 1
+                msg += (
+                    "Title: {}\n"
+                    " Link: {}\n"
+                    "Count: {}\n"
+                    "\n"
+                    ).format(
+                        feed_name,
+                        feed_addr,
+                        feed_amnt
+                        )
         msg += (
             "```\nThe above feeds were extracted from\n{}"
             ).format(url)
+        if not positive:
+            msg = (
+                "No feeds were found for {}."
+                ).format(url)
         return msg
     elif feeds:
         feed_addr = list(feeds)[0]

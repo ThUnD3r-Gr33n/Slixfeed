@@ -60,7 +60,7 @@ async def is_listed(db_file, type, string):
             if not i or len(i) < 2:
                 continue
             if i in string.lower():
-                print(">>> ACTIVATE", i)
+                # print(">>> ACTIVATE", i)
                 return 1
     else:
         return None

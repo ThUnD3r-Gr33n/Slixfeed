@@ -250,6 +250,12 @@ async def remove_feed(db_file, ix):
                     )
                 cur.execute(sql, (url,))
                 sql = (
+                    "DELETE "
+                    "FROM archive "
+                    "WHERE source = ?"
+                    )
+                cur.execute(sql, (url,))
+                sql = (
                     "DELETE FROM feeds "
                     "WHERE id = ?"
                     )
@@ -360,9 +366,18 @@ async def get_number_of_entries_unread(db_file):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
+            "SELECT "
+            "("
             "SELECT count(id) "
             "FROM entries "
             "WHERE read = 0"
+            ") "
+            "+ "
+            "("
+            "SELECT count(id) "
+            "FROM archive"
+            ") "
+            "AS total_count"
             )
         count = cur.execute(sql).fetchone()[0]
         return count
@@ -391,12 +406,32 @@ async def get_entry_unread(db_file, num=None):
         num = int(num)
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        # sql = "SELECT id FROM entries WHERE read = 0 LIMIT 1"
-        # sql = "SELECT id FROM entries WHERE read = 0 ORDER BY timestamp DESC LIMIT 1"
+        # sql = (
+        #     "SELECT id "
+        #     "FROM entries "
+        #     "WHERE read = 0 "
+        #     "LIMIT 1"
+        #     )
+        # sql = ("SELECT id "
+        #        "FROM entries "
+        #        "WHERE read = 0 "
+        #        "ORDER BY timestamp DESC "
+        #        "LIMIT 1"
+        #        )
+        # sql = (
+        #     "SELECT id, title, summary, link "
+        #     "FROM entries "
+        #     "WHERE read = 0 "
+        #     "ORDER BY timestamp "
+        #     "DESC LIMIT :num"
+        #     )
         sql = (
-            "SELECT id, title, summary, link "
+            "SELECT id, title, summary, link, timestamp "
             "FROM entries "
             "WHERE read = 0 "
+            "UNION ALL "
+            "SELECT id, title, summary, link, timestamp "
+            "FROM archive "
             "ORDER BY timestamp "
             "DESC LIMIT :num"
             )
@@ -444,7 +479,11 @@ async def get_entry_unread(db_file, num=None):
                         str(link)
                         )
             async with DBLOCK:
+                # NOTE: We can use DBLOCK once for both
+                # functions, because, due to exclusive
+                # ID, only one can ever occur.
                 await mark_as_read(cur, ix)
+                await delete_entry(cur, ix)
         return news_list
 
 
@@ -462,6 +501,24 @@ async def mark_as_read(cur, ix):
     sql = (
         "UPDATE entries "
         "SET summary = '', read = 1 "
+        "WHERE id = ?"
+        )
+    cur.execute(sql, (ix,))
+
+
+async def delete_entry(cur, ix):
+    """
+    Delete entry from table archive.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    ix : str
+        Index of entry.
+    """
+    sql = (
+        "DELETE FROM archive "
         "WHERE id = ?"
         )
     cur.execute(sql, (ix,))
@@ -803,8 +860,8 @@ async def remove_entry(db_file, source, length):
 async def remove_nonexistent_entries(db_file, feed, source):
     """
     Remove entries that don't exist in a given parsed feed.
-    Check the entries returned from feed and delete non
-    existing entries
+    Check the entries returned from feed and delete read non
+    existing entries, otherwise move to table archive, if unread.
 
     Parameters
     ----------
@@ -824,12 +881,20 @@ async def remove_nonexistent_entries(db_file, feed, source):
             )
         items = cur.execute(sql, (source,)).fetchall()
         entries = feed.entries
-        for entry in entries:
+        # breakpoint()
+        for item in items:
             valid = False
-            for item in items:
+            for entry in entries:
+                title = None
+                link = None
+                time = None
+                # valid = False
                 # TODO better check and don't repeat code
                 if entry.has_key("id") and item[3]:
                     if entry.id == item[3]:
+                        # print("compare1:", entry.id)
+                        # print("compare2:", item[3])
+                        # print("============")
                         valid = True
                         break
                 else:
@@ -842,6 +907,9 @@ async def remove_nonexistent_entries(db_file, feed, source):
                     else:
                         link = source
                     if entry.has_key("published") and item[4]:
+                        # print("compare11:", title, link, time)
+                        # print("compare22:", item[1], item[2], item[4])
+                        # print("============")
                         time = await datetimehandler.rfc2822_to_iso8601(entry.published)
                         if (item[1] == title and
                             item[2] == link and
@@ -851,44 +919,63 @@ async def remove_nonexistent_entries(db_file, feed, source):
                     else:
                         if (item[1] == title and
                             item[2] == link):
+                            # print("compare111:", title, link)
+                            # print("compare222:", item[1], item[2])
+                            # print("============")
                             valid = True
                             break
                 # TODO better check and don't repeat code
-                if not valid:
-                    async with DBLOCK:
-                        # TODO Send to table archive
-                        # TODO Also make a regular/routine check for sources that
-                        #      have been changed (though that can only happen when
-                        #      manually editing)
-                        ix = item[0]
-                        if item[5] == 1:
-                            sql = (
-                                "DELETE "
-                                "FROM entries "
-                                "WHERE id = :ix"
-                                )
-                            cur.execute(sql, (ix,))
-                        else:
-                            print(">>> ARCHIVING:")
-                            print("title:", item[1])
-                            print("link :", item[2])
-                            print("id   :", item[3])
-                            sql = (
-                                "INSERT "
-                                "INTO archive "
-                                "SELECT * "
-                                # "SELECT title, summary, "
-                                # "link, source, timestamp "
-                                "FROM entries "
-                                "WHERE entries.id = :ix"
-                                )
-                            cur.execute(sql, (ix,))
-                            sql = (
-                                "DELETE "
-                                "FROM entries "
-                                "WHERE id = :ix"
-                                )
-                            cur.execute(sql, (ix,))
+            if not valid:
+                # print("id:        ", item[0])
+                # if title:
+                #     print("title:     ", title)
+                #     print("item[1]:   ", item[1])
+                # if link:
+                #     print("link:      ", link)
+                #     print("item[2]:   ", item[2])
+                # if entry.id:
+                #     print("last_entry:", entry.id)
+                #     print("item[3]:   ", item[3])
+                # if time:
+                #     print("time:      ", time)
+                #     print("item[4]:   ", item[4])
+                # print("read:      ", item[5])
+                # breakpoint()
+                async with DBLOCK:
+                    # TODO Send to table archive
+                    # TODO Also make a regular/routine check for sources that
+                    #      have been changed (though that can only happen when
+                    #      manually editing)
+                    ix = item[0]
+                    print(">>> SOURCE: ", source)
+                    print(">>> INVALID:", item[1])
+                    # print("title:", item[1])
+                    # print("link :", item[2])
+                    # print("id   :", item[3])
+                    if item[5] == 1:
+                        print(">>> DELETING:", item[1])
+                        sql = (
+                            "DELETE "
+                            "FROM entries "
+                            "WHERE id = :ix"
+                            )
+                        cur.execute(sql, (ix,))
+                    else:
+                        print(">>> ARCHIVING:", item[1])
+                        sql = (
+                            "INSERT "
+                            "INTO archive "
+                            "SELECT * "
+                            "FROM entries "
+                            "WHERE entries.id = :ix"
+                            )
+                        cur.execute(sql, (ix,))
+                        sql = (
+                            "DELETE "
+                            "FROM entries "
+                            "WHERE id = :ix"
+                            )
+                        cur.execute(sql, (ix,))
 
 
 async def get_feeds(db_file):
@@ -1015,13 +1102,18 @@ async def last_entries(db_file, num):
     elif num < 1:
         num = 1
     cur = get_cursor(db_file)
-    # sql = "SELECT title, link FROM entries ORDER BY ROWID DESC LIMIT :num"
+    # sql = (
+    #     "SELECT title, link "
+    #     "FROM entries "
+    #     "ORDER BY ROWID DESC "
+    #     "LIMIT :num"
+    #     )
     sql = (
         "SELECT title, link "
         "FROM entries "
         "WHERE read = 0 "
-        "ORDER BY timestamp "
-        "DESC LIMIT :num "
+        "ORDER BY timestamp DESC "
+        "LIMIT :num "
         )
     results = cur.execute(sql, (num,))
     titles_list = "Recent {} titles:\n".format(num)
@@ -1053,7 +1145,7 @@ async def search_feeds(db_file, query):
     """
     cur = get_cursor(db_file)
     sql = (
-        "SELECT name, id, address "
+        "SELECT name, address, id "
         "FROM feeds "
         "WHERE name LIKE ? "
         "LIMIT 50"
@@ -1066,7 +1158,10 @@ async def search_feeds(db_file, query):
     for result in results:
         counter += 1
         results_list += (
-            "\n{} [{}]\n{}\n"
+            "\nName: {}"
+            "\n URL: {}"
+            "\n  ID: {}"
+            "\n"
             ).format(
                 str(result[0]),
                 str(result[1]),
@@ -1099,9 +1194,16 @@ async def search_entries(db_file, query):
         "SELECT title, link "
         "FROM entries "
         "WHERE title LIKE ? "
+        "UNION ALL "
+        "SELECT title, link "
+        "FROM archive "
+        "WHERE title LIKE ? "
         "LIMIT 50"
         )
-    results = cur.execute(sql, [f'%{query}%'])
+    results = cur.execute(sql, (
+        f'%{query}%',
+        f'%{query}%'
+        ))
     results_list = (
         "Search results for '{}':\n```"
         ).format(query)
@@ -1168,11 +1270,15 @@ async def check_entry_exist(db_file, source, eid=None,
             "link = :link and "
             "timestamp = :date"
             )
-        result = cur.execute(sql, {
-            "title": title,
-            "link": link,
-            "timestamp": date
-            }).fetchone()
+        try:
+            result = cur.execute(sql, {
+                "title": title,
+                "link": link,
+                "timestamp": date
+                }).fetchone()
+        except:
+            print("this is source:", source)
+            print("this is date:  ", date)
     else:
         sql = (
             "SELECT id "
@@ -1183,10 +1289,13 @@ async def check_entry_exist(db_file, source, eid=None,
             "title": title,
             "link": link
             }).fetchone()
-    if result:
-        return True
-    else:
-        None
+    try:
+        if result:
+            return True
+        else:
+            None
+    except:
+        print("no result. this is source:", source)
 
 
 async def set_settings_value(db_file, key_value):
