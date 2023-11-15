@@ -36,6 +36,12 @@ TODO
 11) Download and upload/send article (xHTML, xHTMLZ, Markdown, MHTML, TXT)
     Use Readability
 
+12) Fetch summary from URL, instead of storing summary.
+
+13) Support protocol Gopher
+    https://github.com/michael-lazar/pygopherd
+    https://github.com/gopherball/gb
+
 """
 
 # vars and their meanings:
