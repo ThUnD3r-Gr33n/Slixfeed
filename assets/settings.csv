@@ -1,0 +1,8 @@
+key          , value
+enabled      , 1
+interval     , 300
+quantum      , 3
+random       , 0
+filter-allow , hitler,sadam,saddam
+filter-deny  , crim,dead,death,disaster,murder,war
+
