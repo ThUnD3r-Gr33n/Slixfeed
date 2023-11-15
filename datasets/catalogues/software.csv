@@ -1,0 +1,17 @@
+name, url, language, country
+Arch Linux: Recent package updates, https://archlinux.org/feeds/packages/, en-US, Worldwide
+Arch Linux: AUR Newest Packages, https://aur.archlinux.org/rss/, en-US, Worldwide
+PyPI recent updates, https://pypi.org/rss/updates.xml, en-US, Worldwide
+ctan-ann, https://www.ctan.org/ctan-ann/atom.xml, en-US, Worldwide
+Recent CPAN uploads - MetaCPAN, https://metacpan.org/recent.rss, en-US, Worldwide
+Announcements published via Launchpad, http://feeds.launchpad.net/announcements.atom, en-US, Worldwide
+store.kde.org - Latest Products, https://store.kde.org/content.rdf, en-US, Worldwide
+Parabola GNU/Linux-libre: Recent package updates, https://www.parabola.nu/feeds/packages/, en-US, Worldwide
+SlackBuilds.org ChangeLog, https://slackbuilds.org/rss/ChangeLog.rss, en-US, Worldwide
+OpenDesktop.org - Latest Products, https://www.opendesktop.org/content.rdf, en-US, Worldwide
+Flathub – recently updated applications, https://flathub.org/api/v2/feed/recently-updated, en-US, Worldwide
+https://flathub.org/api/v2/feed/new, Flathub – recently added applications, en-US, Worldwide
+Latest extensions in GNOME Shell Extensions, https://extensions.gnome.org/rss/, en-US, Worldwide
+DistroWatch.com: News, https://distrowatch.com/news/dw.xml, en-US, Worldwide
+GreasyFork: Recently Updates Userscripts, https://greasyfork.org/en/scripts.atom?sort=updated, en-US, Worldwide
+xfce-look.org - Latest Products, https://www.xfce-look.org/content.rdf, en-US, Worldwide

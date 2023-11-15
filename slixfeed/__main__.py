@@ -1,13 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# TODO
-#
-# 0) sql prepared statements
-# 1) Autodetect feed:
-#    if page is not feed (or HTML) and contains <link rel="alternate">
-# 2) OPML import/export
-# 3) 2022-12-30 reduce async to (maybe) prevent inner lock. async on task: commands, downloader, updater
+"""
+
+FIXME
+
+1) Check feed duplication on runtime.
+    When feed is valid and is not yet in the database it is
+    posible to send a batch which would result in duplication.
+    Consequently, it might result in database lock error upon
+    feed removal attempt
+
+TODO
+
+1) SQL prepared statements
+
+2) Machine Learning for scrapping Title, Link, Summary and Timstamp
+
+3) Support MUC
+
+4) Support categories
+
+5) Default prepackaged list of feeds
+
+6) XMPP commands
+
+7) Bot as transport
+
+8) OMEMO
+
+9) Logging
+
+10) Default feeds (e.g. Blacklisted News, TBOT etc.)
+
+11) Download and upload/send article (xHTML, xHTMLZ, Markdown, MHTML, TXT)
+    Use Readability
+
+"""
 
 # vars and their meanings:
 # jid = Jabber ID (XMPP)
