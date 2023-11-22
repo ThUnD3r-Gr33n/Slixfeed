@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+
+FIXME
+
+1) feed_mode_scan doesn't find feed for https://www.blender.org/
+   even though it should be according to the pathnames dictionary.
+
+"""
+
 import aiohttp
 import asyncio
 import feedparser
@@ -55,12 +64,12 @@ async def download_updates(db_file, url=None):
             try:
                 feed = feedparser.parse(res[0])
                 if feed.bozo:
-                    bozo = (
-                        "WARNING: Bozo detected for feed: {}\n"
-                        "For more information, visit "
-                        "https://pythonhosted.org/feedparser/bozo.html"
-                        ).format(source)
-                    print(bozo)
+                    # bozo = (
+                    #     "WARNING: Bozo detected for feed: {}\n"
+                    #     "For more information, visit "
+                    #     "https://pythonhosted.org/feedparser/bozo.html"
+                    #     ).format(source)
+                    # print(bozo)
                     valid = 0
                 else:
                     valid = 1
@@ -96,8 +105,6 @@ async def download_updates(db_file, url=None):
                 )
             # new_entry = 0
             for entry in entries:
-                if entry.has_key("id"):
-                    eid = entry.id
                 if entry.has_key("title"):
                     title = entry.title
                 else:
@@ -108,6 +115,10 @@ async def download_updates(db_file, url=None):
                     link = await trim_url(link)
                 else:
                     link = source
+                if entry.has_key("id"):
+                    eid = entry.id
+                else:
+                    eid = link
                 # TODO Pass date too for comparion check
                 if entry.has_key("published"):
                     date = entry.published
@@ -138,7 +149,7 @@ async def download_updates(db_file, url=None):
                         #     date = date.isoformat()            # Convert to ISO 8601
                     else:
                         # TODO Just set date = "*** No date ***"
-                        # date = datetime.now().isoformat()
+                        # date = await datetime.now().isoformat()
                         date = await datetimehandler.now()
                         # NOTE Would seconds result in better database performance
                         # date = datetime.datetime(date)
@@ -606,7 +617,10 @@ async def feed_mode_request(db_file, url, tree):
             "RSS URL discovery has found {} feeds:\n```\n"
             ).format(len(feeds))
         for feed in feeds:
-            feed_name = feeds[feed]["feed"]["title"]
+            try:
+                feed_name = feeds[feed]["feed"]["title"]
+            except:
+                feed_name = urlsplit(feed).netloc
             feed_addr = feed
             feed_amnt = len(feeds[feed].entries)
             if feed_amnt:
@@ -707,7 +721,10 @@ async def feed_mode_scan(db_file, url, tree):
             #     res = await download_feed(feed)
             # except:
             #     continue
-            feed_name = feeds[feed]["feed"]["title"]
+            try:
+                feed_name = feeds[feed]["feed"]["title"]
+            except:
+                feed_name = urlsplit(feed).netloc
             feed_addr = feed
             feed_amnt = len(feeds[feed].entries)
             if feed_amnt:
@@ -798,3 +815,53 @@ async def feed_mode_auto_discovery(db_file, url, tree):
         # return await add_feed(db_file, feed_addr)
         msg = await add_feed(db_file, feed_addr)
         return msg
+
+
+async def feed_to_http(url):
+    """
+    Replace scheme feed by http.
+
+    Parameters
+    ----------
+    url : str
+        URL.
+
+    Returns
+    -------
+    new_url : str
+        URL.
+    """
+    par_url = urlsplit(url)
+    new_url = urlunsplit([
+        "http",
+        par_url.netloc,
+        par_url.path,
+        par_url.query,
+        par_url.fragment
+        ])
+    return new_url
+
+
+async def activitypub_to_http(namespace):
+    """
+    Replace ActivityPub namespace by http.
+
+    Parameters
+    ----------
+    namespace : str
+        Namespace.
+
+    Returns
+    -------
+    new_url : str
+        URL.
+    """
+    par_url = urlsplit(namespace)
+    new_url = urlunsplit([
+        "http",
+        par_url.netloc,
+        par_url.path,
+        par_url.query,
+        par_url.fragment
+        ])
+    return new_url

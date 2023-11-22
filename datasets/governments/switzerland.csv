@@ -1,0 +1,4 @@
+name, url, language, country
+News Service Bund [DE], https://www.newsd.admin.ch/newsd/feeds/rss?lang=de&org-nr=1&topic=&keyword=&offer-nr=&catalogueElement=&kind=M%2CR&start_date=2021-07-01&end_date=, de-CH, Switzerland
+News Service Bund [FR], https://www.newsd.admin.ch/newsd/feeds/rss?lang=fr&org-nr=1&topic=&keyword=&offer-nr=&catalogueElement=&kind=M%2CR&start_date=2021-07-01&end_date=, fr-CH, Switzerland
+News Service Bund [IT], https://www.newsd.admin.ch/newsd/feeds/rss?lang=it&org-nr=1&topic=&keyword=&offer-nr=&catalogueElement=&kind=M%2CR&start_date=2021-07-01&end_date=, it-CH, Switzerland

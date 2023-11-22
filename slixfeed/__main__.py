@@ -13,34 +13,42 @@ FIXME
 
 TODO
 
-1) SQL prepared statements
+1) SQL prepared statements.
 
-2) Machine Learning for scrapping Title, Link, Summary and Timstamp
+2) Machine Learning for scrapping Title, Link, Summary and Timstamp.
 
-3) Support MUC
+3) Support MUC.
 
-4) Support categories
+4) Support categories.
 
-5) Default prepackaged list of feeds
+5) Default prepackaged list of feeds.
 
-6) XMPP commands
+6) XMPP commands.
 
-7) Bot as transport
+7) Bot as transport.
 
-8) OMEMO
+8) OMEMO.
 
-9) Logging
+9) Logging.
 
 10) Default feeds (e.g. Blacklisted News, TBOT etc.)
 
-11) Download and upload/send article (xHTML, xHTMLZ, Markdown, MHTML, TXT)
-    Use Readability
+11) Download and upload/send article (xHTML, xHTMLZ, Markdown, MHTML, TXT).
+    Use Readability.
 
 12) Fetch summary from URL, instead of storing summary.
 
 13) Support protocol Gopher
     https://github.com/michael-lazar/pygopherd
     https://github.com/gopherball/gb
+
+13) Support ActivityPub @person@domain (see Tip Of The Day).
+
+12) Tip Of The Day.
+    Did you know that you can follow you favorite Mastodon feeds by just
+    sending the URL address?
+    Supported fediverse websites are:
+        Akkoma, HubZilla, Mastodon, Misskey, Pixelfed, Pleroma, Soapbox.
 
 """
 

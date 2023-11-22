@@ -3,17 +3,40 @@
 
 """
 
+FIXME
+
+1) Function check_readiness or event "changed_status" is causing for
+   triple status messages and also false ones that indicate of lack
+   of feeds.
+
 TODO
 
 1) Deprecate "add" (see above) and make it interactive.
    Slixfeed: Do you still want to add this URL to subscription list?
    See: case _ if message_lowercase.startswith("add"):
 
-2) Use loop (with gather) instead of TaskGroup
+2) Use loop (with gather) instead of TaskGroup.
+
+3) Assure message delivery before calling a new task.
+    See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-marker_acknowledged
+
+4) Do not send updates when busy or away.
+    See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-changed_status
+
+NOTE
+
+1) Self presence
+    Apparently, it is possible to view self presence.
+    This means that there is no need to store presences in order to switch or restore presence.
+    check_readiness
+    <presence from="slixfeed@canchat.org/xAPgJLHtMMHF" xml:lang="en" id="ab35c07b63a444d0a7c0a9a0b272f301" to="slixfeed@canchat.org/xAPgJLHtMMHF"><status>📂 Send a URL from a blog or a news website.</status><x xmlns="vcard-temp:x:update"><photo /></x></presence>
+    JID: self.boundjid.bare
+    MUC: self.nick
 
 """
 
 import asyncio
+import logging
 import os
 import slixmpp
 
@@ -24,6 +47,7 @@ import datetimehandler
 import filehandler
 import filterhandler
 import sqlitehandler
+import taskhandler
 
 main_task = []
 jid_tasker = {}
@@ -41,10 +65,6 @@ loop = asyncio.get_event_loop()
 #     return current_time
 
 
-async def handle_event():
-  print("Event handled!")
-
-
 class Slixfeed(slixmpp.ClientXMPP):
     """
     Slixmpp
@@ -59,21 +79,245 @@ class Slixfeed(slixmpp.ClientXMPP):
         # and the XML streams are ready for use. We want to
         # listen for this event so that we we can initialize
         # our roster.
-        self.add_event_handler("session_start", self.start)
-        # self.add_event_handler("session_start", self.select_file)
-        # self.add_event_handler("session_start", self.send_status)
-        # self.add_event_handler("session_start", self.check_updates)
+        self.add_event_handler("session_start", self.start_session)
+        self.add_event_handler("session_resumed", self.start_session)
+        self.add_event_handler("got_offline", print("got_offline"))
+        self.add_event_handler("got_online", self.check_readiness)
+        self.add_event_handler("changed_status", self.check_readiness)
+
+        # self.add_event_handler("changed_subscription", self.check_subscription)
+
+        # self.add_event_handler("chatstate_active", self.check_chatstate_active)
+        # self.add_event_handler("chatstate_gone", self.check_chatstate_gone)
+        self.add_event_handler("chatstate_composing", self.check_chatstate_composing)
+        self.add_event_handler("chatstate_paused", self.check_chatstate_paused)
 
         # The message event is triggered whenever a message
         # stanza is received. Be aware that that includes
         # MUC messages and error messages.
         self.add_event_handler("message", self.message)
-        self.add_event_handler("disconnected", self.reconnect)
+
+        self.add_event_handler("groupchat_invite", self.muc_invite)
+        self.add_event_handler("groupchat_direct_invite", self.muc_invite)
+        # self.add_event_handler("groupchat_message", self.message)
+
+        # self.add_event_handler("disconnected", self.reconnect)
+        # self.add_event_handler("disconnected", self.inspect_connection)
+
+        self.add_event_handler("reactions", self.reactions)
+        self.add_event_handler("presence_available", self.presence_available)
+        self.add_event_handler("presence_error", self.presence_error)
+        self.add_event_handler("presence_subscribe", self.presence_subscribe)
+        self.add_event_handler("presence_subscribed", self.presence_subscribed)
+        self.add_event_handler("presence_unavailable", self.presence_unavailable)
+        self.add_event_handler("presence_unsubscribe", self.presence_unsubscribe)
+        self.add_event_handler("presence_unsubscribed", self.presence_unsubscribed)
+
         # Initialize event loop
         # self.loop = asyncio.get_event_loop()
 
+        # handlers for connection events
+        self.connection_attempts = 0
+        self.max_connection_attempts = 10
+        self.add_event_handler("connection_failed", self.on_connection_failed)
+        self.add_event_handler("session_end", self.on_session_end)
 
-    async def start(self, event):
+    """
+
+    FIXME
+
+    This function is triggered even when status is dnd/away/xa.
+    This results in sending messages even when status is dnd/away/xa.
+    See function check_readiness.
+    
+    NOTE
+
+    The issue occurs only at bot startup.
+    Once status is changed to dnd/away/xa, the interval stops - as expected.
+    
+    TODO
+
+    Use "sleep()"
+
+    """
+    async def presence_available(self, presence):
+        print("def presence_available", presence["from"].bare)
+        if presence["from"].bare not in self.boundjid.bare:
+            jid = presence["from"].bare
+            await taskhandler.clean_tasks(jid, ["interval", "status", "check"])
+            await taskhandler.task_jid(self, jid)
+            # main_task.extend([asyncio.create_task(taskhandler.task_jid(jid))])
+            # print(main_task)
+
+    async def presence_unavailable(self, presence):
+        if not self.boundjid.bare:
+            print("presence_unavailable", presence["from"].bare, presence["type"])
+            print(presence)
+
+
+    async def presence_error(self, presence):
+        print("presence_error")
+        print(presence)
+
+    async def presence_subscribe(self, presence):
+        print("presence_subscribe")
+        print(presence)
+
+    async def presence_subscribed(self, presence):
+        print("presence_subscribed")
+        print(presence)
+
+    async def presence_unsubscribe(self, presence):
+        print("presence_unsubscribe")
+        print(presence)
+
+    async def presence_unsubscribed(self, presence):
+        print("presence_unsubscribed")
+        print(presence)
+
+    async def reactions(self, message):
+        print("reactions")
+        print(message)
+
+    async def muc_invite(self, message):
+        print(message)
+        breakpoint()
+        muc = message
+        self.add_event_handler(
+            "muc::[room]::message",
+            self.message
+            )
+        self.plugin['xep_0045'].join_muc(
+            self.room,
+            self.nick,
+            # If a room password is needed, use:
+            # password=the_room_password,
+            )
+
+
+    async def on_session_end(self, event):
+        print(await datetimehandler.current_time(), "Session ended. Attempting to reconnect.")
+        print(event)
+        logging.warning("Session ended. Attempting to reconnect.")
+        await self.recover_connection(event)
+
+
+    async def on_connection_failed(self, event):
+        print(await datetimehandler.current_time(), "Connection failed. Attempting to reconnect.")
+        print(event)
+        logging.warning("Connection failed. Attempting to reconnect.")
+        await self.recover_connection(event)
+
+
+    async def recover_connection(self, event):
+        self.connection_attempts += 1
+        # if self.connection_attempts <= self.max_connection_attempts:
+        #     self.reconnect(wait=5.0)  # wait a bit before attempting to reconnect
+        # else:
+        #     print(await datetimehandler.current_time(),"Maximum connection attempts exceeded.")
+        #     logging.error("Maximum connection attempts exceeded.")
+        print("Attempt:", self.connection_attempts)
+        self.reconnect(wait=5.0)
+
+
+    async def inspect_connection(self, event):
+        print("Disconnected\nReconnecting...")
+        print(event)
+        try:
+            self.reconnect
+        except:
+            self.disconnect()
+            print("Problem reconnecting")
+
+
+    async def check_chatstate_composing(self, message):
+        print("def check_chatstate_composing")
+        print(message)
+        if message["type"] in ("chat", "normal"):
+            jid = message["from"].bare
+        status_text="Press \"help\" for manual."
+        self.send_presence(
+            # pshow=status_mode,
+            pstatus=status_text,
+            pto=jid,
+            )
+
+
+    async def check_chatstate_paused(self, message):
+        print("def check_chatstate_paused")
+        print(message)
+        if message["type"] in ("chat", "normal"):
+            jid = message["from"].bare
+        await taskhandler.refresh_task(
+            self,
+            jid,
+            taskhandler.send_status,
+            "status",
+            20
+            )
+
+
+    async def check_readiness(self, presence):
+        """
+        If available, begin tasks.
+        If unavailable, eliminate tasks.
+
+        Parameters
+        ----------
+        presence : str
+            XML stanza </presence>.
+
+        Returns
+        -------
+        None.
+        """
+        print("def check_readiness", presence["from"].bare, presence["type"])
+        # # available unavailable away (chat) dnd xa
+        # print(">>> type", presence["type"], presence["from"].bare)
+        # # away chat dnd xa
+        # print(">>> show", presence["show"], presence["from"].bare)
+
+        jid = presence["from"].bare
+        if presence["type"] == "unavailable":
+            print(">>> unavailable:", jid)
+            await taskhandler.clean_tasks(
+                jid,
+                ["interval", "status", "check"]
+                )
+        # elif presence["type"] == "available":
+        # # elif presence["type"] == "available" or presence["show"] == "chat":
+        #     print(">>> available:", jid)
+        #     # breakpoint()
+        #     try:
+        #         if task_manager[jid]:
+        #             for task in task_manager[jid]:
+        #                 # print(">>>", jid, "cancel", task)
+        #                 task_manager[jid][task].cancel()
+        #     except:
+        #         print(">>> EXC: No task_manager for:", jid)
+        #     await taskhandler.task_jid(jid)
+        #     # print(task_manager[jid])
+        elif presence["show"] in ("away", "dnd", "xa"):
+            print(">>> away, dnd, xa:", jid)
+            await taskhandler.clean_tasks(
+                jid,
+                ["interval"]
+                )
+            await taskhandler.start_tasks(
+                self,
+                jid,
+                ["status", "check"]
+                )
+
+
+    async def resume(self, event):
+        print("def resume")
+        print(event)
+        self.send_presence()
+        await self.get_roster()
+
+
+    async def start_session(self, event):
         """
         Process the session_start event.
 
@@ -86,13 +330,17 @@ class Slixfeed(slixmpp.ClientXMPP):
                      event does not provide any additional
                      data.
         """
+        print("def start_session")
+        print(event)
         self.send_presence()
         await self.get_roster()
 
         # for task in main_task:
         #     task.cancel()
-        if not main_task:
-            await self.select_file()
+
+        # Deprecated in favour of event "presence_available"
+        # if not main_task:
+        #     await taskhandler.select_file()
 
 
     async def message(self, msg):
@@ -104,21 +352,23 @@ class Slixfeed(slixmpp.ClientXMPP):
 
         Parameters
         ----------
-        self : ?
-            Self.
         msg : str
             The received message stanza. See the documentation
             for stanza objects and the Message stanza to see
             how it may be used.
         """
+        # print("message")
+        # print(msg)
         if msg["type"] in ("chat", "normal"):
             action = 0
             jid = msg["from"].bare
 
-            db_dir = filehandler.get_default_dbdir()
-            os.chdir(db_dir)
-            if jid + ".db" not in os.listdir():
-                await self.task_jid(jid)
+            # # Begin processing new JID
+            # # Deprecated in favour of event "presence_available"
+            # db_dir = filehandler.get_default_dbdir()
+            # os.chdir(db_dir)
+            # if jid + ".db" not in os.listdir():
+            #     await taskhandler.task_jid(jid)
 
             message = " ".join(msg["body"].split())
             message_lowercase = message.lower()
@@ -135,6 +385,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         "\n"
                         "Send a URL of a news website to start."
                         )
+                    print(task_manager[jid])
                 case _ if message_lowercase.startswith("add"):
                     message = message[4:]
                     url = message.split(" ")[0]
@@ -145,7 +396,13 @@ class Slixfeed(slixmpp.ClientXMPP):
                             datahandler.add_feed_no_check,
                             [url, title]
                             )
-                        await self.send_status(jid)
+                        await taskhandler.refresh_task(
+                            self,
+                            jid,
+                            taskhandler.send_status,
+                            "status",
+                            20
+                            )
                     else:
                         action = "Missing URL."
                 case _ if message_lowercase.startswith("allow"):
@@ -196,15 +453,28 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 ).format(val)
                         else:
                             action = "Missing keywords."
-                case _ if message_lowercase.startswith("http"):
+                case _ if (message_lowercase.startswith("http") or
+                           message_lowercase.startswith("feed:")):
                     url = message
+                    if url.startswith("feed:"):
+                        url = await datahandler.feed_to_http(url)
                     action = await filehandler.initdb(
                         jid,
                         datahandler.add_feed,
                         url
                         )
                     # action = "> " + message + "\n" + action
-                    await self.send_status(jid)
+                    # FIXME Make the taskhandler to update status message
+                    await taskhandler.refresh_task(
+                        self,
+                        jid,
+                        taskhandler.send_status,
+                        "status",
+                        20
+                        )
+                    # NOTE This would show the number of new unread entries
+                    # await taskhandler.clean_tasks(jid, ["status"])
+                    # await taskhandler.send_status(jid)
                 case _ if message_lowercase.startswith("feeds"):
                     query = message[6:]
                     if query:
@@ -240,9 +510,10 @@ class Slixfeed(slixmpp.ClientXMPP):
                             sqlitehandler.set_settings_value,
                             [key, val]
                             )
-                        await self.refresh_task(
+                        await taskhandler.refresh_task(
+                            self,
                             jid,
-                            self.send_update,
+                            taskhandler.send_update,
                             key,
                             val
                             )
@@ -253,9 +524,21 @@ class Slixfeed(slixmpp.ClientXMPP):
                         action = "Missing value."
                 case _ if message_lowercase.startswith("next"):
                     num = message[5:]
-                    await self.send_update(jid, num)
-                    await self.send_status(jid)
-                    # await self.refresh_task(jid, key, val)
+                    await taskhandler.refresh_task(
+                        self,
+                        jid,
+                        taskhandler.send_update,
+                        "interval",
+                        num
+                        )
+                    await taskhandler.refresh_task(
+                        self,
+                        jid,
+                        taskhandler.send_status,
+                        "status",
+                        20
+                        )
+                    # await taskhandler.refresh_task(jid, key, val)
                 case _ if message_lowercase.startswith("quantum"):
                     key = message[:7]
                     val = message[8:]
@@ -293,7 +576,13 @@ class Slixfeed(slixmpp.ClientXMPP):
                             sqlitehandler.remove_feed,
                             ix
                             )
-                        await self.send_status(jid)
+                        await taskhandler.refresh_task(
+                            self,
+                            jid,
+                            taskhandler.send_status,
+                            "status",
+                            20
+                            )
                     else:
                         action = "Missing feed ID."
                 case _ if message_lowercase.startswith("search"):
@@ -320,7 +609,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         sqlitehandler.set_settings_value,
                         [key, val]
                         )
-                    asyncio.create_task(self.task_jid(jid))
+                    asyncio.create_task(taskhandler.task_jid(self, jid))
                     action = "Updates are enabled."
                     # print(await datetimehandler.current_time(), "task_manager[jid]")
                     # print(task_manager[jid])
@@ -357,7 +646,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     # except:
                     #     action = "Updates are already disabled."
                     #     # print("Updates are already disabled. Nothing to do.")
-                    # # await self.send_status(jid)
+                    # # await taskhandler.send_status(jid)
                     key = "enabled"
                     val = 0
                     await filehandler.initdb(
@@ -365,294 +654,22 @@ class Slixfeed(slixmpp.ClientXMPP):
                         sqlitehandler.set_settings_value,
                         [key, val]
                         )
-                    await self.task_jid(jid)
+                    await taskhandler.clean_tasks(jid, ["interval"])
+                    self.send_presence(
+                        pshow="xa",
+                        pstatus="Send \"Start\" to receive news.",
+                        pto=jid,
+                        )
                     action = "Updates are disabled."
                 case "support":
                     # TODO Send an invitation.
-                    action = "xmpp:slixmpp@muc.poez.io?join"
+                    action = "Join xmpp:slixmpp@muc.poez.io?join"
                 case _:
                     action = (
                         "Unknown command. "
                         "Press \"help\" for list of commands"
                         )
             if action: msg.reply(action).send()
-
-
-    async def select_file(self):
-        """
-        Initiate actions by JID (Jabber ID).
-
-        Parameters
-        ----------
-        self : ?
-            Self.
-        """
-        while True:
-            db_dir = filehandler.get_default_dbdir()
-            if not os.path.isdir(db_dir):
-                msg = (
-                    "Slixfeed can not work without a database.\n"
-                    "To create a database, follow these steps:\n"
-                    "Add Slixfeed contact to your roster.\n"
-                    "Send a feed to the bot by URL:\n"
-                    "https://reclaimthenet.org/feed/"
-                    )
-                # print(await datetimehandler.current_time(), msg)
-                print(msg)
-            else:
-                os.chdir(db_dir)
-                files = os.listdir()
-            # TODO Use loop (with gather) instead of TaskGroup
-            # for file in files:
-            #     if file.endswith(".db") and not file.endswith(".db-jour.db"):
-            #         jid = file[:-3]
-            #         jid_tasker[jid] = asyncio.create_task(self.task_jid(jid))
-            #         await jid_tasker[jid]
-            async with asyncio.TaskGroup() as tg:
-                for file in files:
-                    if (file.endswith(".db") and
-                        not file.endswith(".db-jour.db")):
-                        jid = file[:-3]
-                        main_task.extend([tg.create_task(self.task_jid(jid))])
-                        # main_task = [tg.create_task(self.task_jid(jid))]
-                        # task_manager.update({jid: tg})
-
-
-    async def task_jid(self, jid):
-        """
-        JID (Jabber ID) task manager.
-
-        Parameters
-        ----------
-        self : ?
-            Self.
-        jid : str
-            Jabber ID.
-        """
-        enabled = await filehandler.initdb(
-            jid,
-            sqlitehandler.get_settings_value,
-            "enabled"
-        )
-        # print(await datetimehandler.current_time(), "enabled", enabled, jid)
-        if enabled:
-            task_manager[jid] = {}
-            task_manager[jid]["check"] = asyncio.create_task(
-                check_updates(jid)
-                )
-            task_manager[jid]["status"] = asyncio.create_task(
-                self.send_status(jid)
-                )
-            task_manager[jid]["interval"] = asyncio.create_task(
-                self.send_update(jid)
-                )
-            await task_manager[jid]["check"]
-            await task_manager[jid]["status"]
-            await task_manager[jid]["interval"]
-        else:
-            # FIXME
-            # The following error occurs only upon first attempt to stop.
-            # /usr/lib/python3.11/asyncio/events.py:73: RuntimeWarning: coroutine 'Slixfeed.send_update' was never awaited
-            # self._args = None
-            # RuntimeWarning: Enable tracemalloc to get the object allocation traceback
-            try:
-                task_manager[jid]["interval"].cancel()
-            except:
-                None
-            await self.send_status(jid)
-
-
-    async def send_update(self, jid, num=None):
-        """
-        Send news items as messages.
-
-        Parameters
-        ----------
-        self : ?
-            Self.
-        jid : str
-            Jabber ID.
-        num : str, optional
-            Number. The default is None.
-        """
-        # print("Starting send_update()")
-        # print(jid)
-        new = await filehandler.initdb(
-            jid,
-            sqlitehandler.get_entry_unread,
-            num
-        )
-        if new:
-            print(await datetimehandler.current_time(), "> SEND UPDATE",jid)
-            self.send_message(
-                mto=jid,
-                mbody=new,
-                mtype="chat"
-            )
-        await self.refresh_task(
-            jid,
-            self.send_update,
-            "interval"
-            )
-        # interval = await filehandler.initdb(
-        #     jid,
-        #     sqlitehandler.get_settings_value,
-        #     "interval"
-        # )
-        # task_manager[jid]["interval"] = loop.call_at(
-        #     loop.time() + 60 * interval,
-        #     loop.create_task,
-        #     self.send_update(jid)
-        # )
-
-        # print(await datetimehandler.current_time(), "asyncio.get_event_loop().time()")
-        # print(await datetimehandler.current_time(), asyncio.get_event_loop().time())
-        # await asyncio.sleep(60 * interval)
-
-        # loop.call_later(
-        #     60 * interval,
-        #     loop.create_task,
-        #     self.send_update(jid)
-        # )
-
-        # print
-        # await handle_event()
-
-
-    async def send_status(self, jid):
-        """
-        Send status message.
-
-        Parameters
-        ----------
-        self : ?
-            Self.
-        jid : str
-            Jabber ID.
-        """
-        print(await datetimehandler.current_time(), "> SEND STATUS",jid)
-        enabled = await filehandler.initdb(
-            jid,
-            sqlitehandler.get_settings_value,
-            "enabled"
-        )
-        if not enabled:
-            status_mode = "xa"
-            status_text = "Send \"Start\" to receive news."
-        else:
-            feeds = await filehandler.initdb(
-                jid,
-                sqlitehandler.get_number_of_items,
-                "feeds"
-            )
-            if not feeds:
-                status_mode = "available"
-                status_text = (
-                    "📂️ Send a URL from a blog or a news website."
-                    )
-            else:
-                unread = await filehandler.initdb(
-                    jid,
-                    sqlitehandler.get_number_of_entries_unread
-                )
-                if unread:
-                    status_mode = "chat"
-                    status_text = (
-                        "📰 You have {} news items to read."
-                        ).format(str(unread))
-                    # status_text = (
-                    #     "📰 News items: {}"
-                    #     ).format(str(unread))
-                    # status_text = (
-                    #     "📰 You have {} news items"
-                    #     ).format(str(unread))
-                else:
-                    status_mode = "available"
-                    status_text = "🗞 No news"
-
-        # print(status_text, "for", jid)
-        self.send_presence(
-            pshow=status_mode,
-            pstatus=status_text,
-            pto=jid,
-            #pfrom=None
-            )
-        # await asyncio.sleep(60 * 20)
-        await self.refresh_task(
-            jid,
-            self.send_status,
-            "status",
-            "20"
-            )
-        # loop.call_at(
-        #     loop.time() + 60 * 20,
-        #     loop.create_task,
-        #     self.send_status(jid)
-        # )
-
-
-    async def refresh_task(self, jid, callback, key, val=None):
-        """
-        Apply new setting at runtime.
-
-        Parameters
-        ----------
-        self : ?
-            Self.
-        jid : str
-            Jabber ID.
-        key : str
-            Key.
-        val : str, optional
-            Value. The default is None.
-        """
-        if not val:
-            val = await filehandler.initdb(
-                jid,
-                sqlitehandler.get_settings_value,
-                key
-                )
-        if jid in task_manager:
-            task_manager[jid][key].cancel()
-            task_manager[jid][key] = loop.call_at(
-                loop.time() + 60 * float(val),
-                loop.create_task,
-                callback(jid)
-                # self.send_update(jid)
-            )
-            # task_manager[jid][key] = loop.call_later(
-            #     60 * float(val),
-            #     loop.create_task,
-            #     self.send_update(jid)
-            # )
-            # task_manager[jid][key] = self.send_update.loop.call_at(
-            #     self.send_update.loop.time() + 60 * val,
-            #     self.send_update.loop.create_task,
-            #     self.send_update(jid)
-            # )
-
-
-# TODO Take this function out of
-# <class 'slixmpp.clientxmpp.ClientXMPP'>
-async def check_updates(jid):
-    """
-    Start calling for update check up.
-
-    Parameters
-    ----------
-    jid : str
-        Jabber ID.
-    """
-    while True:
-        print(await datetimehandler.current_time(), "> CHCK UPDATE",jid)
-        await filehandler.initdb(jid, datahandler.download_updates)
-        await asyncio.sleep(60 * 90)
-        # Schedule to call this function again in 90 minutes
-        # loop.call_at(
-        #     loop.time() + 60 * 90,
-        #     loop.create_task,
-        #     self.check_updates(jid)
-        # )
 
 
 def print_help():
@@ -735,7 +752,9 @@ def print_help():
         # "   Send a Plain Text file of your news items.\n"
         # "\n"
         "SUPPORT\n"
-        " support"
+        " help\n"
+        "   Print this help manual.\n"
+        " support\n"
         "   Join xmpp:slixmpp@muc.poez.io?join\n"
         "\n"
         # "PROTOCOLS\n"

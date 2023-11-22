@@ -2,3 +2,7 @@ name, url, language, country
 denshi.live, https://denshi.live/feeds/videos.xml, en-US, USA
 Luke's Videos, https://videos.lukesmith.xyz/feeds/videos.xml, en-US, USA
 Films By Kris, https://filmsbykris.com/rss.xml, en-US, USA
+Blender Video, https://video.blender.org/feeds/videos.xml, en-US, United States
+Framatube, https://framatube.org/feeds/videos.xml, fr-FR, France
+Framasoft, https://framatube.org/feeds/videos.xml?accountId=3&sort=-publishedAt, fr-FR, France
+FSFE, https://media.fsfe.org/feeds/videos.xml?accountId=4, de-DE, Germany

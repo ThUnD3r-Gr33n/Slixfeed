@@ -947,13 +947,13 @@ async def remove_nonexistent_entries(db_file, feed, source):
                     #      have been changed (though that can only happen when
                     #      manually editing)
                     ix = item[0]
-                    print(">>> SOURCE: ", source)
-                    print(">>> INVALID:", item[1])
+                    # print(">>> SOURCE: ", source)
+                    # print(">>> INVALID:", item[1])
                     # print("title:", item[1])
                     # print("link :", item[2])
                     # print("id   :", item[3])
                     if item[5] == 1:
-                        print(">>> DELETING:", item[1])
+                        # print(">>> DELETING:", item[1])
                         sql = (
                             "DELETE "
                             "FROM entries "
@@ -961,7 +961,7 @@ async def remove_nonexistent_entries(db_file, feed, source):
                             )
                         cur.execute(sql, (ix,))
                     else:
-                        print(">>> ARCHIVING:", item[1])
+                        # print(">>> ARCHIVING:", item[1])
                         sql = (
                             "INSERT "
                             "INTO archive "
@@ -1221,7 +1221,12 @@ async def search_entries(db_file, query):
     else:
         return "No results found for: {}".format(query)
 
-
+"""
+FIXME Error due to missing date, but it appears that date is present:
+this is source: https://blog.heckel.io/feed/
+this is date:   2008-05-13T13:51:50+00:00
+no result. this is source: https://blog.heckel.io/feed/
+"""
 async def check_entry_exist(db_file, source, eid=None,
                             title=None, link=None, date=None):
     """
@@ -1277,8 +1282,8 @@ async def check_entry_exist(db_file, source, eid=None,
                 "timestamp": date
                 }).fetchone()
         except:
-            print("this is source:", source)
-            print("this is date:  ", date)
+            print(await datetimehandler.current_time(), "ERROR: date for:", source)
+            print(await datetimehandler.current_time(), "ERROR: date for:", date)
     else:
         sql = (
             "SELECT id "
@@ -1295,7 +1300,7 @@ async def check_entry_exist(db_file, source, eid=None,
         else:
             None
     except:
-        print("no result. this is source:", source)
+        print(await datetimehandler.current_time(), "ERROR: result for", source)
 
 
 async def set_settings_value(db_file, key_value):

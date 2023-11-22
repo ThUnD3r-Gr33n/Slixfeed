@@ -1,3 +1,8 @@
 name, url, language, country
 DownThemAll!, https://www.downthemall.org/feed, en-US, Worldwide
 Falkon - KDE web browser, https://www.falkon.org/atom.xml, en-US, Czech
+What's Up, Fraidycat?, https://fraidyc.at/blog/feed.xml, en-US, Worldwide
+geomyidae, branch HEAD, gopher://bitreich.org:70/0/scm/geomyidae/atom.xml, en-US, United States
+rclone - rsync for cloud storage, https://rclone.org/index.xml, en-US, United States
+Feedbin, https://feedbin.com/blog/atom.xml, en-US, United States
+Silvio Rizzi (reederapp.com), https://gloria.social/@rizzi.rss, en-US, United States

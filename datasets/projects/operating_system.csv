@@ -1,0 +1,5 @@
+name, url, language, country
+NixOS, https://nixos.org/blog/announcements-rss.xml, en-US, USA
+ReactOS, https://reactos.org/index.xml, en-US, Germany
+Salix OS, https://forum.salixos.org/app.php/feed/news, en-US, Greece
+postmarketOS, https://postmarketos.org/blog/feed.atom, en-US, Germany
