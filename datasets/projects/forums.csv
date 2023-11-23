@@ -1,3 +1,12 @@
 name, url, language, country
 camen design, https://camendesign.com/rss, en-US, United States
-nodebb, https://nodebb.org/feed/, en-US, United States
+nodebb, https://nodebb.org/feed/, en-US, Worldwide
+Phorum, https://www.phorum.org/phorum5/feed.php?64,type=rss, en-US, Worldwide
+phpBB, https://www.phpbb.com/feeds/rss/, en-US, Worldwide
+ElkArte, https://www.elkarte.net/community/index.php?board=21.0;action=.xml;type=rss2;limit=5, en-US, Worldwide
+MyBB, https://blog.mybb.com/feed/, en-US, Worldwide
+Discourse, https://blog.discourse.org/rss/, en-US, Worldwide
+Simple Machines, https://www.simplemachines.org/community/index.php?action=.xml;type=atom, en-US, Worldwide
+FluxBB, https://fluxbb.org/forums/extern.php?action=feed&fid=1&order=posted&type=atom, en-US, Worldwide
+Invision Community News, https://invisioncommunity.com/rss/1-invision-community-news.xml/, en-US, Worldwide
+Askbot, https://askbot.org/en/feeds/rss/, en-US, Chile

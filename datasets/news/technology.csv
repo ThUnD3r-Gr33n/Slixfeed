@@ -1,14 +1,19 @@
 name, url, language, country
+Redecentralize Blog, https://redecentralize.org/blog/feed.rss, en-US, United States
 Developpez, https://www.developpez.com/index/atom, fr-FR, France
 The Logs, https://www.flu0r1ne.net/logs/rss.xml, en-US, United States
 CryptoSlate, https://cryptoslate.com/feed/, en-US, United States
+Codemadness, https://codemadness.org/atom.xml, en-US, United States
 Daily Stormer, https://dailystormer.in/feed/, en-US, United States
 Futurism, https://futurism.com/feed, en-US, United States
+drkhsh, https://drkhsh.at/atom.xml, en-US, Austria
 Automation Rhapsody, https://automationrhapsody.com/feed/, en-US, United States
 Deep Thoughts by Raymond Hettinger, https://rhettinger.wordpress.com/feed/, en-US, United States
 Chiportal, https://chiportal.co.il/feed/, he-IL, Israel
 Hackaday, https://hackaday.com/feed/, en-US, United States
+LZone | Devops, https://lzone.de/feed/devops.xml, en-US, Germany
 Hacker News, https://news.ycombinator.com/rss, en-US, United States
+Laslo Hunhold, https://laslo.hunhold.de/index.xml, en-US, Germany
 Hacker News: Front Page, https://hnrss.org/frontpage, en-US, United States
 Amethyst Reese, https://noswap.com/feed.xml, en-US, United States
 Necuno Solutions, https://necunos.com/feed.xml, en-US, Finland
@@ -22,3 +27,5 @@ AlternativeTo News, https://feed.alternativeto.net/news/all/, en-US, United Stat
 Ηρακλής Παπαθεοδώρου • heracl.es, https://heracl.es/el/feed.xml, el-GR, Greece
 Heracles Papatheodorou • heracl.es, https://heracl.es/feed.xml, en-US, Greece
 lectronice :: now, https://now.lectronice.com/feed.xml, en-US, United States
+Ctrl blog: Advertisement Technology, https://feed.ctrl.blog/topic/advertisement-technology.atom, en-US, United States
+OpenNews.opennet.ru: Общая лента новостей, https://www.opennet.ru/opennews/opennews_all_utf.rss, ru-RU, Russia

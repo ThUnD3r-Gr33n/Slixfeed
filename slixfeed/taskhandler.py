@@ -66,28 +66,38 @@ await taskhandler.start_tasks(
     )
 
 """
-async def start_tasks(self, jid, tasks):
+async def start_tasks_xmpp(self, jid, tasks):
     task_manager[jid] = {}
     for task in tasks:
+        print("task")
+        print(task)
+        print("tasks")
+        print(tasks)
+        # breakpoint()
         match task:
             case "check":
                 task_manager[jid]["check"] = asyncio.create_task(
                     check_updates(jid)
                     )
-                await task_manager[jid]["check"]
             case "status":
                 task_manager[jid]["status"] = asyncio.create_task(
                     send_status(self, jid)
                     )
-                await task_manager[jid]["status"]
             case "interval":
                 task_manager[jid]["interval"] = asyncio.create_task(
                     send_update(self, jid)
                     )
-                await task_manager[jid]["interval"]
+    # for task in task_manager[jid].values():
+    #     print("task_manager[jid].values()")
+    #     print(task_manager[jid].values())
+    #     print("task")
+    #     print(task)
+    #     print("jid")
+    #     print(jid)
+    #     breakpoint()
+    #     await task
 
-
-async def clean_tasks(jid, tasks):
+async def clean_tasks_xmpp(jid, tasks):
     for task in tasks:
         # if task_manager[jid][task]:
         try:
@@ -164,6 +174,7 @@ async def task_jid(self, jid):
 
 
 async def send_update(self, jid, num=None):
+    print(await datetimehandler.current_time(), jid, "def send_update")
     """
     Send news items as messages.
 
@@ -224,6 +235,7 @@ async def send_update(self, jid, num=None):
 
 
 async def send_status(self, jid):
+    print(await datetimehandler.current_time(), jid, "def send_status")
     """
     Send status message.
 
@@ -345,6 +357,7 @@ async def refresh_task(self, jid, callback, key, val=None):
 # TODO Take this function out of
 # <class 'slixmpp.clientxmpp.ClientXMPP'>
 async def check_updates(jid):
+    print(await datetimehandler.current_time(), jid, "def check_updates")
     """
     Start calling for update check up.
 

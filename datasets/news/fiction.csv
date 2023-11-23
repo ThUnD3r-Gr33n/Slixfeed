@@ -1,5 +1,4 @@
 name, url, language, country
-ynet - מדע, https://www.ynet.co.il/Integration/StoryRss2142.xml, he-IL, Israel
 Stories by Williams, https://storiesbywilliams.com/feed/, en-US, United States
 SciTechDaily, https://scitechdaily.com/feed/, en-US, United States
 ScienceDaily, https://www.sciencedaily.com/rss/all.xml, en-US, United States
@@ -7,5 +6,8 @@ ScienceAlert, https://www.sciencealert.com/feed, en-US, United States
 NASA Image of the Day, https://www.nasa.gov/feeds/iotd-feed, en-US, United States
 Futurism, https://futurism.com/feed, en-US, United States
 Nature, https://www.nature.com/nature.rss, en-US, United States
+ynet - מדע, https://www.ynet.co.il/Integration/StoryRss2142.xml, he-IL, Israel
 Mail Online - Science & tech, https://www.dailymail.co.uk/sciencetech/index.rss, en-US, United Kingdom
 New Atlas, https://newatlas.com/index.rss, en-US, United States
+The Onion, https://www.theonion.com/rss, en-US, United States
+Phys, https://phys.org/rss-feed/, en-US, United States

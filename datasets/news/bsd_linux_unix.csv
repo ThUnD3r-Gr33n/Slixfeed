@@ -2,11 +2,15 @@ name, url, language, country
 Linux Professional Institute (LPI), https://www.lpi.org/feed/, en-US, Canada
 LinuxConfig, https://linuxconfig.org/feed, en-US, Worldwide
 The Logs, https://www.flu0r1ne.net/logs/rss.xml, en-US, United States
+Ctrl blog: Fedora Linux, https://feed.ctrl.blog/topic/fedora-linux.atom, en-US, United States
+Ctrl blog: Linux, https://feed.ctrl.blog/topic/linux.atom, en-US, United States
 Anjan Momi, https://momi.ca/feed.xml, en-US, United States
 postmarketOS, https://postmarketos.org/blog/feed.atom, en-US, United States
 PureTryOut (Alpine Linux, postmarketOS), https://mastodon.fam-ribbers.com/@bart.rss, en-US, Netherlands
 Blog on Bart Ribbers - PureTryOut (Alpine Linux, postmarketOS), https://fam-ribbers.com/blog/index.xml, en-US, Netherlands
+LZone | Devops, https://lzone.de/feed/devops.xml, en-US, Germany
 Necuno Solutions, https://necunos.com/feed.xml, en-US, Finland
+Laslo Hunhold, https://laslo.hunhold.de/index.xml, en-US, Germany
 Alpine Linux, https://fosstodon.org/@alpinelinux.rss, en-US, United States
 ollieparanoid, https://ollieparanoid.github.io/feed.xml, en-US, United States
 FSFE News, https://fsfe.org/news/news.en.rss, en-US, Germany
@@ -24,3 +28,5 @@ LGUG2Z, https://lgug2z.com/index.xml, en-US, United States
 Hugo Barrera's site, https://whynothugo.nl/posts.xml, en-US, United States
 Solene'%, https://dataswamp.org/~solene/rss.xml, en-US, United States
 Solene'%, https://dataswamp.org/~solene/rss-html.xml, en-US, United States
+drkhsh, https://drkhsh.at/atom.xml, en-US, Austria
+OpenBSD Webzine, https://webzine.puffy.cafe/atom.xml, en-US, United States

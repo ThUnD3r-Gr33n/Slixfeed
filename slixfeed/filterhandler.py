@@ -47,6 +47,23 @@ async def set_filter(newwords, keywords):
     return val
 
 async def is_listed(db_file, type, string):
+    """
+    Check keyword match.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    type : str
+        "allow" or "deny".
+    string : str
+        String.
+
+    Returns
+    -------
+    Matched keyword or None.
+
+    """
 # async def reject(db_file, string):
 # async def is_blacklisted(db_file, string):
     filter_type = "filter-" + type
@@ -61,7 +78,8 @@ async def is_listed(db_file, type, string):
                 continue
             if i in string.lower():
                 # print(">>> ACTIVATE", i)
-                return 1
+                # return 1
+                return i
     else:
         return None
 

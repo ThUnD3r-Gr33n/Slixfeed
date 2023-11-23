@@ -8,6 +8,10 @@ FIXME
 1) feed_mode_scan doesn't find feed for https://www.blender.org/
    even though it should be according to the pathnames dictionary.
 
+TODO
+
+1) Support Gemini and Gopher.
+
 """
 
 import aiohttp
@@ -185,7 +189,11 @@ async def download_updates(db_file, url=None):
                             )
                         if reject_list:
                             # print(">>> REJECTED", title)
-                            summary = "REJECTED"
+                            summary = (
+                                "REJECTED {}".format(
+                                    reject_list.upper()
+                                    )
+                                )
                             # summary = ""
                             read_status = 1
                     entry = (
@@ -622,7 +630,11 @@ async def feed_mode_request(db_file, url, tree):
             except:
                 feed_name = urlsplit(feed).netloc
             feed_addr = feed
-            feed_amnt = len(feeds[feed].entries)
+            # AttributeError: 'str' object has no attribute 'entries'
+            try:
+                feed_amnt = len(feeds[feed].entries)
+            except:
+                continue
             if feed_amnt:
                 positive = 1
                 msg += (

@@ -1,4 +1,6 @@
 name, url, language, country
+Invoice Ninja, https://invoiceninja.com/feed/, en-US, Worldwide
+Mail Online - Money, https://www.dailymail.co.uk/money/index.rss, en-US, United Kingdom
 ynet - צרכנות, https://www.ynet.co.il/Integration/StoryRss5363.xml, he-IL, Israel
 ynet - כלכלה, https://www.ynet.co.il/Integration/StoryRss6.xml, he-IL, Israel
 דה מרקר - שוק ההון, https://www.themarker.com/srv/tm-markets, he-IL, Israel
@@ -10,4 +12,3 @@ ynet - כלכלה, https://www.ynet.co.il/Integration/StoryRss6.xml, he-IL, Isra
 דה מרקר - כותרות דף הבית, https://www.themarker.com/srv/tm-all-articles, he-IL, Israel
 דה מרקר - כותרות היום, https://www.themarker.com/srv/tm-news, he-IL, Israel
 דה מרקר - פרשנויות היום, https://www.themarker.com/srv/tm-opinions, he-IL, Israel
-Mail Online - Money, https://www.dailymail.co.uk/money/index.rss, en-US, UK

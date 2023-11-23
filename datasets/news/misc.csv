@@ -1,3 +1,6 @@
 name, url, language, country
 Inhaltsangabe.info, https://www.inhaltsangabe.info/feed, de-DE, Germany
 Kasparov, https://www.kasparov.com/feed/, en-US, United States
+Ctrl blog: Metadata, https://feed.ctrl.blog/topic/metadata.atom, en-US, United States
+Ctrl blog: Compression, https://feed.ctrl.blog/topic/compression.atom, en-US, United States
+Ctrl blog: Backup, https://feed.ctrl.blog/topic/backup.atom, en-US, United States

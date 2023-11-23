@@ -144,8 +144,16 @@ class Slixfeed(slixmpp.ClientXMPP):
         print("def presence_available", presence["from"].bare)
         if presence["from"].bare not in self.boundjid.bare:
             jid = presence["from"].bare
-            await taskhandler.clean_tasks(jid, ["interval", "status", "check"])
-            await taskhandler.task_jid(self, jid)
+            await taskhandler.clean_tasks_xmpp(
+                jid,
+                ["interval", "status", "check"]
+                )
+            await taskhandler.start_tasks_xmpp(
+                self,
+                jid,
+                ["interval", "status", "check"]
+                )
+            # await taskhandler.task_jid(self, jid)
             # main_task.extend([asyncio.create_task(taskhandler.task_jid(jid))])
             # print(main_task)
 
@@ -280,7 +288,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = presence["from"].bare
         if presence["type"] == "unavailable":
             print(">>> unavailable:", jid)
-            await taskhandler.clean_tasks(
+            await taskhandler.clean_tasks_xmpp(
                 jid,
                 ["interval", "status", "check"]
                 )
@@ -299,11 +307,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         #     # print(task_manager[jid])
         elif presence["show"] in ("away", "dnd", "xa"):
             print(">>> away, dnd, xa:", jid)
-            await taskhandler.clean_tasks(
+            await taskhandler.clean_tasks_xmpp(
                 jid,
                 ["interval"]
                 )
-            await taskhandler.start_tasks(
+            await taskhandler.start_tasks_xmpp(
                 self,
                 jid,
                 ["status", "check"]
@@ -465,16 +473,24 @@ class Slixfeed(slixmpp.ClientXMPP):
                         )
                     # action = "> " + message + "\n" + action
                     # FIXME Make the taskhandler to update status message
-                    await taskhandler.refresh_task(
+                    # await taskhandler.refresh_task(
+                    #     self,
+                    #     jid,
+                    #     taskhandler.send_status,
+                    #     "status",
+                    #     20
+                    #     )
+                    # NOTE This would show the number of new unread entries
+                    await taskhandler.clean_tasks_xmpp(
+                        jid,
+                        ["status"]
+                        )
+                    # await taskhandler.send_status(jid)
+                    await taskhandler.start_tasks_xmpp(
                         self,
                         jid,
-                        taskhandler.send_status,
-                        "status",
-                        20
+                        ["status"]
                         )
-                    # NOTE This would show the number of new unread entries
-                    # await taskhandler.clean_tasks(jid, ["status"])
-                    # await taskhandler.send_status(jid)
                 case _ if message_lowercase.startswith("feeds"):
                     query = message[6:]
                     if query:
@@ -524,20 +540,29 @@ class Slixfeed(slixmpp.ClientXMPP):
                         action = "Missing value."
                 case _ if message_lowercase.startswith("next"):
                     num = message[5:]
-                    await taskhandler.refresh_task(
+                    await taskhandler.clean_tasks_xmpp(
+                        jid,
+                        ["interval", "status"]
+                        )
+                    await taskhandler.start_tasks_xmpp(
                         self,
                         jid,
-                        taskhandler.send_update,
-                        "interval",
-                        num
+                        ["interval", "status"]
                         )
-                    await taskhandler.refresh_task(
-                        self,
-                        jid,
-                        taskhandler.send_status,
-                        "status",
-                        20
-                        )
+                    # await taskhandler.refresh_task(
+                    #     self,
+                    #     jid,
+                    #     taskhandler.send_update,
+                    #     "interval",
+                    #     num
+                    #     )
+                    # await taskhandler.refresh_task(
+                    #     self,
+                    #     jid,
+                    #     taskhandler.send_status,
+                    #     "status",
+                    #     20
+                    #     )
                     # await taskhandler.refresh_task(jid, key, val)
                 case _ if message_lowercase.startswith("quantum"):
                     key = message[:7]
@@ -576,12 +601,21 @@ class Slixfeed(slixmpp.ClientXMPP):
                             sqlitehandler.remove_feed,
                             ix
                             )
-                        await taskhandler.refresh_task(
+                        # await taskhandler.refresh_task(
+                        #     self,
+                        #     jid,
+                        #     taskhandler.send_status,
+                        #     "status",
+                        #     20
+                        #     )
+                        await taskhandler.clean_tasks_xmpp(
+                            jid,
+                            ["status"]
+                            )
+                        await taskhandler.start_tasks_xmpp(
                             self,
                             jid,
-                            taskhandler.send_status,
-                            "status",
-                            20
+                            ["status"]
                             )
                     else:
                         action = "Missing feed ID."
@@ -609,7 +643,12 @@ class Slixfeed(slixmpp.ClientXMPP):
                         sqlitehandler.set_settings_value,
                         [key, val]
                         )
-                    asyncio.create_task(taskhandler.task_jid(self, jid))
+                    # asyncio.create_task(taskhandler.task_jid(self, jid))
+                    await taskhandler.start_tasks_xmpp(
+                        self,
+                        jid,
+                        ["interval", "status", "check"]
+                        )
                     action = "Updates are enabled."
                     # print(await datetimehandler.current_time(), "task_manager[jid]")
                     # print(task_manager[jid])
@@ -654,7 +693,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         sqlitehandler.set_settings_value,
                         [key, val]
                         )
-                    await taskhandler.clean_tasks(jid, ["interval"])
+                    await taskhandler.clean_tasks_xmpp(jid, ["interval"])
                     self.send_presence(
                         pshow="xa",
                         pstatus="Send \"Start\" to receive news.",

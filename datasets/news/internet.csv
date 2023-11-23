@@ -1,11 +1,37 @@
 name, url, language, country
+jezebel cheblik, gopher://triapul.cz/0/rss.xml, en-US, United States
+triapul.cz gopher, https://triapul.cz/feed/gopher.xml, en-US, Czech
 soeren-hentzschel.at - Aktuelles zu Mozilla, https://www.soeren-hentzschel.at/feed/, de-DE, Germany
 WordPress.com News, https://wordpress.com/blog/feed/, en-US, United States
 Micro.blog News, https://news.micro.blog/feed.xml, en-US, United States
 EFF Action Center, https://act.eff.org/action.atom, en-US, United States
+Leonora Tindall on Nora Codes, https://nora.codes/index.xml, en-US, United States
 Melon's Thoughts - Guidebooks, https://thoughts.melonking.net/atom/?section=guides, en-US, United States
 thecozy.cat, https://thecozy.cat/feed/, en-US, United States
+OpenNews.opennet.ru: Общая лента новостей, https://www.opennet.ru/opennews/opennews_all_utf.rss, ru-RU, Russia
+Codemadness, https://codemadness.org/atom.xml, en-US, United States
 Melon's Thoughts, https://thoughts.melonking.net/atom/, en-US, United States
 An RSS Blog, https://www.rss-specifications.com/blog-feed.xml, en-US, United States
 The Blog Starter, https://www.theblogstarter.com/feed/, en-US, United States
 Mozilla Hacks, https://hacks.mozilla.org/feed/, en-US, United States
+Vivaldi Social, https://social.vivaldi.net/@Vivaldi.rss, en-US, United States
+Vivaldi Community, https://vivaldi.net/feed/, en-US, United States
+Ctrl blog, https://feed.ctrl.blog/latest.atom, en-US, United States
+drkhsh, https://drkhsh.at/atom.xml, en-US, Austria
+Redecentralize Blog, https://redecentralize.org/blog/feed.rss, en-US, United States
+Ctrl blog: WordPress, https://feed.ctrl.blog/topic/wordpress.atom, en-US, United States
+Ctrl blog: HTTP Caching, https://feed.ctrl.blog/topic/http-caching.atom, en-US, United States
+Ctrl blog: Email, https://feed.ctrl.blog/topic/email.atom, en-US, United States
+Ctrl blog: Search engines, https://feed.ctrl.blog/topic/search-engines.atom, en-US, United States
+Ctrl blog: Distributed web, https://feed.ctrl.blog/topic/distributed-web.atom, en-US, United States
+Ctrl blog: VPN, https://feed.ctrl.blog/topic/vpn.atom, en-US, United States
+Ctrl blog: Web Browsers, https://feed.ctrl.blog/topic/web-browsers.atom, en-US, United States
+Ctrl blog: Networking, https://feed.ctrl.blog/topic/networking.atom, en-US, United States
+Ctrl blog: DNS, https://feed.ctrl.blog/topic/dns.atom, en-US, United States
+Ctrl blog: Web Monetization, https://feed.ctrl.blog/topic/web-monetization.atom, en-US, United States
+Ctrl blog: HTML, https://feed.ctrl.blog/topic/html.atom, en-US, United States
+Ctrl blog: Browser Extensions, https://feed.ctrl.blog/topic/browser-extensions.atom, en-US, United States
+Ctrl blog: P2P, https://feed.ctrl.blog/topic/p2p.atom, en-US, United States
+Ctrl blog: Syndication feeds, https://feed.ctrl.blog/topic/syndication-feeds.atom, en-US, United States
+Ctrl blog: Wi-Fi, https://feed.ctrl.blog/topic/wi-fi.atom, en-US, United States
+
