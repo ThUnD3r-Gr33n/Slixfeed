@@ -17,9 +17,10 @@ TODO
 
 import sqlitehandler
 
-async def set_filter(newwords, keywords):
+
+async def set_list(newwords, keywords):
     """
-    Append new keywords to filter.
+    Append new keywords to list.
 
     Parameters
     ----------
@@ -46,7 +47,8 @@ async def set_filter(newwords, keywords):
     val = ",".join(keywords)
     return val
 
-async def is_listed(db_file, type, string):
+
+async def is_listed(db_file, key, string):
     """
     Check keyword match.
 
@@ -66,10 +68,9 @@ async def is_listed(db_file, type, string):
     """
 # async def reject(db_file, string):
 # async def is_blacklisted(db_file, string):
-    filter_type = "filter-" + type
     list = await sqlitehandler.get_settings_value(
         db_file,
-        filter_type
+        key
         )
     if list:
         list = list.split(",")

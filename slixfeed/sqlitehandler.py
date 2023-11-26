@@ -1059,7 +1059,7 @@ async def list_feeds(db_file):
         "FROM feeds"
         )
     results = cur.execute(sql)
-    feeds_list = "\nList of subscriptions:\n```"
+    feeds_list = "\nList of subscriptions:\n```\n"
     counter = 0
     for result in results:
         counter += 1
@@ -1329,7 +1329,7 @@ async def set_settings_value(db_file, key_value):
     key_value : list
          key : str
                enabled, filter-allow, filter-deny,
-               interval, master, quantum, random.
+               interval, masters, quantum, random.
          value : int
                Numeric value.
     """

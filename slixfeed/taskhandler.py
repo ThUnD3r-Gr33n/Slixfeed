@@ -198,11 +198,15 @@ async def send_update(self, jid, num=None):
     if new:
         # TODO Add while loop to assure delivery.
         # print(await datetimehandler.current_time(), ">>> ACT send_message",jid)
+        if await xmpphandler.Slixfeed.is_muc(self, jid):
+            chat_type = "groupchat"
+        else:
+            chat_type = "chat"
         xmpphandler.Slixfeed.send_message(
             self,
             mto=jid,
             mbody=new,
-            mtype="chat"
+            mtype=chat_type
         )
     # TODO Do not refresh task before
     # verifying that it was completed.

@@ -12,6 +12,7 @@ TODO
 
 import os
 import filehandler
+from random import randrange
 
 
 async def get_value_default(key):
@@ -42,8 +43,10 @@ async def get_value_default(key):
             result = 3
         case "random":
             result = 0
-        case "read":
-            result = "https://www.blacklistednews.com/rss.php"
+        case "masters":
+            result = randrange(100000, 999999)
+        case "token":
+            result = "none"
     return result
 
 

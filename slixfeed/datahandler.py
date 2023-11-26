@@ -21,7 +21,7 @@ import feedparser
 import sqlitehandler
 import confighandler
 import datetimehandler
-import filterhandler
+import listhandler
 
 from asyncio.exceptions import IncompleteReadError
 from http.client import IncompleteRead
@@ -168,15 +168,15 @@ async def download_updates(db_file, url=None):
                             summary,
                             pathname
                             )
-                    allow_list = await filterhandler.is_listed(
+                    allow_list = await listhandler.is_listed(
                         db_file,
-                        "allow",
+                        "filter-allow",
                         string
                         )
                     if not allow_list:
-                        reject_list = await filterhandler.is_listed(
+                        reject_list = await listhandler.is_listed(
                             db_file,
-                            "deny",
+                            "filter-deny",
                             string
                             )
                         if reject_list:
@@ -208,7 +208,7 @@ async def download_updates(db_file, url=None):
 
 
 # NOTE Why (if result[0]) and (if result[1] == 200)?
-async def view_feed(db_file, url):
+async def view_feed(url):
     """
     Check feeds for new entries.
 
@@ -235,8 +235,7 @@ async def view_feed(db_file, url):
                 #     "For more information, visit "
                 #     "https://pythonhosted.org/feedparser/bozo.html"
                 #     ).format(url)
-                # msg = await probe_page(view_feed, url, result[0])
-                msg = await probe_page(view_feed, url, result[0], db_file)
+                msg = await probe_page(view_feed, url, result[0])
                 return msg
         except (
                 IncompleteReadError,
@@ -253,10 +252,7 @@ async def view_feed(db_file, url):
     if result[1] == 200:
         title = await get_title(url, result[0])
         entries = feed.entries
-        msg = "Extracted {} entries from {}:\n```\n".format(
-            len(entries),
-            title
-            )
+        msg = "Preview of {}:\n```\n".format(title)
         count = 0
         for entry in entries:
             count += 1
@@ -290,13 +286,11 @@ async def view_feed(db_file, url):
                     link,
                     count
                     )
+            if count > 4:
+                break
         msg += (
-            "```\n"
-            "Source: {}\n"
-            "Enter a number from 1 - {} using command `select` "
-            "to view a specific item from the list."
-            ).format(url, count)
-        await sqlitehandler.set_settings_value(db_file, ["read", url])
+            "```\nSource: {}"
+            ).format(url)
     else:
         msg = (
             ">{}\nFailed to load URL.  Reason: {}"
@@ -304,14 +298,38 @@ async def view_feed(db_file, url):
     return msg
 
 
-async def view_entry(db_file, num):
-    num = int(num) - 1
-    url = await sqlitehandler.get_settings_value(db_file, "read")
+# NOTE Why (if result[0]) and (if result[1] == 200)?
+async def view_entry(url, num):
     result = await download_feed(url)
+    if result[0]:
+        try:
+            feed = feedparser.parse(result[0])
+            if feed.bozo:
+                # msg = (
+                #     ">{}\n"
+                #     "WARNING: Bozo detected!\n"
+                #     "For more information, visit "
+                #     "https://pythonhosted.org/feedparser/bozo.html"
+                #     ).format(url)
+                msg = await probe_page(view_entry, url, result[0], num)
+                return msg
+        except (
+                IncompleteReadError,
+                IncompleteRead,
+                error.URLError
+                ) as e:
+            # print(e)
+            # TODO Print error to log
+            msg = (
+                "> {}\n"
+                "Error: {}"
+                ).format(url, e)
+            breakpoint()
     if result[1] == 200:
         feed = feedparser.parse(result[0])
         title = await get_title(url, result[0])
         entries = feed.entries
+        num = int(num) - 1
         entry = entries[num]
         if entry.has_key("title"):
             title = entry.title
@@ -328,9 +346,9 @@ async def view_entry(db_file, num):
         if entry.has_key("summary"):
             summary = entry.summary
             # Remove HTML tags
-            # summary = BeautifulSoup(summary, "lxml").text
+            summary = BeautifulSoup(summary, "lxml").text
             # TODO Limit text length
-            # summary = summary.replace("\n\n", "\n")
+            summary = summary.replace("\n\n\n", "\n\n")
         else:
             summary = "*** No summary ***"
         if entry.has_key("link"):
@@ -346,11 +364,8 @@ async def view_entry(db_file, num):
             "\n"
             "{}\n"
             "\n"
-            "{}\n"
-            "\n"
             ).format(
                 title,
-                date,
                 summary,
                 link
                 )
@@ -453,7 +468,7 @@ async def add_feed(db_file, url):
 
 
 # TODO callback for use with add_feed and view_feed
-async def probe_page(callback, url, doc, db_file=None):
+async def probe_page(callback, url, doc, num=None, db_file=None):
     msg = None
     try:
         # tree = etree.fromstring(res[0]) # etree is for xml
@@ -483,6 +498,8 @@ async def probe_page(callback, url, doc, db_file=None):
             url = msg[0]
             if db_file:
                 return await callback(db_file, url)
+            elif num:
+                return await callback(url, num)
             else:
                 return await callback(url)
 

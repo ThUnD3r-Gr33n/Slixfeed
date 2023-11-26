@@ -23,6 +23,15 @@ TODO
 4) Do not send updates when busy or away.
     See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-changed_status
 
+5) XHTTML-IM
+    case _ if message_lowercase.startswith("html"):
+        message['html']="<h1>Parse me!</h1>"
+        self.send_message(
+            mto=jid,
+            mfrom=self.boundjid.bare,
+            mhtml=message
+            )
+
 NOTE
 
 1) Self presence
@@ -51,7 +60,7 @@ from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadSe
 import datahandler
 import datetimehandler
 import filehandler
-import filterhandler
+import listhandler
 import sqlitehandler
 import taskhandler
 
@@ -105,8 +114,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.add_event_handler("message", self.message)
         self.add_event_handler("message", self.settle)
 
-        self.add_event_handler("groupchat_invite", self.accept_muc_invite)
-        self.add_event_handler("groupchat_direct_invite", self.accept_muc_invite)
+        self.add_event_handler("groupchat_invite", self.process_muc_invite) # XEP_0045
+        self.add_event_handler("groupchat_direct_invite", self.process_muc_invite) # XEP_0249
         # self.add_event_handler("groupchat_message", self.message)
 
         # self.add_event_handler("disconnected", self.reconnect)
@@ -190,26 +199,57 @@ class Slixfeed(slixmpp.ClientXMPP):
         print("reactions")
         print(message)
 
-    async def accept_muc_invite(self, message):
-        ctr = message["from"].bare
-        jid = message['groupchat_invite']['jid']
-        tkn = randrange(10000, 99999)
+    # async def accept_muc_invite(self, message, ctr=None):
+    #     # if isinstance(message, str):
+    #     if not ctr:
+    #         ctr = message["from"].bare
+    #         jid = message['groupchat_invite']['jid']
+    #     else:
+    #         jid = message
+    async def process_muc_invite(self, message):
+        # operator muc_chat
+        inviter = message["from"].bare
+        muc_jid = message['groupchat_invite']['jid']
+        await self.join_muc(inviter, muc_jid)
+
+
+    async def join_muc(self, inviter, muc_jid):
+        token = await filehandler.initdb(
+            muc_jid,
+            sqlitehandler.get_settings_value,
+            "token"
+            )
+        if token != "accepted":
+            token = randrange(10000, 99999)
+            await filehandler.initdb(
+                muc_jid,
+                sqlitehandler.set_settings_value,
+                ["token", token]
+            )
+            self.send_message(
+                mto=inviter,
+                mbody=(
+                    "Send activation token {} to groupchat xmpp:{}?join."
+                    ).format(token, muc_jid)
+                )
         self.plugin['xep_0045'].join_muc(
-            jid,
+            muc_jid,
             "Slixfeed (RSS News Bot)",
             # If a room password is needed, use:
             # password=the_room_password,
-            )
-        self.send_message(
-            mto=ctr,
-            mbody=(
-                "Send activation token {} to groupchat xmpp:{}?join."
-                ).format(tkn, jid)
             )
         # self.add_event_handler(
         #     "muc::[room]::message",
         #     self.message
         #     )
+
+        # await self.get_bookmarks()
+        # bookmark = self.plugin['xep_0048'].instantiate_pep()
+        # print(bookmark)
+        # nick = "Slixfeed (RSS News Bot)"
+        # bookmark.add_bookmark(muc_jid, nick=nick)
+        # await self['xep_0048'].set_bookmarks(bookmark)
+        # print(bookmark)
 
 
     async def on_session_end(self, event):
@@ -341,6 +381,31 @@ class Slixfeed(slixmpp.ClientXMPP):
         #     await taskhandler.select_file()
 
 
+    async def is_muc(self, jid):
+        """
+        Check whether a JID is of MUC.
+
+        Parameters
+        ----------
+        jid : str
+            Jabber ID.
+
+        Returns
+        -------
+        boolean
+            True or False.
+        """
+        iqresult = await self["xep_0030"].get_info(jid=jid)
+        features = iqresult["disco_info"]["features"]
+        # identity = iqresult['disco_info']['identities']
+        # if 'account' in indentity:
+        # if 'conference' in indentity:
+        if 'http://jabber.org/protocol/muc' in features:
+            return True
+        else:
+            return False
+
+
     async def settle(self, msg):
         """
         Add JID to roster and settle subscription.
@@ -355,42 +420,46 @@ class Slixfeed(slixmpp.ClientXMPP):
         None.
         """
         jid = msg["from"].bare
-        await self.get_roster()
-        # Check whether JID is in roster; otherwise, add it.
-        if jid not in self.client_roster.keys():
-            self.send_presence_subscription(
-                pto=jid,
-                ptype="subscribe",
-                pnick="Slixfeed RSS News Bot"
-                )
-            self.update_roster(
-                jid,
-                subscription="both"
-                )
-        # Check whether JID is subscribed; otherwise, ask for presence.
-        if not self.client_roster[jid]["to"]:
-            self.send_presence_subscription(
-                pto=jid,
-                pfrom=self.boundjid.bare,
-                ptype="subscribe",
-                pnick="Slixfeed RSS News Bot"
-                )
-            self.send_message(
-                mto=jid,
-                mtype="headline",
-                msubject="RSS News Bot",
-                mbody=("Accept subscription request to receive updates."),
-                mfrom=self.boundjid.bare,
-                mnick="Slixfeed RSS News Bot"
-                )
-            self.send_presence(
-                pto=jid,
-                pfrom=self.boundjid.bare,
-                # Accept symbol 🉑️ 👍️ ✍
-                pstatus="✒️ Accept subscription request to receive updates",
-                # ptype="subscribe",
-                pnick="Slixfeed RSS News Bot"
-                )
+        if await self.is_muc(jid):
+            # Check whether JID is in bookmarks; otherwise, add it.
+            print(jid, "is muc")
+        else:
+            await self.get_roster()
+            # Check whether JID is in roster; otherwise, add it.
+            if jid not in self.client_roster.keys():
+                self.send_presence_subscription(
+                    pto=jid,
+                    ptype="subscribe",
+                    pnick="Slixfeed RSS News Bot"
+                    )
+                self.update_roster(
+                    jid,
+                    subscription="both"
+                    )
+            # Check whether JID is subscribed; otherwise, ask for presence.
+            if not self.client_roster[jid]["to"]:
+                self.send_presence_subscription(
+                    pto=jid,
+                    pfrom=self.boundjid.bare,
+                    ptype="subscribe",
+                    pnick="Slixfeed RSS News Bot"
+                    )
+                self.send_message(
+                    mto=jid,
+                    # mtype="headline",
+                    msubject="RSS News Bot",
+                    mbody="Accept subscription request to receive updates.",
+                    mfrom=self.boundjid.bare,
+                    mnick="Slixfeed RSS News Bot"
+                    )
+                self.send_presence(
+                    pto=jid,
+                    pfrom=self.boundjid.bare,
+                    # Accept symbol 🉑️ 👍️ ✍
+                    pstatus="✒️ Accept subscription request to receive updates",
+                    # ptype="subscribe",
+                    pnick="Slixfeed RSS News Bot"
+                    )
 
 
     async def presence_unsubscribe(self, presence):
@@ -436,27 +505,36 @@ class Slixfeed(slixmpp.ClientXMPP):
             action = 0
             jid = msg["from"].bare
             if msg["type"] == "groupchat":
-                ctr = await filehandler.initdb(
+                # nick = msg["from"][msg["from"].index("/")+1:]
+                nick = str(msg["from"])
+                nick = nick[nick.index("/")+1:]
+                if (msg['muc']['nick'] == "Slixfeed (RSS News Bot)" or
+                    not msg["body"].startswith("!")):
+                    return
+                token = await filehandler.initdb(
                     jid,
                     sqlitehandler.get_settings_value,
-                    "masters"
+                    "token"
                     )
-                if (msg["from"][msg["from"].index("/")+1:] not in ctr
-                    or not msg["body"].startswith("!")):
-                    return
-                    
+                if token == "accepted":
+                    operator = await filehandler.initdb(
+                        jid,
+                        sqlitehandler.get_settings_value,
+                        "masters"
+                        )
+                    if operator:
+                        if nick not in operator:
+                            return
+
             # # Begin processing new JID
             # # Deprecated in favour of event "presence_available"
             # db_dir = filehandler.get_default_dbdir()
             # os.chdir(db_dir)
             # if jid + ".db" not in os.listdir():
             #     await taskhandler.task_jid(jid)
-            print(msg["body"])
-            print(msg["body"].split())
             message = " ".join(msg["body"].split())
             if msg["type"] == "groupchat":
                 message = message[1:]
-            print(message)
             message_lowercase = message.lower()
 
             print(await datetimehandler.current_time(), "ACCOUNT: " + str(msg["from"]))
@@ -482,6 +560,33 @@ class Slixfeed(slixmpp.ClientXMPP):
                     print(self.client_roster)
                     print("roster 2")
                     print(self.client_roster.keys())
+                    print("jid")
+                    print(jid)
+
+                case _ if message_lowercase.startswith("activate"):
+                    if msg["type"] == "groupchat":
+                        acode = message[9:]
+                        token = await filehandler.initdb(
+                            jid,
+                            sqlitehandler.get_settings_value,
+                            "token"
+                            )
+                        if int(acode) == token:
+                            await filehandler.initdb(
+                                jid,
+                                sqlitehandler.set_settings_value,
+                                ["masters", nick]
+                                )
+                            await filehandler.initdb(
+                                jid,
+                                sqlitehandler.set_settings_value,
+                                ["token", "accepted"]
+                                )
+                            action = "{}, your are in command.".format(nick)
+                        else:
+                            action = "Activation code is not valid."
+                    else:
+                        action = "This command is valid for groupchat only."
                 case _ if message_lowercase.startswith("add"):
                     message = message[4:]
                     url = message.split(" ")[0]
@@ -510,7 +615,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 sqlitehandler.get_settings_value,
                                 key
                                 )
-                            val = await filterhandler.set_filter(
+                            val = await listhandler.set_list(
                                 val,
                                 keywords
                                 )
@@ -534,7 +639,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 sqlitehandler.get_settings_value,
                                 key
                                 )
-                            val = await filterhandler.set_filter(
+                            val = await listhandler.set_list(
                                 val,
                                 keywords
                                 )
@@ -629,6 +734,33 @@ class Slixfeed(slixmpp.ClientXMPP):
                             ).format(val)
                     else:
                         action = "Missing value."
+                case _ if message_lowercase.startswith("join"):
+                    muc = message[5:]
+                    await self.join_muc(jid, muc)
+                case _ if message_lowercase.startswith("mastership"):
+                        key = message[:7]
+                        val = message[11:]
+                        if val:
+                            names = await filehandler.initdb(
+                                jid,
+                                sqlitehandler.get_settings_value,
+                                key
+                                )
+                            val = await listhandler.set_list(
+                                val,
+                                names
+                                )
+                            await filehandler.initdb(
+                                jid,
+                                sqlitehandler.set_settings_value,
+                                [key, val]
+                                )
+                            action = (
+                                "Operators\n"
+                                "```\n{}\n```"
+                                ).format(val)
+                        else:
+                            action = "Missing value."
                 case _ if message_lowercase.startswith("next"):
                     num = message[5:]
                     await taskhandler.clean_tasks_xmpp(
@@ -675,16 +807,29 @@ class Slixfeed(slixmpp.ClientXMPP):
                 case "random":
                     action = "Updates will be sent randomly."
                 case _ if message_lowercase.startswith("read"):
-                    url = message[5:]
-                    if url.startswith("http"):
-                        # action = await datahandler.view_feed(url)
-                        action = await filehandler.initdb(
-                            jid,
-                            datahandler.view_feed,
-                            url
-                            )
-                    else:
-                        action = "Missing URL."
+                    data = message[5:]
+                    data = data.split()
+                    url = data[0]
+                    if url.startswith("feed:"):
+                        url = await datahandler.feed_to_http(url)
+                    match len(data):
+                        case 1:
+                            if url.startswith("http"):
+                                action = await datahandler.view_feed(url)
+                            else:
+                                action = "Missing URL."
+                        case 2:
+                            num = data[1]
+                            if url.startswith("http"):
+                                action = await datahandler.view_entry(url, num)
+                            else:
+                                action = "Missing URL."
+                        case _:
+                            action = (
+                                "Enter command as follows:\n"
+                                "`read URL` or `read URL NUMBER`\n"
+                                "URL must not contain white space."
+                                )
                 case _ if message_lowercase.startswith("recent"):
                     num = message[7:]
                     if num:
@@ -759,16 +904,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                         jid,
                         sqlitehandler.statistics
                         )
-                case _ if message_lowercase.startswith("select"):
-                    num = message[7:]
-                    if num:
-                        action = await filehandler.initdb(
-                            jid,
-                            datahandler.view_entry,
-                            num
-                            )
-                    else:
-                        action = "Missing number."
                 case _ if message_lowercase.startswith("status "):
                     ix = message[7:]
                     action = await filehandler.initdb(
@@ -878,8 +1013,6 @@ def print_info():
         " GNU General Public License for more details.\n"
         "\n"
         "NOTE\n"
-        " Make Slixfeed your own.\n"
-        "\n"
         " You can run Slixfeed on your own computer, server, and\n"
         " even on a Linux phone (i.e. Droidian, Mobian NixOS,\n"
         " postmarketOS). You can also use Termux.\n"
@@ -919,30 +1052,34 @@ def print_help():
         " For more information, visit https://xmpp.org/software/\n"
         "\n"
         "BASIC USAGE\n"
-        " start\n"
-        "   Enable bot and send updates.\n"
-        " stop\n"
-        "   Disable bot and stop updates.\n"
         " URL\n"
         "   Add URL to subscription list.\n"
         " add URL TITLE\n"
         "   Add URL to subscription list (without validity check).\n"
-        " feeds\n"
-        "   List subscriptions.\n"
+        " join MUC\n"
+        "   Join specified groupchat.\n"
+        " read URL\n"
+        "   Display most recent 20 titles of given URL.\n"
+        " read URL N\n"
+        "   Display specified entry number from given URL.\n"
+        "\n"
+        "MESSAGE OPTIONS\n"
+        " start\n"
+        "   Enable bot and send updates.\n"
+        " stop\n"
+        "   Disable bot and stop updates.\n"
         " interval N\n"
         "   Set interval update to every N minutes.\n"
         " next N\n"
         "   Send N next updates.\n"
         " quantum N\n"
-        "   Set amount of updates for each interval.\n"
-        " read URL\n"
-        "   Display most recent 20 titles of given URL.\n"
-        " read URL NUM\n"
-        "   Display specified entry from given URL.\n"
+        "   Set N amount of updates per interval.\n"
         "\n"
         "GROUPCHAT OPTIONS\n"
         " ! (command initiation)\n"
         "   Use exclamation mark to initiate an actionable command.\n"
+        " activate CODE\n"
+        "   Activate and command bot.\n"
         " demaster NICKNAME\n"
         "   Remove master privilege.\n"
         " mastership NICKNAME\n"
@@ -967,6 +1104,8 @@ def print_help():
         "   Toggle update status of feed.\n"
         "\n"
         "SEARCH OPTIONS\n"
+        " feeds\n"
+        "   List all subscriptions.\n"
         " feeds TEXT\n"
         "   Search subscriptions by given keywords.\n"
         " search TEXT\n"
