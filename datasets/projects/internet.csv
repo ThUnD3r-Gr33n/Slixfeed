@@ -1,5 +1,6 @@
 name, url, language, country
 DownThemAll!, https://www.downthemall.org/feed, en-US, Worldwide
+Pale Moon, https://forum.palemoon.org/app.php/feed/forum/1, en-US, Worldwide
 Falkon - KDE web browser, https://www.falkon.org/atom.xml, en-US, Czech
 What's Up, Fraidycat?, https://fraidyc.at/blog/feed.xml, en-US, Worldwide
 geomyidae, branch HEAD, gopher://bitreich.org:70/0/scm/geomyidae/atom.xml, en-US, United States
@@ -16,3 +17,4 @@ Swift IM, https://swift.im/wordpress/index.php/feed/, en-US, Worldwide
 Kaidan, https://www.kaidan.im/atom.xml, en-US, Worldwide
 Dino, https://dino.im/index.xml, en-US, Worldwide
 Vivaldi Browser, https://vivaldi.com/feed/, en-US, United States
+wicd Announcements, http://feeds.launchpad.net/wicd/announcements.atom, en-US, Worldwide

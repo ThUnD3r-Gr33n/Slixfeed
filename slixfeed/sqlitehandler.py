@@ -669,7 +669,7 @@ async def toggle_status(db_file, ix):
                     "id": ix
                     })
                 msg = (
-                    "Updates for '{}' are now {}."
+                    "Updates from '{}' are now {}."
                        ).format(title, state)
             except:
                 msg = (
@@ -1157,12 +1157,13 @@ async def search_feeds(db_file, query):
     """
     cur = get_cursor(db_file)
     sql = (
-        "SELECT name, address, id "
+        "SELECT name, address, id, enabled "
         "FROM feeds "
         "WHERE name LIKE ? "
+        "OR address LIKE ? "
         "LIMIT 50"
         )
-    results = cur.execute(sql, [f'%{query}%'])
+    results = cur.execute(sql, [f'%{query}%', f'%{query}%'])
     results_list = (
         "Feeds containing '{}':\n```"
         ).format(query)
@@ -1170,14 +1171,16 @@ async def search_feeds(db_file, query):
     for result in results:
         counter += 1
         results_list += (
-            "\nName: {}"
-            "\n URL: {}"
-            "\n  ID: {}"
+            "\nName  : {}"
+            "\nURL   : {}"
+            "\nIndex : {}"
+            "\nMode  : {}"
             "\n"
             ).format(
                 str(result[0]),
                 str(result[1]),
-                str(result[2])
+                str(result[2]),
+                str(result[3])
                 )
     if counter:
         return results_list + "\n```\nTotal of {} feeds".format(counter)
@@ -1359,7 +1362,7 @@ async def set_settings_value(db_file, key_value):
 # TODO Place settings also in a file
 async def set_settings_value_default(cur, key):
     """
-    Set default settings value.
+    Set default settings value, if no value found.
 
     Parameters
     ----------

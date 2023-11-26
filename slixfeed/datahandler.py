@@ -34,6 +34,7 @@ from urllib.parse import urlunsplit
 from lxml import html
 
 
+# NOTE Why (if res[0]) and (if res[1] == 200)?
 async def download_updates(db_file, url=None):
     """
     Check feeds for new entries.
@@ -127,6 +128,9 @@ async def download_updates(db_file, url=None):
                 if entry.has_key("published"):
                     date = entry.published
                     date = await datetimehandler.rfc2822_to_iso8601(date)
+                elif entry.has_key("updated"):
+                    date = entry.updated
+                    date = await datetimehandler.rfc2822_to_iso8601(date)
                 else:
                     date = None
                 exist = await sqlitehandler.check_entry_exist(
@@ -139,19 +143,7 @@ async def download_updates(db_file, url=None):
                     )
                 if not exist:
                     # new_entry = new_entry + 1
-                    if entry.has_key("published"):
-                        date = entry.published
-                        date = await datetimehandler.rfc2822_to_iso8601(date)
-                        # try:
-                        #     date = datetime.strptime(date, "%a, %d %b %Y %H:%M:%S %z")
-                        # except:
-                        #     date = datetime.strptime(date, '%a, %d %b %Y %H:%M:%S %Z')
-                        # finally:
-                        #     date = date.isoformat()
-                        # if parsedate(date):                    # Is RFC 2822 format
-                        #     date = parsedate_to_datetime(date) # Process timestamp
-                        #     date = date.isoformat()            # Convert to ISO 8601
-                    else:
+                    if not date:
                         # TODO Just set date = "*** No date ***"
                         # date = await datetime.now().isoformat()
                         date = await datetimehandler.now()
@@ -213,6 +205,162 @@ async def download_updates(db_file, url=None):
                 #     print(await datetimehandler.current_time(), entry, title)
                 # else:
                 #     print(await datetimehandler.current_time(), exist, title)
+
+
+# NOTE Why (if result[0]) and (if result[1] == 200)?
+async def view_feed(db_file, url):
+    """
+    Check feeds for new entries.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str, optional
+        URL. The default is None.
+
+    Returns
+    -------
+    msg : str
+       Feed content or error message.
+    """
+    result = await download_feed(url)
+    if result[0]:
+        try:
+            feed = feedparser.parse(result[0])
+            if feed.bozo:
+                # msg = (
+                #     ">{}\n"
+                #     "WARNING: Bozo detected!\n"
+                #     "For more information, visit "
+                #     "https://pythonhosted.org/feedparser/bozo.html"
+                #     ).format(url)
+                # msg = await probe_page(view_feed, url, result[0])
+                msg = await probe_page(view_feed, url, result[0], db_file)
+                return msg
+        except (
+                IncompleteReadError,
+                IncompleteRead,
+                error.URLError
+                ) as e:
+            # print(e)
+            # TODO Print error to log
+            msg = (
+                "> {}\n"
+                "Error: {}"
+                ).format(url, e)
+            breakpoint()
+    if result[1] == 200:
+        title = await get_title(url, result[0])
+        entries = feed.entries
+        msg = "Extracted {} entries from {}:\n```\n".format(
+            len(entries),
+            title
+            )
+        count = 0
+        for entry in entries:
+            count += 1
+            if entry.has_key("title"):
+                title = entry.title
+            else:
+                title = "*** No title ***"
+            if entry.has_key("link"):
+                # link = complete_url(source, entry.link)
+                link = await join_url(url, entry.link)
+                link = await trim_url(link)
+            else:
+                link = "*** No link ***"
+            if entry.has_key("published"):
+                date = entry.published
+                date = await datetimehandler.rfc2822_to_iso8601(date)
+            elif entry.has_key("updated"):
+                date = entry.updated
+                date = await datetimehandler.rfc2822_to_iso8601(date)
+            else:
+                date = "*** No date ***"
+            msg += (
+                "Title : {}\n"
+                "Date  : {}\n"
+                "Link  : {}\n"
+                "Count : {}\n"
+                "\n"
+                ).format(
+                    title,
+                    date,
+                    link,
+                    count
+                    )
+        msg += (
+            "```\n"
+            "Source: {}\n"
+            "Enter a number from 1 - {} using command `select` "
+            "to view a specific item from the list."
+            ).format(url, count)
+        await sqlitehandler.set_settings_value(db_file, ["read", url])
+    else:
+        msg = (
+            ">{}\nFailed to load URL.  Reason: {}"
+            ).format(url, result[1])
+    return msg
+
+
+async def view_entry(db_file, num):
+    num = int(num) - 1
+    url = await sqlitehandler.get_settings_value(db_file, "read")
+    result = await download_feed(url)
+    if result[1] == 200:
+        feed = feedparser.parse(result[0])
+        title = await get_title(url, result[0])
+        entries = feed.entries
+        entry = entries[num]
+        if entry.has_key("title"):
+            title = entry.title
+        else:
+            title = "*** No title ***"
+        if entry.has_key("published"):
+            date = entry.published
+            date = await datetimehandler.rfc2822_to_iso8601(date)
+        elif entry.has_key("updated"):
+            date = entry.updated
+            date = await datetimehandler.rfc2822_to_iso8601(date)
+        else:
+            date = "*** No date ***"
+        if entry.has_key("summary"):
+            summary = entry.summary
+            # Remove HTML tags
+            # summary = BeautifulSoup(summary, "lxml").text
+            # TODO Limit text length
+            # summary = summary.replace("\n\n", "\n")
+        else:
+            summary = "*** No summary ***"
+        if entry.has_key("link"):
+            # link = complete_url(source, entry.link)
+            link = await join_url(url, entry.link)
+            link = await trim_url(link)
+        else:
+            link = "*** No link ***"
+        msg = (
+            "{}\n"
+            "\n"
+            "{}\n"
+            "\n"
+            "{}\n"
+            "\n"
+            "{}\n"
+            "\n"
+            ).format(
+                title,
+                date,
+                summary,
+                link
+                )
+    else:
+        msg = (
+            ">{}\n"
+            "Failed to load URL.  Reason: {}\n"
+            "Try again momentarily."
+            ).format(url, result[1])
+    return msg
 
 
 async def add_feed_no_check(db_file, data):
@@ -278,26 +426,7 @@ async def add_feed(db_file, url):
                     "Bozo detected. Failed to load: {}."
                     ).format(url)
                 print(bozo)
-                try:
-                    # tree = etree.fromstring(res[0]) # etree is for xml
-                    tree = html.fromstring(res[0])
-                except:
-                    msg = (
-                        "> {}\nFailed to parse URL as feed."
-                        ).format(url)
-                if not msg:
-                    print("RSS Auto-Discovery Engaged")
-                    msg = await feed_mode_auto_discovery(db_file, url, tree)
-                if not msg:
-                    print("RSS Scan Mode Engaged")
-                    msg = await feed_mode_scan(db_file, url, tree)
-                if not msg:
-                    print("RSS Arbitrary Mode Engaged")
-                    msg = await feed_mode_request(db_file, url, tree)
-                if not msg:
-                    msg = (
-                        "> {}\nNo news feeds were found for URL."
-                        ).format(url)
+                msg = await probe_page(add_feed, url, res[0], db_file)
             else:
                 status = res[1]
                 msg = await sqlitehandler.add_feed(
@@ -310,7 +439,7 @@ async def add_feed(db_file, url):
         else:
             status = res[1]
             msg = (
-                "> {}\nFailed to get URL.  Reason: {}"
+                "> {}\nFailed to load URL.  Reason: {}"
                 ).format(url, status)
     else:
         ix = exist[0]
@@ -321,6 +450,41 @@ async def add_feed(db_file, url):
             "index {}".format(url, name, ix)
             )
     return msg
+
+
+# TODO callback for use with add_feed and view_feed
+async def probe_page(callback, url, doc, db_file=None):
+    msg = None
+    try:
+        # tree = etree.fromstring(res[0]) # etree is for xml
+        tree = html.fromstring(doc)
+    except:
+        msg = (
+            "> {}\nFailed to parse URL as feed."
+            ).format(url)
+    if not msg:
+        print("RSS Auto-Discovery Engaged")
+        msg = await feed_mode_auto_discovery(url, tree)
+    if not msg:
+        print("RSS Scan Mode Engaged")
+        msg = await feed_mode_scan(url, tree)
+    if not msg:
+        print("RSS Arbitrary Mode Engaged")
+        msg = await feed_mode_request(url, tree)
+    if not msg:
+        msg = (
+            "> {}\nNo news feeds were found for URL."
+            ).format(url)
+    # elif msg:
+    else:
+        if isinstance(msg, str):
+            return msg
+        elif isinstance(msg, list):
+            url = msg[0]
+            if db_file:
+                return await callback(db_file, url)
+            else:
+                return await callback(url)
 
 
 async def download_feed(url):
@@ -560,7 +724,7 @@ async def trim_url(url):
 
 
 # TODO Improve scan by gradual decreasing of path
-async def feed_mode_request(db_file, url, tree):
+async def feed_mode_request(url, tree):
     """
     Lookup for feeds by pathname using HTTP Requests.
 
@@ -639,8 +803,8 @@ async def feed_mode_request(db_file, url, tree):
                 positive = 1
                 msg += (
                     "Title: {}\n"
-                    " Link: {}\n"
-                    "Count: {}\n"
+                    "Link : {}\n"
+                    "Items: {}\n"
                     "\n"
                     ).format(
                         feed_name,
@@ -656,12 +820,10 @@ async def feed_mode_request(db_file, url, tree):
                 ).format(url)
         return msg
     elif feeds:
-        feed_addr = list(feeds)[0]
-        msg = await add_feed(db_file, feed_addr)
-        return msg
+        return feeds
 
 
-async def feed_mode_scan(db_file, url, tree):
+async def feed_mode_scan(url, tree):
     """
     Scan page for potential feeds by pathname.
 
@@ -760,12 +922,10 @@ async def feed_mode_scan(db_file, url, tree):
                 ).format(url)
         return msg
     elif feeds:
-        feed_addr = list(feeds)[0]
-        msg = await add_feed(db_file, feed_addr)
-        return msg
+        return feeds
 
 
-async def feed_mode_auto_discovery(db_file, url, tree):
+async def feed_mode_auto_discovery(url, tree):
     """
     Lookup for feeds using RSS autodiscovery technique.
 
@@ -819,14 +979,7 @@ async def feed_mode_auto_discovery(db_file, url, tree):
         return msg
     elif feeds:
         feed_addr = await join_url(url, feeds[0].xpath('@href')[0])
-        # if feed_addr.startswith("/"):
-        #     feed_addr = url + feed_addr
-        # NOTE Why wouldn't add_feed return a message
-        # upon success unless return is explicitly
-        # mentioned, yet upon failure it wouldn't?
-        # return await add_feed(db_file, feed_addr)
-        msg = await add_feed(db_file, feed_addr)
-        return msg
+        return [feed_addr]
 
 
 async def feed_to_http(url):

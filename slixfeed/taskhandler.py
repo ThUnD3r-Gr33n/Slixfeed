@@ -23,6 +23,10 @@ TODO
 4) Do not send updates when busy or away.
     See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-changed_status
 
+5) Animate "You have X news items"
+    📬️ when sent
+    📫️ after sent
+
 NOTE
 
 1) Self presence
@@ -69,10 +73,9 @@ await taskhandler.start_tasks(
 async def start_tasks_xmpp(self, jid, tasks):
     task_manager[jid] = {}
     for task in tasks:
-        print("task")
-        print(task)
-        print("tasks")
-        print(tasks)
+        # print("task:", task)
+        # print("tasks:")
+        # print(tasks)
         # breakpoint()
         match task:
             case "check":
@@ -174,7 +177,7 @@ async def task_jid(self, jid):
 
 
 async def send_update(self, jid, num=None):
-    print(await datetimehandler.current_time(), jid, "def send_update")
+    # print(await datetimehandler.current_time(), jid, "def send_update")
     """
     Send news items as messages.
 
@@ -194,7 +197,7 @@ async def send_update(self, jid, num=None):
     )
     if new:
         # TODO Add while loop to assure delivery.
-        print(await datetimehandler.current_time(), ">>> ACT send_message",jid)
+        # print(await datetimehandler.current_time(), ">>> ACT send_message",jid)
         xmpphandler.Slixfeed.send_message(
             self,
             mto=jid,
@@ -235,7 +238,7 @@ async def send_update(self, jid, num=None):
 
 
 async def send_status(self, jid):
-    print(await datetimehandler.current_time(), jid, "def send_status")
+    # print(await datetimehandler.current_time(), jid, "def send_status")
     """
     Send status message.
 
@@ -253,19 +256,19 @@ async def send_status(self, jid):
     )
     if not enabled:
         status_mode = "xa"
-        status_text = "Send \"Start\" to receive news."
+        status_text = "📫️ Send \"Start\" to receive updates"
     else:
         feeds = await filehandler.initdb(
             jid,
             sqlitehandler.get_number_of_items,
             "feeds"
         )
-        print(">>> feeds:", feeds, "jid:", jid)
+        # print(await datetimehandler.current_time(), jid, "has", feeds, "feeds")
         if not feeds:
             print(">>> not feeds:", feeds, "jid:", jid)
             status_mode = "available"
             status_text = (
-                "📂️ Send a URL from a blog or a news website."
+                "📭️ Send a URL from a blog or a news website"
                 )
         else:
             unread = await filehandler.initdb(
@@ -275,7 +278,7 @@ async def send_status(self, jid):
             if unread:
                 status_mode = "chat"
                 status_text = (
-                    "📰 You have {} news items to read."
+                    "📬️ You have {} news items"
                     ).format(str(unread))
                 # status_text = (
                 #     "📰 News items: {}"
@@ -285,10 +288,10 @@ async def send_status(self, jid):
                 #     ).format(str(unread))
             else:
                 status_mode = "available"
-                status_text = "🗞 No news"
+                status_text = "📪️ No news"
 
     # breakpoint()
-    print(status_text, "for", jid)
+    # print(await datetimehandler.current_time(), status_text, "for", jid)
     xmpphandler.Slixfeed.send_presence(
         self,
         pshow=status_mode,
@@ -357,7 +360,7 @@ async def refresh_task(self, jid, callback, key, val=None):
 # TODO Take this function out of
 # <class 'slixmpp.clientxmpp.ClientXMPP'>
 async def check_updates(jid):
-    print(await datetimehandler.current_time(), jid, "def check_updates")
+    # print(await datetimehandler.current_time(), jid, "def check_updates")
     """
     Start calling for update check up.
 

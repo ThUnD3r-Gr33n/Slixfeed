@@ -33,12 +33,18 @@ NOTE
     JID: self.boundjid.bare
     MUC: self.nick
 
+2) Extracting attribute using xmltodict.
+    import xmltodict
+    message = xmltodict.parse(str(message))
+    jid = message["message"]["x"]["@jid"]
+
 """
 
 import asyncio
 import logging
 import os
 import slixmpp
+from random import randrange
 
 from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadServiceNotFound
 
@@ -71,7 +77,7 @@ class Slixfeed(slixmpp.ClientXMPP):
     -------
     News bot that sends updates from RSS feeds.
     """
-    def __init__(self, jid, password):
+    def __init__(self, jid, password, room=None, nick=None):
         slixmpp.ClientXMPP.__init__(self, jid, password)
 
         # The session_start event will be triggered when
@@ -82,8 +88,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.add_event_handler("session_start", self.start_session)
         self.add_event_handler("session_resumed", self.start_session)
         self.add_event_handler("got_offline", print("got_offline"))
-        self.add_event_handler("got_online", self.check_readiness)
+        # self.add_event_handler("got_online", self.check_readiness)
         self.add_event_handler("changed_status", self.check_readiness)
+        self.add_event_handler("presence_unavailable", self.stop_tasks)
 
         # self.add_event_handler("changed_subscription", self.check_subscription)
 
@@ -96,9 +103,10 @@ class Slixfeed(slixmpp.ClientXMPP):
         # stanza is received. Be aware that that includes
         # MUC messages and error messages.
         self.add_event_handler("message", self.message)
+        self.add_event_handler("message", self.settle)
 
-        self.add_event_handler("groupchat_invite", self.muc_invite)
-        self.add_event_handler("groupchat_direct_invite", self.muc_invite)
+        self.add_event_handler("groupchat_invite", self.accept_muc_invite)
+        self.add_event_handler("groupchat_direct_invite", self.accept_muc_invite)
         # self.add_event_handler("groupchat_message", self.message)
 
         # self.add_event_handler("disconnected", self.reconnect)
@@ -109,9 +117,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.add_event_handler("presence_error", self.presence_error)
         self.add_event_handler("presence_subscribe", self.presence_subscribe)
         self.add_event_handler("presence_subscribed", self.presence_subscribed)
-        self.add_event_handler("presence_unavailable", self.presence_unavailable)
         self.add_event_handler("presence_unsubscribe", self.presence_unsubscribe)
-        self.add_event_handler("presence_unsubscribed", self.presence_unsubscribed)
+        self.add_event_handler("presence_unsubscribed", self.unsubscribe)
 
         # Initialize event loop
         # self.loop = asyncio.get_event_loop()
@@ -141,7 +148,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     """
     async def presence_available(self, presence):
-        print("def presence_available", presence["from"].bare)
+        # print("def presence_available", presence["from"].bare)
         if presence["from"].bare not in self.boundjid.bare:
             jid = presence["from"].bare
             await taskhandler.clean_tasks_xmpp(
@@ -157,10 +164,14 @@ class Slixfeed(slixmpp.ClientXMPP):
             # main_task.extend([asyncio.create_task(taskhandler.task_jid(jid))])
             # print(main_task)
 
-    async def presence_unavailable(self, presence):
+    async def stop_tasks(self, presence):
         if not self.boundjid.bare:
-            print("presence_unavailable", presence["from"].bare, presence["type"])
-            print(presence)
+            jid = presence["from"].bare
+            print(">>> unavailable:", jid)
+            await taskhandler.clean_tasks_xmpp(
+                jid,
+                ["interval", "status", "check"]
+                )
 
 
     async def presence_error(self, presence):
@@ -175,32 +186,30 @@ class Slixfeed(slixmpp.ClientXMPP):
         print("presence_subscribed")
         print(presence)
 
-    async def presence_unsubscribe(self, presence):
-        print("presence_unsubscribe")
-        print(presence)
-
-    async def presence_unsubscribed(self, presence):
-        print("presence_unsubscribed")
-        print(presence)
-
     async def reactions(self, message):
         print("reactions")
         print(message)
 
-    async def muc_invite(self, message):
-        print(message)
-        breakpoint()
-        muc = message
-        self.add_event_handler(
-            "muc::[room]::message",
-            self.message
-            )
+    async def accept_muc_invite(self, message):
+        ctr = message["from"].bare
+        jid = message['groupchat_invite']['jid']
+        tkn = randrange(10000, 99999)
         self.plugin['xep_0045'].join_muc(
-            self.room,
-            self.nick,
+            jid,
+            "Slixfeed (RSS News Bot)",
             # If a room password is needed, use:
             # password=the_room_password,
             )
+        self.send_message(
+            mto=ctr,
+            mbody=(
+                "Send activation token {} to groupchat xmpp:{}?join."
+                ).format(tkn, jid)
+            )
+        # self.add_event_handler(
+        #     "muc::[room]::message",
+        #     self.message
+        #     )
 
 
     async def on_session_end(self, event):
@@ -279,33 +288,14 @@ class Slixfeed(slixmpp.ClientXMPP):
         -------
         None.
         """
-        print("def check_readiness", presence["from"].bare, presence["type"])
+        # print("def check_readiness", presence["from"].bare, presence["type"])
         # # available unavailable away (chat) dnd xa
         # print(">>> type", presence["type"], presence["from"].bare)
         # # away chat dnd xa
         # print(">>> show", presence["show"], presence["from"].bare)
 
         jid = presence["from"].bare
-        if presence["type"] == "unavailable":
-            print(">>> unavailable:", jid)
-            await taskhandler.clean_tasks_xmpp(
-                jid,
-                ["interval", "status", "check"]
-                )
-        # elif presence["type"] == "available":
-        # # elif presence["type"] == "available" or presence["show"] == "chat":
-        #     print(">>> available:", jid)
-        #     # breakpoint()
-        #     try:
-        #         if task_manager[jid]:
-        #             for task in task_manager[jid]:
-        #                 # print(">>>", jid, "cancel", task)
-        #                 task_manager[jid][task].cancel()
-        #     except:
-        #         print(">>> EXC: No task_manager for:", jid)
-        #     await taskhandler.task_jid(jid)
-        #     # print(task_manager[jid])
-        elif presence["show"] in ("away", "dnd", "xa"):
+        if presence["show"] in ("away", "dnd", "xa"):
             print(">>> away, dnd, xa:", jid)
             await taskhandler.clean_tasks_xmpp(
                 jid,
@@ -351,6 +341,81 @@ class Slixfeed(slixmpp.ClientXMPP):
         #     await taskhandler.select_file()
 
 
+    async def settle(self, msg):
+        """
+        Add JID to roster and settle subscription.
+
+        Parameters
+        ----------
+        jid : str
+            Jabber ID.
+
+        Returns
+        -------
+        None.
+        """
+        jid = msg["from"].bare
+        await self.get_roster()
+        # Check whether JID is in roster; otherwise, add it.
+        if jid not in self.client_roster.keys():
+            self.send_presence_subscription(
+                pto=jid,
+                ptype="subscribe",
+                pnick="Slixfeed RSS News Bot"
+                )
+            self.update_roster(
+                jid,
+                subscription="both"
+                )
+        # Check whether JID is subscribed; otherwise, ask for presence.
+        if not self.client_roster[jid]["to"]:
+            self.send_presence_subscription(
+                pto=jid,
+                pfrom=self.boundjid.bare,
+                ptype="subscribe",
+                pnick="Slixfeed RSS News Bot"
+                )
+            self.send_message(
+                mto=jid,
+                mtype="headline",
+                msubject="RSS News Bot",
+                mbody=("Accept subscription request to receive updates."),
+                mfrom=self.boundjid.bare,
+                mnick="Slixfeed RSS News Bot"
+                )
+            self.send_presence(
+                pto=jid,
+                pfrom=self.boundjid.bare,
+                # Accept symbol 🉑️ 👍️ ✍
+                pstatus="✒️ Accept subscription request to receive updates",
+                # ptype="subscribe",
+                pnick="Slixfeed RSS News Bot"
+                )
+
+
+    async def presence_unsubscribe(self, presence):
+        print("presence_unsubscribe")
+        print(presence)
+
+
+    async def unsubscribe(self, presence):
+        jid = presence["from"].bare
+        self.send_presence(
+            pto=jid,
+            pfrom=self.boundjid.bare,
+            pstatus="🖋️ Subscribe to receive updates",
+            pnick="Slixfeed RSS News Bot"
+            )
+        self.send_message(
+            mto=jid,
+            mbody="You have been unsubscribed."
+            )
+        self.update_roster(
+            jid,
+            subscription="remove"
+            )
+
+
     async def message(self, msg):
         """
         Process incoming message stanzas. Be aware that this also
@@ -367,18 +432,31 @@ class Slixfeed(slixmpp.ClientXMPP):
         """
         # print("message")
         # print(msg)
-        if msg["type"] in ("chat", "normal"):
+        if msg["type"] in ("chat", "groupchat", "normal"):
             action = 0
             jid = msg["from"].bare
-
+            if msg["type"] == "groupchat":
+                ctr = await filehandler.initdb(
+                    jid,
+                    sqlitehandler.get_settings_value,
+                    "masters"
+                    )
+                if (msg["from"][msg["from"].index("/")+1:] not in ctr
+                    or not msg["body"].startswith("!")):
+                    return
+                    
             # # Begin processing new JID
             # # Deprecated in favour of event "presence_available"
             # db_dir = filehandler.get_default_dbdir()
             # os.chdir(db_dir)
             # if jid + ".db" not in os.listdir():
             #     await taskhandler.task_jid(jid)
-
+            print(msg["body"])
+            print(msg["body"].split())
             message = " ".join(msg["body"].split())
+            if msg["type"] == "groupchat":
+                message = message[1:]
+            print(message)
             message_lowercase = message.lower()
 
             print(await datetimehandler.current_time(), "ACCOUNT: " + str(msg["from"]))
@@ -387,13 +465,23 @@ class Slixfeed(slixmpp.ClientXMPP):
             match message_lowercase:
                 case "help":
                     action = print_help()
-                case _ if message_lowercase in ["greetings", "hello", "hey"]:
+                case "info":
+                    action = print_info()
+                case _ if message_lowercase in [
+                    "greetings", "hallo", "hello", "hey",
+                    "hi", "hola", "holla", "hollo"]:
                     action = (
-                        "Greeting! I'm Slixfeed The News Bot!"
-                        "\n"
-                        "Send a URL of a news website to start."
+                        "Greeting!\n"
+                        "I'm Slixfeed, an RSS News Bot!\n"
+                        "Send \"help\" for instructions."
                         )
-                    print(task_manager[jid])
+                    # print("task_manager[jid]")
+                    # print(task_manager[jid])
+                    await self.get_roster()
+                    print("roster 1")
+                    print(self.client_roster)
+                    print("roster 2")
+                    print(self.client_roster.keys())
                 case _ if message_lowercase.startswith("add"):
                     message = message[4:]
                     url = message.split(" ")[0]
@@ -461,6 +549,9 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 ).format(val)
                         else:
                             action = "Missing keywords."
+                case _ if (message_lowercase.startswith("gemini") or
+                           message_lowercase.startswith("gopher:")):
+                    action = "Gemini and Gopher are not supported yet."
                 case _ if (message_lowercase.startswith("http") or
                            message_lowercase.startswith("feed:")):
                     url = message
@@ -581,8 +672,19 @@ class Slixfeed(slixmpp.ClientXMPP):
                             ).format(val)
                     else:
                         action = "Missing value."
-                case _ if message_lowercase.startswith("random"):
+                case "random":
                     action = "Updates will be sent randomly."
+                case _ if message_lowercase.startswith("read"):
+                    url = message[5:]
+                    if url.startswith("http"):
+                        # action = await datahandler.view_feed(url)
+                        action = await filehandler.initdb(
+                            jid,
+                            datahandler.view_feed,
+                            url
+                            )
+                    else:
+                        action = "Missing URL."
                 case _ if message_lowercase.startswith("recent"):
                     num = message[7:]
                     if num:
@@ -657,6 +759,16 @@ class Slixfeed(slixmpp.ClientXMPP):
                         jid,
                         sqlitehandler.statistics
                         )
+                case _ if message_lowercase.startswith("select"):
+                    num = message[7:]
+                    if num:
+                        action = await filehandler.initdb(
+                            jid,
+                            datahandler.view_entry,
+                            num
+                            )
+                    else:
+                        action = "Missing number."
                 case _ if message_lowercase.startswith("status "):
                     ix = message[7:]
                     action = await filehandler.initdb(
@@ -711,6 +823,82 @@ class Slixfeed(slixmpp.ClientXMPP):
             if action: msg.reply(action).send()
 
 
+def print_info():
+    """
+    Print information.
+
+    Returns
+    -------
+    msg : str
+        Message.
+    """
+    msg = (
+        "```\n"
+        "NAME\n"
+        "Slixfeed - News syndication bot for Jabber/XMPP\n"
+        "\n"
+        "DESCRIPTION\n"
+        " Slixfeed is a news aggregator bot for online news feeds.\n"
+        " This program is primarily designed for XMPP.\n"
+        " For more information, visit https://xmpp.org/software/\n"
+        "\n"
+        # "PROTOCOLS\n"
+        # " Supported prootcols are IRC, Matrix and XMPP.\n"
+        # " For the best experience, we recommend you to use XMPP.\n"
+        # "\n"
+        "FILETYPES\n"
+        " Supported filetypes are Atom, RDF and RSS.\n"
+        "\n"
+        "AUTHORS\n"
+        " Laura Harbinger, Schimon Zackary.\n"
+        "\n"
+        "THANKS\n"
+        " Christian Dersch (SalixOS),"
+        " Cyrille Pontvieux (SalixOS, France),"
+        "\n"
+        " Denis Fomin (Gajim, Russia),"
+        " Dimitris Tzemos (SalixOS, Greece),"
+        "\n"
+        " Emmanuel Gil Peyrot (poezio, France),"
+        " George Vlahavas (SalixOS, Greece),"
+        "\n"
+        " Pierrick Le Brun (SalixOS, France),"
+        " Thorsten Mühlfelder (SalixOS, Germany),"
+        "\n"
+        " Yann Leboulanger (Gajim, France).\n"
+        "\n"
+        "COPYRIGHT\n"
+        " Slixfeed is free software; you can redistribute it and/or\n"
+        " modify it under the terms of the GNU General Public License\n"
+        " as published by the Free Software Foundation; version 3 only\n"
+        "\n"
+        " Slixfeed is distributed in the hope that it will be useful,\n"
+        " but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+        " MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+        " GNU General Public License for more details.\n"
+        "\n"
+        "NOTE\n"
+        " Make Slixfeed your own.\n"
+        "\n"
+        " You can run Slixfeed on your own computer, server, and\n"
+        " even on a Linux phone (i.e. Droidian, Mobian NixOS,\n"
+        " postmarketOS). You can also use Termux.\n"
+        "\n"
+        " All you need is one of the above and an XMPP account to\n"
+        " connect Slixfeed to.\n"
+        "\n"
+        "DOCUMENTATION\n"
+        " Slixfeed\n"
+        "   https://gitgud.io/sjehuda/slixfeed\n"
+        " Slixmpp\n"
+        "   https://slixmpp.readthedocs.io/\n"
+        " feedparser\n"
+        "   https://pythonhosted.org/feedparser\n"
+        "```"
+        )
+    return msg
+
+
 def print_help():
     """
     Print help manual.
@@ -735,6 +923,10 @@ def print_help():
         "   Enable bot and send updates.\n"
         " stop\n"
         "   Disable bot and stop updates.\n"
+        " URL\n"
+        "   Add URL to subscription list.\n"
+        " add URL TITLE\n"
+        "   Add URL to subscription list (without validity check).\n"
         " feeds\n"
         "   List subscriptions.\n"
         " interval N\n"
@@ -742,7 +934,21 @@ def print_help():
         " next N\n"
         "   Send N next updates.\n"
         " quantum N\n"
-        "   Set N updates for each interval.\n"
+        "   Set amount of updates for each interval.\n"
+        " read URL\n"
+        "   Display most recent 20 titles of given URL.\n"
+        " read URL NUM\n"
+        "   Display specified entry from given URL.\n"
+        "\n"
+        "GROUPCHAT OPTIONS\n"
+        " ! (command initiation)\n"
+        "   Use exclamation mark to initiate an actionable command.\n"
+        " demaster NICKNAME\n"
+        "   Remove master privilege.\n"
+        " mastership NICKNAME\n"
+        "   Add master privilege.\n"
+        " ownership NICKNAME\n"
+        "   Set new owner.\n"
         "\n"
         "FILTER OPTIONS\n"
         " allow\n"
@@ -755,10 +961,6 @@ def print_help():
         # "   Reset deny list.\n"
         "\n"
         "EDIT OPTIONS\n"
-        " URL\n"
-        "   Add URL to subscription list.\n"
-        " add URL TITLE\n"
-        "   Add URL to subscription list (without validity check).\n"
         " remove ID\n"
         "   Remove feed from subscription list.\n"
         " status ID\n"
@@ -793,46 +995,15 @@ def print_help():
         "SUPPORT\n"
         " help\n"
         "   Print this help manual.\n"
+        " info\n"
+        "   Print information page.\n"
         " support\n"
         "   Join xmpp:slixmpp@muc.poez.io?join\n"
-        "\n"
+        # "\n"
         # "PROTOCOLS\n"
         # " Supported prootcols are IRC, Matrix and XMPP.\n"
         # " For the best experience, we recommend you to use XMPP.\n"
         # "\n"
-        "FILETYPES\n"
-        " Supported filetypes are Atom, RDF and RSS.\n"
-        "\n"
-        "AUTHORS\n"
-        " Laura Harbinger, Schimon Zackary.\n"
-        "\n"
-        "COPYRIGHT\n"
-        " Slixfeed is free software; you can redistribute it and/or\n"
-        " modify it under the terms of the GNU General Public License\n"
-        " as published by the Free Software Foundation; version 3 only\n"
-        "\n"
-        " Slixfeed is distributed in the hope that it will be useful,\n"
-        " but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-        " MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-        " GNU General Public License for more details.\n"
-        "\n"
-        "NOTE\n"
-        " Make Slixfeed your own.\n"
-        "\n"
-        " You can run Slixfeed on your own computer, server, and\n"
-        " even on a Linux phone (i.e. Droidian, Mobian NixOS,\n"
-        " postmarketOS). You can also use Termux.\n"
-        "\n"
-        " All you need is one of the above and an XMPP account to\n"
-        " connect Slixfeed to.\n"
-        "\n"
-        "DOCUMENTATION\n"
-        " Slixfeed\n"
-        "   https://gitgud.io/sjehuda/slixfeed\n"
-        " Slixmpp\n"
-        "   https://slixmpp.readthedocs.io/\n"
-        " feedparser\n"
-        "   https://pythonhosted.org/feedparser\n"
-        "\n```"
+        "```"
         )
     return msg
