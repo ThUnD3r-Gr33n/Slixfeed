@@ -1128,15 +1128,21 @@ async def last_entries(db_file, num):
         "LIMIT :num "
         )
     results = cur.execute(sql, (num,))
-    titles_list = "Recent {} titles:\n".format(num)
+    titles_list = "Recent {} titles:\n```".format(num)
+    counter = 0
     for result in results:
+        counter += 1
         titles_list += (
             "\n{}\n{}\n"
             ).format(
                 str(result[0]),
                 str(result[1])
                 )
-    return titles_list
+    if counter:
+        titles_list += "```\n"
+        return titles_list
+    else:
+        return "There are no news at the moment."
 
 
 async def search_feeds(db_file, query):
@@ -1185,7 +1191,7 @@ async def search_feeds(db_file, query):
     if counter:
         return results_list + "\n```\nTotal of {} feeds".format(counter)
     else:
-        return "No feeds found for: {}".format(query)
+        return "No feeds were found for: {}".format(query)
 
 
 async def search_entries(db_file, query):
@@ -1234,7 +1240,7 @@ async def search_entries(db_file, query):
     if counter:
         return results_list + "```\nTotal of {} results".format(counter)
     else:
-        return "No results found for: {}".format(query)
+        return "No results were found for: {}".format(query)
 
 """
 FIXME Error due to missing date, but it appears that date is present:

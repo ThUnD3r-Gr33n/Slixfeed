@@ -56,6 +56,8 @@ import slixmpp
 from random import randrange
 
 from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadServiceNotFound
+# from slixmpp.plugins.xep_0402 import BookmarkStorage, Conference
+from slixmpp.plugins.xep_0048.stanza import Bookmarks
 
 import datahandler
 import datetimehandler
@@ -63,6 +65,10 @@ import filehandler
 import listhandler
 import sqlitehandler
 import taskhandler
+
+import xmltodict
+import xml.etree.ElementTree as ET
+from lxml import etree
 
 main_task = []
 jid_tasker = {}
@@ -96,6 +102,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         # our roster.
         self.add_event_handler("session_start", self.start_session)
         self.add_event_handler("session_resumed", self.start_session)
+        self.add_event_handler("session_start", self.autojoin_muc)
+        self.add_event_handler("session_resumed", self.autojoin_muc)
         self.add_event_handler("got_offline", print("got_offline"))
         # self.add_event_handler("got_online", self.check_readiness)
         self.add_event_handler("changed_status", self.check_readiness)
@@ -238,18 +246,73 @@ class Slixfeed(slixmpp.ClientXMPP):
             # If a room password is needed, use:
             # password=the_room_password,
             )
-        # self.add_event_handler(
-        #     "muc::[room]::message",
-        #     self.message
-        #     )
 
-        # await self.get_bookmarks()
-        # bookmark = self.plugin['xep_0048'].instantiate_pep()
-        # print(bookmark)
-        # nick = "Slixfeed (RSS News Bot)"
-        # bookmark.add_bookmark(muc_jid, nick=nick)
-        # await self['xep_0048'].set_bookmarks(bookmark)
-        # print(bookmark)
+        result = await self.plugin['xep_0048'].get_bookmarks()
+        bookmarks = result["private"]["bookmarks"]
+        conferences = bookmarks["conferences"]
+        mucs = []
+        for conference in conferences:
+            jid = conference["jid"]
+            mucs.extend([jid])
+        if muc_jid not in mucs:
+            bookmarks = Bookmarks()
+            mucs.extend([muc_jid])
+            for muc in mucs:
+                bookmarks.add_conference(
+                    muc,
+                    "Slixfeed (RSS News Bot)",
+                    autojoin=True
+                    )
+            await self.plugin['xep_0048'].set_bookmarks(bookmarks)
+        # bookmarks = Bookmarks()
+        # await self.plugin['xep_0048'].set_bookmarks(bookmarks)
+        # print(await self.plugin['xep_0048'].get_bookmarks())
+
+        # bm = BookmarkStorage()
+        # bm.conferences.append(Conference(muc_jid, autojoin=True, nick="Slixfeed (RSS News Bot)"))
+        # await self['xep_0402'].publish(bm)
+
+
+    async def remove_and_leave_muc(self, muc_jid):
+        result = await self.plugin['xep_0048'].get_bookmarks()
+        bookmarks = result["private"]["bookmarks"]
+        conferences = bookmarks["conferences"]
+        mucs = []
+        for conference in conferences:
+            jid = conference["jid"]
+            mucs.extend([jid])
+        if muc_jid in mucs:
+            bookmarks = Bookmarks()
+            mucs.remove(muc_jid)
+            for muc in mucs:
+                bookmarks.add_conference(
+                    muc,
+                    "Slixfeed (RSS News Bot)",
+                    autojoin=True
+                    )
+            await self.plugin['xep_0048'].set_bookmarks(bookmarks)
+        self.plugin['xep_0045'].leave_muc(
+            muc_jid,
+            "Slixfeed (RSS News Bot)",
+            "Goodbye!",
+            self.boundjid.bare
+            )
+
+
+    async def autojoin_muc(self, event):
+        result = await self.plugin['xep_0048'].get_bookmarks()
+        bookmarks = result["private"]["bookmarks"]
+        conferences = bookmarks["conferences"]
+        for conference in conferences:
+            if conference["autojoin"]:
+                muc = conference["jid"]
+                print(muc)
+                self.plugin['xep_0045'].join_muc(
+                    muc,
+                    "Slixfeed (RSS News Bot)",
+                    # If a room password is needed, use:
+                    # password=the_room_password,
+                    )
 
 
     async def on_session_end(self, event):
@@ -562,6 +625,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     print(self.client_roster.keys())
                     print("jid")
                     print(jid)
+                    await self.autojoin_muc()
 
                 case _ if message_lowercase.startswith("activate"):
                     if msg["type"] == "groupchat":
@@ -606,16 +670,16 @@ class Slixfeed(slixmpp.ClientXMPP):
                             )
                     else:
                         action = "Missing URL."
-                case _ if message_lowercase.startswith("allow"):
+                case _ if message_lowercase.startswith("allow +"):
                         key = "filter-" + message[:5]
-                        val = message[6:]
+                        val = message[7:]
                         if val:
                             keywords = await filehandler.initdb(
                                 jid,
                                 sqlitehandler.get_settings_value,
                                 key
                                 )
-                            val = await listhandler.set_list(
+                            val = await listhandler.add_to_list(
                                 val,
                                 keywords
                                 )
@@ -630,16 +694,64 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 ).format(val)
                         else:
                             action = "Missing keywords."
-                case _ if message_lowercase.startswith("deny"):
-                        key = "filter-" + message[:4]
-                        val = message[5:]
+                case _ if message_lowercase.startswith("allow -"):
+                        key = "filter-" + message[:5]
+                        val = message[7:]
                         if val:
                             keywords = await filehandler.initdb(
                                 jid,
                                 sqlitehandler.get_settings_value,
                                 key
                                 )
-                            val = await listhandler.set_list(
+                            val = await listhandler.remove_from_list(
+                                val,
+                                keywords
+                                )
+                            await filehandler.initdb(
+                                jid,
+                                sqlitehandler.set_settings_value,
+                                [key, val]
+                                )
+                            action = (
+                                "Approved keywords\n"
+                                "```\n{}\n```"
+                                ).format(val)
+                        else:
+                            action = "Missing keywords."
+                case _ if message_lowercase.startswith("deny +"):
+                        key = "filter-" + message[:4]
+                        val = message[6:]
+                        if val:
+                            keywords = await filehandler.initdb(
+                                jid,
+                                sqlitehandler.get_settings_value,
+                                key
+                                )
+                            val = await listhandler.add_to_list(
+                                val,
+                                keywords
+                                )
+                            await filehandler.initdb(
+                                jid,
+                                sqlitehandler.set_settings_value,
+                                [key, val]
+                                )
+                            action = (
+                                "Rejected keywords\n"
+                                "```\n{}\n```"
+                                ).format(val)
+                        else:
+                            action = "Missing keywords."
+                case _ if message_lowercase.startswith("deny -"):
+                        key = "filter-" + message[:4]
+                        val = message[6:]
+                        if val:
+                            keywords = await filehandler.initdb(
+                                jid,
+                                sqlitehandler.get_settings_value,
+                                key
+                                )
+                            val = await listhandler.remove_from_list(
                                 val,
                                 keywords
                                 )
@@ -705,6 +817,11 @@ class Slixfeed(slixmpp.ClientXMPP):
                             jid,
                             sqlitehandler.list_feeds
                             )
+                case "goodbye":
+                    if msg["type"] == "groupchat":
+                        await self.remove_and_leave_muc(jid)
+                    else:
+                        action = "This command is valid for groupchat only."
                 case _ if message_lowercase.startswith("interval"):
                 # FIXME
                 # The following error occurs only upon first attempt to set interval.
@@ -746,7 +863,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 sqlitehandler.get_settings_value,
                                 key
                                 )
-                            val = await listhandler.set_list(
+                            val = await listhandler.add_to_list(
                                 val,
                                 names
                                 )
@@ -955,6 +1072,9 @@ class Slixfeed(slixmpp.ClientXMPP):
                         "Unknown command. "
                         "Press \"help\" for list of commands"
                         )
+            # TODO Use message correction here
+            # NOTE This might not be a good idea if
+            # commands are sent one close to the next
             if action: msg.reply(action).send()
 
 
@@ -995,11 +1115,12 @@ def print_info():
         " Dimitris Tzemos (SalixOS, Greece),"
         "\n"
         " Emmanuel Gil Peyrot (poezio, France),"
+        " Florent Le Coz (poezio, France),"
+        "\n"
         " George Vlahavas (SalixOS, Greece),"
-        "\n"
         " Pierrick Le Brun (SalixOS, France),"
-        " Thorsten Mühlfelder (SalixOS, Germany),"
         "\n"
+        " Thorsten Mühlfelder (SalixOS, Germany),"
         " Yann Leboulanger (Gajim, France).\n"
         "\n"
         "COPYRIGHT\n"
@@ -1088,10 +1209,14 @@ def print_help():
         "   Set new owner.\n"
         "\n"
         "FILTER OPTIONS\n"
-        " allow\n"
-        "   Keywords to allow (comma separates).\n"
-        " deny\n"
+        " allow +\n"
+        "   Add keywords to allow (comma separates).\n"
+        " allow -\n"
+        "   Delete keywords from allow list (comma separates).\n"
+        " deny +\n"
         "   Keywords to block (comma separates).\n"
+        " deny -\n"
+        "   Delete keywords from deny list (comma separates).\n"
         # " filter clear allow\n"
         # "   Reset allow list.\n"
         # " filter clear deny\n"

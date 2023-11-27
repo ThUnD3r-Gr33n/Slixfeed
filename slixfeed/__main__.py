@@ -115,8 +115,9 @@ if __name__ == '__main__':
     xmpp.register_plugin('xep_0045') # Multi-User Chat
     xmpp.register_plugin('xep_0048') # Bookmarks
     xmpp.register_plugin('xep_0060') # PubSub
-    xmpp.register_plugin('xep_0199') # XMPP Ping
+    xmpp.register_plugin('xep_0199', {'keepalive': True, 'frequency': 15}) # XMPP Ping
     xmpp.register_plugin('xep_0249') # Multi-User Chat
+    xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
 
     # Connect to the XMPP server and start processing XMPP stanzas.
     xmpp.connect()

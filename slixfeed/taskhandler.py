@@ -282,7 +282,7 @@ async def send_status(self, jid):
             if unread:
                 status_mode = "chat"
                 status_text = (
-                    "📬️ You have {} news items"
+                    "📬️ There are {} news items"
                     ).format(str(unread))
                 # status_text = (
                 #     "📰 News items: {}"

@@ -18,7 +18,7 @@ TODO
 import sqlitehandler
 
 
-async def set_list(newwords, keywords):
+async def add_to_list(newwords, keywords):
     """
     Append new keywords to list.
 
@@ -43,6 +43,36 @@ async def set_list(newwords, keywords):
         word = word.strip()
         if len(word) and word not in keywords:
             keywords.extend([word])
+    keywords.sort()
+    val = ",".join(keywords)
+    return val
+
+
+async def remove_from_list(newwords, keywords):
+    """
+    Remove given keywords from list.
+
+    Parameters
+    ----------
+    newwords : str
+        List of new keywords.
+    keywords : str
+        List of current keywords.
+
+    Returns
+    -------
+    val : str
+        List of new keywords.
+    """
+    try:
+        keywords = keywords.split(",")
+    except:
+        keywords = []
+    newwords = newwords.lower().split(",")
+    for word in newwords:
+        word = word.strip()
+        if len(word) and word in keywords:
+            keywords.remove(word)
     keywords.sort()
     val = ",".join(keywords)
     return val
