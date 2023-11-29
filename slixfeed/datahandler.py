@@ -111,7 +111,8 @@ async def download_updates(db_file, url=None):
             # new_entry = 0
             for entry in entries:
                 if entry.has_key("title"):
-                    title = entry.title
+                    # title = entry.title
+                    title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
                 else:
                     title = feed["feed"]["title"]
                 if entry.has_key("link"):
