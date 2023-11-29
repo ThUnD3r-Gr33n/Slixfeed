@@ -478,23 +478,26 @@ async def get_entry_unread(db_file, num=None):
                         str(summary),
                         str(link)
                         )
+            # TODO While `async with DBLOCK` does work well from
+            # outside of functions, it would be better practice
+            # to place it within the functions.
             async with DBLOCK:
                 # NOTE: We can use DBLOCK once for both
                 # functions, because, due to exclusive
                 # ID, only one can ever occur.
-                await mark_as_read(cur, ix)
+                await mark_entry_as_read(cur, ix)
                 await delete_entry(cur, ix)
         return news_list
 
 
-async def mark_as_read(cur, ix):
+async def mark_entry_as_read(cur, ix):
     """
-    Set read status of entry.
+    Set read status of entry as read.
 
     Parameters
     ----------
-    db_file : str
-        Path to database file.
+    cur : object
+        Cursor object.
     ix : str
         Index of entry.
     """
@@ -504,6 +507,51 @@ async def mark_as_read(cur, ix):
         "WHERE id = ?"
         )
     cur.execute(sql, (ix,))
+
+
+async def mark_source_as_read(db_file, source):
+    """
+    Set read status of entries of given source as read.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    source : str
+        URL.
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                "UPDATE entries "
+                "SET summary = '', read = 1 "
+                "WHERE source = ?"
+                )
+            cur.execute(sql, (source,))
+
+
+async def mark_all_as_read(db_file):
+    """
+    Set read status of all entries as read.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                "UPDATE entries "
+                "SET summary = '', read = 1 "
+                )
+            cur.execute(sql)
+            sql = (
+                "DELETE FROM archive"
+                )
+            cur.execute(sql)
 
 
 async def delete_entry(cur, ix):
@@ -715,6 +763,9 @@ async def add_entry_and_set_date(db_file, source, entry):
     entry : list
         Entry properties.
     """
+    # TODO While `async with DBLOCK` does work well from
+    # outside of functions, it would be better practice
+    # to place it within the functions.
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()

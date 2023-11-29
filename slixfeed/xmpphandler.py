@@ -274,6 +274,13 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def remove_and_leave_muc(self, muc_jid):
+        self.send_message(
+            mto=muc_jid,
+            mbody=(
+                "If you need me again, contact me directly at {}\n"
+                "Goodbye!"
+                ).format(self.boundjid.bare)
+            )
         result = await self.plugin['xep_0048'].get_bookmarks()
         bookmarks = result["private"]["bookmarks"]
         conferences = bookmarks["conferences"]
@@ -661,13 +668,28 @@ class Slixfeed(slixmpp.ClientXMPP):
                             datahandler.add_feed_no_check,
                             [url, title]
                             )
-                        await taskhandler.refresh_task(
-                            self,
+                        old = await filehandler.initdb(
                             jid,
-                            taskhandler.send_status,
-                            "status",
-                            20
+                            sqlitehandler.get_settings_value,
+                            "old"
                             )
+                        if old:
+                            await taskhandler.clean_tasks_xmpp(
+                                jid,
+                                ["status"]
+                                )
+                            # await taskhandler.send_status(jid)
+                            await taskhandler.start_tasks_xmpp(
+                                self,
+                                jid,
+                                ["status"]
+                                )
+                        else:
+                            await filehandler.initdb(
+                                jid,
+                                sqlitehandler.mark_source_as_read,
+                                url
+                                )
                     else:
                         action = "Missing URL."
                 case _ if message_lowercase.startswith("allow +"):
@@ -789,16 +811,28 @@ class Slixfeed(slixmpp.ClientXMPP):
                     #     20
                     #     )
                     # NOTE This would show the number of new unread entries
-                    await taskhandler.clean_tasks_xmpp(
+                    old = await filehandler.initdb(
                         jid,
-                        ["status"]
+                        sqlitehandler.get_settings_value,
+                        "old"
                         )
-                    # await taskhandler.send_status(jid)
-                    await taskhandler.start_tasks_xmpp(
-                        self,
-                        jid,
-                        ["status"]
-                        )
+                    if old:
+                        await taskhandler.clean_tasks_xmpp(
+                            jid,
+                            ["status"]
+                            )
+                        # await taskhandler.send_status(jid)
+                        await taskhandler.start_tasks_xmpp(
+                            self,
+                            jid,
+                            ["status"]
+                            )
+                    else:
+                        await filehandler.initdb(
+                            jid,
+                            sqlitehandler.mark_source_as_read,
+                            url
+                            )
                 case _ if message_lowercase.startswith("feeds"):
                     query = message[6:]
                     if query:
@@ -839,6 +873,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                             sqlitehandler.set_settings_value,
                             [key, val]
                             )
+                        # NOTE Perhaps this should be replaced
+                        # by functions clean and start
                         await taskhandler.refresh_task(
                             self,
                             jid,
@@ -878,6 +914,15 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 ).format(val)
                         else:
                             action = "Missing value."
+                case "new":
+                    await filehandler.initdb(
+                        jid,
+                        sqlitehandler.set_settings_value,
+                        ["old", 0]
+                        )
+                    action = (
+                        "Only new items of added feeds will be sent."
+                        )
                 case _ if message_lowercase.startswith("next"):
                     num = message[5:]
                     await taskhandler.clean_tasks_xmpp(
@@ -904,6 +949,15 @@ class Slixfeed(slixmpp.ClientXMPP):
                     #     20
                     #     )
                     # await taskhandler.refresh_task(jid, key, val)
+                case "old":
+                    await filehandler.initdb(
+                        jid,
+                        sqlitehandler.set_settings_value,
+                        ["old", 1]
+                        )
+                    action = (
+                        "All items of added feeds will be sent."
+                        )
                 case _ if message_lowercase.startswith("quantum"):
                     key = message[:7]
                     val = message[8:]
@@ -1089,20 +1143,31 @@ def print_info():
     """
     msg = (
         "```\n"
-        "NAME\n"
-        "Slixfeed - News syndication bot for Jabber/XMPP\n"
+        "ABOUT\n"
+        " Slixfeed aims to be an easy to use and fully-featured news\n"
+        " aggregator bot for XMPP. It provides a convenient access to Blogs,\n"
+        " Fediverse and News websites along with filtering functionality."
         "\n"
-        "DESCRIPTION\n"
-        " Slixfeed is a news aggregator bot for online news feeds.\n"
-        " This program is primarily designed for XMPP.\n"
-        " For more information, visit https://xmpp.org/software/\n"
+        " Slixfeed is primarily designed for XMPP (aka Jabber).\n"
+        " Visit https://xmpp.org/software/ for more information.\n"
         "\n"
-        # "PROTOCOLS\n"
-        # " Supported prootcols are IRC, Matrix and XMPP.\n"
+        " XMPP is the Extensible Messaging and Presence Protocol, a set\n"
+        " of open technologies for instant messaging, presence, multi-party\n"
+        " chat, voice and video calls, collaboration, lightweight\n"
+        " middleware, content syndication, and generalized routing of XML\n"
+        " data."
+        " Visit https://xmpp.org/about/ for more information on the XMPP\n"
+        " protocol."
+        " "
+        # "PLATFORMS\n"
+        # " Supported prootcols are IRC, Matrix, Tox and XMPP.\n"
         # " For the best experience, we recommend you to use XMPP.\n"
         # "\n"
         "FILETYPES\n"
-        " Supported filetypes are Atom, RDF and RSS.\n"
+        " Supported filetypes: Atom, RDF, RSS and XML.\n"
+        "\n"
+        "PROTOCOLS\n"
+        " Supported protocols: Dat, FTP, Gemini, Gopher, HTTP and IPFS.\n"
         "\n"
         "AUTHORS\n"
         " Laura Harbinger, Schimon Zackary.\n"
@@ -1118,11 +1183,15 @@ def print_info():
         " Florent Le Coz (poezio, France),"
         "\n"
         " George Vlahavas (SalixOS, Greece),"
+        " Maxime Buquet (slixmpp, France),"
+        "\n"
+        " Mathieu Pasquet (slixmpp, France),"
         " Pierrick Le Brun (SalixOS, France),"
         "\n"
+        " Remko Tronçon (Swift, Germany),"
         " Thorsten Mühlfelder (SalixOS, Germany),"
-        " Yann Leboulanger (Gajim, France).\n"
         "\n"
+        " Yann Leboulanger (Gajim, France).\n"
         "COPYRIGHT\n"
         " Slixfeed is free software; you can redistribute it and/or\n"
         " modify it under the terms of the GNU General Public License\n"
@@ -1135,7 +1204,7 @@ def print_info():
         "\n"
         "NOTE\n"
         " You can run Slixfeed on your own computer, server, and\n"
-        " even on a Linux phone (i.e. Droidian, Mobian NixOS,\n"
+        " even on a Linux phone (i.e. Droidian, Kupfer, Mobian, NixOS,\n"
         " postmarketOS). You can also use Termux.\n"
         "\n"
         " All you need is one of the above and an XMPP account to\n"
@@ -1183,6 +1252,10 @@ def print_help():
         "   Display most recent 20 titles of given URL.\n"
         " read URL N\n"
         "   Display specified entry number from given URL.\n"
+        " new\n"
+        "   Send only new items of added feeds.\n"
+        " old\n"
+        "   Send all items of added feeds.\n"
         "\n"
         "MESSAGE OPTIONS\n"
         " start\n"

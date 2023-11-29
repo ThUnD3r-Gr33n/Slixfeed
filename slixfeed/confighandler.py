@@ -47,6 +47,8 @@ async def get_value_default(key):
             result = randrange(100000, 999999)
         case "token":
             result = "none"
+        case "old":
+            result = 0
     return result
 
 

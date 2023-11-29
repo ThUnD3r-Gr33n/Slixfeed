@@ -132,7 +132,12 @@ async def download_updates(db_file, url=None):
                     date = entry.updated
                     date = await datetimehandler.rfc2822_to_iso8601(date)
                 else:
-                    date = None
+                    # TODO Just set date = "*** No date ***"
+                    # date = await datetime.now().isoformat()
+                    date = await datetimehandler.now()
+                    # NOTE Would seconds result in better database performance
+                    # date = datetime.datetime(date)
+                    # date = (date-datetime.datetime(1970,1,1)).total_seconds()
                 exist = await sqlitehandler.check_entry_exist(
                     db_file,
                     source,
@@ -143,22 +148,19 @@ async def download_updates(db_file, url=None):
                     )
                 if not exist:
                     # new_entry = new_entry + 1
-                    if not date:
-                        # TODO Just set date = "*** No date ***"
-                        # date = await datetime.now().isoformat()
-                        date = await datetimehandler.now()
-                        # NOTE Would seconds result in better database performance
-                        # date = datetime.datetime(date)
-                        # date = (date-datetime.datetime(1970,1,1)).total_seconds()
                     # TODO Enhance summary
                     if entry.has_key("summary"):
                         summary = entry.summary
                         # Remove HTML tags
                         summary = BeautifulSoup(summary, "lxml").text
                         # TODO Limit text length
-                        summary = summary.replace("\n\n", "\n")[:300] + "  ‍⃨"
+                        summary = summary.replace("\n\n\n", "\n\n")
+                        summary = summary[:300] + "  ‍⃨"
+                        summary = summary.strip().split('\n')
+                        summary = ["> " + line for line in summary]
+                        summary = "\n".join(summary)
                     else:
-                        summary = "*** No summary ***"
+                        summary = "> *** No summary ***"
                     read_status = 0
                     pathname = urlsplit(link).path
                     string = (
