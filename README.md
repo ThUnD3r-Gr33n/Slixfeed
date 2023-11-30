@@ -13,7 +13,7 @@ Visit https://xmpp.org/about/ for more information on the XMPP protocol.
 
 ## Getting Started
 ```
-$ python slixfeed.py
+$ python __main__.py
 Username: 
 Password: 
 ```
@@ -67,6 +67,9 @@ Please visit our friends who offer different approach to convey RSS to XMPP.
 
 * [AtomToPubsub](https://github.com/imattau/atomtopubsub)
 RSS feeds as XMPP Pubsub Nodes.
+
+* [JabRSS](http://www.jotwewe.de/de/xmpp/jabrss/jabrss_en.htm)
+Never miss a headline again! JabRSS is a simple RSS (RDF Site Summary) headline notification service for Jabber.
 
 * [feed-to-muc](https://salsa.debian.org/mdosch/feed-to-muc)
 An XMPP bot which posts to a MUC (groupchat) if there is an update in newsfeeds.
