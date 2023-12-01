@@ -2,6 +2,7 @@ name, url, language, country
 DownThemAll!, https://www.downthemall.org/feed, en-US, Worldwide
 Pale Moon, https://forum.palemoon.org/app.php/feed/forum/1, en-US, Worldwide
 Falkon - KDE web browser, https://www.falkon.org/atom.xml, en-US, Czech
+Otter Browser, https://otter-browser.org/feed/, en-US, Worldwide
 What's Up, Fraidycat?, https://fraidyc.at/blog/feed.xml, en-US, Worldwide
 geomyidae, branch HEAD, gopher://bitreich.org:70/0/scm/geomyidae/atom.xml, en-US, United States
 rclone - rsync for cloud storage, https://rclone.org/index.xml, en-US, Worldwide
@@ -9,6 +10,7 @@ Feedbin, https://feedbin.com/blog/atom.xml, en-US, United States
 Silvio Rizzi (reederapp.com), https://gloria.social/@rizzi.rss, en-US, Worldwide
 lighty, https://redmine.lighttpd.net/news.atom, en-US, Worldwide
 lighttpd, https://www.lighttpd.net/feed/atom.xml, en-US, Worldwide
+Nextcloud, https://nextcloud.com/feed/, en-US, Worldwide
 Cabal, https://mastodon.social/@cabal.rss, en-US, Worldwide
 JSON Feed, https://www.jsonfeed.org/feed.xml, en-US, Worldwide
 Liferea, https://lzone.de/feed/liferea.xml, en-US, Germany
@@ -18,3 +20,8 @@ Kaidan, https://www.kaidan.im/atom.xml, en-US, Worldwide
 Dino, https://dino.im/index.xml, en-US, Worldwide
 Vivaldi Browser, https://vivaldi.com/feed/, en-US, United States
 wicd Announcements, http://feeds.launchpad.net/wicd/announcements.atom, en-US, Worldwide
+GNU social, http://www.gnusocial.rocks/feed.rss, en-US, Worldwide
+CoyIM, https://coy.im/feed.xml, en-US, Worldwide
+Tor Project blog, https://blog.torproject.org/feed.xml, en-US, Worldwide
+blabber.im, https://kanoa.de/@blabber.rss, en-US, Worldwide
+monocles, https://monocles.social/@monocles.rss, en-US, Germany

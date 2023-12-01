@@ -1,13 +1,21 @@
 name, url, language, country
+Michael W Lucas, https://mwl.io/feed, en-US, United States
+Jan Wagemakers, https://www.janwagemakers.be/jekyll/feed.xml, en-US, Belgium
+code monk | hacking habits, https://drj11.wordpress.com/feed/, en-US, United States
+Remko Tronçon (mko.re), https://el-tramo.be/feed.xml, en-US, Germany
 Linux Professional Institute (LPI), https://www.lpi.org/feed/, en-US, Canada
 LinuxConfig, https://linuxconfig.org/feed, en-US, Worldwide
 The Logs, https://www.flu0r1ne.net/logs/rss.xml, en-US, United States
+Hugo Barrera, https://whynothugo.nl/posts.xml, en-US, Netherlands
 Ctrl blog: Fedora Linux, https://feed.ctrl.blog/topic/fedora-linux.atom, en-US, United States
 Ctrl blog: Linux, https://feed.ctrl.blog/topic/linux.atom, en-US, United States
 Anjan Momi, https://momi.ca/feed.xml, en-US, United States
+This Week in GNOME, https://thisweek.gnome.org/index.xml, en-US, Worldwide
+Phoronix, https://www.phoronix.com/rss.php, en-US, United States
 postmarketOS, https://postmarketos.org/blog/feed.atom, en-US, United States
 PureTryOut (Alpine Linux, postmarketOS), https://mastodon.fam-ribbers.com/@bart.rss, en-US, Netherlands
 Blog on Bart Ribbers - PureTryOut (Alpine Linux, postmarketOS), https://fam-ribbers.com/blog/index.xml, en-US, Netherlands
+Christof Meerwald, https://cmeerw.org/blog.atom, en-US, Austria
 LZone | Devops, https://lzone.de/feed/devops.xml, en-US, Germany
 Necuno Solutions, https://necunos.com/feed.xml, en-US, Finland
 Laslo Hunhold, https://laslo.hunhold.de/index.xml, en-US, Germany

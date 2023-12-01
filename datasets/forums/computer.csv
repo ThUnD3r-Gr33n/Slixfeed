@@ -1,2 +1,5 @@
 name, url, language, country
 eGPU.io, https://egpu.io/feed/, en-US, Worldwide
+Arch Linux ARM, https://archlinuxarm.org/forum/feed.php, en-US, Worldwide
+Arch Linux, https://bbs.archlinux.org/extern.php?action=feed&type=atom, en-US, Worldwide
+Replicant: Messages, https://redmine.replicant.us/projects/replicant/activity.atom?show_messages=1, en-US, Worldwide

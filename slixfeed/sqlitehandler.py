@@ -18,8 +18,9 @@ TODO
 import sqlite3
 import asyncio
 
-from sqlite3 import Error
+from bs4 import BeautifulSoup
 from datetime import date
+from sqlite3 import Error
 
 import confighandler
 import datahandler
@@ -426,11 +427,11 @@ async def get_entry_unread(db_file, num=None):
         #     "DESC LIMIT :num"
         #     )
         sql = (
-            "SELECT id, title, summary, link, timestamp "
+            "SELECT id, title, summary, link, source, timestamp "
             "FROM entries "
             "WHERE read = 0 "
             "UNION ALL "
-            "SELECT id, title, summary, link, timestamp "
+            "SELECT id, title, summary, link, source, timestamp "
             "FROM archive "
             "ORDER BY timestamp "
             "DESC LIMIT :num"
@@ -462,7 +463,24 @@ async def get_entry_unread(db_file, num=None):
             ix = result[0]
             title = result[1]
             summary = result[2]
+            # Remove HTML tags
+            summary = BeautifulSoup(summary, "lxml").text
+            # TODO Limit text length
+            summary = summary.replace("\n\n\n", "\n\n")
+            length = await get_settings_value(db_file, "length")
+            summary = summary[:length] + " […]"
+            summary = summary.strip().split('\n')
+            summary = ["> " + line for line in summary]
+            summary = "\n".join(summary)
             link = result[3]
+            sql = (
+                "SELECT name "
+                "FROM feeds "
+                "WHERE address = :source "
+                )
+            source = result[4]
+            feed = cur.execute(sql, (source,))
+            feed = feed.fetchone()[0]
             if num > 1:
                 news_list += (
                     "\n{}\n{}\n"
@@ -472,11 +490,12 @@ async def get_entry_unread(db_file, num=None):
                         )
             else:
                 news_list = (
-                    "{}\n\n{}\n\n{}"
+                    "{}\n\n{}\n\n{}\n{}"
                     ).format(
                         str(title),
                         str(summary),
-                        str(link)
+                        str(link),
+                        str(feed)
                         )
             # TODO While `async with DBLOCK` does work well from
             # outside of functions, it would be better practice
@@ -827,7 +846,12 @@ async def update_source_validity(db_file, source, valid):
                 "url": source
                 })
 
+"""
+TODO
 
+Investigate why causes entry[6] (date) to be int 0
+
+"""
 async def add_entry(cur, entry):
     """
     Add a new entry row into the entries table.
@@ -852,7 +876,14 @@ async def add_entry(cur, entry):
                 ") "
         "VALUES(?, ?, ?, ?, ?, ?, ?)"
         )
-    cur.execute(sql, entry)
+    try:
+        cur.execute(sql, entry)
+    except:
+        print(entry[6])
+        print(type(entry[6]))
+        print(entry)
+        print(type(entry))
+        breakpoint()
 
 
 # NOTE See remove_nonexistent_entries
@@ -1294,10 +1325,26 @@ async def search_entries(db_file, query):
         return "No results were found for: {}".format(query)
 
 """
-FIXME Error due to missing date, but it appears that date is present:
+FIXME
+
+Error due to missing date, but it appears that date is present:
 ERROR DATE: source = https://blog.heckel.io/feed/
 ERROR DATE: date = 2008-05-13T13:51:50+00:00
 ERROR DATE: result = https://blog.heckel.io/feed/
+
+19:32:05 ERROR DATE: source = https://mwl.io/feed
+19:32:05 ERROR DATE: date = 2023-11-30T10:56:39+00:00
+19:32:05 ERROR DATE: result = https://mwl.io/feed
+19:32:05 ERROR DATE: source = https://mwl.io/feed
+19:32:05 ERROR DATE: date = 2023-11-22T16:59:08+00:00
+19:32:05 ERROR DATE: result = https://mwl.io/feed
+19:32:06 ERROR DATE: source = https://mwl.io/feed
+19:32:06 ERROR DATE: date = 2023-11-16T10:33:57+00:00
+19:32:06 ERROR DATE: result = https://mwl.io/feed
+19:32:06 ERROR DATE: source = https://mwl.io/feed
+19:32:06 ERROR DATE: date = 2023-11-09T07:37:57+00:00
+19:32:06 ERROR DATE: result = https://mwl.io/feed
+
 """
 async def check_entry_exist(db_file, source, eid=None,
                             title=None, link=None, date=None):

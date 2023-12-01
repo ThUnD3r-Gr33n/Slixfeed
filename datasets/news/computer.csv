@@ -1,12 +1,26 @@
 name, url, language, country
+Michael W Lucas, https://mwl.io/feed, en-US, United States
+Jan Wagemakers, https://www.janwagemakers.be/jekyll/feed.xml, en-US, Belgium
+Remko Tronçon (mko.re), https://el-tramo.be/feed.xml, en-US, Germany
+Hacking around oppressions, https://bouah.net/index.xml, en-US, France
+Tatsumoto Ren, https://tatsumoto.neocities.org/blog/feed.rss, en-US, Japan
+Hugo Barrera, https://whynothugo.nl/posts.xml, en-US, Netherlands
 Liliputing, https://liliputing.com/feed/, en-US, Worldwide
+Mario Sabatino Gemini capsule, https://gemini.sabatino.cloud/rss.xml, it-IT, Italy
+Lainblog, https://blog.soykaf.com/index.xml, en-US, Worldwide
 camen design, https://camendesign.com/rss, en-US, United States
 computers are bad, https://computer.rip/rss.xml, en-US, Worldwide
+Machina Speculatrix, https://mansfield-devine.com/speculatrix/feed/, en-US, Worldwide
 Jacob McCormick, https://mccor.xyz/rss.xml, en-US, United States
+Alle Neuigkeiten von jotwewe.de, http://www.jotwewe.de/alles_de.xml, en-US, Germany
+Alle Neuigkeiten von jotwewe.de, http://www.jotwewe.de/alles_de.xml, de-DE, Germany
 OpenNews.opennet.ru: Общая лента новостей, https://www.opennet.ru/opennews/opennews_all_utf.rss, ru-RU, Russia
 ju_hnny5, https://blog.jbriault.fr/rss/, fr-FR, France
+This Week in GNOME, https://thisweek.gnome.org/index.xml, en-US, Worldwide
 Lazy Reading | The Cyber Vanguard, https://cyber.dabamos.de/blog/feed.rss, en-US, United States
+Christof Meerwald, https://cmeerw.org/blog.atom, en-US, Austria
 XXIIVV, https://wiki.xxiivv.com/links/rss.xml, en-US, Canada
+Phoronix, https://www.phoronix.com/rss.php, en-US, United States
 drkhsh, https://drkhsh.at/atom.xml, en-US, Austria
 Codemadness, https://codemadness.org/atom.xml, en-US, United States
 Leonora Tindall on Nora Codes, https://nora.codes/index.xml, en-US, United States
@@ -17,6 +31,7 @@ schollz, https://schollz.com/index.xml, en-US, United States
 LZone | Devops, https://lzone.de/feed/devops.xml, en-US, Germany
 The Logs, https://www.flu0r1ne.net/logs/rss.xml, en-US, United States
 Newest Python PEPs, https://peps.python.org/peps.rss/, en-US, Worldwide
+monocles, https://monocles.social/@monocles.rss, en-US, Germany
 Ctrl blog: Mobile Apps, https://feed.ctrl.blog/topic/mobile-apps.atom, en-US, United States
 Chiportal, https://chiportal.co.il/feed/, he-IL, Israel
 Hackaday, https://hackaday.com/feed/, en-US, United States
@@ -45,6 +60,7 @@ TuxPhones, https://tuxphones.com/rss/, en-US, United States
 OpenSource.net, https://opensource.net/feed/, en-US, United States
 Collabora Office and Collabora Online, https://www.collaboraoffice.com/feed/, en-US, United States
 LGUG2Z, https://lgug2z.com/index.xml, en-US, United States
+code monk | hacking habits, https://drj11.wordpress.com/feed/, en-US, United States
 Karl Bartel's Website, https://www.karl.berlin/atom.xml, en-US, Germany
 Victor Stinner blog 3, https://vstinner.github.io/feeds/all.atom.xml, en-US, Worldwide
 Victor Stinner 🐍, https://mamot.fr/@vstinner.rss, en-US, Worldwide
@@ -67,3 +83,4 @@ Enterprise Storage, http://feeds.fosketts.net/StephenFoskettPackRat_EnterpriseSt
 Personal, http://feeds.fosketts.net/StephenFoskettPackRat_Personal, en-US, United States
 Terabyte Home, http://feeds.fosketts.net/StephenFoskettPackRat_TerabyteHome, en-US, United States
 Virtual Storage, http://feeds.fosketts.net/StephenFoskettPackRat_VirtualStorage, en-US, United States
+Jolla, https://jolla.com/feed/, en-US, Finland

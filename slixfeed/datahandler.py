@@ -110,21 +110,6 @@ async def download_updates(db_file, url=None):
                 )
             # new_entry = 0
             for entry in entries:
-                if entry.has_key("title"):
-                    # title = entry.title
-                    title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
-                else:
-                    title = feed["feed"]["title"]
-                if entry.has_key("link"):
-                    # link = complete_url(source, entry.link)
-                    link = await join_url(source, entry.link)
-                    link = await trim_url(link)
-                else:
-                    link = source
-                if entry.has_key("id"):
-                    eid = entry.id
-                else:
-                    eid = link
                 # TODO Pass date too for comparion check
                 if entry.has_key("published"):
                     date = entry.published
@@ -139,6 +124,22 @@ async def download_updates(db_file, url=None):
                     # NOTE Would seconds result in better database performance
                     # date = datetime.datetime(date)
                     # date = (date-datetime.datetime(1970,1,1)).total_seconds()
+                if entry.has_key("title"):
+                    title = entry.title
+                    # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
+                else:
+                    title = date
+                    # title = feed["feed"]["title"]
+                if entry.has_key("link"):
+                    # link = complete_url(source, entry.link)
+                    link = await join_url(source, entry.link)
+                    link = await trim_url(link)
+                else:
+                    link = source
+                if entry.has_key("id"):
+                    eid = entry.id
+                else:
+                    eid = link
                 exist = await sqlitehandler.check_entry_exist(
                     db_file,
                     source,
@@ -152,14 +153,14 @@ async def download_updates(db_file, url=None):
                     # TODO Enhance summary
                     if entry.has_key("summary"):
                         summary = entry.summary
-                        # Remove HTML tags
-                        summary = BeautifulSoup(summary, "lxml").text
-                        # TODO Limit text length
-                        summary = summary.replace("\n\n\n", "\n\n")
-                        summary = summary[:300] + "  ‍⃨"
-                        summary = summary.strip().split('\n')
-                        summary = ["> " + line for line in summary]
-                        summary = "\n".join(summary)
+                        # # Remove HTML tags
+                        # summary = BeautifulSoup(summary, "lxml").text
+                        # # TODO Limit text length
+                        # summary = summary.replace("\n\n\n", "\n\n")
+                        # summary = summary[:300] + " […]‍⃨"
+                        # summary = summary.strip().split('\n')
+                        # summary = ["> " + line for line in summary]
+                        # summary = "\n".join(summary)
                     else:
                         summary = "> *** No summary ***"
                     read_status = 0
@@ -200,6 +201,12 @@ async def download_updates(db_file, url=None):
                         date,
                         read_status
                         )
+                    if isinstance(date, int):
+                        print("date is int")
+                        print(date)
+                        breakpoint()
+                    print(source)
+                    print(date)
                     await sqlitehandler.add_entry_and_set_date(
                         db_file,
                         source,
@@ -363,7 +370,7 @@ async def view_entry(url, num):
         msg = (
             "{}\n"
             "\n"
-            "{}\n"
+            "> {}\n"
             "\n"
             "{}\n"
             "\n"

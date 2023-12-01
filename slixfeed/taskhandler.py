@@ -272,7 +272,7 @@ async def send_status(self, jid):
             print(">>> not feeds:", feeds, "jid:", jid)
             status_mode = "available"
             status_text = (
-                "📭️ Send a URL from a blog or a news website"
+                "📪️ Send a URL from a blog or a news website"
                 )
         else:
             unread = await filehandler.initdb(
@@ -292,7 +292,7 @@ async def send_status(self, jid):
                 #     ).format(str(unread))
             else:
                 status_mode = "available"
-                status_text = "📪️ No news"
+                status_text = "📭️ No news"
 
     # breakpoint()
     # print(await datetimehandler.current_time(), status_text, "for", jid)

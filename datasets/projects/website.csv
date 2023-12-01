@@ -13,6 +13,8 @@ Textpattern CMS, https://textpattern.com/rss, en-US, Worldwide
 TYPO3, https://typo3.org/rss, en-US, Worldwide
 WordPress, https://wordpress.org/news/feed/, en-US, Worldwide
 Foswiki, https://foswiki.org/Home/WebRss, en-US, Worldwide
+Foswiki, https://blog.foswiki.org/Blog/WebAtom?contenttype=text/xml, en-US, Worldwide
+Extensions - Foswiki, https://foswiki.org/Extensions/ExtensionNews?template=ExtensionNewsRssView&contenttype=text/xml, en-US, Worldwide
 Eleventy, https://www.11ty.dev/blog/feed.xml, en-US, Worldwide
 bliper, https://git.2f30.org/bliper/atom.xml, en-US, Worldwide
 LinkStack, https://linkstack.org/feed/, en-US, Worldwide

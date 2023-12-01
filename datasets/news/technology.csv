@@ -1,4 +1,5 @@
 name, url, language, country
+Hacking around oppressions, https://bouah.net/index.xml, en-US, France
 Redecentralize Blog, https://redecentralize.org/blog/feed.rss, en-US, United States
 Developpez, https://www.developpez.com/index/atom, fr-FR, France
 The Logs, https://www.flu0r1ne.net/logs/rss.xml, en-US, United States
@@ -10,6 +11,9 @@ Futurism, https://futurism.com/feed, en-US, United States
 drkhsh, https://drkhsh.at/atom.xml, en-US, Austria
 Automation Rhapsody, https://automationrhapsody.com/feed/, en-US, United States
 Deep Thoughts by Raymond Hettinger, https://rhettinger.wordpress.com/feed/, en-US, United States
+Lainblog, https://blog.soykaf.com/index.xml, en-US, Worldwide
+code monk | hacking habits, https://drj11.wordpress.com/feed/, en-US, United States
+Reclaim The Net, https://reclaimthenet.org/feed, en-US, United States
 Chiportal, https://chiportal.co.il/feed/, he-IL, Israel
 Hackaday, https://hackaday.com/feed/, en-US, United States
 LZone | Devops, https://lzone.de/feed/devops.xml, en-US, Germany
@@ -30,3 +34,5 @@ Heracles Papatheodorou • heracl.es, https://heracl.es/feed.xml, en-US, Greece
 lectronice :: now, https://now.lectronice.com/feed.xml, en-US, United States
 Ctrl blog: Advertisement Technology, https://feed.ctrl.blog/topic/advertisement-technology.atom, en-US, United States
 OpenNews.opennet.ru: Общая лента новостей, https://www.opennet.ru/opennews/opennews_all_utf.rss, ru-RU, Russia
+ExtremeTech, https://www.extremetech.com/feed, en-US, Worldwide
+Slashdot, http://rss.slashdot.org/Slashdot/slashdot/to, en-US, Worldwide

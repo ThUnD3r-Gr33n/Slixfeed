@@ -59,6 +59,8 @@ from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadSe
 # from slixmpp.plugins.xep_0402 import BookmarkStorage, Conference
 from slixmpp.plugins.xep_0048.stanza import Bookmarks
 
+# TODO datahandler -> slixfeed.datahandler
+# See project feed2toot
 import datahandler
 import datetimehandler
 import filehandler
@@ -796,10 +798,23 @@ class Slixfeed(slixmpp.ClientXMPP):
                     url = message
                     if url.startswith("feed:"):
                         url = await datahandler.feed_to_http(url)
+                    await taskhandler.clean_tasks_xmpp(
+                        jid,
+                        ["status"]
+                        )
+                    task = (
+                        "📫️ Processing request to fetch data from {}"
+                        ).format(url)
+                    process_task_message(self, jid, task)
                     action = await filehandler.initdb(
                         jid,
                         datahandler.add_feed,
                         url
+                        )
+                    await taskhandler.start_tasks_xmpp(
+                        self,
+                        jid,
+                        ["status"]
                         )
                     # action = "> " + message + "\n" + action
                     # FIXME Make the taskhandler to update status message
@@ -890,6 +905,25 @@ class Slixfeed(slixmpp.ClientXMPP):
                 case _ if message_lowercase.startswith("join"):
                     muc = message[5:]
                     await self.join_muc(jid, muc)
+                case _ if message_lowercase.startswith("length"):
+                        key = message[:6]
+                        val = message[7:]
+                        if val:
+                            await filehandler.initdb(
+                                jid,
+                                sqlitehandler.set_settings_value,
+                                [key, val]
+                                )
+                            if val == 0:
+                                action = (
+                                    "Summary length limit is disabled."
+                                    )
+                            else:
+                                action = (
+                                    "Summary maximum length is set to {} characters."
+                                    ).format(val)
+                        else:
+                            action = "Missing value."
                 case _ if message_lowercase.startswith("mastership"):
                         key = message[:7]
                         val = message[11:]
@@ -981,6 +1015,14 @@ class Slixfeed(slixmpp.ClientXMPP):
                     data = message[5:]
                     data = data.split()
                     url = data[0]
+                    task = (
+                        "📫️ Processing request to fetch data from {}"
+                        ).format(url)
+                    process_task_message(self, jid, task)
+                    await taskhandler.clean_tasks_xmpp(
+                        jid,
+                        ["status"]
+                        )
                     if url.startswith("feed:"):
                         url = await datahandler.feed_to_http(url)
                     match len(data):
@@ -1001,6 +1043,11 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 "`read URL` or `read URL NUMBER`\n"
                                 "URL must not contain white space."
                                 )
+                    await taskhandler.start_tasks_xmpp(
+                        self,
+                        jid,
+                        ["status"]
+                        )
                 case _ if message_lowercase.startswith("recent"):
                     num = message[7:]
                     if num:
@@ -1111,10 +1158,13 @@ class Slixfeed(slixmpp.ClientXMPP):
                         sqlitehandler.set_settings_value,
                         [key, val]
                         )
-                    await taskhandler.clean_tasks_xmpp(jid, ["interval"])
+                    await taskhandler.clean_tasks_xmpp(
+                        jid,
+                        ["interval", "status"]
+                        )
                     self.send_presence(
                         pshow="xa",
-                        pstatus="Send \"Start\" to receive news.",
+                        pstatus="💡️ Send \"Start\" to receive Jabber news",
                         pto=jid,
                         )
                     action = "Updates are disabled."
@@ -1130,6 +1180,14 @@ class Slixfeed(slixmpp.ClientXMPP):
             # NOTE This might not be a good idea if
             # commands are sent one close to the next
             if action: msg.reply(action).send()
+
+
+def process_task_message(self, jid, task):
+    self.send_presence(
+        pshow="dnd",
+        pstatus=task,
+        pto=jid,
+        )
 
 
 def print_info():
@@ -1252,22 +1310,24 @@ def print_help():
         "   Display most recent 20 titles of given URL.\n"
         " read URL N\n"
         "   Display specified entry number from given URL.\n"
-        " new\n"
-        "   Send only new items of added feeds.\n"
-        " old\n"
-        "   Send all items of added feeds.\n"
         "\n"
         "MESSAGE OPTIONS\n"
+        " interval N\n"
+        "   Set interval update to every N minutes.\n"
+        " length\n"
+        "   Set maximum length of news item description. (0 for no limit)\n"
+        " new\n"
+        "   Send only new items of added feeds.\n"
+        " next N\n"
+        "   Send N next updates.\n"
+        " old\n"
+        "   Send all items of added feeds.\n"
+        " quantum N\n"
+        "   Set N amount of updates per interval.\n"
         " start\n"
         "   Enable bot and send updates.\n"
         " stop\n"
         "   Disable bot and stop updates.\n"
-        " interval N\n"
-        "   Set interval update to every N minutes.\n"
-        " next N\n"
-        "   Send N next updates.\n"
-        " quantum N\n"
-        "   Set N amount of updates per interval.\n"
         "\n"
         "GROUPCHAT OPTIONS\n"
         " ! (command initiation)\n"

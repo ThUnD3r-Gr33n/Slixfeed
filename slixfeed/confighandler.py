@@ -39,16 +39,18 @@ async def get_value_default(key):
             result = "crim,dead,death,disaster,murder,war"
         case "interval":
             result = 300
+        case "masters":
+            result = randrange(100000, 999999)
+        case "length":
+            result = 300
+        case "old":
+            result = 0
         case "quantum":
             result = 3
         case "random":
             result = 0
-        case "masters":
-            result = randrange(100000, 999999)
         case "token":
             result = "none"
-        case "old":
-            result = 0
     return result
 
 
