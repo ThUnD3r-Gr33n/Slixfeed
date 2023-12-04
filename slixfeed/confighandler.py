@@ -10,8 +10,9 @@ TODO
 
 """
 
+
 import os
-import filehandler
+from filehandler import get_default_confdir
 from random import randrange
 
 
@@ -64,7 +65,7 @@ def get_list():
         Dictionary of pathnames.
     """
     paths = []
-    cfg_dir = filehandler.get_default_confdir()
+    cfg_dir = get_default_confdir()
     if not os.path.isdir(cfg_dir):
         os.mkdir(cfg_dir)
     cfg_file = os.path.join(cfg_dir, r"url_paths.txt")

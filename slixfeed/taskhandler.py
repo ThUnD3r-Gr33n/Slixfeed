@@ -44,11 +44,16 @@ import logging
 import os
 import slixmpp
 
-import datahandler
-import datetimehandler
-import filehandler
-import sqlitehandler
-import xmpphandler
+from datahandler import download_updates
+from datetimehandler import current_time
+from filehandler import initdb
+from filehandler import get_default_dbdir
+from sqlitehandler import get_entry_unread
+from sqlitehandler import get_settings_value
+from sqlitehandler import get_number_of_items
+from sqlitehandler import get_number_of_entries_unread
+# from xmpphandler import Slixfeed
+import xmpphandler as xmpphandler
 
 main_task = []
 jid_tasker = {}
@@ -118,7 +123,7 @@ Pass a list (or dict) of tasks to start
 
 NOTE
 
-Consider callback e.g. xmpphandler.Slixfeed.send_status.
+Consider callback e.g. Slixfeed.send_status.
 
 Or taskhandler for each protocol or specific taskhandler function.
 """
@@ -131,12 +136,12 @@ async def task_jid(self, jid):
     jid : str
         Jabber ID.
     """
-    enabled = await filehandler.initdb(
+    enabled = await initdb(
         jid,
-        sqlitehandler.get_settings_value,
+        get_settings_value,
         "enabled"
     )
-    # print(await datetimehandler.current_time(), "enabled", enabled, jid)
+    # print(await current_time(), "enabled", enabled, jid)
     if enabled:
         # NOTE Perhaps we want to utilize super with keyword
         # arguments in order to know what tasks to initiate.
@@ -177,7 +182,7 @@ async def task_jid(self, jid):
 
 
 async def send_update(self, jid, num=None):
-    # print(await datetimehandler.current_time(), jid, "def send_update")
+    # print(await current_time(), jid, "def send_update")
     """
     Send news items as messages.
 
@@ -190,14 +195,14 @@ async def send_update(self, jid, num=None):
     """
     # print("Starting send_update()")
     # print(jid)
-    new = await filehandler.initdb(
+    new = await initdb(
         jid,
-        sqlitehandler.get_entry_unread,
+        get_entry_unread,
         num
     )
     if new:
         # TODO Add while loop to assure delivery.
-        # print(await datetimehandler.current_time(), ">>> ACT send_message",jid)
+        # print(await current_time(), ">>> ACT send_message",jid)
         if await xmpphandler.Slixfeed.is_muc(self, jid):
             chat_type = "groupchat"
         else:
@@ -216,9 +221,9 @@ async def send_update(self, jid, num=None):
         send_update,
         "interval"
         )
-    # interval = await filehandler.initdb(
+    # interval = await initdb(
     #     jid,
-    #     sqlitehandler.get_settings_value,
+    #     get_settings_value,
     #     "interval"
     # )
     # task_manager[jid]["interval"] = loop.call_at(
@@ -227,8 +232,8 @@ async def send_update(self, jid, num=None):
     #     send_update(jid)
     # )
 
-    # print(await datetimehandler.current_time(), "asyncio.get_event_loop().time()")
-    # print(await datetimehandler.current_time(), asyncio.get_event_loop().time())
+    # print(await current_time(), "asyncio.get_event_loop().time()")
+    # print(await current_time(), asyncio.get_event_loop().time())
     # await asyncio.sleep(60 * interval)
 
     # loop.call_later(
@@ -242,7 +247,7 @@ async def send_update(self, jid, num=None):
 
 
 async def send_status(self, jid):
-    # print(await datetimehandler.current_time(), jid, "def send_status")
+    # print(await current_time(), jid, "def send_status")
     """
     Send status message.
 
@@ -251,23 +256,23 @@ async def send_status(self, jid):
     jid : str
         Jabber ID.
     """
-    # print(await datetimehandler.current_time(), "> SEND STATUS",jid)
+    # print(await current_time(), "> SEND STATUS",jid)
     status_text="🤖️ Slixfeed RSS News Bot"
-    enabled = await filehandler.initdb(
+    enabled = await initdb(
         jid,
-        sqlitehandler.get_settings_value,
+        get_settings_value,
         "enabled"
     )
     if not enabled:
         status_mode = "xa"
         status_text = "📫️ Send \"Start\" to receive updates"
     else:
-        feeds = await filehandler.initdb(
+        feeds = await initdb(
             jid,
-            sqlitehandler.get_number_of_items,
+            get_number_of_items,
             "feeds"
         )
-        # print(await datetimehandler.current_time(), jid, "has", feeds, "feeds")
+        # print(await current_time(), jid, "has", feeds, "feeds")
         if not feeds:
             print(">>> not feeds:", feeds, "jid:", jid)
             status_mode = "available"
@@ -275,9 +280,9 @@ async def send_status(self, jid):
                 "📪️ Send a URL from a blog or a news website"
                 )
         else:
-            unread = await filehandler.initdb(
+            unread = await initdb(
                 jid,
-                sqlitehandler.get_number_of_entries_unread
+                get_number_of_entries_unread
             )
             if unread:
                 status_mode = "chat"
@@ -295,7 +300,7 @@ async def send_status(self, jid):
                 status_text = "📭️ No news"
 
     # breakpoint()
-    # print(await datetimehandler.current_time(), status_text, "for", jid)
+    # print(await current_time(), status_text, "for", jid)
     xmpphandler.Slixfeed.send_presence(
         self,
         pshow=status_mode,
@@ -332,9 +337,9 @@ async def refresh_task(self, jid, callback, key, val=None):
         Value. The default is None.
     """
     if not val:
-        val = await filehandler.initdb(
+        val = await initdb(
             jid,
-            sqlitehandler.get_settings_value,
+            get_settings_value,
             key
             )
     # if task_manager[jid][key]:
@@ -364,7 +369,7 @@ async def refresh_task(self, jid, callback, key, val=None):
 # TODO Take this function out of
 # <class 'slixmpp.clientxmpp.ClientXMPP'>
 async def check_updates(jid):
-    # print(await datetimehandler.current_time(), jid, "def check_updates")
+    # print(await current_time(), jid, "def check_updates")
     """
     Start calling for update check up.
 
@@ -374,8 +379,8 @@ async def check_updates(jid):
         Jabber ID.
     """
     while True:
-        # print(await datetimehandler.current_time(), "> CHCK UPDATE",jid)
-        await filehandler.initdb(jid, datahandler.download_updates)
+        # print(await current_time(), "> CHCK UPDATE",jid)
+        await initdb(jid, download_updates)
         await asyncio.sleep(60 * 90)
         # Schedule to call this function again in 90 minutes
         # loop.call_at(
@@ -397,7 +402,7 @@ async def select_file(self):
     Initiate actions by JID (Jabber ID).
     """
     while True:
-        db_dir = filehandler.get_default_dbdir()
+        db_dir = get_default_dbdir()
         if not os.path.isdir(db_dir):
             msg = (
                 "Slixfeed can not work without a database.\n"
@@ -406,7 +411,7 @@ async def select_file(self):
                 "Send a feed to the bot by URL:\n"
                 "https://reclaimthenet.org/feed/"
                 )
-            # print(await datetimehandler.current_time(), msg)
+            # print(await current_time(), msg)
             print(msg)
         else:
             os.chdir(db_dir)

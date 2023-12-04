@@ -15,7 +15,7 @@ TODO
 
 """
 
-import sqlitehandler
+from sqlitehandler import get_settings_value
 
 
 async def add_to_list(newwords, keywords):
@@ -98,7 +98,7 @@ async def is_listed(db_file, key, string):
     """
 # async def reject(db_file, string):
 # async def is_blacklisted(db_file, string):
-    list = await sqlitehandler.get_settings_value(
+    list = await get_settings_value(
         db_file,
         key
         )
@@ -119,7 +119,7 @@ async def is_listed(db_file, key, string):
 This code was tested at module datahandler
 
                     reject = 0
-                    blacklist = await sqlitehandler.get_settings_value(
+                    blacklist = await get_settings_value(
                         db_file,
                         "filter-deny"
                         )

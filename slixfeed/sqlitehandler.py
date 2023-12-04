@@ -15,16 +15,17 @@ TODO
 
 """
 
-import sqlite3
-import asyncio
-
+from asyncio import Lock
 from bs4 import BeautifulSoup
 from datetime import date
+# from slixfeed.confighandler import get_value_default
+import confighandler as confighandler
+# from slixfeed.datahandler import join_url
+import datahandler as datahandler
+from datetimehandler import current_time
+from datetimehandler import rfc2822_to_iso8601
+from sqlite3 import connect
 from sqlite3 import Error
-
-import confighandler
-import datahandler
-import datetimehandler
 
 # from eliot import start_action, to_file
 # # with start_action(action_type="list_feeds()", db=db_file):
@@ -35,7 +36,7 @@ import datetimehandler
 # # with start_action(action_type="check_entry()", link=link):
 
 # aiosqlite
-DBLOCK = asyncio.Lock()
+DBLOCK = Lock()
 
 CURSORS = {}
 
@@ -56,7 +57,7 @@ def create_connection(db_file):
     """
     conn = None
     try:
-        conn = sqlite3.connect(db_file)
+        conn = connect(db_file)
         return conn
     except Error as e:
         print(e)
@@ -155,9 +156,9 @@ def get_cursor(db_file):
     return CURSORS[db_file]
 
 
-async def add_feed(db_file, url, title=None, status=None):
+async def insert_feed(db_file, url, title=None, status=None):
     """
-    Add a new feed into the feeds table.
+    Insert a new feed into the feeds table.
 
     Parameters
     ----------
@@ -879,11 +880,13 @@ async def add_entry(cur, entry):
     try:
         cur.execute(sql, entry)
     except:
+        print(await current_time(), "COROUTINE OBJECT NOW")
         print(entry[6])
         print(type(entry[6]))
         print(entry)
         print(type(entry))
-        breakpoint()
+        print(await current_time(), "COROUTINE OBJECT NOW")
+        # breakpoint()
 
 
 # NOTE See remove_nonexistent_entries
@@ -992,7 +995,7 @@ async def remove_nonexistent_entries(db_file, feed, source):
                         # print("compare11:", title, link, time)
                         # print("compare22:", item[1], item[2], item[4])
                         # print("============")
-                        time = await datetimehandler.rfc2822_to_iso8601(entry.published)
+                        time = await rfc2822_to_iso8601(entry.published)
                         if (item[1] == title and
                             item[2] == link and
                             item[4] == time):
@@ -1401,8 +1404,8 @@ async def check_entry_exist(db_file, source, eid=None,
                 "timestamp": date
                 }).fetchone()
         except:
-            print(await datetimehandler.current_time(), "ERROR DATE: source =", source)
-            print(await datetimehandler.current_time(), "ERROR DATE: date =", date)
+            print(await current_time(), "ERROR DATE: source =", source)
+            print(await current_time(), "ERROR DATE: date =", date)
     else:
         sql = (
             "SELECT id "
@@ -1419,7 +1422,7 @@ async def check_entry_exist(db_file, source, eid=None,
         else:
             None
     except:
-        print(await datetimehandler.current_time(), "ERROR DATE: result =", source)
+        print(await current_time(), "ERROR DATE: result =", source)
 
 
 async def set_settings_value(db_file, key_value):

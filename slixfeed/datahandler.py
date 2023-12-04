@@ -14,25 +14,32 @@ TODO
 
 """
 
-import aiohttp
-import asyncio
-import feedparser
-
-import sqlitehandler
-import confighandler
-import datetimehandler
-import listhandler
-
+from aiohttp import ClientError
+from aiohttp import ClientSession
+from aiohttp import ClientTimeout
+from asyncio import TimeoutError
 from asyncio.exceptions import IncompleteReadError
-from http.client import IncompleteRead
-from urllib import error
 from bs4 import BeautifulSoup
+from feedparser import parse
+from http.client import IncompleteRead
+from lxml import html
+from datetimehandler import now
+from datetimehandler import rfc2822_to_iso8601
+from confighandler import get_list
+from listhandler import is_listed
+from sqlitehandler import add_entry_and_set_date
+from sqlitehandler import insert_feed
+from sqlitehandler import check_entry_exist
+from sqlitehandler import check_feed_exist
+from sqlitehandler import get_feeds_url
+from sqlitehandler import remove_nonexistent_entries
+from sqlitehandler import update_source_status
+from sqlitehandler import update_source_validity
+from urllib import error
 # from xml.etree.ElementTree import ElementTree, ParseError
 from urllib.parse import urljoin
 from urllib.parse import urlsplit
 from urllib.parse import urlunsplit
-from lxml import html
-
 
 # NOTE Why (if res[0]) and (if res[1] == 200)?
 async def download_updates(db_file, url=None):
@@ -49,7 +56,7 @@ async def download_updates(db_file, url=None):
     if url:
         urls = [url] # Valid [url] and [url,] and (url,)
     else:
-        urls = await sqlitehandler.get_feeds_url(db_file)
+        urls = await get_feeds_url(db_file)
     for url in urls:
         # print(os.path.basename(db_file), url[0])
         source = url[0]
@@ -60,14 +67,14 @@ async def download_updates(db_file, url=None):
             # urls.next()
             # next(urls)
             continue
-        await sqlitehandler.update_source_status(
+        await update_source_status(
             db_file,
             res[1],
             source
             )
         if res[0]:
             try:
-                feed = feedparser.parse(res[0])
+                feed = parse(res[0])
                 if feed.bozo:
                     # bozo = (
                     #     "WARNING: Bozo detected for feed: {}\n"
@@ -78,7 +85,7 @@ async def download_updates(db_file, url=None):
                     valid = 0
                 else:
                     valid = 1
-                await sqlitehandler.update_source_validity(
+                await update_source_validity(
                     db_file,
                     source,
                     valid)
@@ -102,8 +109,8 @@ async def download_updates(db_file, url=None):
         # NOTE Need to correct the SQL statement to do so
             entries = feed.entries
             # length = len(entries)
-            # await sqlitehandler.remove_entry(db_file, source, length)
-            await sqlitehandler.remove_nonexistent_entries(
+            # await remove_entry(db_file, source, length)
+            await remove_nonexistent_entries(
                 db_file,
                 feed,
                 source
@@ -113,14 +120,14 @@ async def download_updates(db_file, url=None):
                 # TODO Pass date too for comparion check
                 if entry.has_key("published"):
                     date = entry.published
-                    date = await datetimehandler.rfc2822_to_iso8601(date)
+                    date = await rfc2822_to_iso8601(date)
                 elif entry.has_key("updated"):
                     date = entry.updated
-                    date = await datetimehandler.rfc2822_to_iso8601(date)
+                    date = await rfc2822_to_iso8601(date)
                 else:
                     # TODO Just set date = "*** No date ***"
                     # date = await datetime.now().isoformat()
-                    date = await datetimehandler.now()
+                    date = await now()
                     # NOTE Would seconds result in better database performance
                     # date = datetime.datetime(date)
                     # date = (date-datetime.datetime(1970,1,1)).total_seconds()
@@ -140,7 +147,7 @@ async def download_updates(db_file, url=None):
                     eid = entry.id
                 else:
                     eid = link
-                exist = await sqlitehandler.check_entry_exist(
+                exist = await check_entry_exist(
                     db_file,
                     source,
                     eid=eid,
@@ -172,13 +179,13 @@ async def download_updates(db_file, url=None):
                             summary,
                             pathname
                             )
-                    allow_list = await listhandler.is_listed(
+                    allow_list = await is_listed(
                         db_file,
                         "filter-allow",
                         string
                         )
                     if not allow_list:
-                        reject_list = await listhandler.is_listed(
+                        reject_list = await is_listed(
                             db_file,
                             "filter-deny",
                             string
@@ -202,19 +209,19 @@ async def download_updates(db_file, url=None):
                         read_status
                         )
                     if isinstance(date, int):
-                        print("date is int")
+                        print("PROBLEM: date is int")
                         print(date)
-                        breakpoint()
+                        # breakpoint()
                     print(source)
                     print(date)
-                    await sqlitehandler.add_entry_and_set_date(
+                    await add_entry_and_set_date(
                         db_file,
                         source,
                         entry
                         )
-                #     print(await datetimehandler.current_time(), entry, title)
+                #     print(await current_time(), entry, title)
                 # else:
-                #     print(await datetimehandler.current_time(), exist, title)
+                #     print(await current_time(), exist, title)
 
 
 # NOTE Why (if result[0]) and (if result[1] == 200)?
@@ -237,7 +244,7 @@ async def view_feed(url):
     result = await download_feed(url)
     if result[0]:
         try:
-            feed = feedparser.parse(result[0])
+            feed = parse(result[0])
             if feed.bozo:
                 # msg = (
                 #     ">{}\n"
@@ -258,7 +265,7 @@ async def view_feed(url):
                 "> {}\n"
                 "Error: {}"
                 ).format(url, e)
-            breakpoint()
+            # breakpoint()
     if result[1] == 200:
         title = await get_title(url, result[0])
         entries = feed.entries
@@ -278,10 +285,10 @@ async def view_feed(url):
                 link = "*** No link ***"
             if entry.has_key("published"):
                 date = entry.published
-                date = await datetimehandler.rfc2822_to_iso8601(date)
+                date = await rfc2822_to_iso8601(date)
             elif entry.has_key("updated"):
                 date = entry.updated
-                date = await datetimehandler.rfc2822_to_iso8601(date)
+                date = await rfc2822_to_iso8601(date)
             else:
                 date = "*** No date ***"
             msg += (
@@ -313,7 +320,7 @@ async def view_entry(url, num):
     result = await download_feed(url)
     if result[0]:
         try:
-            feed = feedparser.parse(result[0])
+            feed = parse(result[0])
             if feed.bozo:
                 # msg = (
                 #     ">{}\n"
@@ -334,9 +341,9 @@ async def view_entry(url, num):
                 "> {}\n"
                 "Error: {}"
                 ).format(url, e)
-            breakpoint()
+            # breakpoint()
     if result[1] == 200:
-        feed = feedparser.parse(result[0])
+        feed = parse(result[0])
         title = await get_title(url, result[0])
         entries = feed.entries
         num = int(num) - 1
@@ -347,10 +354,10 @@ async def view_entry(url, num):
             title = "*** No title ***"
         if entry.has_key("published"):
             date = entry.published
-            date = await datetimehandler.rfc2822_to_iso8601(date)
+            date = await rfc2822_to_iso8601(date)
         elif entry.has_key("updated"):
             date = entry.updated
-            date = await datetimehandler.rfc2822_to_iso8601(date)
+            date = await rfc2822_to_iso8601(date)
         else:
             date = "*** No date ***"
         if entry.has_key("summary"):
@@ -407,9 +414,9 @@ async def add_feed_no_check(db_file, data):
     url = data[0]
     title = data[1]
     url = await trim_url(url)
-    exist = await sqlitehandler.check_feed_exist(db_file, url)
+    exist = await check_feed_exist(db_file, url)
     if not exist:
-        msg = await sqlitehandler.add_feed(db_file, url, title)
+        msg = await insert_feed(db_file, url, title)
         await download_updates(db_file, [url])
     else:
         ix = exist[0]
@@ -440,21 +447,21 @@ async def add_feed(db_file, url):
     """
     msg = None
     url = await trim_url(url)
-    exist = await sqlitehandler.check_feed_exist(db_file, url)
+    exist = await check_feed_exist(db_file, url)
     if not exist:
         res = await download_feed(url)
         if res[0]:
-            feed = feedparser.parse(res[0])
+            feed = parse(res[0])
             title = await get_title(url, feed)
             if feed.bozo:
                 bozo = (
                     "Bozo detected. Failed to load: {}."
                     ).format(url)
                 print(bozo)
-                msg = await probe_page(add_feed, url, res[0], db_file)
+                msg = await probe_page(add_feed, url, res[0], db_file=db_file)
             else:
                 status = res[1]
-                msg = await sqlitehandler.add_feed(
+                msg = await insert_feed(
                     db_file,
                     url,
                     title,
@@ -507,6 +514,7 @@ async def probe_page(callback, url, doc, num=None, db_file=None):
         elif isinstance(msg, list):
             url = msg[0]
             if db_file:
+                print("if db_file", db_file)
                 return await callback(db_file, url)
             elif num:
                 return await callback(url, num)
@@ -528,9 +536,9 @@ async def download_feed(url):
     msg: list or str
         Document or error message.
     """
-    timeout = aiohttp.ClientTimeout(total=10)
-    async with aiohttp.ClientSession() as session:
-    # async with aiohttp.ClientSession(trust_env=True) as session:
+    timeout = ClientTimeout(total=10)
+    async with ClientSession() as session:
+    # async with ClientSession(trust_env=True) as session:
         try:
             async with session.get(url, timeout=timeout) as response:
                 status = response.status
@@ -558,13 +566,13 @@ async def download_feed(url):
                         False,
                         "HTTP Error: " + str(status)
                         ]
-        except aiohttp.ClientError as e:
+        except ClientError as e:
             # print('Error', str(e))
             msg = [
                 False,
                 "Error: " + str(e)
                 ]
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             # print('Timeout:', str(e))
             msg = [
                 False,
@@ -771,7 +779,7 @@ async def feed_mode_request(url, tree):
     """
     feeds = {}
     parted_url = urlsplit(url)
-    paths = confighandler.get_list()
+    paths = get_list()
     for path in paths:
         address = urlunsplit([
             parted_url.scheme,
@@ -782,10 +790,10 @@ async def feed_mode_request(url, tree):
             ])
         res = await download_feed(address)
         if res[1] == 200:
-            # print(feedparser.parse(res[0])["feed"]["title"])
-            # feeds[address] = feedparser.parse(res[0])["feed"]["title"]
+            # print(parse(res[0])["feed"]["title"])
+            # feeds[address] = parse(res[0])["feed"]["title"]
             try:
-                title = feedparser.parse(res[0])["feed"]["title"]
+                title = parse(res[0])["feed"]["title"]
             except:
                 title = '*** No Title ***'
             feeds[address] = title
@@ -806,7 +814,7 @@ async def feed_mode_request(url, tree):
             res = await download_feed(address)
             if res[1] == 200:
                 try:
-                    feeds[address] = feedparser.parse(res[0])
+                    feeds[address] = parse(res[0])
                     # print(feeds)
                 except:
                     continue
@@ -871,7 +879,7 @@ async def feed_mode_scan(url, tree):
     feeds = {}
     # paths = []
     # TODO Test
-    paths = confighandler.get_list()
+    paths = get_list()
     for path in paths:
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
         xpath_query = "//a[contains(@href,'{}')]".format(path)
@@ -908,7 +916,7 @@ async def feed_mode_scan(url, tree):
             res = await download_feed(address)
             if res[1] == 200:
                 try:
-                    feeds[address] = feedparser.parse(res[0])
+                    feeds[address] = parse(res[0])
                     # print(feeds)
                 except:
                     continue
@@ -992,7 +1000,7 @@ async def feed_mode_auto_discovery(url, tree):
             # # The following code requires more bandwidth.
             # res = await download_feed(feed)
             # if res[0]:
-            #     disco = feedparser.parse(res[0])
+            #     disco = parse(res[0])
             #     title = disco["feed"]["title"]
             #     msg += "{} \n {} \n\n".format(title, feed)
             feed_name = feed.xpath('@title')[0]

@@ -13,11 +13,17 @@ FIXME
 
 TODO
 
+0) from slixfeed.FILENAME import XYZ
+      See project feed2toot
+
 1) SQL prepared statements.
 
 2) Machine Learning for scrapping Title, Link, Summary and Timstamp.
 
-3) Support MUC.
+3) Set MUC subject
+   Feeds which entries are to be set as groupchat subject.
+   Perhaps not, as it would require to check every feed for this setting.
+   Maybe a separate bot.
 
 4) Support categories.
 
@@ -36,7 +42,9 @@ TODO
 11) Download and upload/send article (xHTML, xHTMLZ, Markdown, MHTML, TXT).
     Use Readability.
 
-12) Fetch summary from URL, instead of storing summary.
+12) Fetch summary from URL, instead of storing summary, or
+    Store 5 upcoming summaries.
+    This would help making the database files smaller.
 
 13) Support protocol Gopher
     https://github.com/michael-lazar/pygopherd
@@ -60,22 +68,22 @@ from argparse import ArgumentParser
 from getpass import getpass
 import logging
 
-from datetime import date
-import time
+# from datetime import date
+# import time
 
 # from eliot import start_action, to_file
 # # to_file(open("slixfeed.log", "w"))
 # # with start_action(action_type="set_date()", jid=jid):
 # # with start_action(action_type="message()", msg=msg):
 
-#import irchandler
-import xmpphandler
-#import matrixhandler
+#import slixfeed.irchandler
+from xmpphandler import Slixfeed
+#import slixfeed.matrixhandler
 
 
 if __name__ == '__main__':
     # Setup the command line arguments.
-    parser = ArgumentParser(description=xmpphandler.Slixfeed.__doc__)
+    parser = ArgumentParser(description=Slixfeed.__doc__)
 
     # Output verbosity options.
     parser.add_argument(
@@ -109,7 +117,7 @@ if __name__ == '__main__':
     # Setup the Slixfeed and register plugins. Note that while plugins may
     # have interdependencies, the order in which you register them does
     # not matter.
-    xmpp = xmpphandler.Slixfeed(args.jid, args.password)
+    xmpp = Slixfeed(args.jid, args.password)
     xmpp.register_plugin('xep_0004') # Data Forms
     xmpp.register_plugin('xep_0030') # Service Discovery
     xmpp.register_plugin('xep_0045') # Multi-User Chat

@@ -4,7 +4,7 @@
 import os
 import sys
 
-import sqlitehandler
+from sqlitehandler import create_tables
 
 def get_default_dbdir():
     """
@@ -97,8 +97,8 @@ async def initdb(jid, callback, message=None):
     if not os.path.isdir(db_dir):
         os.mkdir(db_dir)
     db_file = os.path.join(db_dir, r"{}.db".format(jid))
-    sqlitehandler.create_tables(db_file)
-    # await sqlitehandler.set_default_values(db_file)
+    create_tables(db_file)
+    # await set_default_values(db_file)
     if message:
         return await callback(db_file, message)
     else:
