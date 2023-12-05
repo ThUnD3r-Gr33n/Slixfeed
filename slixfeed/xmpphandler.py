@@ -25,7 +25,9 @@ TODO
 
 5) XHTTML-IM
     case _ if message_lowercase.startswith("html"):
-        message['html']="<h1>Parse me!</h1>"
+        message['html']="
+Parse me!
+"
         self.send_message(
             mto=jid,
             mfrom=self.boundjid.bare,
@@ -38,7 +40,7 @@ NOTE
     Apparently, it is possible to view self presence.
     This means that there is no need to store presences in order to switch or restore presence.
     check_readiness
-    <presence from="slixfeed@canchat.org/xAPgJLHtMMHF" xml:lang="en" id="ab35c07b63a444d0a7c0a9a0b272f301" to="slixfeed@canchat.org/xAPgJLHtMMHF"><status>📂 Send a URL from a blog or a news website.</status><x xmlns="vcard-temp:x:update"><photo /></x></presence>
+    📂 Send a URL from a blog or a news website.
     JID: self.boundjid.bare
     MUC: self.nick
 
@@ -422,7 +424,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         Parameters
         ----------
         presence : str
-            XML stanza </presence>.
+            XML stanza .
 
         Returns
         -------
@@ -625,13 +627,16 @@ class Slixfeed(slixmpp.ClientXMPP):
                 #     if operator:
                 #         if nick not in operator:
                 #             return
-                approved = False
+                # approved = False
+                jid_full = str(msg["from"])
                 role = self.plugin['xep_0045'].get_jid_property(
                     jid,
-                    msg["from"],
+                    jid_full[jid_full.index("/")+1:],
                     "role")
-                if role == "moderator":
-                    approved = True
+                if role != "moderator":
+                    return
+                # if role == "moderator":
+                #     approved = True
                 # TODO Implement a list of temporary operators
                 # Once an operator is appointed, the control would last
                 # untile the participant has been disconnected from MUC
@@ -646,8 +651,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                 #     if operator:
                 #         if nick in operator:
                 #             approved = True
-                if not approved:
-                    return
+                # if not approved:
+                #     return
 
             # # Begin processing new JID
             # # Deprecated in favour of event "presence_available"
