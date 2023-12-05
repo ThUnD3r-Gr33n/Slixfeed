@@ -1,9 +1,18 @@
 name, url, language, country
+Read the Tea Leaves, https://nolanlawson.com/feed/, en-US, Worldwide
+Farooq's, https://far.chickenkiller.com/index.xml, en-US, Iran
+Gadgets To Use, https://gadgetstouse.com/feed/, en-US, Worldwide
+کرم‌های کامپیوتر, https://pcworms.ir/feed/, ir-IR, Iran
+Agate Blue, https://agate.blue/feed.xml, fr-FR, France
+News You Can Bruise, https://www.crummy.com/atom.xml, en-US, Worldwide
 Michael W Lucas, https://mwl.io/feed, en-US, United States
+Andriy Utkin, http://autkin.net/feed.xml, en-US, United States
 Jan Wagemakers, https://www.janwagemakers.be/jekyll/feed.xml, en-US, Belgium
 Remko Tronçon (mko.re), https://el-tramo.be/feed.xml, en-US, Germany
+Martins Schmierzettel, https://blog.mdosch.de/index.xml, de-DE, Germany
 Hacking around oppressions, https://bouah.net/index.xml, en-US, France
 Tatsumoto Ren, https://tatsumoto.neocities.org/blog/feed.rss, en-US, Japan
+metajack.im, https://metajack.im/atom.xml, en-US, Worldwide
 Hugo Barrera, https://whynothugo.nl/posts.xml, en-US, Netherlands
 Liliputing, https://liliputing.com/feed/, en-US, Worldwide
 Mario Sabatino Gemini capsule, https://gemini.sabatino.cloud/rss.xml, it-IT, Italy
@@ -11,6 +20,7 @@ Lainblog, https://blog.soykaf.com/index.xml, en-US, Worldwide
 camen design, https://camendesign.com/rss, en-US, United States
 computers are bad, https://computer.rip/rss.xml, en-US, Worldwide
 Machina Speculatrix, https://mansfield-devine.com/speculatrix/feed/, en-US, Worldwide
+Rabin.IO, https://blog.rabin.io/feed, en-US, Worldwide
 Jacob McCormick, https://mccor.xyz/rss.xml, en-US, United States
 Alle Neuigkeiten von jotwewe.de, http://www.jotwewe.de/alles_de.xml, en-US, Germany
 Alle Neuigkeiten von jotwewe.de, http://www.jotwewe.de/alles_de.xml, de-DE, Germany
@@ -18,6 +28,7 @@ OpenNews.opennet.ru: Общая лента новостей, https://www.opennet
 ju_hnny5, https://blog.jbriault.fr/rss/, fr-FR, France
 This Week in GNOME, https://thisweek.gnome.org/index.xml, en-US, Worldwide
 Lazy Reading | The Cyber Vanguard, https://cyber.dabamos.de/blog/feed.rss, en-US, United States
+IdleBlog, http://blog.idleman.fr/feed/, fr-FR, France
 Christof Meerwald, https://cmeerw.org/blog.atom, en-US, Austria
 XXIIVV, https://wiki.xxiivv.com/links/rss.xml, en-US, Canada
 Phoronix, https://www.phoronix.com/rss.php, en-US, United States
@@ -59,6 +70,7 @@ mrshll.com, https://mrshll.com/feed.rss, en-US, United States
 TuxPhones, https://tuxphones.com/rss/, en-US, United States
 OpenSource.net, https://opensource.net/feed/, en-US, United States
 Collabora Office and Collabora Online, https://www.collaboraoffice.com/feed/, en-US, United States
+Wiki de sebsauvage.net, https://sebsauvage.net/wiki/feed.php, fr-FR, France
 LGUG2Z, https://lgug2z.com/index.xml, en-US, United States
 code monk | hacking habits, https://drj11.wordpress.com/feed/, en-US, United States
 Karl Bartel's Website, https://www.karl.berlin/atom.xml, en-US, Germany
@@ -84,3 +96,4 @@ Personal, http://feeds.fosketts.net/StephenFoskettPackRat_Personal, en-US, Unite
 Terabyte Home, http://feeds.fosketts.net/StephenFoskettPackRat_TerabyteHome, en-US, United States
 Virtual Storage, http://feeds.fosketts.net/StephenFoskettPackRat_VirtualStorage, en-US, United States
 Jolla, https://jolla.com/feed/, en-US, Finland
+Mario Alberto Chávez Cárdenas, https://mariochavez.io/feed.xml, en-US, Worldwide

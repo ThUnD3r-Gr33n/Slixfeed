@@ -1,4 +1,7 @@
 name, url, language, country
 gajim activity, https://dev.gajim.org/gajim/gajim.atom, en-US, France
 Bugs in qutim, http://feeds.launchpad.net/qutim/latest-bugs.atom, en-US, Russia
-Feed of "poezio/slixmpp", https://codeberg.org/poezio/slixmpp.rss, en-US, France
+Feed of "poezio/slixmpp", https://codeberg.org/poezio/slixmpp.atom, en-US, France
+Feed of "JoinJabber", https://codeberg.org/joinjabber.rss, en-US, Worldwide
+Feed of "poezio/poezio", https://codeberg.org/poezio/poezio.atom, en-US, France
+Feed of "poezio/biboumi", https://codeberg.org/poezio/biboumi.atom, en-US, France

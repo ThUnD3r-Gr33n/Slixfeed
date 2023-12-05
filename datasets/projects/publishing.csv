@@ -1,0 +1,25 @@
+name, url, language, country
+GNU social, http://www.gnusocial.rocks/feed.rss, en-US, Worldwide
+Takahē Project, https://takahe.social/@takahe@jointakahe.org/rss/, en-US, Worldwide
+QOTO, https://qoto.org/@QOTO.rss, en-US, Worldwide
+Jekyll, https://jekyllrb.com/feed.xml, en-US, Worldwide
+Hugo, https://gohugo.io/index.xml, en-US, Worldwide
+Joomla!, https://www.joomla.org/announcements.feed?type=rss, en-US, Worldwide
+Haunt, https://dthompson.us/feed.xml, en-US, Worldwide
+Grav Development Blog, https://getgrav.org/blog.atom, en-US, Worldwide
+Funkwhale, https://blog.funkwhale.audio/feeds/all.atom.xml, en-US, Worldwide
+Nikola, https://getnikola.com/rss.xml, en-US, Worldwide
+Octopress, http://octopress.org/atom.xml, en-US, Worldwide
+Pelican, https://getpelican.com/feeds/all.atom.xml, en-US, Worldwide
+Podcast Generator, https://podcastgenerator.net/feed/, en-US, Worldwide
+Publii, https://getpublii.com/feed.xml, en-US, Worldwide
+Textpattern CMS, https://textpattern.com/rss, en-US, Worldwide
+TYPO3, https://typo3.org/rss, en-US, Worldwide
+WordPress, https://wordpress.org/news/feed/, en-US, Worldwide
+Foswiki, https://foswiki.org/Home/WebRss, en-US, Worldwide
+Foswiki, https://blog.foswiki.org/Blog/WebAtom?contenttype=text/xml, en-US, Worldwide
+Extensions - Foswiki, https://foswiki.org/Extensions/ExtensionNews?template=ExtensionNewsRssView&contenttype=text/xml, en-US, Worldwide
+Eleventy, https://www.11ty.dev/blog/feed.xml, en-US, Worldwide
+bliper, https://git.2f30.org/bliper/atom.xml, en-US, Worldwide
+LinkStack, https://linkstack.org/feed/, en-US, Worldwide
+Firefish, https://joinfirefish.org/rss.xml, en-US, Worldwide

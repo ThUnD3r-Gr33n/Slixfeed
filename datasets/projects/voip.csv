@@ -1,0 +1,6 @@
+name, url, language, country
+Mumble, https://www.mumble.info/index.xml, en-US, Worldwide
+Jitsi, https://jitsi.org/feed/, en-US, Worldwide
+Kaidan, https://www.kaidan.im/atom.xml, en-US, Worldwide
+Dino, https://dino.im/index.xml, en-US, Worldwide
+Gajim, https://gajim.org/index.xml, en-US, France

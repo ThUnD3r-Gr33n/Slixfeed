@@ -1,15 +1,29 @@
 name, url, language, country
+Read the Tea Leaves, https://nolanlawson.com/feed/, en-US, Worldwide
 jezebel cheblik, gopher://triapul.cz/0/rss.xml, en-US, United States
 triapul.cz gopher, https://triapul.cz/feed/gopher.xml, en-US, Czech
 soeren-hentzschel.at - Aktuelles zu Mozilla, https://www.soeren-hentzschel.at/feed/, de-DE, Germany
+GNU social, http://www.gnusocial.rocks/feed.rss, en-US, Worldwide
+IndieWeb, https://indieweb.org/wiki/index.php?title=Special:RecentChanges&feed=atom, en-US, Worldwide
+Fediverse.Party - explore federated networks, https://fediverse.party/atom.xml, en-US, Worldwide
+Takahē Project, https://takahe.social/@takahe@jointakahe.org/rss/, en-US, Worldwide
+404 Media, https://www.404media.co/rss/, en-US, United States
+Martins Schmierzettel, https://blog.mdosch.de/index.xml, de-DE, Germany
+Framasoft - Toute l'actualité, https://rss.framasoft.org/, fr-FR, France
 WordPress.com News, https://wordpress.com/blog/feed/, en-US, United States
 Micro.blog News, https://news.micro.blog/feed.xml, en-US, United States
 EFF Action Center, https://act.eff.org/action.atom, en-US, United States
 Leonora Tindall on Nora Codes, https://nora.codes/index.xml, en-US, United States
 Reclaim The Net, https://reclaimthenet.org/feed, en-US, United States
+Funkwhale, https://blog.funkwhale.audio/feeds/all.atom.xml, en-US, Worldwide
 Melon's Thoughts - Guidebooks, https://thoughts.melonking.net/atom/?section=guides, en-US, United States
+Firefish, https://joinfirefish.org/rss.xml, en-US, Worldwide
+Immers Space, https://web.immers.space/feed/, en-US, Worldwide
 thecozy.cat, https://thecozy.cat/feed/, en-US, United States
 OpenNews.opennet.ru: Общая лента новостей, https://www.opennet.ru/opennews/opennews_all_utf.rss, ru-RU, Russia
+Disroot Blog, https://disroot.org/en/blog.atom, en-US, Worldwide
+metajack.im, https://metajack.im/atom.xml, en-US, Worldwide
+MDN Blog, https://developer.mozilla.org/en-US/blog/rss.xml, en-US, United States
 Codemadness, https://codemadness.org/atom.xml, en-US, United States
 Melon's Thoughts, https://thoughts.melonking.net/atom/, en-US, United States
 An RSS Blog, https://www.rss-specifications.com/blog-feed.xml, en-US, United States

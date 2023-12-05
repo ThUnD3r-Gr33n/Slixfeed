@@ -1,4 +1,5 @@
 name, url, language, country
+Read the Tea Leaves, https://nolanlawson.com/feed/, en-US, Worldwide
 Tristan B. Velloza Kildaire, https://gleasonator.com/@deavmi, en-ZA, South Africa
 Karl Bartel's Website, https://www.karl.berlin/atom.xml, en-US, Germany
 Newest Python PEPs, https://peps.python.org/peps.rss/, en-US, Worldwide
@@ -11,3 +12,6 @@ Leonora Tindall on Nora Codes, https://nora.codes/index.xml, en-US, United State
 code monk | hacking habits, https://drj11.wordpress.com/feed/, en-US, United States
 Machina Speculatrix, https://mansfield-devine.com/speculatrix/feed/, en-US, Worldwide
 Lainblog, https://blog.soykaf.com/index.xml, en-US, Worldwide
+PythonAnywhere, https://blog.pythonanywhere.com/index.xml, en-US, Texas
+Mario Alberto Chávez Cárdenas, https://mariochavez.io/feed.xml, en-US, Worldwide
+metajack.im, https://metajack.im/atom.xml, en-US, Worldwide
