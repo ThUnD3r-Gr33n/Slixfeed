@@ -46,12 +46,13 @@ import slixmpp
 
 from datahandler import download_updates
 from datetimehandler import current_time
-from filehandler import initdb
-from filehandler import get_default_dbdir
-from sqlitehandler import get_entry_unread
-from sqlitehandler import get_settings_value
-from sqlitehandler import get_number_of_items
-from sqlitehandler import get_number_of_entries_unread
+from filehandler import initdb, get_default_dbdir
+from sqlitehandler import (
+    get_entry_unread,
+    get_settings_value,
+    get_number_of_items,
+    get_number_of_entries_unread
+    )
 # from xmpphandler import Slixfeed
 import xmpphandler as xmpphandler
 

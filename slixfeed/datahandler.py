@@ -14,32 +14,29 @@ TODO
 
 """
 
-from aiohttp import ClientError
-from aiohttp import ClientSession
-from aiohttp import ClientTimeout
+from aiohttp import ClientError, ClientSession, ClientTimeout
 from asyncio import TimeoutError
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
 from feedparser import parse
 from http.client import IncompleteRead
 from lxml import html
-from datetimehandler import now
-from datetimehandler import rfc2822_to_iso8601
+from datetimehandler import now, rfc2822_to_iso8601
 from confighandler import get_list
 from listhandler import is_listed
-from sqlitehandler import add_entry_and_set_date
-from sqlitehandler import insert_feed
-from sqlitehandler import check_entry_exist
-from sqlitehandler import check_feed_exist
-from sqlitehandler import get_feeds_url
-from sqlitehandler import remove_nonexistent_entries
-from sqlitehandler import update_source_status
-from sqlitehandler import update_source_validity
+from sqlitehandler import (
+    add_entry_and_set_date,
+    insert_feed,
+    check_entry_exist,
+    check_feed_exist,
+    get_feeds_url,
+    remove_nonexistent_entries,
+    update_source_status,
+    update_source_validity
+    )
 from urllib import error
 # from xml.etree.ElementTree import ElementTree, ParseError
-from urllib.parse import urljoin
-from urllib.parse import urlsplit
-from urllib.parse import urlunsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 # NOTE Why (if res[0]) and (if res[1] == 200)?
 async def download_updates(db_file, url=None):
@@ -328,7 +325,7 @@ async def view_entry(url, num):
                 #     "For more information, visit "
                 #     "https://pythonhosted.org/feedparser/bozo.html"
                 #     ).format(url)
-                msg = await probe_page(view_entry, url, result[0], num)
+                msg = await probe_page(view_entry, url, result[0], num=num)
                 return msg
         except (
                 IncompleteReadError,

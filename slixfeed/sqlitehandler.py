@@ -22,10 +22,8 @@ from datetime import date
 import confighandler as confighandler
 # from slixfeed.datahandler import join_url
 import datahandler as datahandler
-from datetimehandler import current_time
-from datetimehandler import rfc2822_to_iso8601
-from sqlite3 import connect
-from sqlite3 import Error
+from datetimehandler import current_time, rfc2822_to_iso8601
+from sqlite3 import connect, Error
 
 # from eliot import start_action, to_file
 # # with start_action(action_type="list_feeds()", db=db_file):

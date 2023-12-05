@@ -53,30 +53,36 @@ import asyncio
 import logging
 # import os
 import slixmpp
+from slixmpp.exceptions import IqError
 from random import randrange
-from datahandler import add_feed
-from datahandler import add_feed_no_check
-from datahandler import feed_to_http
-from datahandler import view_entry
-from datahandler import view_feed
+from datahandler import (
+    add_feed,
+    add_feed_no_check,
+    feed_to_http,
+    view_entry,
+    view_feed
+    )
 from datetimehandler import current_time
 from filehandler import initdb
-from listhandler import add_to_list
-from listhandler import remove_from_list
-from sqlitehandler import get_settings_value
-from sqlitehandler import set_settings_value
-from sqlitehandler import mark_source_as_read
-from sqlitehandler import last_entries
-from sqlitehandler import list_feeds
-from sqlitehandler import remove_feed
-from sqlitehandler import search_feeds
-from sqlitehandler import statistics
-from sqlitehandler import toggle_status
-from taskhandler import clean_tasks_xmpp
-from taskhandler import start_tasks_xmpp
-from taskhandler import refresh_task
-from taskhandler import send_status
-from taskhandler import send_update
+from listhandler import add_to_list, remove_from_list
+from sqlitehandler import (
+    get_settings_value,
+    set_settings_value,
+    mark_source_as_read,
+    last_entries,
+    list_feeds,
+    remove_feed,
+    search_feeds,
+    statistics,
+    toggle_status
+    )
+from taskhandler import (
+    clean_tasks_xmpp,
+    start_tasks_xmpp,
+    refresh_task,
+    send_status,
+    send_update
+    )
 from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadServiceNotFound
 # from slixmpp.plugins.xep_0402 import BookmarkStorage, Conference
 from slixmpp.plugins.xep_0048.stanza import Bookmarks
@@ -237,24 +243,26 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def join_muc(self, inviter, muc_jid):
-        token = await initdb(
-            muc_jid,
-            get_settings_value,
-            "token"
-            )
-        if token != "accepted":
-            token = randrange(10000, 99999)
-            await initdb(
-                muc_jid,
-                set_settings_value,
-                ["token", token]
-            )
-            self.send_message(
-                mto=inviter,
-                mbody=(
-                    "Send activation token {} to groupchat xmpp:{}?join."
-                    ).format(token, muc_jid)
-                )
+        # token = await initdb(
+        #     muc_jid,
+        #     get_settings_value,
+        #     "token"
+        #     )
+        # if token != "accepted":
+        #     token = randrange(10000, 99999)
+        #     await initdb(
+        #         muc_jid,
+        #         set_settings_value,
+        #         ["token", token]
+        #     )
+        #     self.send_message(
+        #         mto=inviter,
+        #         mbody=(
+        #             "Send activation token {} to groupchat xmpp:{}?join."
+        #             ).format(token, muc_jid)
+        #         )
+        print("muc_jid")
+        print(muc_jid)
         self.plugin['xep_0045'].join_muc(
             muc_jid,
             "Slixfeed (RSS News Bot)",
@@ -265,6 +273,13 @@ class Slixfeed(slixmpp.ClientXMPP):
         result = await self.plugin['xep_0048'].get_bookmarks()
         bookmarks = result["private"]["bookmarks"]
         conferences = bookmarks["conferences"]
+        print("result")
+        print(result)
+        print("bookmarks")
+        print(bookmarks)
+        print("conferences")
+        print(conferences)
+        breakpoint()
         mucs = []
         for conference in conferences:
             jid = conference["jid"]
@@ -596,20 +611,43 @@ class Slixfeed(slixmpp.ClientXMPP):
                 if (msg['muc']['nick'] == "Slixfeed (RSS News Bot)" or
                     not msg["body"].startswith("!")):
                     return
-                token = await initdb(
+                # token = await initdb(
+                #     jid,
+                #     get_settings_value,
+                #     "token"
+                #     )
+                # if token == "accepted":
+                #     operator = await initdb(
+                #         jid,
+                #         get_settings_value,
+                #         "masters"
+                #         )
+                #     if operator:
+                #         if nick not in operator:
+                #             return
+                approved = False
+                role = self.plugin['xep_0045'].get_jid_property(
                     jid,
-                    get_settings_value,
-                    "token"
-                    )
-                if token == "accepted":
-                    operator = await initdb(
-                        jid,
-                        get_settings_value,
-                        "masters"
-                        )
-                    if operator:
-                        if nick not in operator:
-                            return
+                    msg["from"],
+                    "role")
+                if role == "moderator":
+                    approved = True
+                # TODO Implement a list of temporary operators
+                # Once an operator is appointed, the control would last
+                # untile the participant has been disconnected from MUC
+                # An operator is a function to appoint non moderators.
+                # Changing nickname is fine and consist of no problem.
+                # if not approved:
+                #     operator = await initdb(
+                #         jid,
+                #         get_settings_value,
+                #         "masters"
+                #         )
+                #     if operator:
+                #         if nick in operator:
+                #             approved = True
+                if not approved:
+                    return
 
             # # Begin processing new JID
             # # Deprecated in favour of event "presence_available"
@@ -649,30 +687,30 @@ class Slixfeed(slixmpp.ClientXMPP):
                     print(jid)
                     await self.autojoin_muc()
 
-                case _ if message_lowercase.startswith("activate"):
-                    if msg["type"] == "groupchat":
-                        acode = message[9:]
-                        token = await initdb(
-                            jid,
-                            get_settings_value,
-                            "token"
-                            )
-                        if int(acode) == token:
-                            await initdb(
-                                jid,
-                                set_settings_value,
-                                ["masters", nick]
-                                )
-                            await initdb(
-                                jid,
-                                set_settings_value,
-                                ["token", "accepted"]
-                                )
-                            action = "{}, your are in command.".format(nick)
-                        else:
-                            action = "Activation code is not valid."
-                    else:
-                        action = "This command is valid for groupchat only."
+                # case _ if message_lowercase.startswith("activate"):
+                #     if msg["type"] == "groupchat":
+                #         acode = message[9:]
+                #         token = await initdb(
+                #             jid,
+                #             get_settings_value,
+                #             "token"
+                #             )
+                #         if int(acode) == token:
+                #             await initdb(
+                #                 jid,
+                #                 set_settings_value,
+                #                 ["masters", nick]
+                #                 )
+                #             await initdb(
+                #                 jid,
+                #                 set_settings_value,
+                #                 ["token", "accepted"]
+                #                 )
+                #             action = "{}, your are in command.".format(nick)
+                #         else:
+                #             action = "Activation code is not valid."
+                #     else:
+                #         action = "This command is valid for groupchat only."
                 case _ if message_lowercase.startswith("add"):
                     message = message[4:]
                     url = message.split(" ")[0]
@@ -937,30 +975,30 @@ class Slixfeed(slixmpp.ClientXMPP):
                                     ).format(val)
                         else:
                             action = "Missing value."
-                case _ if message_lowercase.startswith("mastership"):
-                        key = message[:7]
-                        val = message[11:]
-                        if val:
-                            names = await initdb(
-                                jid,
-                                get_settings_value,
-                                key
-                                )
-                            val = await add_to_list(
-                                val,
-                                names
-                                )
-                            await initdb(
-                                jid,
-                                set_settings_value,
-                                [key, val]
-                                )
-                            action = (
-                                "Operators\n"
-                                "```\n{}\n```"
-                                ).format(val)
-                        else:
-                            action = "Missing value."
+                # case _ if message_lowercase.startswith("mastership"):
+                #         key = message[:7]
+                #         val = message[11:]
+                #         if val:
+                #             names = await initdb(
+                #                 jid,
+                #                 get_settings_value,
+                #                 key
+                #                 )
+                #             val = await add_to_list(
+                #                 val,
+                #                 names
+                #                 )
+                #             await initdb(
+                #                 jid,
+                #                 set_settings_value,
+                #                 [key, val]
+                #                 )
+                #             action = (
+                #                 "Operators\n"
+                #                 "```\n{}\n```"
+                #                 ).format(val)
+                #         else:
+                #             action = "Missing value."
                 case "new":
                     await initdb(
                         jid,
@@ -1345,14 +1383,14 @@ def print_help():
         "GROUPCHAT OPTIONS\n"
         " ! (command initiation)\n"
         "   Use exclamation mark to initiate an actionable command.\n"
-        " activate CODE\n"
-        "   Activate and command bot.\n"
-        " demaster NICKNAME\n"
-        "   Remove master privilege.\n"
-        " mastership NICKNAME\n"
-        "   Add master privilege.\n"
-        " ownership NICKNAME\n"
-        "   Set new owner.\n"
+        # " activate CODE\n"
+        # "   Activate and command bot.\n"
+        # " demaster NICKNAME\n"
+        # "   Remove master privilege.\n"
+        # " mastership NICKNAME\n"
+        # "   Add master privilege.\n"
+        # " ownership NICKNAME\n"
+        # "   Set new owner.\n"
         "\n"
         "FILTER OPTIONS\n"
         " allow +\n"

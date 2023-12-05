@@ -7,8 +7,7 @@ https://feedparser.readthedocs.io/en/latest/date-parsing.html
 
 from datetime import datetime
 from dateutil.parser import parse
-from email.utils import parsedate
-from email.utils import parsedate_to_datetime
+from email.utils import parsedate, parsedate_to_datetime
 
 async def now():
     """
