@@ -1,11 +1,14 @@
-# Slixfeed
-Syndication bot for the XMPP communication network.
+# Syndication bot for the XMPP communication network
+
+## Slixfeed
 
 Slixfeed aims to be an easy to use and fully-featured news aggregator bot for XMPP. It provides a convenient access to Blogs, Fediverse and News websites along with filtering functionality.
 
 Slixfeed is primarily designed for XMPP (aka Jabber).
 
 Visit https://xmpp.org/software/ for more information.
+
+## XMPP
 
 XMPP is the Extensible Messaging and Presence Protocol, a set of open technologies for instant messaging, presence, multi-party chat, voice and video calls, collaboration, lightweight middleware, content syndication, and generalized routing of XML data.
 
@@ -43,24 +46,24 @@ https://theconsciousresistance.com/feed/
 - Add feed history tables of last week and last month.
 
 ## Authors
-- Schimon Jehudah, Attorney at Law.
-- [Laura](xmpp:lauranna@404.city) (Instructor, mentor and co-author).
+- [Schimon](xmpp:sch@pimux.de?message) (Author).
+- [Laura](xmpp:lauranna@404.city?message) (Instructor, Mentor and Co-Author).
 
 ## Acknowledgment
-- [Alixander Court](https://alixandercourt.com/)
-- [edhelas](https://github.com/edhelas/atomtopubsub)
-- habnabit_ from #python on irc.libera.chat (SQL security)
-- [imattau](https://github.com/imattau/atomtopubsub) (Some code, mostly URL handling, was taken from imattau)
-- [Link Mauve](https://linkmauve.fr/contact.xhtml)
-- magicfelix (async)
-- Slixmpp participants who chose to remain anonymous or not to appear in this list.
+Special thank you to Mrs. Lapina who instructed me all the way to complete this, in addition to significant code fixes.
+
+Laura, I thank you greatly for your encouragement, time and help.
+
+May this bot be a life changing factor to people the world over.
+
+This bot would not be a reality without you.
 
 ## License
-GPL-3.0 license
+MIT license
 
 ## Copyright
-- Schimon Jehudah 2022 - 2023
-- Laura 2022 - 2023
+- Schimon Zackary 2022 - 2023
+- Laura Lapina 2022 - 2023
 
 ## Similar Projects
 Please visit our friends who offer different approach to convey RSS to XMPP.
@@ -68,11 +71,11 @@ Please visit our friends who offer different approach to convey RSS to XMPP.
 * [AtomToPubsub](https://github.com/imattau/atomtopubsub)
 RSS feeds as XMPP Pubsub Nodes.
 
-* [JabRSS](http://www.jotwewe.de/de/xmpp/jabrss/jabrss_en.htm)
-Never miss a headline again! JabRSS is a simple RSS (RDF Site Summary) headline notification service for Jabber.
-
 * [feed-to-muc](https://salsa.debian.org/mdosch/feed-to-muc)
 An XMPP bot which posts to a MUC (groupchat) if there is an update in newsfeeds.
+
+* [JabRSS](http://www.jotwewe.de/de/xmpp/jabrss/jabrss_en.htm)
+Never miss a headline again! JabRSS is a simple RSS (RDF Site Summary) headline notification service for Jabber.
 
 * [Morbot](https://codeberg.org/TheCoffeMaker/Morbot)
 Morbo is a simple Slixmpp bot that will take new articles from listed RSS feeds and send them to assigned XMPP MUCs (groupchats).
