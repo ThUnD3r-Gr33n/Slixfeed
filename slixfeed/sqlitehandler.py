@@ -607,13 +607,19 @@ async def statistics(db_file):
     feeds = await get_number_of_items(db_file, 'feeds')
     active_feeds = await get_number_of_feeds_active(db_file)
     entries = await get_number_of_items(db_file, 'entries')
+    archive = await get_number_of_items(db_file, 'archive')
     unread_entries = await get_number_of_entries_unread(db_file)
     # msg = """You have {} unread news items out of {} from {} news sources.
     #       """.format(unread_entries, entries, feeds)
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         keys = []
-        for key in ["enabled", "interval", "quantum"]:
+        for key in [
+                "archive",
+                "interval",
+                "quantum",
+                "enabled"
+                ]:
             sql = (
             "SELECT value "
             "FROM settings "
@@ -621,19 +627,23 @@ async def statistics(db_file):
             )
             keys.extend([cur.execute(sql, (key,)).fetchone()[0]])
         msg = (
-            "```\n"
-            "News items       : {} ({})\n"
-            "News sources     : {} ({})\n"
+            "```"
+            "\nSTATISTICS\n"
+            "News items   : {} / {}\n"
+            "News sources : {} / {}\n"
+            "\nOPTIONS\n"
+            "Items to archive : {}\n"
             "Update interval  : {}\n"
             "Items per update : {}\n"
             "Operation status : {}\n"
             "```"
             ).format(
-                unread_entries, entries,
+                unread_entries, entries + archive,
                 active_feeds, feeds,
+                keys[0],
                 keys[1],
                 keys[2],
-                keys[0]
+                keys[3]
                 )
     return msg
 
@@ -770,7 +780,7 @@ async def set_date(cur, url):
 
 async def add_entry_and_set_date(db_file, source, entry):
     """
-    Add entry to table entries and set date of source in table feeds.
+    Add an entry to table entries and set date of source in table feeds.
 
     Parameters
     ----------
@@ -887,53 +897,33 @@ async def add_entry(cur, entry):
         # breakpoint()
 
 
-# NOTE See remove_nonexistent_entries
-# NOTE This function doesn't work as expected with bbs and docuwiki feeds
-async def remove_entry(db_file, source, length):
+async def maintain_archive(cur, limit):
     """
-    Maintain list of entries equal to feed.
-    Check the number returned by feed and delete
-    existing entries up to the same returned amount.
+    Maintain list of archived entries equal to specified number of items.
 
     Parameters
     ----------
     db_file : str
         Path to database file.
-    source : str
-        Feed URL.
-    length : str
-        Number.
     """
-    # FIXED
-    # Dino empty titles are not counted https://dino.im/index.xml
-    # SOLVED
-    # Add text if is empty
-    # title = '*** No title ***' if not entry.title else entry.title
-    async with DBLOCK:
-        with create_connection(db_file) as conn:
-            cur = conn.cursor()
-            sql = (
-                "SELECT count(id) "
-                "FROM entries "
-                "WHERE source = ?"
-                )
-            count = cur.execute(sql, (source,)).fetchone()[0]
-            limit = count - length
-            if limit:
-                limit = limit;
-                sql = (
-                    "DELETE FROM entries "
-                    "WHERE id "
-                    "IN (SELECT id "
-                    "FROM entries "
-                    "WHERE source = :source "
-                    "ORDER BY id "
-                    "ASC LIMIT :limit)"
-                    )
-                cur.execute(sql, {
-                    "source": source,
-                    "limit": limit
-                    })
+    sql = (
+        "SELECT count(id) "
+        "FROM archive"
+        )
+    count = cur.execute(sql).fetchone()[0]
+    reduc = count - limit
+    if reduc > 0:
+        sql = (
+            "DELETE FROM archive "
+            "WHERE id "
+            "IN (SELECT id "
+            "FROM archive "
+            "ORDER BY timestamp ASC "
+            "LIMIT :reduc)"
+            )
+        cur.execute(sql, {
+            "reduc": reduc
+            })
 
 
 # TODO Move entries that don't exist into table archive.
@@ -1068,9 +1058,12 @@ async def remove_nonexistent_entries(db_file, feed, source):
                             cur.execute(sql, (ix,))
                         except:
                             print(
-                                "ERROR DB deleting entries "
-                                "from entries at index", ix
+                                "ERROR DB deleting items from "
+                                "table entries at index", ix
                                 )
+        async with DBLOCK:
+            limit = await get_settings_value(db_file, "archive")
+            await maintain_archive(cur, limit)
 
 
 async def get_feeds(db_file):
@@ -1206,6 +1199,10 @@ async def last_entries(db_file, num):
     sql = (
         "SELECT title, link "
         "FROM entries "
+        "WHERE read = 0 "
+        "UNION ALL "
+        "SELECT title, link "
+        "FROM archive "
         "WHERE read = 0 "
         "ORDER BY timestamp DESC "
         "LIMIT :num "

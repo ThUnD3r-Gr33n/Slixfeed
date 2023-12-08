@@ -1,6 +1,9 @@
 name, url, language, country
+Stéphane Bortzmeyer, https://mastodon.gougere.fr/@bortzmeyer.rss, fr-FR, France
+Blog de Stéphane Bortzmeyer, https://www.bortzmeyer.org/feed.atom, fr-FR, France
+Simon Willison's Weblog, https://simonwillison.net/atom/everything/, en-US, Worldwide
 Read the Tea Leaves, https://nolanlawson.com/feed/, en-US, Worldwide
-hollie butler, https://eilloh.net/feed.xml en-US, Worldwide
+hollie butler, https://eilloh.net/feed.xml, en-US, Worldwide
 Farooq Karimi Zadeh (@farooqkz@qoto.org), https://qoto.org/@farooqkz.rss, en-US, Iran
 کرم‌های کامپیوتر, https://pcworms.ir/feed/, ir-IR, Iran
 Farooq's, https://far.chickenkiller.com/index.xml, en-US, Iran
@@ -12,8 +15,11 @@ Hugo Barrera, https://whynothugo.nl/posts.xml, en-US, Netherlands
 Remko Tronçon (mko.re), https://el-tramo.be/feed.xml, en-US, Germany
 Hacking around oppressions, https://bouah.net/index.xml, en-US, France
 Jerm Warfare, https://jermwarfare.com/feed, en-US, United States
+Dan d'Auge, https://mamot.fr/@dandauge.rss, fr-FR, France
 iMOM, https://www.imom.com/feed/, en-US, United States
 Mario Sabatino Gemini capsule, https://gemini.sabatino.cloud/rss.xml, it-IT, Italy
+Mami's Shit, http://grizzom.blogspot.com/feeds/posts/default, en-US, United States
+nicoco's blog, https://www.nicoco.fr/feed/blog.xml, en-US, France
 Mom on a Mission, https://www.mom-on-a-mission.blog/all-posts?format=rss, en-US, United States
 Michael W Lucas, https://mwl.io/feed, en-US, United States
 Martins Schmierzettel, https://blog.mdosch.de/index.xml, de-DE, Germany
@@ -21,7 +27,6 @@ Alixander Court, https://alixandercourt.com/feed/, en-US, United States
 Anjan Momi, https://momi.ca/feed.xml, en-US, United States
 Amethyst Reese, https://noswap.com/feed.xml, en-US, United States
 Dan d'Auge, https://fedi.thechangebook.org/feed/dandauge, fr-FR, France
-Dan d'Auge, https://mamot.fr/@dandauge.rss, fr-FR, France
 Christof Meerwald, https://cmeerw.org/blog.atom, en-US, Austria
 Christof Meerwald, http://cmeerw.org/blog.rdf, en-US, Austria
 PureTryOut, https://mastodon.fam-ribbers.com/@bart.rss, en-US, Netherlands
@@ -61,3 +66,4 @@ alexander cobleigh (updates), https://cblgh.org/updates.xml, en-US, United State
 Daniel Aleksandersen, https://mastodon.daniel.priv.no/@da.rss, en-US, United States
 Laslo Hunhold, https://laslo.hunhold.de/index.xml, en-US, Germany
 Kitty Cat, https://kitty.social/@Kitty.rss, en-US, Worldwide
+Kirksville Today, https://www.kirksvilletoday.com/feed/, en-US, United States

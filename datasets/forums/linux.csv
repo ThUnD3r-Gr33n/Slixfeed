@@ -1,3 +1,5 @@
 name, url, language, country
 Arch Linux ARM, https://archlinuxarm.org/forum/feed.php, en-US, Worldwide
 Arch Linux, https://bbs.archlinux.org/extern.php?action=feed&type=atom, en-US, Worldwide
+nixCraft Linux/Unix Forum, https://www.nixcraft.com/posts.rss, en-US, Worldwide
+Artix Linux Forum, https://forum.artixlinux.org/index.php?action=.xml;type=atom;limit=30, en-US, Worldwide

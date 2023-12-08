@@ -393,10 +393,9 @@ async def check_updates(jid):
 
 """
 NOTE
-
 This is an older system, utilizing local storage instead of XMPP presence.
-This function is good for use with protocols that don't have presence.
-IRC, LXMF, Matrix, SMTP, Tox.
+This function is good for use with protocols that might not have presence.
+ActivityPub, IRC, LXMF, Matrix, SMTP, Tox.
 """
 async def select_file(self):
     """

@@ -5,6 +5,7 @@ Pale Moon, https://forum.palemoon.org/app.php/feed/forum/1, en-US, Worldwide
 Falkon - KDE web browser, https://www.falkon.org/atom.xml, en-US, Czech
 Otter Browser, https://otter-browser.org/feed/, en-US, Worldwide
 What's Up, Fraidycat?, https://fraidyc.at/blog/feed.xml, en-US, Worldwide
+Session, https://getsession.org/feed, en-US, United States
 QOTO, https://qoto.org/@QOTO.rss, en-US, Worldwide
 Funkwhale, https://blog.funkwhale.audio/feeds/all.atom.xml, en-US, Worldwide
 geomyidae, branch HEAD, gopher://bitreich.org:70/0/scm/geomyidae/atom.xml, en-US, United States
@@ -13,8 +14,11 @@ Feedbin, https://feedbin.com/blog/atom.xml, en-US, United States
 profanity, https://profanity-im.github.io/blog/index.xml, en-US, Worldwide
 Silvio Rizzi (reederapp.com), https://gloria.social/@rizzi.rss, en-US, Worldwide
 lighty, https://redmine.lighttpd.net/news.atom, en-US, Worldwide
+Blogo, https://blogo.site/atom, en-US, Worldwide
 lighttpd, https://www.lighttpd.net/feed/atom.xml, en-US, Worldwide
 Nextcloud, https://nextcloud.com/feed/, en-US, Worldwide
+Briar, https://briarproject.org/news/index.xml, en-US, Worldwide
+I Hear U, https://sourceforge.net/projects/ihu/rss, en-US, Worldwide
 Cabal, https://mastodon.social/@cabal.rss, en-US, Worldwide
 JSON Feed, https://www.jsonfeed.org/feed.xml, en-US, Worldwide
 Liferea, https://lzone.de/feed/liferea.xml, en-US, Germany
@@ -29,6 +33,7 @@ CoyIM, https://coy.im/feed.xml, en-US, Worldwide
 Tor Project blog, https://blog.torproject.org/feed.xml, en-US, Worldwide
 blabber.im, https://kanoa.de/@blabber.rss, en-US, Worldwide
 monocles, https://monocles.social/@monocles.rss, en-US, Germany
+Briar, https://briarproject.org/news/index.xml, en-US, Worldwide
 NetworkManager, https://networkmanager.dev/blog/index.xml, en-US, Worldwide
 Jekyll, https://jekyllrb.com/feed.xml, en-US, Worldwide
 Hugo, https://gohugo.io/index.xml, en-US, Worldwide
@@ -44,6 +49,7 @@ Textpattern CMS, https://textpattern.com/rss, en-US, Worldwide
 TYPO3, https://typo3.org/rss, en-US, Worldwide
 WordPress, https://wordpress.org/news/feed/, en-US, Worldwide
 Foswiki, https://foswiki.org/Home/WebRss, en-US, Worldwide
+Feditext, https://fedi.software/@Feditext.rss, en-US, Worldwide
 Foswiki, https://blog.foswiki.org/Blog/WebAtom?contenttype=text/xml, en-US, Worldwide
 Extensions - Foswiki, https://foswiki.org/Extensions/ExtensionNews?template=ExtensionNewsRssView&contenttype=text/xml, en-US, Worldwide
 Eleventy, https://www.11ty.dev/blog/feed.xml, en-US, Worldwide

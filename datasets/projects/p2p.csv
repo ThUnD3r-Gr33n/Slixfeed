@@ -1,2 +1,5 @@
 name, url, language, country
 Cabal, https://mastodon.social/@cabal.rss, en-US, Worldwide
+Session, https://getsession.org/feed, en-US, United States
+Briar, https://briarproject.org/news/index.xml, en-US, Worldwide
+I Hear U, https://sourceforge.net/projects/ihu/rss, en-US, Worldwide

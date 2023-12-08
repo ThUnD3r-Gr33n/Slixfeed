@@ -1,18 +1,22 @@
 name, url, language, country
 DokuWiki, https://www.dokuwiki.org/feed.php, en-US, Worldwide
-Feed of "MarvinsMastodonTools/tootbot", https://codeberg.org/MarvinsMastodonTools/tootbot.atom, en-US, Worldwide
-Feed of "MarvinsMastodonTools/feed2fedi", https://codeberg.org/MarvinsMastodonTools/feed2fedi.atom, en-US, Worldwide
+Feed of "tootbot", https://codeberg.org/MarvinsMastodonTools/tootbot.atom, en-US, Worldwide
+Feed of "feed2fedi", https://codeberg.org/MarvinsMastodonTools/feed2fedi.atom, en-US, Worldwide
+slidge activity, https://sr.ht/~nicoco/slidge/feed.rss, en-US, France
 Feed of "RightToPrivacy/wipri", http://gg6zxtreajiijztyy5g6bt5o6l3qu32nrg7eulyemlhxwwl6enk6ghad.onion/RightToPrivacy/wipri.atom, en-US, Worldwide
 Feed of "RightToPrivacy", http://gg6zxtreajiijztyy5g6bt5o6l3qu32nrg7eulyemlhxwwl6enk6ghad.onion/RightToPrivacy.atom, en-US, Worldwide
 firefish activity, https://git.joinfirefish.org/firefish/firefish.atom, en-US, Worldwide
 funkwhale activity, https://dev.funkwhale.audio/funkwhale/funkwhale.atom, en-US, Worldwide
 Howler activity, https://gitlab.com/awoo.fyi/howler.atom, en-US, Worldwide
 firefish activity, https://git.joinfirefish.org/firefish/firefish.atom, en-US, Worldwide
-Feed of "calckey/calckey", https://codeberg.org/calckey/calckey.atom, en-US, Worldwide
+Feed of "calckey", https://codeberg.org/calckey/calckey.atom, en-US, Worldwide
 gajim activity, https://dev.gajim.org/gajim/gajim.atom, en-US, France
 Bugs in qutim, http://feeds.launchpad.net/qutim/latest-bugs.atom, en-US, Russia
-Feed of "poezio/slixmpp", https://codeberg.org/poezio/slixmpp.atom, en-US, France
+Feed of "slixmpp", https://codeberg.org/poezio/slixmpp.atom, en-US, France
 Feed of "JoinJabber", https://codeberg.org/joinjabber.rss, en-US, Worldwide
-Feed of "poezio/poezio", https://codeberg.org/poezio/poezio.atom, en-US, France
-Feed of "poezio/biboumi", https://codeberg.org/poezio/biboumi.atom, en-US, France
+Feed of "poezio", https://codeberg.org/poezio/poezio.atom, en-US, France
+Feed of "biboumi", https://codeberg.org/poezio/biboumi.atom, en-US, France
 OpenTalk activity, https://gitlab.opencode.de/opentalk.atom, en-US, Worldwide
+Activity for I Hear U, https://sourceforge.net/p/ihu/activity/feed, en-US, Worldwide
+maubot activity, https://mau.dev/maubot.atom, en-US, Worldwide
+briar activity, https://code.briarproject.org/briar.atom, en-US, Worldwide

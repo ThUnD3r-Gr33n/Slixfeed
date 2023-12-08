@@ -18,6 +18,7 @@ from aiohttp import ClientError, ClientSession, ClientTimeout
 from asyncio import TimeoutError
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
+from email.utils import parseaddr
 from feedparser import parse
 from http.client import IncompleteRead
 from lxml import html
@@ -1016,7 +1017,7 @@ async def feed_mode_auto_discovery(url, tree):
 
 async def feed_to_http(url):
     """
-    Replace scheme feed by http.
+    Replace scheme FEED by HTTP.
 
     Parameters
     ----------
@@ -1039,9 +1040,10 @@ async def feed_to_http(url):
     return new_url
 
 
+"""TODO"""
 async def activitypub_to_http(namespace):
     """
-    Replace ActivityPub namespace by http.
+    Replace ActivityPub namespace by HTTP.
 
     Parameters
     ----------
@@ -1062,3 +1064,23 @@ async def activitypub_to_http(namespace):
         par_url.fragment
         ])
     return new_url
+
+
+async def check_xmpp_uri(uri):
+    """
+    Check validity of XMPP URI.
+
+    Parameters
+    ----------
+    uri : str
+        URI.
+
+    Returns
+    -------
+    jid : str
+        JID or None.
+    """
+    jid = urlsplit(uri).path
+    if parseaddr(jid)[1] != jid:
+        jid = False
+    return jid

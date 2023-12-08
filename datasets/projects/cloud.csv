@@ -1,3 +1,4 @@
 name, url, language, country
 Nextcloud, https://nextcloud.com/feed/, en-US, Worldwide
 MicroBin, https://microbin.eu/blog/atom.xml, en-US, Worldwide
+rclone - rsync for cloud storage, https://rclone.org/index.xml, en-US, United States

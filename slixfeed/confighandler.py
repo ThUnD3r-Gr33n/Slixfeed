@@ -32,6 +32,8 @@ async def get_value_default(key):
         Value.
     """
     match key:
+        case "archive":
+            result = 50
         case "enabled":
             result = 1
         case "filter-allow":

@@ -60,6 +60,7 @@ from random import randrange
 from datahandler import (
     add_feed,
     add_feed_no_check,
+    check_xmpp_uri,
     feed_to_http,
     view_entry,
     view_feed
@@ -244,6 +245,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         await self.join_muc(inviter, muc_jid)
 
 
+    """
+    TODO
+    1) Send message to inviter that bot has joined to groupchat.
+    2) If groupchat requires captcha, send the consequent message.
+    3) If groupchat error is received, send that error message to inviter.
+    """
     async def join_muc(self, inviter, muc_jid):
         # token = await initdb(
         #     muc_jid,
@@ -275,13 +282,13 @@ class Slixfeed(slixmpp.ClientXMPP):
         result = await self.plugin['xep_0048'].get_bookmarks()
         bookmarks = result["private"]["bookmarks"]
         conferences = bookmarks["conferences"]
-        print("result")
+        print("RESULT")
         print(result)
-        print("bookmarks")
+        print("BOOKMARKS")
         print(bookmarks)
-        print("conferences")
+        print("CONFERENCES")
         print(conferences)
-        breakpoint()
+        # breakpoint()
         mucs = []
         for conference in conferences:
             jid = conference["jid"]
@@ -669,6 +676,8 @@ class Slixfeed(slixmpp.ClientXMPP):
             print(await current_time(), "COMMAND:", message)
 
             match message_lowercase:
+                case "commands":
+                    action = print_cmd()
                 case "help":
                     action = print_help()
                 case "info":
@@ -798,6 +807,23 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 ).format(val)
                         else:
                             action = "Missing keywords."
+                case _ if message_lowercase.startswith("archive"):
+                    key = message[:7]
+                    val = message[8:]
+                    if val:
+                        if int(val) > 500:
+                            action = "Value may not be greater than 500."
+                        else:
+                            await initdb(
+                                jid,
+                                set_settings_value,
+                                [key, val]
+                                )
+                            action = (
+                                "Maximum archived items has been set to {}."
+                                ).format(val)
+                    else:
+                        action = "Missing value."
                 case _ if message_lowercase.startswith("deny +"):
                         key = "filter-" + message[:4]
                         val = message[6:]
@@ -959,8 +985,17 @@ class Slixfeed(slixmpp.ClientXMPP):
                     else:
                         action = "Missing value."
                 case _ if message_lowercase.startswith("join"):
-                    muc = message[5:]
-                    await self.join_muc(jid, muc)
+                    muc = await check_xmpp_uri(message[5:])
+                    if muc:
+                        "TODO probe JID and confirm it's a groupchat"
+                        await self.join_muc(jid, muc)
+                        action = (
+                            "Joined groupchat {}"
+                                  ).format(message)
+                    else:
+                        action = (
+                            "> {}\nXMPP URI is not valid."
+                                  ).format(message)
                 case _ if message_lowercase.startswith("length"):
                         key = message[:6]
                         val = message[7:]
@@ -976,7 +1011,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                                     )
                             else:
                                 action = (
-                                    "Summary maximum length is set to {} characters."
+                                    "Summary maximum length "
+                                    "is set to {} characters."
                                     ).format(val)
                         else:
                             action = "Missing value."
@@ -1011,7 +1047,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         ["old", 0]
                         )
                     action = (
-                        "Only new items of added feeds will be sent."
+                        "Only new items of newly added feeds will be sent."
                         )
                 case _ if message_lowercase.startswith("next"):
                     num = message[5:]
@@ -1046,7 +1082,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         ["old", 1]
                         )
                     action = (
-                        "All items of added feeds will be sent."
+                        "All items of newly added feeds will be sent."
                         )
                 case _ if message_lowercase.startswith("quantum"):
                     key = message[:7]
@@ -1227,6 +1263,18 @@ class Slixfeed(slixmpp.ClientXMPP):
                 case "support":
                     # TODO Send an invitation.
                     action = "Join xmpp:slixmpp@muc.poez.io?join"
+                case _ if message_lowercase.startswith("xmpp:"):
+                    muc = await check_xmpp_uri(message)
+                    if muc:
+                        "TODO probe JID and confirm it's a groupchat"
+                        await self.join_muc(jid, muc)
+                        action = (
+                            "Joined groupchat {}"
+                                  ).format(message)
+                    else:
+                        action = (
+                            "> {}\nXMPP URI is not valid."
+                                  ).format(message)
                 case _:
                     action = (
                         "Unknown command. "
@@ -1256,7 +1304,8 @@ def print_info():
         Message.
     """
     msg = (
-        "```\n"
+        "```"
+        "\n"
         "ABOUT\n"
         " Slixfeed aims to be an easy to use and fully-featured news\n"
         " aggregator bot for XMPP. It provides a convenient access to Blogs,\n"
@@ -1346,7 +1395,8 @@ def print_help():
         Message.
     """
     msg = (
-        "```\n"
+        "```"
+        "\n"
         "NAME\n"
         "Slixfeed - News syndication bot for Jabber/XMPP\n"
         "\n"
@@ -1373,11 +1423,11 @@ def print_help():
         " length\n"
         "   Set maximum length of news item description. (0 for no limit)\n"
         " new\n"
-        "   Send only new items of added feeds.\n"
+        "   Send only new items of newly added feeds.\n"
         " next N\n"
         "   Send N next updates.\n"
         " old\n"
-        "   Send all items of added feeds.\n"
+        "   Send all items of newly added feeds.\n"
         " quantum N\n"
         "   Set N amount of updates per interval.\n"
         " start\n"
@@ -1446,6 +1496,8 @@ def print_help():
         # "   Send a Plain Text file of your news items.\n"
         # "\n"
         "SUPPORT\n"
+        " commands\n"
+        "   Print list of commands.\n"
         " help\n"
         "   Print this help manual.\n"
         " info\n"
@@ -1457,6 +1509,48 @@ def print_help():
         # " Supported prootcols are IRC, Matrix and XMPP.\n"
         # " For the best experience, we recommend you to use XMPP.\n"
         # "\n"
+        "```"
+        )
+    return msg
+
+
+def print_cmd():
+    """
+    Print list of commands.
+
+    Returns
+    -------
+    msg : str
+        Message.
+    """
+    msg = (
+        "```"
+        "\n"
+        "!                 : Use exclamation mark to initiate an actionable command (groupchats only).\n"
+        "<MUC>             : Join specified groupchat.\n"
+        "<URL>             : Add URL to subscription list.\n"
+        "add <URL> <TITLE> : Add URL to subscription list (without validity check).\n"
+        "allow +           : Add keywords to allow (comma separates).\n"
+        "allow -           : Delete keywords from allow list (comma separates).\n"
+        "deny +            : Keywords to block (comma separates).\n"
+        "deny -            : Delete keywords from deny list (comma separates).\n"
+        "feeds             : List all subscriptions.\n"
+        "feeds <TEXT>      : Search subscriptions by given keywords.\n"
+        "interval N        : Set interval update to every N minutes.\n"
+        "join <MUC>        : Join specified groupchat.\n"
+        "length            : Set maximum length of news item description. (0 for no limit)\n"
+        "new               : Send only new items of newly added feeds.\n"
+        "next N            : Send N next updates.\n"
+        "old               : Send all items of newly added feeds.\n"
+        "quantum N         : Set N amount of updates per interval.\n"
+        "read <URL>        : Display most recent 20 titles of given URL.\n"
+        "read URL N        : Display specified entry number from given URL.\n"
+        "recent N          : List recent N news items (up to 50 items).\n"
+        "remove <ID>       : Remove feed from subscription list.\n"
+        "search <TEXT>     : Search news items by given keywords.\n"
+        "start             : Enable bot and send updates.\n"
+        "status <ID>       : Toggle update status of feed.\n"
+        "stop              : Disable bot and stop updates.\n"
         "```"
         )
     return msg
