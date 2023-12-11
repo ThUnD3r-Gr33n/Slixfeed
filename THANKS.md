@@ -10,6 +10,10 @@ Thank you goes to the following kind people.
 
 [Link Mauve](https://linkmauve.fr/contact.xhtml)
 
-[magicfelix]() (async)
+magicfelix (async)
+
+Simone "roughnecks" Canaletti
+
+Strix from Loqi
 
 Slixmpp participants who chose to remain anonymous or not to appear in this list.
