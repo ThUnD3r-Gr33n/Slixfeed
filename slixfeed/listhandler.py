@@ -15,7 +15,7 @@ TODO
 
 """
 
-from sqlitehandler import get_settings_value
+import sqlitehandler as sqlite
 
 
 async def add_to_list(newwords, keywords):
@@ -34,10 +34,11 @@ async def add_to_list(newwords, keywords):
     val : str
         List of current keywords and new keywords.
     """
-    try:
-        keywords = keywords.split(",")
-    except:
-        keywords = []
+    if isinstance(keywords, str) or keywords is None:
+        try:
+            keywords = keywords.split(",")
+        except:
+            keywords = []
     newwords = newwords.lower().split(",")
     for word in newwords:
         word = word.strip()
@@ -64,10 +65,11 @@ async def remove_from_list(newwords, keywords):
     val : str
         List of new keywords.
     """
-    try:
-        keywords = keywords.split(",")
-    except:
-        keywords = []
+    if isinstance(keywords, str) or keywords is None:
+        try:
+            keywords = keywords.split(",")
+        except:
+            keywords = []
     newwords = newwords.lower().split(",")
     for word in newwords:
         word = word.strip()
@@ -98,7 +100,7 @@ async def is_listed(db_file, key, string):
     """
 # async def reject(db_file, string):
 # async def is_blacklisted(db_file, string):
-    list = await get_settings_value(
+    list = await sqlite.get_filters_value(
         db_file,
         key
         )
@@ -118,37 +120,37 @@ async def is_listed(db_file, key, string):
 
 This code was tested at module datahandler
 
-                    reject = 0
-                    blacklist = await get_settings_value(
-                        db_file,
-                        "filter-deny"
-                        )
-                    # print(">>> blacklist:")
-                    # print(blacklist)
-                    # breakpoint()
-                    if blacklist:
-                        blacklist = blacklist.split(",")
-                        # print(">>> blacklist.split")
-                        # print(blacklist)
-                        # breakpoint()
-                        for i in blacklist:
-                            # print(">>> length", len(i))
-                            # breakpoint()
-                            # if len(i):
-                            if not i or len(i) < 2:
-                                print(">>> continue due to length", len(i))
-                                # breakpoint()
-                                continue
-                            # print(title)
-                            # print(">>> blacklisted word:", i)
-                            # breakpoint()
-                            test = (title + " " + summary + " " + link)
-                            if i in test.lower():
-                                reject = 1
-                                break
-                            
-                    if reject:
-                        print("rejected:",title)
-                        entry = (title, '', link, source, date, 1);
+reject = 0
+blacklist = await get_settings_value(
+    db_file,
+    "filter-deny"
+    )
+# print(">>> blacklist:")
+# print(blacklist)
+# breakpoint()
+if blacklist:
+    blacklist = blacklist.split(",")
+    # print(">>> blacklist.split")
+    # print(blacklist)
+    # breakpoint()
+    for i in blacklist:
+        # print(">>> length", len(i))
+        # breakpoint()
+        # if len(i):
+        if not i or len(i) < 2:
+            print(">>> continue due to length", len(i))
+            # breakpoint()
+            continue
+        # print(title)
+        # print(">>> blacklisted word:", i)
+        # breakpoint()
+        test = (title + " " + summary + " " + link)
+        if i in test.lower():
+            reject = 1
+            break
+        
+if reject:
+    print("rejected:",title)
+    entry = (title, '', link, source, date, 1);
 
 """

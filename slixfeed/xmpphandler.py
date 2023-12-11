@@ -57,35 +57,13 @@ import logging
 import slixmpp
 from slixmpp.exceptions import IqError
 from random import randrange
-from datahandler import (
-    add_feed,
-    add_feed_no_check,
-    check_xmpp_uri,
-    feed_to_http,
-    view_entry,
-    view_feed
-    )
+import datahandler as fetcher
 from datetimehandler import current_time
 from filehandler import initdb
-from listhandler import add_to_list, remove_from_list
-from sqlitehandler import (
-    get_settings_value,
-    set_settings_value,
-    mark_source_as_read,
-    last_entries,
-    list_feeds,
-    remove_feed,
-    search_feeds,
-    statistics,
-    toggle_status
-    )
-from taskhandler import (
-    clean_tasks_xmpp,
-    start_tasks_xmpp,
-    refresh_task,
-    send_status,
-    send_update
-    )
+import listhandler as lister
+import sqlitehandler as sqlite
+import taskhandler as tasker
+
 from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadServiceNotFound
 # from slixmpp.plugins.xep_0402 import BookmarkStorage, Conference
 from slixmpp.plugins.xep_0048.stanza import Bookmarks
@@ -116,8 +94,10 @@ class Slixfeed(slixmpp.ClientXMPP):
     -------
     News bot that sends updates from RSS feeds.
     """
-    def __init__(self, jid, password, room=None, nick=None):
+    def __init__(self, jid, password, nick):
         slixmpp.ClientXMPP.__init__(self, jid, password)
+
+        self.nick = nick
 
         # The session_start event will be triggered when
         # the bot establishes its connection with the server
@@ -192,11 +172,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         # print("def presence_available", presence["from"].bare)
         if presence["from"].bare not in self.boundjid.bare:
             jid = presence["from"].bare
-            await clean_tasks_xmpp(
+            await tasker.clean_tasks_xmpp(
                 jid,
                 ["interval", "status", "check"]
                 )
-            await start_tasks_xmpp(
+            await tasker.start_tasks_xmpp(
                 self,
                 jid,
                 ["interval", "status", "check"]
@@ -209,7 +189,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         if not self.boundjid.bare:
             jid = presence["from"].bare
             print(">>> unavailable:", jid)
-            await clean_tasks_xmpp(
+            await tasker.clean_tasks_xmpp(
                 jid,
                 ["interval", "status", "check"]
                 )
@@ -274,7 +254,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         print(muc_jid)
         self.plugin['xep_0045'].join_muc(
             muc_jid,
-            "Slixfeed (RSS News Bot)",
+            self.nick,
             # If a room password is needed, use:
             # password=the_room_password,
             )
@@ -299,7 +279,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             for muc in mucs:
                 bookmarks.add_conference(
                     muc,
-                    "Slixfeed (RSS News Bot)",
+                    self.nick,
                     autojoin=True
                     )
             await self.plugin['xep_0048'].set_bookmarks(bookmarks)
@@ -308,7 +288,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         # print(await self.plugin['xep_0048'].get_bookmarks())
 
         # bm = BookmarkStorage()
-        # bm.conferences.append(Conference(muc_jid, autojoin=True, nick="Slixfeed (RSS News Bot)"))
+        # bm.conferences.append(Conference(muc_jid, autojoin=True, nick=self.nick))
         # await self['xep_0402'].publish(bm)
 
 
@@ -333,13 +313,13 @@ class Slixfeed(slixmpp.ClientXMPP):
             for muc in mucs:
                 bookmarks.add_conference(
                     muc,
-                    "Slixfeed (RSS News Bot)",
+                    self.nick,
                     autojoin=True
                     )
             await self.plugin['xep_0048'].set_bookmarks(bookmarks)
         self.plugin['xep_0045'].leave_muc(
             muc_jid,
-            "Slixfeed (RSS News Bot)",
+            self.nick,
             "Goodbye!",
             self.boundjid.bare
             )
@@ -355,7 +335,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 print(muc)
                 self.plugin['xep_0045'].join_muc(
                     muc,
-                    "Slixfeed (RSS News Bot)",
+                    self.nick,
                     # If a room password is needed, use:
                     # password=the_room_password,
                     )
@@ -414,10 +394,10 @@ class Slixfeed(slixmpp.ClientXMPP):
         print(message)
         if message["type"] in ("chat", "normal"):
             jid = message["from"].bare
-        await refresh_task(
+        await tasker.refresh_task(
             self,
             jid,
-            send_status,
+            tasker.send_status,
             "status",
             20
             )
@@ -446,11 +426,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = presence["from"].bare
         if presence["show"] in ("away", "dnd", "xa"):
             print(">>> away, dnd, xa:", jid)
-            await clean_tasks_xmpp(
+            await tasker.clean_tasks_xmpp(
                 jid,
                 ["interval"]
                 )
-            await start_tasks_xmpp(
+            await tasker.start_tasks_xmpp(
                 self,
                 jid,
                 ["status", "check"]
@@ -539,7 +519,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 self.send_presence_subscription(
                     pto=jid,
                     ptype="subscribe",
-                    pnick="Slixfeed RSS News Bot"
+                    pnick=self.nick
                     )
                 self.update_roster(
                     jid,
@@ -551,23 +531,27 @@ class Slixfeed(slixmpp.ClientXMPP):
                     pto=jid,
                     pfrom=self.boundjid.bare,
                     ptype="subscribe",
-                    pnick="Slixfeed RSS News Bot"
+                    pnick=self.nick
                     )
                 self.send_message(
                     mto=jid,
                     # mtype="headline",
                     msubject="RSS News Bot",
-                    mbody="Accept subscription request to receive updates.",
+                    mbody=(
+                        "Accept subscription request to receive updates"
+                        ),
                     mfrom=self.boundjid.bare,
-                    mnick="Slixfeed RSS News Bot"
+                    mnick=self.nick
                     )
                 self.send_presence(
                     pto=jid,
                     pfrom=self.boundjid.bare,
                     # Accept symbol 🉑️ 👍️ ✍
-                    pstatus="✒️ Accept subscription request to receive updates",
+                    pstatus=(
+                        "✒️ Accept subscription request to receive updates"
+                        ),
                     # ptype="subscribe",
-                    pnick="Slixfeed RSS News Bot"
+                    pnick=self.nick
                     )
 
 
@@ -582,7 +566,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             pto=jid,
             pfrom=self.boundjid.bare,
             pstatus="🖋️ Subscribe to receive updates",
-            pnick="Slixfeed RSS News Bot"
+            pnick=self.nick
             )
         self.send_message(
             mto=jid,
@@ -617,7 +601,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 # nick = msg["from"][msg["from"].index("/")+1:]
                 nick = str(msg["from"])
                 nick = nick[nick.index("/")+1:]
-                if (msg['muc']['nick'] == "Slixfeed (RSS News Bot)" or
+                if (msg['muc']['nick'] == self.nick or
                     not msg["body"].startswith("!")):
                     return
                 # token = await initdb(
@@ -732,21 +716,21 @@ class Slixfeed(slixmpp.ClientXMPP):
                     if url.startswith("http"):
                         action = await initdb(
                             jid,
-                            add_feed_no_check,
+                            fetcher.add_feed_no_check,
                             [url, title]
                             )
                         old = await initdb(
                             jid,
-                            get_settings_value,
+                            sqlite.get_settings_value,
                             "old"
                             )
                         if old:
-                            await clean_tasks_xmpp(
+                            await tasker.clean_tasks_xmpp(
                                 jid,
                                 ["status"]
                                 )
                             # await send_status(jid)
-                            await start_tasks_xmpp(
+                            await tasker.start_tasks_xmpp(
                                 self,
                                 jid,
                                 ["status"]
@@ -754,7 +738,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         else:
                             await initdb(
                                 jid,
-                                mark_source_as_read,
+                                sqlite.mark_source_as_read,
                                 url
                                 )
                     else:
@@ -765,16 +749,16 @@ class Slixfeed(slixmpp.ClientXMPP):
                         if val:
                             keywords = await initdb(
                                 jid,
-                                get_settings_value,
+                                sqlite.get_filters_value,
                                 key
                                 )
-                            val = await add_to_list(
+                            val = await lister.add_to_list(
                                 val,
                                 keywords
                                 )
                             await initdb(
                                 jid,
-                                set_settings_value,
+                                sqlite.set_filters_value,
                                 [key, val]
                                 )
                             action = (
@@ -789,16 +773,16 @@ class Slixfeed(slixmpp.ClientXMPP):
                         if val:
                             keywords = await initdb(
                                 jid,
-                                get_settings_value,
+                                sqlite.get_filters_value,
                                 key
                                 )
-                            val = await remove_from_list(
+                            val = await lister.remove_from_list(
                                 val,
                                 keywords
                                 )
                             await initdb(
                                 jid,
-                                set_settings_value,
+                                sqlite.set_filters_value,
                                 [key, val]
                                 )
                             action = (
@@ -816,7 +800,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         else:
                             await initdb(
                                 jid,
-                                set_settings_value,
+                                sqlite.set_settings_value,
                                 [key, val]
                                 )
                             action = (
@@ -830,16 +814,16 @@ class Slixfeed(slixmpp.ClientXMPP):
                         if val:
                             keywords = await initdb(
                                 jid,
-                                get_settings_value,
+                                sqlite.get_filters_value,
                                 key
                                 )
-                            val = await add_to_list(
+                            val = await lister.add_to_list(
                                 val,
                                 keywords
                                 )
                             await initdb(
                                 jid,
-                                set_settings_value,
+                                sqlite.set_filters_value,
                                 [key, val]
                                 )
                             action = (
@@ -854,16 +838,16 @@ class Slixfeed(slixmpp.ClientXMPP):
                         if val:
                             keywords = await initdb(
                                 jid,
-                                get_settings_value,
+                                sqlite.get_filters_value,
                                 key
                                 )
-                            val = await remove_from_list(
+                            val = await lister.remove_from_list(
                                 val,
                                 keywords
                                 )
                             await initdb(
                                 jid,
-                                set_settings_value,
+                                sqlite.set_filters_value,
                                 [key, val]
                                 )
                             action = (
@@ -879,8 +863,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                            message_lowercase.startswith("feed:")):
                     url = message
                     if url.startswith("feed:"):
-                        url = await feed_to_http(url)
-                    await clean_tasks_xmpp(
+                        url = await fetcher.feed_to_http(url)
+                    await tasker.clean_tasks_xmpp(
                         jid,
                         ["status"]
                         )
@@ -890,10 +874,10 @@ class Slixfeed(slixmpp.ClientXMPP):
                     process_task_message(self, jid, task)
                     action = await initdb(
                         jid,
-                        add_feed,
+                        fetcher.add_feed,
                         url
                         )
-                    await start_tasks_xmpp(
+                    await tasker.start_tasks_xmpp(
                         self,
                         jid,
                         ["status"]
@@ -910,16 +894,16 @@ class Slixfeed(slixmpp.ClientXMPP):
                     # NOTE This would show the number of new unread entries
                     old = await initdb(
                         jid,
-                        get_settings_value,
+                        sqlite.get_settings_value,
                         "old"
                         )
                     if old:
-                        await clean_tasks_xmpp(
+                        await tasker.clean_tasks_xmpp(
                             jid,
                             ["status"]
                             )
                         # await send_status(jid)
-                        await start_tasks_xmpp(
+                        await tasker.start_tasks_xmpp(
                             self,
                             jid,
                             ["status"]
@@ -927,7 +911,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     else:
                         await initdb(
                             jid,
-                            mark_source_as_read,
+                            sqlite.mark_source_as_read,
                             url
                             )
                 case _ if message_lowercase.startswith("feeds"):
@@ -936,7 +920,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         if len(query) > 3:
                             action = await initdb(
                                 jid,
-                                search_feeds,
+                                sqlite.search_feeds,
                                 query
                                 )
                         else:
@@ -946,7 +930,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     else:
                         action = await initdb(
                             jid,
-                            list_feeds
+                            sqlite.list_feeds
                             )
                 case "goodbye":
                     if msg["type"] == "groupchat":
@@ -967,15 +951,15 @@ class Slixfeed(slixmpp.ClientXMPP):
                         #     ).format(action)
                         await initdb(
                             jid,
-                            set_settings_value,
+                            sqlite.set_settings_value,
                             [key, val]
                             )
                         # NOTE Perhaps this should be replaced
                         # by functions clean and start
-                        await refresh_task(
+                        await tasker.refresh_task(
                             self,
                             jid,
-                            send_update,
+                            tasker.send_update,
                             key,
                             val
                             )
@@ -985,7 +969,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     else:
                         action = "Missing value."
                 case _ if message_lowercase.startswith("join"):
-                    muc = await check_xmpp_uri(message[5:])
+                    muc = await fetcher.check_xmpp_uri(message[5:])
                     if muc:
                         "TODO probe JID and confirm it's a groupchat"
                         await self.join_muc(jid, muc)
@@ -1002,7 +986,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         if val:
                             await initdb(
                                 jid,
-                                set_settings_value,
+                                sqlite.set_settings_value,
                                 [key, val]
                                 )
                             if val == 0:
@@ -1043,7 +1027,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 case "new":
                     await initdb(
                         jid,
-                        set_settings_value,
+                        sqlite.set_settings_value,
                         ["old", 0]
                         )
                     action = (
@@ -1051,11 +1035,11 @@ class Slixfeed(slixmpp.ClientXMPP):
                         )
                 case _ if message_lowercase.startswith("next"):
                     num = message[5:]
-                    await clean_tasks_xmpp(
+                    await tasker.clean_tasks_xmpp(
                         jid,
                         ["interval", "status"]
                         )
-                    await start_tasks_xmpp(
+                    await tasker.start_tasks_xmpp(
                         self,
                         jid,
                         ["interval", "status"]
@@ -1078,7 +1062,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 case "old":
                     await initdb(
                         jid,
-                        set_settings_value,
+                        sqlite.set_settings_value,
                         ["old", 1]
                         )
                     action = (
@@ -1093,7 +1077,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         #     ).format(action)
                         await initdb(
                             jid,
-                            set_settings_value,
+                            sqlite.set_settings_value,
                             [key, val]
                             )
                         action = (
@@ -1111,22 +1095,22 @@ class Slixfeed(slixmpp.ClientXMPP):
                         "📫️ Processing request to fetch data from {}"
                         ).format(url)
                     process_task_message(self, jid, task)
-                    await clean_tasks_xmpp(
+                    await tasker.clean_tasks_xmpp(
                         jid,
                         ["status"]
                         )
                     if url.startswith("feed:"):
-                        url = await feed_to_http(url)
+                        url = await fetcher.feed_to_http(url)
                     match len(data):
                         case 1:
                             if url.startswith("http"):
-                                action = await view_feed(url)
+                                action = await fetcher.view_feed(url)
                             else:
                                 action = "Missing URL."
                         case 2:
                             num = data[1]
                             if url.startswith("http"):
-                                action = await view_entry(url, num)
+                                action = await fetcher.view_entry(url, num)
                             else:
                                 action = "Missing URL."
                         case _:
@@ -1135,7 +1119,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 "`read URL` or `read URL NUMBER`\n"
                                 "URL must not contain white space."
                                 )
-                    await start_tasks_xmpp(
+                    await tasker.start_tasks_xmpp(
                         self,
                         jid,
                         ["status"]
@@ -1145,7 +1129,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     if num:
                         action = await initdb(
                             jid,
-                            last_entries,
+                            sqlite.last_entries,
                             num
                             )
                     else:
@@ -1155,7 +1139,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     if ix:
                         action = await initdb(
                             jid,
-                            remove_feed,
+                            sqlite.remove_feed,
                             ix
                             )
                         # await refresh_task(
@@ -1165,11 +1149,11 @@ class Slixfeed(slixmpp.ClientXMPP):
                         #     "status",
                         #     20
                         #     )
-                        await clean_tasks_xmpp(
+                        await tasker.clean_tasks_xmpp(
                             jid,
                             ["status"]
                             )
-                        await start_tasks_xmpp(
+                        await tasker.start_tasks_xmpp(
                             self,
                             jid,
                             ["status"]
@@ -1197,11 +1181,11 @@ class Slixfeed(slixmpp.ClientXMPP):
                     val = 1
                     await initdb(
                         jid,
-                        set_settings_value,
+                        sqlite.set_settings_value,
                         [key, val]
                         )
                     # asyncio.create_task(task_jid(self, jid))
-                    await start_tasks_xmpp(
+                    await tasker.start_tasks_xmpp(
                         self,
                         jid,
                         ["interval", "status", "check"]
@@ -1212,13 +1196,13 @@ class Slixfeed(slixmpp.ClientXMPP):
                 case "stats":
                     action = await initdb(
                         jid,
-                        statistics
+                        sqlite.statistics
                         )
                 case _ if message_lowercase.startswith("status "):
                     ix = message[7:]
                     action = await initdb(
                         jid,
-                        toggle_status,
+                        sqlite.toggle_status,
                         ix
                         )
                 case "stop":
@@ -1247,10 +1231,10 @@ class Slixfeed(slixmpp.ClientXMPP):
                     val = 0
                     await initdb(
                         jid,
-                        set_settings_value,
+                        sqlite.set_settings_value,
                         [key, val]
                         )
-                    await clean_tasks_xmpp(
+                    await tasker.clean_tasks_xmpp(
                         jid,
                         ["interval", "status"]
                         )
@@ -1264,7 +1248,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     # TODO Send an invitation.
                     action = "Join xmpp:slixmpp@muc.poez.io?join"
                 case _ if message_lowercase.startswith("xmpp:"):
-                    muc = await check_xmpp_uri(message)
+                    muc = await fetcher.check_xmpp_uri(message)
                     if muc:
                         "TODO probe JID and confirm it's a groupchat"
                         await self.join_muc(jid, muc)

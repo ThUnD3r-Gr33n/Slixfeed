@@ -19,7 +19,7 @@ from asyncio import Lock
 from bs4 import BeautifulSoup
 from datetime import date
 # from slixfeed.confighandler import get_value_default
-import confighandler as confighandler
+import confighandler as config
 # from slixfeed.datahandler import join_url
 import datahandler as datahandler
 from datetimehandler import current_time, rfc2822_to_iso8601
@@ -122,6 +122,13 @@ def create_tables(db_file):
             "value INTEGER"
             ");"
             )
+        filters_table_sql = (
+            "CREATE TABLE IF NOT EXISTS filters ("
+            "id INTEGER PRIMARY KEY,"
+            "key TEXT NOT NULL,"
+            "value TEXT"
+            ");"
+            )
         cur = conn.cursor()
         # cur = get_cursor(db_file)
         cur.execute(feeds_table_sql)
@@ -129,6 +136,7 @@ def create_tables(db_file):
         cur.execute(archive_table_sql)
         # cur.execute(statistics_table_sql)
         cur.execute(settings_table_sql)
+        cur.execute(filters_table_sql)
 
 
 def get_cursor(db_file):
@@ -911,7 +919,13 @@ async def maintain_archive(cur, limit):
         "FROM archive"
         )
     count = cur.execute(sql).fetchone()[0]
-    reduc = count - limit
+    # FIXME Upon first time joining to a groupchat
+    # and then adding a URL, variable "limit"
+    # becomes a string in one of the iterations.
+    # if isinstance(limit,str):
+    #     print("STOP")
+    #     breakpoint()
+    reduc = count - int(limit)
     if reduc > 0:
         sql = (
             "DELETE FROM archive "
@@ -1046,7 +1060,7 @@ async def remove_nonexistent_entries(db_file, feed, source):
                             cur.execute(sql, (ix,))
                         except:
                             print(
-                                "ERROR DB inset from entries "
+                                "ERROR DB insert from entries "
                                 "into archive at index", ix
                                 )
                         sql = (
@@ -1456,12 +1470,11 @@ async def set_settings_value(db_file, key_value):
                 "WHERE key = :key"
                 )
             cur.execute(sql, {
-                "key": key, 
+                "key": key,
                 "value": val
                 })
 
 
-# TODO Place settings also in a file
 async def set_settings_value_default(cur, key):
     """
     Set default settings value, if no value found.
@@ -1494,7 +1507,7 @@ async def set_settings_value_default(cur, key):
         )
     cur.execute(sql, (key,))
     if not cur.fetchone():
-        val = await confighandler.get_value_default(key)
+        val = await config.get_value_default(key)
         sql = (
             "INSERT "
             "INTO settings(key,value) "
@@ -1513,7 +1526,8 @@ async def get_settings_value(db_file, key):
     db_file : str
         Path to database file.
     key : str
-        Key: "enabled", "interval", "master", "quantum", "random".
+        Key: archive, enabled, filter-allow, filter-deny,
+             interval, length, old, quantum, random.
 
     Returns
     -------
@@ -1544,4 +1558,110 @@ async def get_settings_value(db_file, key):
             val = await set_settings_value_default(cur, key)
         if not val:
             val = await set_settings_value_default(cur, key)
+        return val
+
+
+async def set_filters_value(db_file, key_value):
+    """
+    Set settings value.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    key_value : list
+         key : str
+               filter-allow, filter-deny, filter-replace.
+         value : int
+               Numeric value.
+    """
+    # if isinstance(key_value, list):
+    #     key = key_value[0]
+    #     val = key_value[1]
+    # elif key_value == "enable":
+    #     key = "enabled"
+    #     val = 1
+    # else:
+    #     key = "enabled"
+    #     val = 0
+    key = key_value[0]
+    val = key_value[1]
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            await set_filters_value_default(cur, key)
+            sql = (
+                "UPDATE filters "
+                "SET value = :value "
+                "WHERE key = :key"
+                )
+            cur.execute(sql, {
+                "key": key,
+                "value": val
+                })
+
+
+async def set_filters_value_default(cur, key):
+    """
+    Set default filters value, if no value found.
+
+    Parameters
+    ----------
+    cur : object
+        Cursor object.
+    key : str
+        Key: filter-allow, filter-deny, filter-replace.
+
+    Returns
+    -------
+    val : str
+        List of strings.
+    """
+    sql = (
+        "SELECT id "
+        "FROM filters "
+        "WHERE key = ?"
+        )
+    cur.execute(sql, (key,))
+    if not cur.fetchone():
+        val = await config.get_list(key)
+        val = ",".join(val)
+        sql = (
+            "INSERT "
+            "INTO filters(key,value) "
+            "VALUES(?,?)"
+            )
+        cur.execute(sql, (key, val))
+        return val
+
+
+async def get_filters_value(db_file, key):
+    """
+    Get filters value.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    key : str
+        Key: allow, deny.
+
+    Returns
+    -------
+    val : str
+        List of strings.
+    """
+    with create_connection(db_file) as conn:
+        try:
+            cur = conn.cursor()
+            sql = (
+                "SELECT value "
+                "FROM filters "
+                "WHERE key = ?"
+                )
+            val = cur.execute(sql, (key,)).fetchone()[0]
+        except:
+            val = await set_filters_value_default(cur, key)
+        if not val:
+            val = await set_filters_value_default(cur, key)
         return val

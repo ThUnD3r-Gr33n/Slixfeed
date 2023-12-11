@@ -25,16 +25,7 @@ from lxml import html
 from datetimehandler import now, rfc2822_to_iso8601
 from confighandler import get_list
 from listhandler import is_listed
-from sqlitehandler import (
-    add_entry_and_set_date,
-    insert_feed,
-    check_entry_exist,
-    check_feed_exist,
-    get_feeds_url,
-    remove_nonexistent_entries,
-    update_source_status,
-    update_source_validity
-    )
+import sqlitehandler as sqlite
 from urllib import error
 # from xml.etree.ElementTree import ElementTree, ParseError
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -54,7 +45,7 @@ async def download_updates(db_file, url=None):
     if url:
         urls = [url] # Valid [url] and [url,] and (url,)
     else:
-        urls = await get_feeds_url(db_file)
+        urls = await sqlite.get_feeds_url(db_file)
     for url in urls:
         # print(os.path.basename(db_file), url[0])
         source = url[0]
@@ -65,7 +56,7 @@ async def download_updates(db_file, url=None):
             # urls.next()
             # next(urls)
             continue
-        await update_source_status(
+        await sqlite.update_source_status(
             db_file,
             res[1],
             source
@@ -83,7 +74,7 @@ async def download_updates(db_file, url=None):
                     valid = 0
                 else:
                     valid = 1
-                await update_source_validity(
+                await sqlite.update_source_validity(
                     db_file,
                     source,
                     valid)
@@ -108,7 +99,7 @@ async def download_updates(db_file, url=None):
             entries = feed.entries
             # length = len(entries)
             # await remove_entry(db_file, source, length)
-            await remove_nonexistent_entries(
+            await sqlite.remove_nonexistent_entries(
                 db_file,
                 feed,
                 source
@@ -145,7 +136,7 @@ async def download_updates(db_file, url=None):
                     eid = entry.id
                 else:
                     eid = link
-                exist = await check_entry_exist(
+                exist = await sqlite.check_entry_exist(
                     db_file,
                     source,
                     eid=eid,
@@ -212,7 +203,7 @@ async def download_updates(db_file, url=None):
                         # breakpoint()
                     print(source)
                     print(date)
-                    await add_entry_and_set_date(
+                    await sqlite.add_entry_and_set_date(
                         db_file,
                         source,
                         entry
@@ -412,9 +403,9 @@ async def add_feed_no_check(db_file, data):
     url = data[0]
     title = data[1]
     url = await trim_url(url)
-    exist = await check_feed_exist(db_file, url)
+    exist = await sqlite.check_feed_exist(db_file, url)
     if not exist:
-        msg = await insert_feed(db_file, url, title)
+        msg = await sqlite.insert_feed(db_file, url, title)
         await download_updates(db_file, [url])
     else:
         ix = exist[0]
@@ -445,7 +436,7 @@ async def add_feed(db_file, url):
     """
     msg = None
     url = await trim_url(url)
-    exist = await check_feed_exist(db_file, url)
+    exist = await sqlite.check_feed_exist(db_file, url)
     if not exist:
         res = await download_feed(url)
         if res[0]:
@@ -459,7 +450,7 @@ async def add_feed(db_file, url):
                 msg = await probe_page(add_feed, url, res[0], db_file=db_file)
             else:
                 status = res[1]
-                msg = await insert_feed(
+                msg = await sqlite.insert_feed(
                     db_file,
                     url,
                     title,
@@ -777,7 +768,7 @@ async def feed_mode_request(url, tree):
     """
     feeds = {}
     parted_url = urlsplit(url)
-    paths = get_list()
+    paths = await get_list("pathnames")
     for path in paths:
         address = urlunsplit([
             parted_url.scheme,
@@ -877,7 +868,7 @@ async def feed_mode_scan(url, tree):
     feeds = {}
     # paths = []
     # TODO Test
-    paths = get_list()
+    paths = await get_list("pathnames")
     for path in paths:
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
         xpath_query = "//a[contains(@href,'{}')]".format(path)

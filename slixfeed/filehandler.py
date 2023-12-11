@@ -72,8 +72,7 @@ def get_default_confdir():
             config_home = os.path.join(os.environ.get('HOME'), '.config')
     return os.path.join(config_home, 'slixfeed')
 
-# NOTE Perhaps this needs to be executed
-# just once per program execution
+
 async def initdb(jid, callback, message=None):
     """
     Callback function to instantiate action on database.
