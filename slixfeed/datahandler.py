@@ -23,6 +23,7 @@ from feedparser import parse
 from http.client import IncompleteRead
 from lxml import html
 from datetimehandler import now, rfc2822_to_iso8601
+from urlhandler import complete_url, join_url, trim_url
 from confighandler import get_list
 from listhandler import is_listed
 import sqlitehandler as sqlite
@@ -109,14 +110,14 @@ async def download_updates(db_file, url=None):
                 # TODO Pass date too for comparion check
                 if entry.has_key("published"):
                     date = entry.published
-                    date = await rfc2822_to_iso8601(date)
+                    date = rfc2822_to_iso8601(date)
                 elif entry.has_key("updated"):
                     date = entry.updated
-                    date = await rfc2822_to_iso8601(date)
+                    date = rfc2822_to_iso8601(date)
                 else:
                     # TODO Just set date = "*** No date ***"
                     # date = await datetime.now().isoformat()
-                    date = await now()
+                    date = now()
                     # NOTE Would seconds result in better database performance
                     # date = datetime.datetime(date)
                     # date = (date-datetime.datetime(1970,1,1)).total_seconds()
@@ -128,8 +129,8 @@ async def download_updates(db_file, url=None):
                     # title = feed["feed"]["title"]
                 if entry.has_key("link"):
                     # link = complete_url(source, entry.link)
-                    link = await join_url(source, entry.link)
-                    link = await trim_url(link)
+                    link = join_url(source, entry.link)
+                    link = trim_url(link)
                 else:
                     link = source
                 if entry.has_key("id"):
@@ -208,9 +209,9 @@ async def download_updates(db_file, url=None):
                         source,
                         entry
                         )
-                #     print(await current_time(), entry, title)
+                #     print(current_time(), entry, title)
                 # else:
-                #     print(await current_time(), exist, title)
+                #     print(current_time(), exist, title)
 
 
 # NOTE Why (if result[0]) and (if result[1] == 200)?
@@ -256,7 +257,8 @@ async def view_feed(url):
                 ).format(url, e)
             # breakpoint()
     if result[1] == 200:
-        title = await get_title(url, result[0])
+        feed = parse(result[0])
+        title = get_title(url, feed)
         entries = feed.entries
         msg = "Preview of {}:\n```\n".format(title)
         count = 0
@@ -268,16 +270,16 @@ async def view_feed(url):
                 title = "*** No title ***"
             if entry.has_key("link"):
                 # link = complete_url(source, entry.link)
-                link = await join_url(url, entry.link)
-                link = await trim_url(link)
+                link = join_url(url, entry.link)
+                link = trim_url(link)
             else:
                 link = "*** No link ***"
             if entry.has_key("published"):
                 date = entry.published
-                date = await rfc2822_to_iso8601(date)
+                date = rfc2822_to_iso8601(date)
             elif entry.has_key("updated"):
                 date = entry.updated
-                date = await rfc2822_to_iso8601(date)
+                date = rfc2822_to_iso8601(date)
             else:
                 date = "*** No date ***"
             msg += (
@@ -333,7 +335,7 @@ async def view_entry(url, num):
             # breakpoint()
     if result[1] == 200:
         feed = parse(result[0])
-        title = await get_title(url, result[0])
+        title = get_title(url, result[0])
         entries = feed.entries
         num = int(num) - 1
         entry = entries[num]
@@ -343,10 +345,10 @@ async def view_entry(url, num):
             title = "*** No title ***"
         if entry.has_key("published"):
             date = entry.published
-            date = await rfc2822_to_iso8601(date)
+            date = rfc2822_to_iso8601(date)
         elif entry.has_key("updated"):
             date = entry.updated
-            date = await rfc2822_to_iso8601(date)
+            date = rfc2822_to_iso8601(date)
         else:
             date = "*** No date ***"
         if entry.has_key("summary"):
@@ -359,8 +361,8 @@ async def view_entry(url, num):
             summary = "*** No summary ***"
         if entry.has_key("link"):
             # link = complete_url(source, entry.link)
-            link = await join_url(url, entry.link)
-            link = await trim_url(link)
+            link = join_url(url, entry.link)
+            link = trim_url(link)
         else:
             link = "*** No link ***"
         msg = (
@@ -402,7 +404,7 @@ async def add_feed_no_check(db_file, data):
     """
     url = data[0]
     title = data[1]
-    url = await trim_url(url)
+    url = trim_url(url)
     exist = await sqlite.check_feed_exist(db_file, url)
     if not exist:
         msg = await sqlite.insert_feed(db_file, url, title)
@@ -435,13 +437,13 @@ async def add_feed(db_file, url):
         Status message.
     """
     msg = None
-    url = await trim_url(url)
+    url = trim_url(url)
     exist = await sqlite.check_feed_exist(db_file, url)
     if not exist:
         res = await download_feed(url)
         if res[0]:
             feed = parse(res[0])
-            title = await get_title(url, feed)
+            title = get_title(url, feed)
             if feed.bozo:
                 bozo = (
                     "Bozo detected. Failed to load: {}."
@@ -570,7 +572,7 @@ async def download_feed(url):
     return msg
 
 
-async def get_title(url, feed):
+def get_title(url, feed):
     """
     Get title of feed.
 
@@ -591,160 +593,6 @@ async def get_title(url, feed):
     except:
         title = urlsplit(url).netloc
     return title
-
-
-# NOTE Read the documentation
-# https://docs.python.org/3/library/urllib.parse.html#urllib.parse.urljoin
-def complete_url(source, link):
-    """
-    Check if URL is pathname and complete it into URL.
-
-    Parameters
-    ----------
-    source : str
-        Feed URL.
-    link : str
-        Link URL or pathname.
-
-    Returns
-    -------
-    str
-        URL.
-    """
-    if link.startswith("www."):
-        return "http://" + link
-    parted_link = urlsplit(link)
-    parted_feed = urlsplit(source)
-    if parted_link.scheme == "magnet" and parted_link.query:
-        return link
-    if parted_link.scheme and parted_link.netloc:
-        return link
-    if link.startswith("//"):
-        if parted_link.netloc and parted_link.path:
-            new_link = urlunsplit([
-                parted_feed.scheme,
-                parted_link.netloc,
-                parted_link.path,
-                parted_link.query,
-                parted_link.fragment
-                ])
-    elif link.startswith("/"):
-        new_link = urlunsplit([
-            parted_feed.scheme,
-            parted_feed.netloc,
-            parted_link.path,
-            parted_link.query,
-            parted_link.fragment
-            ])
-    elif link.startswith("../"):
-        pathlink = parted_link.path.split("/")
-        pathfeed = parted_feed.path.split("/")
-        for i in pathlink:
-            if i == "..":
-                if pathlink.index("..") == 0:
-                    pathfeed.pop()
-                else:
-                    break
-        while pathlink.count(".."):
-            if pathlink.index("..") == 0:
-                pathlink.remove("..")
-            else:
-                break
-        pathlink = "/".join(pathlink)
-        pathfeed.extend([pathlink])
-        new_link = urlunsplit([
-            parted_feed.scheme,
-            parted_feed.netloc,
-            "/".join(pathfeed),
-            parted_link.query,
-            parted_link.fragment
-            ])
-    else:
-        pathlink = parted_link.path.split("/")
-        pathfeed = parted_feed.path.split("/")
-        if link.startswith("./"):
-            pathlink.remove(".")
-        if not source.endswith("/"):
-            pathfeed.pop()
-        pathlink = "/".join(pathlink)
-        pathfeed.extend([pathlink])
-        new_link = urlunsplit([
-            parted_feed.scheme,
-            parted_feed.netloc,
-            "/".join(pathfeed),
-            parted_link.query,
-            parted_link.fragment
-            ])
-    return new_link
-
-
-"""
-TODO
-Feed https://www.ocaml.org/feed.xml
-Link %20https://frama-c.com/fc-versions/cobalt.html%20
-
-FIXME
-Feed https://cyber.dabamos.de/blog/feed.rss
-Link https://cyber.dabamos.de/blog/#article-2022-07-15
-"""
-async def join_url(source, link):
-    """
-    Join base URL with given pathname.
-
-    Parameters
-    ----------
-    source : str
-        Feed URL.
-    link : str
-        Link URL or pathname.
-
-    Returns
-    -------
-    str
-        URL.
-    """
-    if link.startswith("www."):
-        new_link = "http://" + link
-    elif link.startswith("%20") and link.endswith("%20"):
-        old_link = link.split("%20")
-        del old_link[0]
-        old_link.pop()
-        new_link = "".join(old_link)
-    else:
-        new_link = urljoin(source, link)
-    return new_link
-
-
-async def trim_url(url):
-    """
-    Check URL pathname for double slash.
-
-    Parameters
-    ----------
-    url : str
-        URL.
-
-    Returns
-    -------
-    url : str
-        URL.
-    """
-    parted_url = urlsplit(url)
-    protocol = parted_url.scheme
-    hostname = parted_url.netloc
-    pathname = parted_url.path
-    queries = parted_url.query
-    fragment = parted_url.fragment
-    while "//" in pathname:
-        pathname = pathname.replace("//", "/")
-    url = urlunsplit([
-        protocol,
-        hostname,
-        pathname,
-        queries,
-        fragment
-        ])
-    return url
 
 
 # TODO Improve scan by gradual decreasing of path
@@ -993,7 +841,7 @@ async def feed_mode_auto_discovery(url, tree):
             #     title = disco["feed"]["title"]
             #     msg += "{} \n {} \n\n".format(title, feed)
             feed_name = feed.xpath('@title')[0]
-            feed_addr = await join_url(url, feed.xpath('@href')[0])
+            feed_addr = join_url(url, feed.xpath('@href')[0])
             # if feed_addr.startswith("/"):
             #     feed_addr = url + feed_addr
             msg += "{}\n{}\n\n".format(feed_name, feed_addr)
@@ -1002,76 +850,5 @@ async def feed_mode_auto_discovery(url, tree):
             ).format(url)
         return msg
     elif feeds:
-        feed_addr = await join_url(url, feeds[0].xpath('@href')[0])
+        feed_addr = join_url(url, feeds[0].xpath('@href')[0])
         return [feed_addr]
-
-
-async def feed_to_http(url):
-    """
-    Replace scheme FEED by HTTP.
-
-    Parameters
-    ----------
-    url : str
-        URL.
-
-    Returns
-    -------
-    new_url : str
-        URL.
-    """
-    par_url = urlsplit(url)
-    new_url = urlunsplit([
-        "http",
-        par_url.netloc,
-        par_url.path,
-        par_url.query,
-        par_url.fragment
-        ])
-    return new_url
-
-
-"""TODO"""
-async def activitypub_to_http(namespace):
-    """
-    Replace ActivityPub namespace by HTTP.
-
-    Parameters
-    ----------
-    namespace : str
-        Namespace.
-
-    Returns
-    -------
-    new_url : str
-        URL.
-    """
-    par_url = urlsplit(namespace)
-    new_url = urlunsplit([
-        "http",
-        par_url.netloc,
-        par_url.path,
-        par_url.query,
-        par_url.fragment
-        ])
-    return new_url
-
-
-async def check_xmpp_uri(uri):
-    """
-    Check validity of XMPP URI.
-
-    Parameters
-    ----------
-    uri : str
-        URI.
-
-    Returns
-    -------
-    jid : str
-        JID or None.
-    """
-    jid = urlsplit(uri).path
-    if parseaddr(jid)[1] != jid:
-        jid = False
-    return jid

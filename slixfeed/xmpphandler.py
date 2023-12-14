@@ -55,7 +55,7 @@ import asyncio
 import logging
 # import os
 import slixmpp
-from slixmpp.exceptions import IqError
+from slixmpp.exceptions import IqError, IqTimeout
 from random import randrange
 import datahandler as fetcher
 from datetimehandler import current_time
@@ -63,6 +63,7 @@ from filehandler import initdb
 import listhandler as lister
 import sqlitehandler as sqlite
 import taskhandler as tasker
+import urlhandler as urlfixer
 
 from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadServiceNotFound
 # from slixmpp.plugins.xep_0402 import BookmarkStorage, Conference
@@ -97,6 +98,9 @@ class Slixfeed(slixmpp.ClientXMPP):
     def __init__(self, jid, password, nick):
         slixmpp.ClientXMPP.__init__(self, jid, password)
 
+        # NOTE
+        # The bot works fine when the nickname is hardcoded; or
+        # The bot won't join some MUCs when its nickname has brackets
         self.nick = nick
 
         # The session_start event will be triggered when
@@ -170,8 +174,9 @@ class Slixfeed(slixmpp.ClientXMPP):
     """
     async def presence_available(self, presence):
         # print("def presence_available", presence["from"].bare)
-        if presence["from"].bare not in self.boundjid.bare:
-            jid = presence["from"].bare
+        jid = presence["from"].bare
+        print("presence_available", jid)
+        if jid not in self.boundjid.bare:
             await tasker.clean_tasks_xmpp(
                 jid,
                 ["interval", "status", "check"]
@@ -258,17 +263,27 @@ class Slixfeed(slixmpp.ClientXMPP):
             # If a room password is needed, use:
             # password=the_room_password,
             )
+        await self.add_muc_to_bookmarks(muc_jid)
+        messages = [
+            "Greetings!",
+            "I'm {}, the news anchor.".format(self.nick),
+            "My job is to bring you the latest news "
+            "from sources you provide me with.",
+            "You may always reach me via "
+            "xmpp:{}?message".format(self.boundjid.bare)
+            ]
+        for message in messages:
+            self.send_message(
+                mto=muc_jid,
+                mbody=message,
+                mtype="groupchat"
+                )
 
+
+    async def add_muc_to_bookmarks(self, muc_jid):
         result = await self.plugin['xep_0048'].get_bookmarks()
         bookmarks = result["private"]["bookmarks"]
         conferences = bookmarks["conferences"]
-        print("RESULT")
-        print(result)
-        print("BOOKMARKS")
-        print(bookmarks)
-        print("CONFERENCES")
-        print(conferences)
-        # breakpoint()
         mucs = []
         for conference in conferences:
             jid = conference["jid"]
@@ -292,14 +307,29 @@ class Slixfeed(slixmpp.ClientXMPP):
         # await self['xep_0402'].publish(bm)
 
 
-    async def remove_and_leave_muc(self, muc_jid):
-        self.send_message(
-            mto=muc_jid,
-            mbody=(
-                "If you need me again, contact me directly at {}\n"
-                "Goodbye!"
-                ).format(self.boundjid.bare)
+    async def close_muc(self, muc_jid):
+        messages = [
+            "Whenever you need an RSS service again, "
+            "please don’t hesitate to contact me.",
+            "My personal contact is xmpp:{}?message".format(self.boundjid.bare),
+            "Farewell, and take care."
+            ]
+        for message in messages:
+            self.send_message(
+                mto=muc_jid,
+                mbody=message,
+                mtype="groupchat"
+                )
+        await self.remove_muc_from_bookmarks(muc_jid)
+        self.plugin['xep_0045'].leave_muc(
+            muc_jid,
+            self.nick,
+            "Goodbye!",
+            self.boundjid.bare
             )
+
+
+    async def remove_muc_from_bookmarks(self, muc_jid):
         result = await self.plugin['xep_0048'].get_bookmarks()
         bookmarks = result["private"]["bookmarks"]
         conferences = bookmarks["conferences"]
@@ -317,12 +347,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                     autojoin=True
                     )
             await self.plugin['xep_0048'].set_bookmarks(bookmarks)
-        self.plugin['xep_0045'].leave_muc(
-            muc_jid,
-            self.nick,
-            "Goodbye!",
-            self.boundjid.bare
-            )
 
 
     async def autojoin_muc(self, event):
@@ -332,7 +356,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         for conference in conferences:
             if conference["autojoin"]:
                 muc = conference["jid"]
-                print(muc)
+                print(current_time(), "Autojoining groupchat", muc)
                 self.plugin['xep_0045'].join_muc(
                     muc,
                     self.nick,
@@ -342,14 +366,14 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_session_end(self, event):
-        print(await current_time(), "Session ended. Attempting to reconnect.")
+        print(current_time(), "Session ended. Attempting to reconnect.")
         print(event)
         logging.warning("Session ended. Attempting to reconnect.")
         await self.recover_connection(event)
 
 
     async def on_connection_failed(self, event):
-        print(await current_time(), "Connection failed. Attempting to reconnect.")
+        print(current_time(), "Connection failed. Attempting to reconnect.")
         print(event)
         logging.warning("Connection failed. Attempting to reconnect.")
         await self.recover_connection(event)
@@ -360,10 +384,13 @@ class Slixfeed(slixmpp.ClientXMPP):
         # if self.connection_attempts <= self.max_connection_attempts:
         #     self.reconnect(wait=5.0)  # wait a bit before attempting to reconnect
         # else:
-        #     print(await current_time(),"Maximum connection attempts exceeded.")
+        #     print(current_time(),"Maximum connection attempts exceeded.")
         #     logging.error("Maximum connection attempts exceeded.")
-        print("Attempt:", self.connection_attempts)
+        print(current_time(), "Attempt number", self.connection_attempts)
         self.reconnect(wait=5.0)
+        seconds = 5
+        print(current_time(), "Next attempt within", seconds, "seconds")
+        await asyncio.sleep(seconds)
 
 
     async def inspect_connection(self, event):
@@ -481,18 +508,31 @@ class Slixfeed(slixmpp.ClientXMPP):
 
         Returns
         -------
-        boolean
-            True or False.
+        str
+            "chat" or "groupchat.
         """
-        iqresult = await self["xep_0030"].get_info(jid=jid)
-        features = iqresult["disco_info"]["features"]
-        # identity = iqresult['disco_info']['identities']
-        # if 'account' in indentity:
-        # if 'conference' in indentity:
-        if 'http://jabber.org/protocol/muc' in features:
-            return True
-        else:
-            return False
+        try:
+            iqresult = await self["xep_0030"].get_info(jid=jid)
+            features = iqresult["disco_info"]["features"]
+            # identity = iqresult['disco_info']['identities']
+            # if 'account' in indentity:
+            # if 'conference' in indentity:
+            if 'http://jabber.org/protocol/muc' in features:
+                return "groupchat"
+            # TODO elif <feature var='jabber:iq:gateway'/>
+            # NOTE Is it needed? We do not interact with gateways or services
+            else:
+                return "chat"
+        # TODO Test whether this exception is realized
+        except IqTimeout as e:
+            messages = [
+                ("Timeout IQ"),
+                ("IQ Stanza:", e),
+                ("Jabber ID:", jid)
+                ]
+            for message in messages:
+                print(current_time(), message)
+                logging.error(current_time(), message)
 
 
     async def settle(self, msg):
@@ -538,7 +578,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     # mtype="headline",
                     msubject="RSS News Bot",
                     mbody=(
-                        "Accept subscription request to receive updates"
+                        "Accept subscription request to receive updates."
                         ),
                     mfrom=self.boundjid.bare,
                     mnick=self.nick
@@ -548,7 +588,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     pfrom=self.boundjid.bare,
                     # Accept symbol 🉑️ 👍️ ✍
                     pstatus=(
-                        "✒️ Accept subscription request to receive updates"
+                        "✒️ Accept subscription request to receive updates."
                         ),
                     # ptype="subscribe",
                     pnick=self.nick
@@ -656,8 +696,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                 message = message[1:]
             message_lowercase = message.lower()
 
-            print(await current_time(), "ACCOUNT: " + str(msg["from"]))
-            print(await current_time(), "COMMAND:", message)
+            print(current_time(), "ACCOUNT: " + str(msg["from"]))
+            print(current_time(), "COMMAND:", message)
 
             match message_lowercase:
                 case "commands":
@@ -863,7 +903,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                            message_lowercase.startswith("feed:")):
                     url = message
                     if url.startswith("feed:"):
-                        url = await fetcher.feed_to_http(url)
+                        url = urlfixer.feed_to_http(url)
                     await tasker.clean_tasks_xmpp(
                         jid,
                         ["status"]
@@ -934,7 +974,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                             )
                 case "goodbye":
                     if msg["type"] == "groupchat":
-                        await self.remove_and_leave_muc(jid)
+                        await self.close_muc(jid)
                     else:
                         action = "This command is valid for groupchat only."
                 case _ if message_lowercase.startswith("interval"):
@@ -969,7 +1009,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     else:
                         action = "Missing value."
                 case _ if message_lowercase.startswith("join"):
-                    muc = await fetcher.check_xmpp_uri(message[5:])
+                    muc = urlfixer.check_xmpp_uri(message[5:])
                     if muc:
                         "TODO probe JID and confirm it's a groupchat"
                         await self.join_muc(jid, muc)
@@ -1100,7 +1140,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         ["status"]
                         )
                     if url.startswith("feed:"):
-                        url = await fetcher.feed_to_http(url)
+                        url = urlfixer.feed_to_http(url)
                     match len(data):
                         case 1:
                             if url.startswith("http"):
@@ -1116,7 +1156,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         case _:
                             action = (
                                 "Enter command as follows:\n"
-                                "`read URL` or `read URL NUMBER`\n"
+                                "`read <url>` or `read <url> <number>`\n"
                                 "URL must not contain white space."
                                 )
                     await tasker.start_tasks_xmpp(
@@ -1166,7 +1206,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         if len(query) > 1:
                             action = await initdb(
                                 jid,
-                                search_entries,
+                                sqlite.search_entries,
                                 query
                                 )
                         else:
@@ -1191,7 +1231,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         ["interval", "status", "check"]
                         )
                     action = "Updates are enabled."
-                    # print(await current_time(), "task_manager[jid]")
+                    # print(current_time(), "task_manager[jid]")
                     # print(task_manager[jid])
                 case "stats":
                     action = await initdb(
@@ -1248,7 +1288,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     # TODO Send an invitation.
                     action = "Join xmpp:slixmpp@muc.poez.io?join"
                 case _ if message_lowercase.startswith("xmpp:"):
-                    muc = await fetcher.check_xmpp_uri(message)
+                    muc = urlfixer.check_xmpp_uri(message)
                     if muc:
                         "TODO probe JID and confirm it's a groupchat"
                         await self.join_muc(jid, muc)

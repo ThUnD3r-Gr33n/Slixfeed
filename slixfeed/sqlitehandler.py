@@ -896,12 +896,12 @@ async def add_entry(cur, entry):
     try:
         cur.execute(sql, entry)
     except:
-        print(await current_time(), "COROUTINE OBJECT NOW")
+        print(current_time(), "COROUTINE OBJECT NOW")
         print(entry[6])
         print(type(entry[6]))
         print(entry)
         print(type(entry))
-        print(await current_time(), "COROUTINE OBJECT NOW")
+        print(current_time(), "COROUTINE OBJECT NOW")
         # breakpoint()
 
 
@@ -990,14 +990,14 @@ async def remove_nonexistent_entries(db_file, feed, source):
                     else:
                         title = feed["feed"]["title"]
                     if entry.has_key("link"):
-                        link = await datahandler.join_url(source, entry.link)
+                        link = datahandler.join_url(source, entry.link)
                     else:
                         link = source
                     if entry.has_key("published") and item[4]:
                         # print("compare11:", title, link, time)
                         # print("compare22:", item[1], item[2], item[4])
                         # print("============")
-                        time = await rfc2822_to_iso8601(entry.published)
+                        time = rfc2822_to_iso8601(entry.published)
                         if (item[1] == title and
                             item[2] == link and
                             item[4] == time):
@@ -1413,8 +1413,8 @@ async def check_entry_exist(db_file, source, eid=None,
                 "timestamp": date
                 }).fetchone()
         except:
-            print(await current_time(), "ERROR DATE: source =", source)
-            print(await current_time(), "ERROR DATE: date =", date)
+            print(current_time(), "ERROR DATE: source =", source)
+            print(current_time(), "ERROR DATE: date =", date)
     else:
         sql = (
             "SELECT id "
@@ -1431,7 +1431,7 @@ async def check_entry_exist(db_file, source, eid=None,
         else:
             None
     except:
-        print(await current_time(), "ERROR DATE: result =", source)
+        print(current_time(), "ERROR DATE: result =", source)
 
 
 async def set_settings_value(db_file, key_value):
@@ -1444,8 +1444,7 @@ async def set_settings_value(db_file, key_value):
         Path to database file.
     key_value : list
          key : str
-               enabled, filter-allow, filter-deny,
-               interval, masters, quantum, random.
+               enabled, interval, masters, quantum, random.
          value : int
                Numeric value.
     """

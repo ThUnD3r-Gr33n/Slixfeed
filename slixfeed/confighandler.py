@@ -25,8 +25,8 @@ async def get_value_default(key):
     Parameters
     ----------
     key : str
-        Key: archive, enabled, allow, deny,interval, 
-             length, old, quantum, random, replace.
+        Key: archive, enabled, interval, 
+             length, old, quantum, random.
 
     Returns
     -------

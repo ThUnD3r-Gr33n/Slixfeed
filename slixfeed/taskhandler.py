@@ -77,6 +77,7 @@ await taskhandler.start_tasks(
 
 """
 async def start_tasks_xmpp(self, jid, tasks):
+    print("start_tasks_xmpp", jid, tasks)
     task_manager[jid] = {}
     for task in tasks:
         # print("task:", task)
@@ -107,6 +108,7 @@ async def start_tasks_xmpp(self, jid, tasks):
     #     await task
 
 async def clean_tasks_xmpp(jid, tasks):
+    print("clean_tasks_xmpp", jid, tasks)
     for task in tasks:
         # if task_manager[jid][task]:
         try:
@@ -129,6 +131,7 @@ Consider callback e.g. Slixfeed.send_status.
 Or taskhandler for each protocol or specific taskhandler function.
 """
 async def task_jid(self, jid):
+    print("task_jid", jid)
     """
     JID (Jabber ID) task manager.
 
@@ -183,6 +186,7 @@ async def task_jid(self, jid):
 
 
 async def send_update(self, jid, num=None):
+    print("send_update", jid)
     # print(await current_time(), jid, "def send_update")
     """
     Send news items as messages.
@@ -196,32 +200,37 @@ async def send_update(self, jid, num=None):
     """
     # print("Starting send_update()")
     # print(jid)
-    new = await initdb(
+    enabled = await initdb(
         jid,
-        get_entry_unread,
-        num
+        get_settings_value,
+        "enabled"
     )
-    if new:
-        # TODO Add while loop to assure delivery.
-        # print(await current_time(), ">>> ACT send_message",jid)
-        if await xmpphandler.Slixfeed.is_muc(self, jid):
-            chat_type = "groupchat"
-        else:
-            chat_type = "chat"
-        xmpphandler.Slixfeed.send_message(
+    if enabled:
+        new = await initdb(
+            jid,
+            get_entry_unread,
+            num
+        )
+        if new:
+            # TODO Add while loop to assure delivery.
+            # print(await current_time(), ">>> ACT send_message",jid)
+            chat_type = await xmpphandler.Slixfeed.is_muc(self, jid)
+            # NOTE Do we need "if statement"? See NOTE at is_muc.
+            if chat_type in ("chat", "groupchat"):
+                xmpphandler.Slixfeed.send_message(
+                    self,
+                    mto=jid,
+                    mbody=new,
+                    mtype=chat_type
+                )
+        # TODO Do not refresh task before
+        # verifying that it was completed.
+        await refresh_task(
             self,
-            mto=jid,
-            mbody=new,
-            mtype=chat_type
-        )
-    # TODO Do not refresh task before
-    # verifying that it was completed.
-    await refresh_task(
-        self,
-        jid,
-        send_update,
-        "interval"
-        )
+            jid,
+            send_update,
+            "interval"
+            )
     # interval = await initdb(
     #     jid,
     #     get_settings_value,
@@ -248,6 +257,7 @@ async def send_update(self, jid, num=None):
 
 
 async def send_status(self, jid):
+    print("send_status", jid)
     # print(await current_time(), jid, "def send_status")
     """
     Send status message.
@@ -325,6 +335,7 @@ async def send_status(self, jid):
 
 
 async def refresh_task(self, jid, callback, key, val=None):
+    print("refresh_task", jid, key)
     """
     Apply new setting at runtime.
 
@@ -370,6 +381,7 @@ async def refresh_task(self, jid, callback, key, val=None):
 # TODO Take this function out of
 # <class 'slixmpp.clientxmpp.ClientXMPP'>
 async def check_updates(jid):
+    print("check_updates", jid)
     # print(await current_time(), jid, "def check_updates")
     """
     Start calling for update check up.

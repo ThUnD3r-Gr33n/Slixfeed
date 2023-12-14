@@ -9,7 +9,7 @@ from datetime import datetime
 from dateutil.parser import parse
 from email.utils import parsedate, parsedate_to_datetime
 
-async def now():
+def now():
     """
     ISO 8601 Timestamp.
 
@@ -22,7 +22,7 @@ async def now():
     return date
 
 
-async def current_time():
+def current_time():
     """
     Print HH:MM:SS timestamp.
 
@@ -36,7 +36,7 @@ async def current_time():
     return time
 
 
-async def validate(date):
+def validate(date):
     """
     Validate date format.
 
@@ -57,7 +57,7 @@ async def validate(date):
     return date
 
 
-async def rfc2822_to_iso8601(date):
+def rfc2822_to_iso8601(date):
     """
     Convert RFC 2822 into ISO 8601.
 
