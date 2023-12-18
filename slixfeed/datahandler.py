@@ -532,7 +532,7 @@ async def download_feed(url):
     except:
         user_agent = "Slixfeed/0.1"
     timeout = ClientTimeout(total=10)
-    headers = {user_agent}
+    headers = {'User-Agent': user_agent}
     async with ClientSession(headers=headers) as session:
     # async with ClientSession(trust_env=True) as session:
         try:
