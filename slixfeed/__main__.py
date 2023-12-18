@@ -59,6 +59,8 @@ TODO
         Akkoma, HubZilla, Mastodon, Misskey, Pixelfed, Pleroma, Soapbox.
 
 16) Brand: News Broker, Newsman, Newsdealer, Laura Harbinger
+    
+17) See project offpunk/offblocklist.py
 
 """
 

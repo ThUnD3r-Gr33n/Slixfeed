@@ -621,7 +621,7 @@ async def statistics(db_file):
     #       """.format(unread_entries, entries, feeds)
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        keys = []
+        vals = []
         for key in [
                 "archive",
                 "interval",
@@ -633,7 +633,12 @@ async def statistics(db_file):
             "FROM settings "
             "WHERE key = ?"
             )
-            keys.extend([cur.execute(sql, (key,)).fetchone()[0]])
+            try:
+                val = cur.execute(sql, (key,)).fetchone()[0]
+            except:
+                print("Error for key:", key)
+                val = "none"
+            vals.extend([val])
         msg = (
             "```"
             "\nSTATISTICS\n"
@@ -648,10 +653,10 @@ async def statistics(db_file):
             ).format(
                 unread_entries, entries + archive,
                 active_feeds, feeds,
-                keys[0],
-                keys[1],
-                keys[2],
-                keys[3]
+                vals[0],
+                vals[1],
+                vals[2],
+                vals[3]
                 )
     return msg
 
@@ -1184,7 +1189,7 @@ async def list_feeds(db_file):
 
 async def last_entries(db_file, num):
     """
-    Query entries
+    Query entries.
 
     Parameters
     ----------
@@ -1198,11 +1203,6 @@ async def last_entries(db_file, num):
     titles_list : str
         List of recent N entries as message.
     """
-    num = int(num)
-    if num > 50:
-        num = 50
-    elif num < 1:
-        num = 1
     cur = get_cursor(db_file)
     # sql = (
     #     "SELECT title, link "
@@ -1211,11 +1211,11 @@ async def last_entries(db_file, num):
     #     "LIMIT :num"
     #     )
     sql = (
-        "SELECT title, link "
+        "SELECT title, link, timestamp "
         "FROM entries "
         "WHERE read = 0 "
         "UNION ALL "
-        "SELECT title, link "
+        "SELECT title, link, timestamp "
         "FROM archive "
         "WHERE read = 0 "
         "ORDER BY timestamp DESC "
@@ -1506,7 +1506,7 @@ async def set_settings_value_default(cur, key):
         )
     cur.execute(sql, (key,))
     if not cur.fetchone():
-        val = await config.get_value_default(key)
+        val = await config.get_value_default(key, "Settings")
         sql = (
             "INSERT "
             "INTO settings(key,value) "
@@ -1623,7 +1623,7 @@ async def set_filters_value_default(cur, key):
         )
     cur.execute(sql, (key,))
     if not cur.fetchone():
-        val = await config.get_list(key)
+        val = await config.get_list(key, "lists.yaml")
         val = ",".join(val)
         sql = (
             "INSERT "

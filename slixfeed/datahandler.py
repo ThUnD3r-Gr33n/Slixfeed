@@ -18,13 +18,13 @@ from aiohttp import ClientError, ClientSession, ClientTimeout
 from asyncio import TimeoutError
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
+from confighandler import get_list, get_value_default
 from email.utils import parseaddr
 from feedparser import parse
 from http.client import IncompleteRead
 from lxml import html
 from datetimehandler import now, rfc2822_to_iso8601
 from urlhandler import complete_url, join_url, trim_url
-from confighandler import get_list
 from listhandler import is_listed
 import sqlitehandler as sqlite
 from urllib import error
@@ -527,8 +527,13 @@ async def download_feed(url):
     msg: list or str
         Document or error message.
     """
+    try:
+        user_agent = await get_value_default("user-agent", "Network")
+    except:
+        user_agent = "Slixfeed/0.1"
     timeout = ClientTimeout(total=10)
-    async with ClientSession() as session:
+    headers = {user_agent}
+    async with ClientSession(headers=headers) as session:
     # async with ClientSession(trust_env=True) as session:
         try:
             async with session.get(url, timeout=timeout) as response:

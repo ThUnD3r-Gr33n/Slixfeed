@@ -5,7 +5,12 @@
 
 TODO
 
-1) ActivityPub URL revealer activitypub_to_http
+1) ActivityPub URL revealer activitypub_to_http.
+
+2) Remove tracking queries.
+
+3) Redirect to Invidious, Librarian, Nitter, ProxiTok etc.
+   because they provide RSS.
 
 """
 

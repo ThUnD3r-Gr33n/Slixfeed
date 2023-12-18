@@ -835,17 +835,20 @@ class Slixfeed(slixmpp.ClientXMPP):
                     key = message[:7]
                     val = message[8:]
                     if val:
-                        if int(val) > 500:
-                            action = "Value may not be greater than 500."
-                        else:
-                            await initdb(
-                                jid,
-                                sqlite.set_settings_value,
-                                [key, val]
-                                )
-                            action = (
-                                "Maximum archived items has been set to {}."
-                                ).format(val)
+                        try:
+                            if int(val) > 500:
+                                action = "Value may not be greater than 500."
+                            else:
+                                await initdb(
+                                    jid,
+                                    sqlite.set_settings_value,
+                                    [key, val]
+                                    )
+                                action = (
+                                    "Maximum archived items has been set to {}."
+                                    ).format(val)
+                        except:
+                            action = "Enter a numeric value only."
                     else:
                         action = "Missing value."
                 case _ if message_lowercase.startswith("deny +"):
@@ -909,7 +912,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         ["status"]
                         )
                     task = (
-                        "📫️ Processing request to fetch data from {}"
+                        "📫️ Processing request to fetch data from {} ..."
                         ).format(url)
                     process_task_message(self, jid, task)
                     action = await initdb(
@@ -1024,20 +1027,24 @@ class Slixfeed(slixmpp.ClientXMPP):
                         key = message[:6]
                         val = message[7:]
                         if val:
-                            await initdb(
-                                jid,
-                                sqlite.set_settings_value,
-                                [key, val]
-                                )
-                            if val == 0:
-                                action = (
-                                    "Summary length limit is disabled."
+                            try:
+                                val = int(val)
+                                await initdb(
+                                    jid,
+                                    sqlite.set_settings_value,
+                                    [key, val]
                                     )
-                            else:
-                                action = (
-                                    "Summary maximum length "
-                                    "is set to {} characters."
-                                    ).format(val)
+                                if val == 0:
+                                    action = (
+                                        "Summary length limit is disabled."
+                                        )
+                                else:
+                                    action = (
+                                        "Summary maximum length "
+                                        "is set to {} characters."
+                                        ).format(val)
+                            except:
+                                action = "Enter a numeric value only."
                         else:
                             action = "Missing value."
                 # case _ if message_lowercase.startswith("mastership"):
@@ -1112,17 +1119,21 @@ class Slixfeed(slixmpp.ClientXMPP):
                     key = message[:7]
                     val = message[8:]
                     if val:
-                        # action = (
-                        #     "Every update will contain {} news items."
-                        #     ).format(action)
-                        await initdb(
-                            jid,
-                            sqlite.set_settings_value,
-                            [key, val]
-                            )
-                        action = (
-                            "Next update will contain {} news items."
-                            ).format(val)
+                        try:
+                            val = int(val)
+                            # action = (
+                            #     "Every update will contain {} news items."
+                            #     ).format(action)
+                            await initdb(
+                                jid,
+                                sqlite.set_settings_value,
+                                [key, val]
+                                )
+                            action = (
+                                "Next update will contain {} news items."
+                                ).format(val)
+                        except:
+                            action = "Enter a numeric value only."
                     else:
                         action = "Missing value."
                 case "random":
@@ -1132,7 +1143,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     data = data.split()
                     url = data[0]
                     task = (
-                        "📫️ Processing request to fetch data from {}"
+                        "📫️ Processing request to fetch data from {} ..."
                         ).format(url)
                     process_task_message(self, jid, task)
                     await tasker.clean_tasks_xmpp(
@@ -1167,13 +1178,21 @@ class Slixfeed(slixmpp.ClientXMPP):
                 case _ if message_lowercase.startswith("recent"):
                     num = message[7:]
                     if num:
-                        action = await initdb(
-                            jid,
-                            sqlite.last_entries,
-                            num
-                            )
+                        try:
+                            num = int(num)
+                            if num < 1 or num > 50:
+                                action = "Value must be ranged from 1 to 50."
+                            else:
+                                action = await initdb(
+                                    jid,
+                                    sqlite.last_entries,
+                                    num
+                                    )
+                        except:
+                            action = "Enter a numeric value only."
                     else:
                         action = "Missing value."
+                # NOTE Should people be asked for numeric value?
                 case _ if message_lowercase.startswith("remove"):
                     ix = message[7:]
                     if ix:
@@ -1200,6 +1219,37 @@ class Slixfeed(slixmpp.ClientXMPP):
                             )
                     else:
                         action = "Missing feed ID."
+                case _ if message_lowercase.startswith("reset"):
+                    source = message[6:]
+                    await tasker.clean_tasks_xmpp(
+                        jid,
+                        ["status"]
+                        )
+                    task = (
+                        "📫️ Marking entries as read..."
+                        )
+                    process_task_message(self, jid, task)
+                    if source:
+                        await initdb(
+                            jid,
+                            sqlite.mark_source_as_read,
+                            source
+                            )
+                        action = (
+                            "All entries of {} have been "
+                            "marked as read.".format(source)
+                            )
+                    else:
+                        await initdb(
+                            jid,
+                            sqlite.mark_all_as_read
+                            )
+                        action = "All entries have been marked as read."
+                    await tasker.start_tasks_xmpp(
+                        self,
+                        jid,
+                        ["status"]
+                        )
                 case _ if message_lowercase.startswith("search"):
                     query = message[7:]
                     if query:
@@ -1430,34 +1480,40 @@ def print_help():
         " For more information, visit https://xmpp.org/software/\n"
         "\n"
         "BASIC USAGE\n"
-        " URL\n"
-        "   Add URL to subscription list.\n"
-        " add URL TITLE\n"
-        "   Add URL to subscription list (without validity check).\n"
-        " join MUC\n"
+        " <url>\n"
+        "   Add <url> to subscription list.\n"
+        " add <url> TITLE\n"
+        "   Add <url> to subscription list (without validity check).\n"
+        " join <muc>\n"
         "   Join specified groupchat.\n"
-        " read URL\n"
-        "   Display most recent 20 titles of given URL.\n"
-        " read URL N\n"
-        "   Display specified entry number from given URL.\n"
+        " read <url>\n"
+        "   Display most recent 20 titles of given <url>.\n"
+        " read <url> <n>\n"
+        "   Display specified entry number from given <url>.\n"
         "\n"
-        "MESSAGE OPTIONS\n"
-        " interval N\n"
-        "   Set interval update to every N minutes.\n"
-        " length\n"
-        "   Set maximum length of news item description. (0 for no limit)\n"
+        "CUSTOM ACTIONS\n"
         " new\n"
         "   Send only new items of newly added feeds.\n"
-        " next N\n"
-        "   Send N next updates.\n"
         " old\n"
         "   Send all items of newly added feeds.\n"
-        " quantum N\n"
-        "   Set N amount of updates per interval.\n"
+        " next N\n"
+        "   Send N next updates.\n"
+        " reset\n"
+        "   Mark all entries as read and remove all archived entries\n"
+        " reset <url>\n"
+        "   Mark entries of <url> as read and remove all archived entries of <url>.\n"
         " start\n"
         "   Enable bot and send updates.\n"
         " stop\n"
         "   Disable bot and stop updates.\n"
+        "\n"
+        "MESSAGE OPTIONS\n"
+        " interval <num>\n"
+        "   Set interval update to every <num> minutes.\n"
+        " length\n"
+        "   Set maximum length of news item description. (0 for no limit)\n"
+        " quantum <num>\n"
+        "   Set <num> amount of updates per interval.\n"
         "\n"
         "GROUPCHAT OPTIONS\n"
         " ! (command initiation)\n"
@@ -1486,20 +1542,20 @@ def print_help():
         # "   Reset deny list.\n"
         "\n"
         "EDIT OPTIONS\n"
-        " remove ID\n"
-        "   Remove feed from subscription list.\n"
-        " status ID\n"
-        "   Toggle update status of feed.\n"
+        " remove <id>\n"
+        "   Remove feed of <id> from subscription list.\n"
+        " status <id>\n"
+        "   Toggle update status of feed of <id>.\n"
         "\n"
         "SEARCH OPTIONS\n"
         " feeds\n"
         "   List all subscriptions.\n"
-        " feeds TEXT\n"
-        "   Search subscriptions by given keywords.\n"
-        " search TEXT\n"
-        "   Search news items by given keywords.\n"
-        " recent N\n"
-        "   List recent N news items (up to 50 items).\n"
+        " feeds <text>\n"
+        "   Search subscriptions by given <text>.\n"
+        " search <text>\n"
+        "   Search news items by given <text>.\n"
+        " recent <num>\n"
+        "   List recent <num> news items (up to 50 items).\n"
         "\n"
         # "STATISTICS OPTIONS\n"
         # " analyses\n"
@@ -1551,29 +1607,31 @@ def print_cmd():
         "```"
         "\n"
         "!                 : Use exclamation mark to initiate an actionable command (groupchats only).\n"
-        "<MUC>             : Join specified groupchat.\n"
-        "<URL>             : Add URL to subscription list.\n"
-        "add <URL> <TITLE> : Add URL to subscription list (without validity check).\n"
+        "<muc>             : Join specified groupchat.\n"
+        "<url>             : Add <url> to subscription list.\n"
+        "add <url> <title> : Add <url> to subscription list (without validity check).\n"
         "allow +           : Add keywords to allow (comma separates).\n"
         "allow -           : Delete keywords from allow list (comma separates).\n"
         "deny +            : Keywords to block (comma separates).\n"
         "deny -            : Delete keywords from deny list (comma separates).\n"
         "feeds             : List all subscriptions.\n"
-        "feeds <TEXT>      : Search subscriptions by given keywords.\n"
-        "interval N        : Set interval update to every N minutes.\n"
-        "join <MUC>        : Join specified groupchat.\n"
+        "feeds <text>      : Search subscriptions by given <text>.\n"
+        "interval <n>      : Set interval update to every <n> minutes.\n"
+        "join <muc>        : Join specified groupchat.\n"
         "length            : Set maximum length of news item description. (0 for no limit)\n"
         "new               : Send only new items of newly added feeds.\n"
-        "next N            : Send N next updates.\n"
+        "next <n>          : Send <n> next updates.\n"
         "old               : Send all items of newly added feeds.\n"
-        "quantum N         : Set N amount of updates per interval.\n"
-        "read <URL>        : Display most recent 20 titles of given URL.\n"
-        "read URL N        : Display specified entry number from given URL.\n"
-        "recent N          : List recent N news items (up to 50 items).\n"
-        "remove <ID>       : Remove feed from subscription list.\n"
-        "search <TEXT>     : Search news items by given keywords.\n"
+        "quantum <n>       : Set <n> amount of updates per interval.\n"
+        "read <url>        : Display most recent 20 titles of given <url>.\n"
+        "read <url> <n>    : Display specified entry number from given <url>.\n"
+        "recent <n>        : List recent <n> news items (up to 50 items).\n"
+        "reset             : Mark all entries as read.\n"
+        "reset <url>       : Mark entries of <url> as read.\n"
+        "remove <id>       : Remove feed from subscription list.\n"
+        "search <text>     : Search news items by given <text>.\n"
         "start             : Enable bot and send updates.\n"
-        "status <ID>       : Toggle update status of feed.\n"
+        "status <id>       : Toggle update status of feed.\n"
         "stop              : Disable bot and stop updates.\n"
         "```"
         )

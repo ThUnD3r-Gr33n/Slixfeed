@@ -18,7 +18,7 @@ import os
 from random import randrange
 import yaml
 
-async def get_value_default(key):
+async def get_value_default(key, section):
     """
     Get settings default value.
 
@@ -39,12 +39,12 @@ async def get_value_default(key):
         config_dir = '/usr/share/slixfeed/'
     config_file = os.path.join(config_dir, r"settings.ini")
     config.read(config_file)
-    if config.has_section("Settings"):
-        result = config["Settings"][key]
+    if config.has_section(section):
+        result = config[section][key]
     return result
 
 
-async def get_list(key):
+async def get_list(key, file):
     """
     Get settings default value.
 
@@ -61,7 +61,7 @@ async def get_list(key):
     config_dir = filehandler.get_default_confdir()
     if not os.path.isdir(config_dir):
         config_dir = '/usr/share/slixfeed/'
-    config_file = os.path.join(config_dir, r"lists.yaml")
+    config_file = os.path.join(config_dir, file)
     with open(config_file) as defaults:
         default = yaml.safe_load(defaults)
         result = default[key]

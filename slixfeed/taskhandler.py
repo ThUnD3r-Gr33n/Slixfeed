@@ -44,6 +44,7 @@ import logging
 import os
 import slixmpp
 
+import confighandler as config
 from datahandler import download_updates
 from datetimehandler import current_time
 from filehandler import initdb, get_default_dbdir
@@ -394,7 +395,8 @@ async def check_updates(jid):
     while True:
         # print(await current_time(), "> CHCK UPDATE",jid)
         await initdb(jid, download_updates)
-        await asyncio.sleep(60 * 90)
+        val = await config.get_value_default("check", "Settings")
+        await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes
         # loop.call_at(
         #     loop.time() + 60 * 90,
