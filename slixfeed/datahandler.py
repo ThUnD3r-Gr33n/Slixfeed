@@ -19,14 +19,14 @@ from asyncio import TimeoutError
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
 from confighandler import get_list, get_value_default
+from datetimehandler import now, rfc2822_to_iso8601
 from email.utils import parseaddr
 from feedparser import parse
 from http.client import IncompleteRead
-from lxml import html
-from datetimehandler import now, rfc2822_to_iso8601
-from urlhandler import complete_url, join_url, trim_url
 from listhandler import is_listed
+from lxml import html
 import sqlitehandler as sqlite
+from urlhandler import complete_url, join_url, trim_url
 from urllib import error
 # from xml.etree.ElementTree import ElementTree, ParseError
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -202,8 +202,8 @@ async def download_updates(db_file, url=None):
                         print("PROBLEM: date is int")
                         print(date)
                         # breakpoint()
-                    print(source)
-                    print(date)
+                    # print(source)
+                    # print(date)
                     await sqlite.add_entry_and_set_date(
                         db_file,
                         source,
@@ -261,9 +261,9 @@ async def view_feed(url):
         title = get_title(url, feed)
         entries = feed.entries
         msg = "Preview of {}:\n```\n".format(title)
-        count = 0
+        counter = 0
         for entry in entries:
-            count += 1
+            counter += 1
             if entry.has_key("title"):
                 title = entry.title
             else:
@@ -292,9 +292,9 @@ async def view_feed(url):
                     title,
                     date,
                     link,
-                    count
+                    counter
                     )
-            if count > 4:
+            if counter > 4:
                 break
         msg += (
             "```\nSource: {}"
@@ -446,7 +446,7 @@ async def add_feed(db_file, url):
             title = get_title(url, feed)
             if feed.bozo:
                 bozo = (
-                    "Bozo detected. Failed to load: {}."
+                    "Bozo detected. Failed to load: {}"
                     ).format(url)
                 print(bozo)
                 msg = await probe_page(add_feed, url, res[0], db_file=db_file)
@@ -505,7 +505,7 @@ async def probe_page(callback, url, doc, num=None, db_file=None):
         elif isinstance(msg, list):
             url = msg[0]
             if db_file:
-                print("if db_file", db_file)
+                # print("if db_file", db_file)
                 return await callback(db_file, url)
             elif num:
                 return await callback(url, num)
@@ -530,6 +530,8 @@ async def download_feed(url):
     try:
         user_agent = await get_value_default("user-agent", "Network")
     except:
+        user_agent = "Slixfeed/0.1"
+    if not len(user_agent):
         user_agent = "Slixfeed/0.1"
     timeout = ClientTimeout(total=10)
     headers = {'User-Agent': user_agent}
@@ -597,6 +599,8 @@ def get_title(url, feed):
         title = feed["feed"]["title"]
     except:
         title = urlsplit(url).netloc
+    if not title:
+        title = urlsplit(url).netloc
     return title
 
 
@@ -621,7 +625,7 @@ async def feed_mode_request(url, tree):
     """
     feeds = {}
     parted_url = urlsplit(url)
-    paths = await get_list("pathnames")
+    paths = await get_list("pathnames", "lists.yaml")
     for path in paths:
         address = urlunsplit([
             parted_url.scheme,
@@ -693,7 +697,7 @@ async def feed_mode_request(url, tree):
             ).format(url)
         if not positive:
             msg = (
-                "No feeds were found for {}."
+                "No feeds were found for {}"
                 ).format(url)
         return msg
     elif feeds:
@@ -721,17 +725,21 @@ async def feed_mode_scan(url, tree):
     feeds = {}
     # paths = []
     # TODO Test
-    paths = await get_list("pathnames")
+    paths = await get_list("pathnames", "lists.yaml")
     for path in paths:
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
-        xpath_query = "//a[contains(@href,'{}')]".format(path)
+        # xpath_query = "//a[contains(@href,'{}')]".format(path)
+        num = 5
+        xpath_query = "(//a[contains(@href,'{}')])[position()<={}]".format(path, num)
         addresses = tree.xpath(xpath_query)
+        xpath_query = "(//a[contains(@href,'{}')])[position()>last()-{}]".format(path, num)
+        addresses += tree.xpath(xpath_query)
         parted_url = urlsplit(url)
         # NOTE Should number of addresses be limited or
         # perhaps be N from the start and N from the end
         for address in addresses:
-            print(address.xpath('@href')[0])
-            print(addresses)
+            # print(address.xpath('@href')[0])
+            # print(addresses)
             address = address.xpath('@href')[0]
             if "/" not in address:
                 protocol = parted_url.scheme
@@ -759,11 +767,15 @@ async def feed_mode_scan(url, tree):
             if res[1] == 200:
                 try:
                     feeds[address] = parse(res[0])
+                    # print(feeds[address])
+                    # breakpoint()
                     # print(feeds)
                 except:
                     continue
     if len(feeds) > 1:
-        positive = 0
+        # print(feeds)
+        # breakpoint()
+        counter = 0
         msg = (
             "RSS URL scan has found {} feeds:\n```\n"
             ).format(len(feeds))
@@ -779,23 +791,32 @@ async def feed_mode_scan(url, tree):
             feed_addr = feed
             feed_amnt = len(feeds[feed].entries)
             if feed_amnt:
-                positive = 1
+                # NOTE Because there could be many false positives
+                # which are revealed in second phase of scan, we
+                # could end with a single feed, which would be
+                # listed instead of fetched, so feed_mark is
+                # utilized in order to make fetch possible.
+                feed_mark = [feed_addr]
+                counter += 1
                 msg += (
-                    "Title: {}\n"
-                    " Link: {}\n"
-                    "Count: {}\n"
+                    "Title : {}\n"
+                    "Link  : {}\n"
+                    "Count : {}\n"
                     "\n"
                     ).format(
                         feed_name,
                         feed_addr,
                         feed_amnt
                         )
-        msg += (
-            "```\nThe above feeds were extracted from\n{}"
-            ).format(url)
-        if not positive:
+        if counter > 1:
+            msg += (
+                "```\nThe above feeds were extracted from\n{}"
+                ).format(url)
+        elif feed_mark:
+            return feed_mark
+        else:
             msg = (
-                "No feeds were found for {}."
+                "No feeds were found for {}"
                 ).format(url)
         return msg
     elif feeds:

@@ -64,6 +64,7 @@ import listhandler as lister
 import sqlitehandler as sqlite
 import taskhandler as tasker
 import urlhandler as urlfixer
+from time import sleep
 
 from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadServiceNotFound
 # from slixmpp.plugins.xep_0402 import BookmarkStorage, Conference
@@ -102,7 +103,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         # The bot works fine when the nickname is hardcoded; or
         # The bot won't join some MUCs when its nickname has brackets
         self.nick = nick
-
         # The session_start event will be triggered when
         # the bot establishes its connection with the server
         # and the XML streams are ready for use. We want to
@@ -387,10 +387,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         #     print(current_time(),"Maximum connection attempts exceeded.")
         #     logging.error("Maximum connection attempts exceeded.")
         print(current_time(), "Attempt number", self.connection_attempts)
-        self.reconnect(wait=5.0)
-        seconds = 5
+        seconds = 30
         print(current_time(), "Next attempt within", seconds, "seconds")
-        await asyncio.sleep(seconds)
+        # NOTE asyncio.sleep doesn't interval as expected
+        # await asyncio.sleep(seconds)
+        sleep(seconds)
+        self.reconnect(wait=5.0)
 
 
     async def inspect_connection(self, event):
@@ -912,7 +914,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         ["status"]
                         )
                     task = (
-                        "📫️ Processing request to fetch data from {} ..."
+                        "📫️ Processing request to fetch data from {}"
                         ).format(url)
                     process_task_message(self, jid, task)
                     action = await initdb(
@@ -1080,8 +1082,9 @@ class Slixfeed(slixmpp.ClientXMPP):
                     action = (
                         "Only new items of newly added feeds will be sent."
                         )
-                case _ if message_lowercase.startswith("next"):
-                    num = message[5:]
+                # TODO Will you add support for number of messages?
+                case "next":
+                    # num = message[5:]
                     await tasker.clean_tasks_xmpp(
                         jid,
                         ["interval", "status"]
@@ -1137,13 +1140,15 @@ class Slixfeed(slixmpp.ClientXMPP):
                     else:
                         action = "Missing value."
                 case "random":
-                    action = "Updates will be sent randomly."
+                    # TODO /questions/2279706/select-random-row-from-a-sqlite-table
+                    # NOTE sqlitehandler.get_entry_unread
+                    action = "Updates will be sent by random order."
                 case _ if message_lowercase.startswith("read"):
                     data = message[5:]
                     data = data.split()
                     url = data[0]
                     task = (
-                        "📫️ Processing request to fetch data from {} ..."
+                        "📫️ Processing request to fetch data from {}"
                         ).format(url)
                     process_task_message(self, jid, task)
                     await tasker.clean_tasks_xmpp(

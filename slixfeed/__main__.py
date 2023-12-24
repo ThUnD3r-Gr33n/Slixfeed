@@ -13,42 +13,44 @@ FIXME
 
 TODO
 
-0) from slixfeed.FILENAME import XYZ
-      See project feed2toot
+1) from slixfeed.FILENAME import XYZ
+   See project /chaica/feed2toot
 
-1) SQL prepared statements.
+2) SQL prepared statements;
 
-2) Machine Learning for scrapping Title, Link, Summary and Timstamp.
+3) Machine Learning for scrapping Title, Link, Summary and Timstamp;
+   Scrape element </article> (example: Liferea)
+   http://intertwingly.net/blog/
+   https://www.brandenburg.de/
 
-3) Set MUC subject
+4) Set MUC subject
    Feeds which entries are to be set as groupchat subject.
    Perhaps not, as it would require to check every feed for this setting.
-   Maybe a separate bot.
+   Maybe a separate bot;
 
-4) Support categories.
+5) Support categories;
 
-5) Default prepackaged list of feeds.
+6) XMPP commands;
 
-6) XMPP commands.
+7) Bot as transport;
 
-7) Bot as transport.
+8) OMEMO;
 
-8) OMEMO.
+9) Logging;
+   https://docs.python.org/3/howto/logging.html
 
-9) Logging.
+10) Readability
+    See project /buriy/python-readability
 
-10) Default feeds (e.g. Blacklisted News, TBOT etc.)
-
-11) Download and upload/send article (xHTML, xHTMLZ, Markdown, MHTML, TXT).
-    Use Readability.
+11) Download and upload/send article (xHTML, HTMLZ, Markdown, MHTML, TXT).
 
 12) Fetch summary from URL, instead of storing summary, or
     Store 5 upcoming summaries.
     This would help making the database files smaller.
 
 13) Support protocol Gopher
-    https://github.com/michael-lazar/pygopherd
-    https://github.com/gopherball/gb
+    See project /michael-lazar/pygopherd
+    See project /gopherball/gb
 
 14) Support ActivityPub @person@domain (see Tip Of The Day).
 
@@ -60,7 +62,11 @@ TODO
 
 16) Brand: News Broker, Newsman, Newsdealer, Laura Harbinger
     
-17) See project offpunk/offblocklist.py
+17) See project /offpunk/offblocklist.py
+
+18) Search messages of government regulated publishers, and promote other sources.
+    Dear reader, we couldn't get news from XYZ as they don't provide RSS feeds.
+    However, you might want to get news from (1) (2) and (3) instead!
 
 """
 

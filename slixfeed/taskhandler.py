@@ -78,7 +78,7 @@ await taskhandler.start_tasks(
 
 """
 async def start_tasks_xmpp(self, jid, tasks):
-    print("start_tasks_xmpp", jid, tasks)
+    # print("start_tasks_xmpp", jid, tasks)
     task_manager[jid] = {}
     for task in tasks:
         # print("task:", task)
@@ -109,7 +109,7 @@ async def start_tasks_xmpp(self, jid, tasks):
     #     await task
 
 async def clean_tasks_xmpp(jid, tasks):
-    print("clean_tasks_xmpp", jid, tasks)
+    # print("clean_tasks_xmpp", jid, tasks)
     for task in tasks:
         # if task_manager[jid][task]:
         try:
@@ -132,7 +132,7 @@ Consider callback e.g. Slixfeed.send_status.
 Or taskhandler for each protocol or specific taskhandler function.
 """
 async def task_jid(self, jid):
-    print("task_jid", jid)
+    # print("task_jid", jid)
     """
     JID (Jabber ID) task manager.
 
@@ -258,7 +258,7 @@ async def send_update(self, jid, num=None):
 
 
 async def send_status(self, jid):
-    print("send_status", jid)
+    # print("send_status", jid)
     # print(await current_time(), jid, "def send_status")
     """
     Send status message.
@@ -336,7 +336,7 @@ async def send_status(self, jid):
 
 
 async def refresh_task(self, jid, callback, key, val=None):
-    print("refresh_task", jid, key)
+    # print("refresh_task", jid, key)
     """
     Apply new setting at runtime.
 
@@ -382,7 +382,7 @@ async def refresh_task(self, jid, callback, key, val=None):
 # TODO Take this function out of
 # <class 'slixmpp.clientxmpp.ClientXMPP'>
 async def check_updates(jid):
-    print("check_updates", jid)
+    # print("check_updates", jid)
     # print(await current_time(), jid, "def check_updates")
     """
     Start calling for update check up.

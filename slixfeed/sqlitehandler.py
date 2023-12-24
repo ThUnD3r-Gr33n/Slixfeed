@@ -471,7 +471,10 @@ async def get_entry_unread(db_file, num=None):
             title = result[1]
             summary = result[2]
             # Remove HTML tags
-            summary = BeautifulSoup(summary, "lxml").text
+            try:
+                summary = BeautifulSoup(summary, "lxml").text
+            except:
+                print(result[2])
             # TODO Limit text length
             summary = summary.replace("\n\n\n", "\n\n")
             length = await get_settings_value(db_file, "length")
