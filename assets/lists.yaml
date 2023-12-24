@@ -1,0 +1,509 @@
+# On occasion when given web page has no auto-discovery setup, the following
+# list is engaged into action to scan for possible paths (i.e. pathname) at
+# which web feed might be discovered.
+
+pathnames:
+  - .atom
+# - .json
+  - .rss
+  - .xml
+    # wordpress
+  - /?feed=atom
+  - /?feed=rdf
+  - /?feed=rss
+  - /?feed=xml
+    # phpbb
+  - /?format=atom
+  - /?format=rdf
+  - /?format=rss
+  - /?format=xml
+  - /app.php/feed
+  - /atom
+  - /atom.php
+  - /atom.xml
+  - /blog/feed/
+  - /content-feeds/
+  - /external.php?type=RSS2
+  - /en/feed/
+    # good practice
+  - /feed
+  - /feed.atom
+# - /feed.json
+  - /feed.php
+  - /feed.rdf
+  - /feed.rss
+  - /feed.xml
+  - /feed/atom/
+  - /feeds/news_feed
+  - /feeds/posts/default
+  - /feeds/posts/default?alt=atom
+  - /feeds/posts/default?alt=rss
+  - /feeds/rss/news.xml.php
+  - /forum_rss.php
+  - /index.atom
+  - /index.php/feed
+    # simple machine forum
+  - /index.php?type=atom;action=.xml   
+  - /index.php?type=rss;action=.xml
+  - /index.rss
+  - /jekyll/feed.xml
+    # discourse
+  - /latest.rss
+  - /news
+  - /news.xml
+  - /news.xml.php
+  - /news/feed
+    # discourse
+  - /posts.rss
+  - /rdf
+  - /rdf.php
+  - /rdf.xml
+  - /rss
+# - /rss.json
+  - /rss.php
+  - /rss.xml
+    # mybb
+  - /syndication.php?type=atom1.0
+  - /syndication.php?type=rss2.0
+    # statusnet
+  - /timeline.rss
+    # peertube
+  - /videos.atom
+# - /videos.json
+  - /videos.xml
+  - /xml/feed.atom
+  - /xml/feed.rdf
+  - /xml/feed.rss
+
+# Filters can be used to protect or depress your life.
+# 
+# Before you continue reading, please realize that the news has to be treated
+# as a very annoying and bad salesperson who wants to guile and trick you into
+# buying something that you do not need at all.
+# 
+# In other words: Sometimes, you just have to hang up the phone.
+# 
+# "I always tell people: News is the most highly developed form of fiction."
+# "The most difficult." -- Donald Pleasence as J.G. in "The News-Benders 1968".
+# magnet:?xt=urn:btih:75af6576572a08a62a7a614b1fd399712fcf1e58&dn=newsbenders
+# 
+# News is no longer an information service, if it ever was. News in most of the
+# world is a mean of fear.
+# 
+# The government regulated news agencies, private and public, are not in your
+# favour. You must filter in order to avoid from subverting your mind.
+# 
+# Although it is recognized that the Palestinian land confiscation issue is
+# indeed a problem that affects us all (i.e. confiscation of land without
+# punishing).
+# 
+# I have worked with far right wing Israeli and Zionist news jurnalists and
+# editors for over a decade, and it occurred to me, time and again, that these
+# entities have published factual and fictional criticism against themselves
+# (the Israeli side), in order to distract the Israeli citizenry from removing
+# the government because the Israelis wanted to better their life by improving
+# the life of the average citizen.
+# 
+# Most of my Israeli brothers and sisters are either poor or in debt, and the
+# Israeli government uses the conflict against Palestinians and Israelis as one.
+# 
+# By observing our problems instead of your own; you are, in fact, harming us
+# and yourself.
+# 
+# I have added keywords to deny entries that are related to the Palestinians,
+# because most of the articles about the subject are meant to distract you too
+# from issues that are much more closer and important to you.
+# 
+# If the Americans and the Europeans will concentrate on Israel or Palestine,
+# never mind which side they support, instead of protecting their own freedom
+# of speech and their feedom of keep and bear arms, then tomorrow, without
+# their freedoms, they would not even be able to express any opinion on any
+# other matter whatsoever.
+# 
+# If you want to harm yourself, your family and friends and the Chinese,
+# Israelis, Palestinians, Tibetans, then you are free to remove the filters
+# and concentrate on issues that do not really matter.
+# 
+# But if you really care for Chinese, Israelis, Palestinians, Tibetans, then
+# you must concentrate your efforts on *your* local area, care for *your* own
+# neighbours and *your* own race, for uncompromising freedom and liberty for
+# all, because, otherwise, non of us might have any.
+# 
+# It is "all of us for all of us" or we are on our own. And it has to start
+# locally. There is no other way.
+# 
+# You are advised to look into the keywords and share yours with us, so people
+# would get the best out of this news application.
+
+# Entries with the following keywords will not be filtered
+filter-allow:
+  - akkoma
+  - censorship
+  - earthing
+  - firefish
+  - friendica
+  - free speech
+  - funkwhale
+  - gaddafi
+  - gadhafi
+  - hitler
+  - hubzilla
+  - jabber
+  - kbin
+  - marijuana
+  - mastodon
+  - mbin
+  - misskey
+  - movim
+  - nostr
+  - ossad
+  - peertube
+  - pixelfed
+  - plebbit
+  - pleroma
+  - qaddafi
+  - qadhafi
+  - risc
+  - sadam
+  - saddam
+  - soapbox
+  - war crim
+  - ware
+  - xmpp
+
+# Entries with the following keywords will be filtered
+filter-deny:
+  # brands
+  # Almost every time you see a brand name in title or content, it is because
+  # someone, usually a marketing agency or a venture capital firm, has paid for
+  # it to be mentioned, not because an editor had found it interesting.
+  - airbnb
+  - android
+  - at&t
+  - bing
+  - booking
+  - cloudflare
+  - digg
+  - discord
+  - facebook
+  - github
+  - gitlab
+  - gmail
+  - google
+  - gsoc
+  - instagram
+  - ipad
+  - iphone
+  - ipod
+  - microsoft
+  - mozilla
+  - myspace
+  - netflix
+  - openai
+  - pinterest
+  - reddit
+  - robinhood
+  - snapchat
+  - spotify
+  - tiktok
+  - tumblr
+  - twitter
+  - verizon
+  - waze
+  - whatsapp
+  - wikimedia
+  - wikipedia
+  - wix
+  - xitter
+  - yahoo
+  - youtube
+  # consumerism
+  - black friday
+  - coupon
+  - gambl
+  # death
+  - apocalyp
+  - corona
+  - covid
+  - crime
+  - criminal
+  - dead
+  - death
+  - die
+  - disaster
+  - doomsday
+  - murder
+  - vaccine
+  - vax
+  - war
+  # degeneracy
+  - gay
+  - gender fluid
+  - gender identity
+  - homosex
+  - lesbian
+  - lgbt
+  - nude
+  - nudity
+  - onlyfans
+  - porn
+  - pr0n
+  - prostitut
+  - queen
+  - queer
+  - tranny
+  - trans # transexual transgender transsexual
+  - whor
+  - xham
+  - xvid
+  # distraction of the moment
+  - clint
+  - el aviv
+  - el-aviv
+  - en shapi
+  - gaza
+  - gazza
+  - hamas
+  - hammas
+  - harar
+  - harrar
+  - hillar
+  - holocaust
+  - idf
+  - israel
+  - jerus
+  - lex jon
+  - lon mus
+  - musk
+  - netanya
+  - nfowar
+  - oxnew
+  - palestin
+  - shapir
+  - trump
+  - west bank
+  - zucker
+  # fiction
+  - astronaut
+  - climate
+  - meteor
+  - nasa
+  - space
+  # names
+  - boomer
+  - gen z
+  # substances
+  - 🚬
+  - alcohol
+  - cigar
+  - drug
+
+# The following index was generated from machine learning scan of political
+# and scientific forums gathered within a duration of 6 hours; this index is
+# a set of value(s) (phrases and words) to be replaced by a value (key).
+# 
+# While non reflects any of the opinions of the author of this program, you
+# might find it amusing, entertaining, essential, important or all of the
+# above or perhaps just a joke of the book of "1984" or the film "They Live"
+# to experience what it might feel like.
+# 
+# While this set of filters is intended merely for example purposes only to
+# realize the power one might have when is given the liberty to control
+# contents received, this machine-learning generated set is surprisingly
+# effective and efficient.
+# 
+# The filtering ability was primarily meant to solve an issue which my
+# orthodox rabbi has asked me to solve for him. That set, which he and his
+# community use, is not included here.
+
+# Replace words and phrases
+filter-replace:
+  # Fetus Death
+  "Baby Death":
+    - abortion
+  "CIA-backed riot group":
+    # We are all using 4chan; yet you have got to wonder how is it still
+    # allowed online in a centralized DNS system.
+    # If 4chan was served only in I2P, IPFS, Nostr, Plebbit or Yggdrasil
+    # then I would not think so.
+    - 4chan
+    - al qaeda
+    - al-qaeda
+    - antifa
+    - black lives matter
+    - da'ish
+    - daish
+    - isil
+    - isis
+    - ku klux klan
+  "CIA-controlled publishing agency":
+    - abc
+    - abc7
+    - abc13
+    - cbn
+    - cnbc
+    - fox news
+    - foxnews
+    - msn news
+    - sky news
+    - skynews
+  "dystopian":
+    - orwellian
+  "Earth is Horizontal":
+    - earth is flat
+    - flatearth
+    - flat earth
+  "electro magnetic death antenna":
+    - 5g
+  "electro magnetic water shaker antenna":
+    - 2.4ghz
+  "electro magnetic air shaker antenna":
+    - 5ghz
+    - 5.0ghz
+  "Federal Government of USA":
+    - biden administration
+    - biden admin
+    - biden government
+    - bush administration
+    - bush admin
+    - bush government
+    - obama administration
+    - obama admin
+    - obama government
+    - trump administration
+    - trump admin
+    - trump government
+  "fictional weapon":
+    - atom bomb
+    - atomic bomb
+    - nukes
+    - nuclear bomb
+  "firmament":
+    - atmosphere
+    - ozone
+  # People who have been made to believe that earth, moon and sun are 
+  # flying rocks traveling in an impossible vacuum of nothingness.
+  "globe believer":
+    - globtard
+  "Government Weather Change Scam":
+    - climate change
+    - climate summit
+    - global warming
+  "hazardous":
+    - gmo
+  "Human Trafficking Group":
+    - prostitution ring
+  "Human Trafficking Industry":
+    - porn industry
+    - pornographic industry
+    - pornography industry
+    - sex industry
+  "impossible war":
+    - atomic war
+    - nuclear war
+  # People who observe that earth is plane, and is enclosed by a firmament
+  # that separates earth from water, not space.
+  "Horizontal Earth Activist":
+    - flatearther
+    - flat earther
+    - globe sceptic
+  "internationalism":
+    - globalism
+  "internationalist":
+    - globalist
+  # Better options might be Freenet, Mixnet
+  "Meshnet":
+    - darknet
+    - dark net
+  "MI5-controlled publishing agency":
+    - bbc news
+    - the guardian
+  "Misleading Digital Coin":
+    - oecd
+    - shit coin
+  "NSDAP":
+    - nazi
+  "online content publishing platform":
+    - facebook
+    - instagram
+    - mastodon
+    - myspace
+    - pinterest
+    - tumblr
+    - twitter
+    - wix
+    - wordpress
+    - xitter
+  "petroleum":
+    - fossil fuel
+    - fossil oil
+  "plane":
+    - planet
+  "poison":
+    - flouride
+    - fluoride
+  "poisoned":
+    - flouridated
+    - fluoridated
+  "poisoning":
+    - flouridation
+    - fluoridation
+  "Scam Currency Trading":
+    - forex
+  "sponsor":
+    - money donor
+    - financier
+  "water above the firmament":
+    - outerspace
+    - outer space
+  "World":
+    - globe
+  "Worldwide":
+    - around the globe
+    - global
+    - globally
+  "Hospitality Directory":
+    - airbnb
+    - booking
+  "Mobile OS":
+    - android
+    - ipad
+    - iphone
+    - ipod
+  "Telecom Company":
+    - at&t
+    - verizon
+  "Social Media Platform":
+    - digg
+    - facebook
+    - github
+    - instagram
+    - myspace
+    - reddit
+    - snapchat
+    - pinterest
+    - tiktok
+    - tumblr
+    - twitter
+    - whatsapp
+  "Chat Service Platform":
+    - discord
+    - gitlab
+  "Email Service Provider":
+    - gmail
+    - ymail
+  "Search Provider":
+    - bing
+    - google
+    - yahoo
+  "Video Streaming Platform":
+    - netflix
+    - youtube
+  "Music Streaming Platform":
+    - spotify
+  "GPS Service Provider":
+    - waze
+  "Software Comopany":
+    - apple computers
+    - apple inc
+    - microsoft
