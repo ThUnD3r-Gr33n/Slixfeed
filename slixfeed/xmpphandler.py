@@ -52,15 +52,16 @@ NOTE
 """
 
 import asyncio
-import logging
-# import os
-import slixmpp
-from slixmpp.exceptions import IqError, IqTimeout
-from random import randrange
+from confighandler import get_list
 import datahandler as fetcher
 from datetimehandler import current_time
 from filehandler import initdb
 import listhandler as lister
+import logging
+# import os
+from random import randrange
+import slixmpp
+from slixmpp.exceptions import IqError, IqTimeout
 import sqlitehandler as sqlite
 import taskhandler as tasker
 import urlhandler as urlfixer
@@ -907,8 +908,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                 case _ if (message_lowercase.startswith("http") or
                            message_lowercase.startswith("feed:")):
                     url = message
-                    if url.startswith("feed:"):
-                        url = urlfixer.feed_to_http(url)
                     await tasker.clean_tasks_xmpp(
                         jid,
                         ["status"]
@@ -917,6 +916,12 @@ class Slixfeed(slixmpp.ClientXMPP):
                         "📫️ Processing request to fetch data from {}"
                         ).format(url)
                     process_task_message(self, jid, task)
+                    if url.startswith("feed:"):
+                        url = urlfixer.feed_to_http(url)
+                    # url_alt = await urlfixer.replace_hostname(url)
+                    # if url_alt:
+                    #     url = url_alt
+                    url = (await urlfixer.replace_hostname(url)) or url
                     action = await initdb(
                         jid,
                         fetcher.add_feed,
@@ -1147,16 +1152,17 @@ class Slixfeed(slixmpp.ClientXMPP):
                     data = message[5:]
                     data = data.split()
                     url = data[0]
-                    task = (
-                        "📫️ Processing request to fetch data from {}"
-                        ).format(url)
-                    process_task_message(self, jid, task)
                     await tasker.clean_tasks_xmpp(
                         jid,
                         ["status"]
                         )
+                    task = (
+                        "📫️ Processing request to fetch data from {}"
+                        ).format(url)
+                    process_task_message(self, jid, task)
                     if url.startswith("feed:"):
                         url = urlfixer.feed_to_http(url)
+                    url = (await urlfixer.replace_hostname(url)) or url
                     match len(data):
                         case 1:
                             if url.startswith("http"):

@@ -44,14 +44,14 @@ async def get_value_default(key, section):
     return result
 
 
-async def get_list(key, file):
+async def get_list(filename):
     """
     Get settings default value.
 
     Parameters
     ----------
-    key : str
-        Key: allow, deny, pathname, replace.
+    filename : str
+        filename of yaml file.
 
     Returns
     -------
@@ -61,8 +61,9 @@ async def get_list(key, file):
     config_dir = filehandler.get_default_confdir()
     if not os.path.isdir(config_dir):
         config_dir = '/usr/share/slixfeed/'
-    config_file = os.path.join(config_dir, file)
+    config_file = os.path.join(config_dir, filename)
     with open(config_file) as defaults:
-        default = yaml.safe_load(defaults)
-        result = default[key]
+        # default = yaml.safe_load(defaults)
+        # result = default[key]
+        result = yaml.safe_load(defaults)
     return result

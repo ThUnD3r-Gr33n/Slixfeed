@@ -14,8 +14,52 @@ TODO
 
 """
 
+from confighandler import get_list
 from email.utils import parseaddr
+import random
 from urllib.parse import urljoin, urlsplit, urlunsplit
+
+
+# NOTE hostname and protocol are listed as one in file
+# proxies.yaml. Perhaps a better practice would be to have
+# them separated. File proxies.yaml will remainas is in order
+# to be coordinated with the dataset of project LibRedirect.
+async def replace_hostname(url):
+    """
+    Replace hostname.
+
+    Parameters
+    ----------
+    url : str
+        URL.
+
+    Returns
+    -------
+    url : str
+        URL.
+    """
+    parted_url = urlsplit(url)
+    protocol = parted_url.scheme
+    hostname = parted_url.netloc
+    pathname = parted_url.path
+    queries = parted_url.query
+    fragment = parted_url.fragment
+    proxies = await get_list("proxies.yaml")
+    for proxy in proxies:
+        proxy = proxies[proxy]
+        if hostname in proxy["hostname"]:
+            select_proxy = random.choice(proxy["clearnet"])
+            parted_proxy = urlsplit(select_proxy)
+            protocol_new = parted_proxy.scheme
+            hostname_new = parted_proxy.netloc
+            url = urlunsplit([
+                protocol_new,
+                hostname_new,
+                pathname,
+                queries,
+                fragment
+                ])
+            return url
 
 
 def feed_to_http(url):

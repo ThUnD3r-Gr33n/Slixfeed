@@ -1626,7 +1626,8 @@ async def set_filters_value_default(cur, key):
         )
     cur.execute(sql, (key,))
     if not cur.fetchone():
-        val = await config.get_list(key, "lists.yaml")
+        val = await config.get_list("lists.yaml")
+        val = val[key]
         val = ",".join(val)
         sql = (
             "INSERT "

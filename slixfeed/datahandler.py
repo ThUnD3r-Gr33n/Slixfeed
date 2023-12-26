@@ -12,6 +12,8 @@ TODO
 
 1) Support Gemini and Gopher.
 
+2) Check also for HTML, not only feed.bozo.
+
 """
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
@@ -444,7 +446,12 @@ async def add_feed(db_file, url):
         if res[0]:
             feed = parse(res[0])
             title = get_title(url, feed)
-            if feed.bozo:
+            if not feed.entries:
+                try:
+                    feed["feed"]["title"]
+                except:
+                    msg = await probe_page(add_feed, url, res[0], db_file=db_file)
+            elif feed.bozo:
                 bozo = (
                     "Bozo detected. Failed to load: {}"
                     ).format(url)
@@ -625,7 +632,8 @@ async def feed_mode_request(url, tree):
     """
     feeds = {}
     parted_url = urlsplit(url)
-    paths = await get_list("pathnames", "lists.yaml")
+    paths = await get_list("lists.yaml")
+    paths = paths["pathnames"]
     for path in paths:
         address = urlunsplit([
             parted_url.scheme,
@@ -725,7 +733,8 @@ async def feed_mode_scan(url, tree):
     feeds = {}
     # paths = []
     # TODO Test
-    paths = await get_list("pathnames", "lists.yaml")
+    paths = await get_list("lists.yaml")
+    paths = paths["pathnames"]
     for path in paths:
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
         # xpath_query = "//a[contains(@href,'{}')]".format(path)
