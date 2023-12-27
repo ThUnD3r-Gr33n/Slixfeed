@@ -364,7 +364,7 @@ async def refresh_task(self, jid, callback, key, val=None):
         task_manager[jid][key] = loop.call_at(
             loop.time() + 60 * float(val),
             loop.create_task,
-            callback(self, jid)
+            (callback(self, jid))
             # send_update(jid)
         )
         # task_manager[jid][key] = loop.call_later(
