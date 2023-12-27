@@ -3,6 +3,10 @@
 
 """
 
+TODO
+
+1) Split into modules (e.g. slixfeed/xmpp/bookmarks.py)
+
 FIXME
 
 1) Function check_readiness or event "changed_status" is causing for

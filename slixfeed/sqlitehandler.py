@@ -24,6 +24,7 @@ import confighandler as config
 import datahandler as datahandler
 from datetimehandler import current_time, rfc2822_to_iso8601
 from sqlite3 import connect, Error
+from urlhandler import remove_tracking_parameters
 
 # from eliot import start_action, to_file
 # # with start_action(action_type="list_feeds()", db=db_file):
@@ -88,7 +89,6 @@ def create_tables(db_file):
             "CREATE TABLE IF NOT EXISTS entries ("
             "id INTEGER PRIMARY KEY,"
             "title TEXT NOT NULL,"
-            "summary TEXT NOT NULL,"
             "link TEXT NOT NULL,"
             "entry_id TEXT,"
             "source TEXT NOT NULL,"
@@ -100,7 +100,6 @@ def create_tables(db_file):
             "CREATE TABLE IF NOT EXISTS archive ("
             "id INTEGER PRIMARY KEY,"
             "title TEXT NOT NULL,"
-            "summary TEXT NOT NULL,"
             "link TEXT NOT NULL,"
             "entry_id TEXT,"
             "source TEXT NOT NULL,"
@@ -434,11 +433,11 @@ async def get_entry_unread(db_file, num=None):
         #     "DESC LIMIT :num"
         #     )
         sql = (
-            "SELECT id, title, summary, link, source, timestamp "
+            "SELECT id, title, link, source, timestamp "
             "FROM entries "
             "WHERE read = 0 "
             "UNION ALL "
-            "SELECT id, title, summary, link, source, timestamp "
+            "SELECT id, title, link, source, timestamp "
             "FROM archive "
             "ORDER BY timestamp "
             "DESC LIMIT :num"
@@ -469,41 +468,45 @@ async def get_entry_unread(db_file, num=None):
         for result in results:
             ix = result[0]
             title = result[1]
-            summary = result[2]
-            # Remove HTML tags
-            try:
-                summary = BeautifulSoup(summary, "lxml").text
-            except:
-                print(result[2])
-            # TODO Limit text length
-            summary = summary.replace("\n\n\n", "\n\n")
-            length = await get_settings_value(db_file, "length")
-            summary = summary[:length] + " […]"
-            summary = summary.strip().split('\n')
-            summary = ["> " + line for line in summary]
-            summary = "\n".join(summary)
-            link = result[3]
+            # # TODO Retrieve summary from feed
+            # # See datahandler.view_entry
+            # summary = result[2]
+            # # Remove HTML tags
+            # try:
+            #     summary = BeautifulSoup(summary, "lxml").text
+            # except:
+            #     print(result[2])
+            #     breakpoint()
+            # # TODO Limit text length
+            # summary = summary.replace("\n\n\n", "\n\n")
+            # length = await get_settings_value(db_file, "length")
+            # summary = summary[:length] + " […]"
+            # summary = summary.strip().split('\n')
+            # summary = ["> " + line for line in summary]
+            # summary = "\n".join(summary)
+            link = result[2]
+            link = await remove_tracking_parameters(link)
             sql = (
                 "SELECT name "
                 "FROM feeds "
                 "WHERE address = :source "
                 )
-            source = result[4]
+            source = result[3]
             feed = cur.execute(sql, (source,))
             feed = feed.fetchone()[0]
             if num > 1:
                 news_list += (
-                    "\n{}\n{}\n"
+                    "\n{}\n{}\n{}\n"
                     ).format(
                         str(title),
-                        str(link)
+                        str(link),
+                        str(feed)
                         )
             else:
                 news_list = (
-                    "{}\n\n{}\n\n{}\n{}"
+                    "{}\n{}\n{}"
                     ).format(
                         str(title),
-                        str(summary),
                         str(link),
                         str(feed)
                         )
@@ -532,7 +535,7 @@ async def mark_entry_as_read(cur, ix):
     """
     sql = (
         "UPDATE entries "
-        "SET summary = '', read = 1 "
+        "SET read = 1 "
         "WHERE id = ?"
         )
     cur.execute(sql, (ix,))
@@ -554,7 +557,7 @@ async def mark_source_as_read(db_file, source):
             cur = conn.cursor()
             sql = (
                 "UPDATE entries "
-                "SET summary = '', read = 1 "
+                "SET read = 1 "
                 "WHERE source = ?"
                 )
             cur.execute(sql, (source,))
@@ -574,7 +577,7 @@ async def mark_all_as_read(db_file):
             cur = conn.cursor()
             sql = (
                 "UPDATE entries "
-                "SET summary = '', read = 1 "
+                "SET read = 1 "
                 )
             cur.execute(sql)
             sql = (
@@ -892,23 +895,23 @@ async def add_entry(cur, entry):
         "INSERT "
         "INTO entries("
                 "title, "
-                "summary, "
                 "link, "
                 "entry_id, "
                 "source, "
                 "timestamp, "
                 "read"
                 ") "
-        "VALUES(?, ?, ?, ?, ?, ?, ?)"
+        "VALUES(?, ?, ?, ?, ?, ?)"
         )
     try:
         cur.execute(sql, entry)
     except:
         print(current_time(), "COROUTINE OBJECT NOW")
-        print(entry[6])
-        print(type(entry[6]))
+        # for i in entry:
+        #     print(type(i))
+        #     print(i)
+        # print(type(entry))
         print(entry)
-        print(type(entry))
         print(current_time(), "COROUTINE OBJECT NOW")
         # breakpoint()
 

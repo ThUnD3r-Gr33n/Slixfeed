@@ -14,6 +14,10 @@ TODO
 
 2) Check also for HTML, not only feed.bozo.
 
+3) Add "if is_feed(url, feed)" to view_entry and view_feed
+
+4) Refactor view_entry and view_feed - Why "if" twice?
+
 """
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
@@ -193,7 +197,6 @@ async def download_updates(db_file, url=None):
                             read_status = 1
                     entry = (
                         title,
-                        summary,
                         link,
                         eid,
                         source,
@@ -446,18 +449,7 @@ async def add_feed(db_file, url):
         if res[0]:
             feed = parse(res[0])
             title = get_title(url, feed)
-            if not feed.entries:
-                try:
-                    feed["feed"]["title"]
-                except:
-                    msg = await probe_page(add_feed, url, res[0], db_file=db_file)
-            elif feed.bozo:
-                bozo = (
-                    "Bozo detected. Failed to load: {}"
-                    ).format(url)
-                print(bozo)
-                msg = await probe_page(add_feed, url, res[0], db_file=db_file)
-            else:
+            if is_feed(url, feed):
                 status = res[1]
                 msg = await sqlite.insert_feed(
                     db_file,
@@ -466,6 +458,13 @@ async def add_feed(db_file, url):
                     status
                     )
                 await download_updates(db_file, [url])
+            else:
+                msg = await probe_page(
+                    add_feed,
+                    url,
+                    res[0],
+                    db_file=db_file
+                    )
         else:
             status = res[1]
             msg = (
@@ -673,7 +672,7 @@ async def feed_mode_request(url, tree):
                 except:
                     continue
     if len(feeds) > 1:
-        positive = 0
+        counter = 0
         msg = (
             "RSS URL discovery has found {} feeds:\n```\n"
             ).format(len(feeds))
@@ -689,7 +688,13 @@ async def feed_mode_request(url, tree):
             except:
                 continue
             if feed_amnt:
-                positive = 1
+                # NOTE Because there could be many false positives
+                # which are revealed in second phase of scan, we
+                # could end with a single feed, which would be
+                # listed instead of fetched, so feed_mark is
+                # utilized in order to make fetch possible.
+                feed_mark = [feed_addr]
+                counter += 1
                 msg += (
                     "Title: {}\n"
                     "Link : {}\n"
@@ -700,10 +705,13 @@ async def feed_mode_request(url, tree):
                         feed_addr,
                         feed_amnt
                         )
-        msg += (
-            "```\nThe above feeds were extracted from\n{}"
-            ).format(url)
-        if not positive:
+        if counter > 1:
+            msg += (
+                "```\nThe above feeds were extracted from\n{}"
+                ).format(url)
+        elif feed_mark:
+            return feed_mark
+        else:
             msg = (
                 "No feeds were found for {}"
                 ).format(url)
@@ -887,3 +895,41 @@ async def feed_mode_auto_discovery(url, tree):
     elif feeds:
         feed_addr = join_url(url, feeds[0].xpath('@href')[0])
         return [feed_addr]
+
+
+def is_feed(url, feed):
+    """
+    Determine whether document is feed or not.
+
+    Parameters
+    ----------
+    url : str
+        URL.
+    feed : dict
+        Parsed feed.
+
+    Returns
+    -------
+    val : boolean
+        True or False.
+    """
+    if not feed.entries:
+        try:
+            feed["feed"]["title"]
+        except:
+            val = False
+            msg = (
+            "No entries nor title for {}"
+            ).format(url)
+    elif feed.bozo:
+        val = False
+        msg = (
+            "Bozo detected for {}"
+            ).format(url)
+    else:
+        val = True
+        msg = (
+            "Good feed for {}"
+            ).format(url)
+    print(msg)
+    return val

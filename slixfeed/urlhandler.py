@@ -17,7 +17,14 @@ TODO
 from confighandler import get_list
 from email.utils import parseaddr
 import random
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import (
+    parse_qs,
+    urlencode,
+    urljoin,
+    urlparse,
+    urlsplit,
+    urlunsplit
+    )
 
 
 # NOTE hostname and protocol are listed as one in file
@@ -41,6 +48,7 @@ async def replace_hostname(url):
     parted_url = urlsplit(url)
     protocol = parted_url.scheme
     hostname = parted_url.netloc
+    hostname = hostname.replace("www.","")
     pathname = parted_url.path
     queries = parted_url.query
     fragment = parted_url.fragment
@@ -60,6 +68,41 @@ async def replace_hostname(url):
                 fragment
                 ])
             return url
+
+
+async def remove_tracking_parameters(url):
+    """
+    Remove queries with tracking parameters.
+
+    Parameters
+    ----------
+    url : str
+        URL.
+
+    Returns
+    -------
+    url : str
+        URL.
+    """
+    parted_url = urlsplit(url)
+    protocol = parted_url.scheme
+    hostname = parted_url.netloc
+    pathname = parted_url.path
+    queries = parse_qs(parted_url.query)
+    fragment = parted_url.fragment
+    trackers = await get_list("queries.yaml")
+    trackers = trackers["trackers"]
+    for tracker in trackers:
+        if tracker in queries: del queries[tracker]
+    queries_new = urlencode(queries, doseq=True)
+    url = urlunsplit([
+        protocol,
+        hostname,
+        pathname,
+        queries_new,
+        fragment
+        ])
+    return url
 
 
 def feed_to_http(url):
