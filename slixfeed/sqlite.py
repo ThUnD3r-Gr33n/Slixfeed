@@ -18,13 +18,12 @@ TODO
 from asyncio import Lock
 from bs4 import BeautifulSoup
 from datetime import date
-# from slixfeed.confighandler import get_value_default
-import confighandler as config
-# from slixfeed.datahandler import join_url
-import datahandler as datahandler
-from datetimehandler import current_time, rfc2822_to_iso8601
+# from slixfeed.config import get_value_default
+import slixfeed.config as config
+# from slixfeed.data import join_url
+from slixfeed.datetime import current_time, rfc2822_to_iso8601
 from sqlite3 import connect, Error
-from urlhandler import remove_tracking_parameters
+from slixfeed.url import join_url, remove_tracking_parameters
 
 # from eliot import start_action, to_file
 # # with start_action(action_type="list_feeds()", db=db_file):
@@ -469,7 +468,7 @@ async def get_entry_unread(db_file, num=None):
             ix = result[0]
             title = result[1]
             # # TODO Retrieve summary from feed
-            # # See datahandler.view_entry
+            # # See fetch.view_entry
             # summary = result[2]
             # # Remove HTML tags
             # try:
@@ -1001,7 +1000,7 @@ async def remove_nonexistent_entries(db_file, feed, source):
                     else:
                         title = feed["feed"]["title"]
                     if entry.has_key("link"):
-                        link = datahandler.join_url(source, entry.link)
+                        link = join_url(source, entry.link)
                     else:
                         link = source
                     if entry.has_key("published") and item[4]:

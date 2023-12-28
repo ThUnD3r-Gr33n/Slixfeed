@@ -24,15 +24,15 @@ from aiohttp import ClientError, ClientSession, ClientTimeout
 from asyncio import TimeoutError
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
-from confighandler import get_list, get_value_default
-from datetimehandler import now, rfc2822_to_iso8601
+import slixfeed.config as config
+from slixfeed.datetime import now, rfc2822_to_iso8601
 from email.utils import parseaddr
 from feedparser import parse
 from http.client import IncompleteRead
-from listhandler import is_listed
+from slixfeed.list import is_listed
 from lxml import html
-import sqlitehandler as sqlite
-from urlhandler import complete_url, join_url, trim_url
+import slixfeed.sqlite as sqlite
+from slixfeed.url import complete_url, join_url, trim_url
 from urllib import error
 # from xml.etree.ElementTree import ElementTree, ParseError
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -534,7 +534,7 @@ async def download_feed(url):
         Document or error message.
     """
     try:
-        user_agent = await get_value_default("user-agent", "Network")
+        user_agent = await config.get_value_default("user-agent", "Network")
     except:
         user_agent = "Slixfeed/0.1"
     if not len(user_agent):
@@ -631,7 +631,7 @@ async def feed_mode_request(url, tree):
     """
     feeds = {}
     parted_url = urlsplit(url)
-    paths = await get_list("lists.yaml")
+    paths = await config.get_list("lists.yaml")
     paths = paths["pathnames"]
     for path in paths:
         address = urlunsplit([
@@ -741,7 +741,7 @@ async def feed_mode_scan(url, tree):
     feeds = {}
     # paths = []
     # TODO Test
-    paths = await get_list("lists.yaml")
+    paths = await config.get_list("lists.yaml")
     paths = paths["pathnames"]
     for path in paths:
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)

@@ -44,18 +44,18 @@ import logging
 import os
 import slixmpp
 
-import confighandler as config
-from datahandler import download_updates
-from datetimehandler import current_time
-from filehandler import initdb, get_default_dbdir
-from sqlitehandler import (
+import slixfeed.config as config
+from slixfeed.fetch import download_updates
+from slixfeed.datetime import current_time
+from slixfeed.file import initdb, get_default_dbdir
+from slixfeed.sqlite import (
     get_entry_unread,
     get_settings_value,
     get_number_of_items,
     get_number_of_entries_unread
     )
-# from xmpphandler import Slixfeed
-import xmpphandler as xmpphandler
+# from xmpp import Slixfeed
+import slixfeed.xmpp.client as xmpp
 
 main_task = []
 jid_tasker = {}
@@ -215,10 +215,10 @@ async def send_update(self, jid, num=None):
         if new:
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
-            chat_type = await xmpphandler.Slixfeed.is_muc(self, jid)
+            chat_type = await xmpp.Slixfeed.is_muc(self, jid)
             # NOTE Do we need "if statement"? See NOTE at is_muc.
             if chat_type in ("chat", "groupchat"):
-                xmpphandler.Slixfeed.send_message(
+                xmpp.Slixfeed.send_message(
                     self,
                     mto=jid,
                     mbody=new,
@@ -313,7 +313,7 @@ async def send_status(self, jid):
 
     # breakpoint()
     # print(await current_time(), status_text, "for", jid)
-    xmpphandler.Slixfeed.send_presence(
+    xmpp.Slixfeed.send_presence(
         self,
         pshow=status_mode,
         pstatus=status_text,

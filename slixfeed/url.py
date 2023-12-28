@@ -14,7 +14,7 @@ TODO
 
 """
 
-from confighandler import get_list
+import slixfeed.config as config
 from email.utils import parseaddr
 import random
 from urllib.parse import (
@@ -25,6 +25,25 @@ from urllib.parse import (
     urlsplit,
     urlunsplit
     )
+
+
+def get_hostname(url):
+    """
+    Get hostname.
+
+    Parameters
+    ----------
+    url : str
+        URL.
+
+    Returns
+    -------
+    hostname : str
+        Hostname.
+    """
+    parted_url = urlsplit(url)
+    hostname = parted_url.netloc
+    return hostname
 
 
 # NOTE hostname and protocol are listed as one in file
@@ -52,7 +71,7 @@ async def replace_hostname(url):
     pathname = parted_url.path
     queries = parted_url.query
     fragment = parted_url.fragment
-    proxies = await get_list("proxies.yaml")
+    proxies = await config.get_list("proxies.yaml")
     for proxy in proxies:
         proxy = proxies[proxy]
         if hostname in proxy["hostname"]:
@@ -90,7 +109,7 @@ async def remove_tracking_parameters(url):
     pathname = parted_url.path
     queries = parse_qs(parted_url.query)
     fragment = parted_url.fragment
-    trackers = await get_list("queries.yaml")
+    trackers = await config.get_list("queries.yaml")
     trackers = trackers["trackers"]
     for tracker in trackers:
         if tracker in queries: del queries[tracker]
