@@ -361,11 +361,14 @@ async def refresh_task(self, jid, callback, key, val=None):
             task_manager[jid][key].cancel()
         except:
             print("No task of type", key, "to cancel for JID", jid)
-        task_manager[jid][key] = loop.call_at(
-            loop.time() + 60 * float(val),
-            loop.create_task,
-            (callback(self, jid))
-            # send_update(jid)
+        # task_manager[jid][key] = loop.call_at(
+        #     loop.time() + 60 * float(val),
+        #     loop.create_task,
+        #     (callback(self, jid))
+        #     # send_update(jid)
+        # )
+        task_manager[jid][key] = loop.create_task(
+            wait_and_run(self, callback, jid, val)
         )
         # task_manager[jid][key] = loop.call_later(
         #     60 * float(val),
@@ -377,6 +380,11 @@ async def refresh_task(self, jid, callback, key, val=None):
         #     send_update.loop.create_task,
         #     send_update(jid)
         # )
+
+
+async def wait_and_run(self, callback, jid, val):
+    await asyncio.sleep(60 * float(val))
+    await callback(self, jid)
 
 
 # TODO Take this function out of
