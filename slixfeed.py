@@ -20,7 +20,7 @@
 
 from slixfeed.__main__ import Jabber
 from slixfeed.xmpp.client import Slixfeed
-import slixfeed.file as filehandler
+from slixfeed.config import get_default_confdir
 from argparse import ArgumentParser
 import configparser
 # import filehandler
@@ -85,7 +85,7 @@ if __name__ == '__main__':
 
     # Try configuration file
     config = configparser.RawConfigParser()
-    config_dir = filehandler.get_default_confdir()
+    config_dir = get_default_confdir()
     if not os.path.isdir(config_dir):
         os.mkdir(config_dir)
     # TODO Copy file from /etc/slixfeed/ or /usr/share/slixfeed/
