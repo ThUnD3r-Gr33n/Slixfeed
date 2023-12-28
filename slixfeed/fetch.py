@@ -29,7 +29,6 @@ from slixfeed.datetime import now, rfc2822_to_iso8601
 from email.utils import parseaddr
 from feedparser import parse
 from http.client import IncompleteRead
-from slixfeed.list import is_listed
 from lxml import html
 import slixfeed.sqlite as sqlite
 from slixfeed.url import complete_url, join_url, trim_url
@@ -175,13 +174,13 @@ async def download_updates(db_file, url=None):
                             summary,
                             pathname
                             )
-                    allow_list = await is_listed(
+                    allow_list = await config.is_listed(
                         db_file,
                         "filter-allow",
                         string
                         )
                     if not allow_list:
-                        reject_list = await is_listed(
+                        reject_list = await config.is_listed(
                             db_file,
                             "filter-deny",
                             string
