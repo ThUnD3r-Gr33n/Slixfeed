@@ -27,25 +27,6 @@ from urllib.parse import (
     )
 
 
-def get_hostname(url):
-    """
-    Get hostname.
-
-    Parameters
-    ----------
-    url : str
-        URL.
-
-    Returns
-    -------
-    hostname : str
-        Hostname.
-    """
-    parted_url = urlsplit(url)
-    hostname = parted_url.netloc
-    return hostname
-
-
 # NOTE hostname and protocol are listed as one in file
 # proxies.yaml. Perhaps a better practice would be to have
 # them separated. File proxies.yaml will remainas is in order

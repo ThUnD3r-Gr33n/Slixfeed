@@ -44,10 +44,9 @@ import logging
 import os
 import slixmpp
 
-import slixfeed.config as config
-from slixfeed.fetch import download_updates
+from slixfeed.config import initdb, get_default_dbdir, get_value_default
 from slixfeed.datetime import current_time
-from slixfeed.file import initdb, get_default_dbdir
+from slixfeed.fetch import download_updates
 from slixfeed.sqlite import (
     get_entry_unread,
     get_settings_value,
@@ -403,7 +402,7 @@ async def check_updates(jid):
     while True:
         # print(await current_time(), "> CHCK UPDATE",jid)
         await initdb(jid, download_updates)
-        val = await config.get_value_default("check", "Settings")
+        val = await get_value_default("check", "Settings")
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes
         # loop.call_at(
