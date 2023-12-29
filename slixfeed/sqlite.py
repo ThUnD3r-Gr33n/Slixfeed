@@ -21,9 +21,16 @@ from datetime import date
 # from slixfeed.config import get_value_default
 import slixfeed.config as config
 # from slixfeed.data import join_url
-from slixfeed.datetime import current_time, rfc2822_to_iso8601
+from slixfeed.datetime import (
+    current_time,
+    rfc2822_to_iso8601
+    )
 from sqlite3 import connect, Error
-from slixfeed.url import join_url, remove_tracking_parameters
+from slixfeed.url import (
+    join_url,
+    remove_tracking_parameters,
+    replace_hostname
+    )
 
 # from eliot import start_action, to_file
 # # with start_action(action_type="list_feeds()", db=db_file):
@@ -485,6 +492,7 @@ async def get_entry_unread(db_file, num=None):
             # summary = "\n".join(summary)
             link = result[2]
             link = await remove_tracking_parameters(link)
+            link = (await replace_hostname(link)) or link
             sql = (
                 "SELECT name "
                 "FROM feeds "

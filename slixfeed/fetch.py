@@ -686,6 +686,7 @@ async def feed_mode_request(url, tree):
                 feed_amnt = len(feeds[feed].entries)
             except:
                 continue
+            feed_mark = 0
             if feed_amnt:
                 # NOTE Because there could be many false positives
                 # which are revealed in second phase of scan, we
@@ -806,6 +807,7 @@ async def feed_mode_scan(url, tree):
                 feed_name = urlsplit(feed).netloc
             feed_addr = feed
             feed_amnt = len(feeds[feed].entries)
+            feed_mark = 0
             if feed_amnt:
                 # NOTE Because there could be many false positives
                 # which are revealed in second phase of scan, we
@@ -912,9 +914,14 @@ def is_feed(url, feed):
     val : boolean
         True or False.
     """
+    msg = None
     if not feed.entries:
         try:
             feed["feed"]["title"]
+            val = True
+            msg = (
+                "Empty feed for {}"
+                ).format(url)
         except:
             val = False
             msg = (
