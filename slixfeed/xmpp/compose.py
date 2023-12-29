@@ -16,11 +16,12 @@ from slixfeed.datetime import current_time
 import slixfeed.fetch as fetcher
 import slixfeed.sqlite as sqlite
 import slixfeed.task as task
-import slixfeed.url as urlfixer
+import slixfeed.url as uri
 import slixfeed.xmpp.status as status
 import slixfeed.xmpp.text as text
 
 async def message(self, jid, message):
+    action = None
     message_text = " ".join(message["body"].split())
     if message["type"] == "groupchat":
         message_text = message_text[1:]
@@ -244,11 +245,11 @@ async def message(self, jid, message):
                 ).format(url)
             status.process_task_message(self, jid, status_message)
             if url.startswith("feed:"):
-                url = urlfixer.feed_to_http(url)
-            # url_alt = await urlfixer.replace_hostname(url)
+                url = uri.feed_to_http(url)
+            # url_alt = await uri.replace_hostname(url, "feed")
             # if url_alt:
             #     url = url_alt
-            url = (await urlfixer.replace_hostname(url)) or url
+            url = (await uri.replace_hostname(url, "feed")) or url
             action = await initdb(
                 jid,
                 fetcher.add_feed,
@@ -346,7 +347,7 @@ async def message(self, jid, message):
             else:
                 action = "Missing value."
         case _ if message_lowercase.startswith("join"):
-            muc = urlfixer.check_xmpp_uri(message_text[5:])
+            muc = uri.check_xmpp_uri(message_text[5:])
             if muc:
                 "TODO probe JID and confirm it's a groupchat"
                 await self.join_muc(jid, muc)
@@ -488,8 +489,8 @@ async def message(self, jid, message):
                 ).format(url)
             status.process_task_message(self, jid, status_message)
             if url.startswith("feed:"):
-                url = urlfixer.feed_to_http(url)
-            url = (await urlfixer.replace_hostname(url)) or url
+                url = uri.feed_to_http(url)
+            url = (await uri.replace_hostname(url, "feed")) or url
             match len(data):
                 case 1:
                     if url.startswith("http"):
@@ -676,7 +677,7 @@ async def message(self, jid, message):
             # TODO Send an invitation.
             action = "Join xmpp:slixfeed@chat.woodpeckersnest.space?join"
         case _ if message_lowercase.startswith("xmpp:"):
-            muc = urlfixer.check_xmpp_uri(message_text)
+            muc = uri.check_xmpp_uri(message_text)
             if muc:
                 "TODO probe JID and confirm it's a groupchat"
                 await self.join_muc(jid, muc)

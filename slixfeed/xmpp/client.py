@@ -492,7 +492,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         # print("message")
         # print(message)
         if message["type"] in ("chat", "groupchat", "normal"):
-            action = 0
             jid = message["from"].bare
             if message["type"] == "groupchat":
                 # nick = message["from"][message["from"].index("/")+1:]

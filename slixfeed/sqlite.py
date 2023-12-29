@@ -492,7 +492,7 @@ async def get_entry_unread(db_file, num=None):
             # summary = "\n".join(summary)
             link = result[2]
             link = await remove_tracking_parameters(link)
-            link = (await replace_hostname(link)) or link
+            link = (await replace_hostname(link, "link")) or link
             sql = (
                 "SELECT name "
                 "FROM feeds "

@@ -1,7 +1,48 @@
-invidious:
+anonymousoverflow:
+  clearnet:
+  - https://ao.phreedom.club
+  - https://overflow.hostux.net
+  - https://ao.foss.wtf
+  - https://overflow.adminforge.de
+  - https://overflow.lunar.icu
+  - https://anonymousoverflow.esmailelbob.xyz
+  - https://overflow.smnz.de
+  - https://ao.vern.cc
+  - https://overflow.777.tf
+  - https://code.whatever.social
+  - https://stackoverflow.vern.cc
+  - https://anonymousoverflow.vern.cc
+  - https://ao.bloatcat.tk
+  - https://se.chaotic.ninja
+  - https://anonymousoverflow.privacyfucking.rocks
+  - https://overflow.projectsegfau.lt
+  - https://anonoverflow.frontendfriendly.xyz
+  - https://overflow.fascinated.cc
+  i2p:
+  - http://vernmzgraj6aaoafmehupvtkkynpaa67rxcdj2kinwiy6konn6rq.b32.i2p
+  loki: []
+  tor:
+  - http://anonymousoverflow.esmail5pdn24shtvieloeedh7ehz3nrwcdivnfhfcedl7gf4kwddhkqd.onion
+  - http://ao.vernccvbvyi5qhfzyqengccj7lkove6bjot2xhh5kajhwvidqafczrad.onion
+  yggdrasil:
+  - http://[301:f69c:2017:b6b8::8]
   hostname:
-  - youtu.be
-  - youtube.com
+  - stackoverflow.com
+  type:
+  - link
+
+dumb:
+  clearnet:
+  - https://dumb.privacydev.net
+  - https://dm.vern.cc
+  - https://dumb.lunar.icu
+  - https://dumb.esmailelbob.xyz
+  hostname:
+  - genius.com
+  type:
+  - link
+
+invidious:
   clearnet:
   - https://incogtube.com
   - https://vid.puffyan.us
@@ -108,10 +149,14 @@ invidious:
   - http://w6ijuptxiku4xpnnaetxvnkc5vqcdu7mgns2u77qefoixi63vbvnpnqd.onion
   yggdrasil:
   - http://[200:168a:c80a:b258:1dfe:f920:4414:6897]
+  hostname:
+  - youtu.be
+  - youtube.com
+  type:
+  - feed
+  - link
 
 librarian:
-  hostname:
-  - odysee.com
   clearnet:
   - https://librarian.pussthecat.org
   - https://odysee.076.ne.jp
@@ -132,11 +177,124 @@ librarian:
   - http://5znbzx2xcymhddzekfjib3isgqq4ilcyxa2bsq6vqmnvbtgu4f776lqd.onion
   - http://bxewpsswttslepw27w2hhxhlizwm7l7y54x3jw5cfrb64hb6lgc557ad.onion
   yggdrasil: []
+  hostname:
+  - odysee.com
+  type:
+  - feed
+  - link
+
+libreddit:
+  clearnet:
+  - https://libreddit.spike.codes
+  - https://libreddit.hu
+  - https://libreddit.nl
+  - https://libreddit.bus-hit.me
+  - https://libreddit.strongthany.cc
+  - https://libreddit.esmailelbob.xyz
+  - https://lr.riverside.rocks
+  - https://libreddit.40two.app
+  - https://libreddit.albony.xyz
+  - https://libreddit.domain.glass
+  - https://discuss.whatever.social
+  - https://libreddit.kavin.rocks
+  - https://libreddit.privacy.com.de
+  - https://libreddit.eu.org
+  - https://libreddit.bloatcat.tk
+  - https://libreddit.pabloferreiro.es
+  - https://lr.foss.wtf
+  - https://libreddit.no-logs.com
+  - https://lr.slipfox.xyz
+  - https://lr.creller.net
+  - https://libreddit.dcs0.hu
+  - https://l.opnxng.com
+  - https://libreddit.tux.pizza
+  - https://reddit.leptons.xyz
+  - https://reddit.baby
+  - https://snoo.habedieeh.re
+  - https://lr.4201337.xyz
+  - https://libreddit.private.coffee
+  - https://lr.artemislena.eu
+  - https://libreddit.privacyfucking.rocks
+  - https://libreddit.qwik.space
+  - https://farside.link/libreddit
+  - https://de.leddit.xyz
+  - https://leddit.xyz
+  - https://libreddit.alefvanoon.xyz
+  - https://libreddit.autarkic.org
+  - https://libreddit.awesomehub.io
+  - https://libreddit.crewz.me
+  - https://libreddit.database.red
+  - https://libreddit.datatunnel.xyz
+  - https://libreddit.de
+  - https://libreddit.dothq.co
+  - https://libreddit.drivet.xyz
+  - https://libreddit.flux.industries
+  - https://libreddit.igna.rocks
+  - https://libredd.it
+  - https://libreddit.jamiethalacker.dev
+  - https://libreddit.kylrth.com
+  - https://libreddit.lunar.icu
+  - https://libreddit.mutahar.rocks
+  - https://libreddit.northboot.xyz
+  - https://libreddit.pussthecat.org
+  - https://libreddit.silkky.cloud
+  - https://libreddit.some-things.org
+  - https://libreddit.sugoma.tk
+  - https://libreddit.tiekoetter.com
+  - https://libreddit.totaldarkness.net
+  - https://libreddit.winscloud.net
+  - https://libreddit.yonalee.eu
+  - https://lr.cowfee.moe
+  - https://lr.mint.lgbt
+  - https://lr.oversold.host
+  - https://lr.stilic.ml
+  - https://r.nf
+  - https://r.walkx.org
+  - https://reddi.tk
+  - https://reddit.artemislena.eu
+  - https://reddit.invak.id
+  - https://reddit.phii.me
+  - https://reddit.rtrace.io
+  - https://reddit.stuehieyr.com
+  - https://safereddit.com
+  - https://libreddit.nohost.network
+  - https://libreddit.projectsegfau.lt
+  - https://reddit.simo.sh
+  i2p:
+  - http://woo5ugmoomzbtaq6z46q4wgei5mqmc6jkafqfi5c37zni7xc4ymq.b32.i2p
+  loki: []
+  tor:
+  - http://spjmllawtheisznfs7uryhxumin26ssv2draj7oope3ok3wuhy43eoyd.onion
+  - http://qwikxxeiw4kgmml6vjw2bsxtviuwjce735dunai2djhu6q7qbacq73id.onion
+  - http://qwikxx4xqvhdyyazkrw7pwdpdppfnmn7j2n6cvq5zecm4atbppaslzad.onion
+  - http://ecue64ybzvn6vjzl37kcsnwt4ycmbsyf74nbttyg7rkc3t3qwnj7mcyd.onion
+  - http://fwhhsbrbltmrct5hshrnqlqygqvcgmnek3cnka55zj4y7nuus5muwyyd.onion
+  - http://inytumdgnri7xsqtvpntjevaelxtgbjqkuqhtf6txxhwbll2fwqtakqd.onion
+  - http://kphht2jcflojtqte4b4kyx7p2ahagv4debjj32nre67dxz7y57seqwyd.onion
+  - http://kzhfp3nvb4qp575vy23ccbrgfocezjtl5dx66uthgrhu7nscu6rcwjyd.onion
+  - http://lbrdtjaj7567ptdd4rv74lv27qhxfkraabnyphgcvptl64ijx2tijwid.onion
+  - http://libreddit.2syis2nnyytz6jnusnjurva4swlaizlnleiks5mjp46phuwjbdjqwgqd.onion
+  - http://ledditqo2mxfvlgobxnlhrkq4dh34jss6evfkdkb2thlvy6dn4f4gpyd.onion
+  - http://libreddit.lqs5fjmajyp7rvp4qvyubwofzi6d4imua7vs237rkc4m5qogitqwrgyd.onion
+  - http://libredoxhxwnmsb6dvzzd35hmgzmawsq5i764es7witwhddvpc2razid.onion
+  - http://ol5begilptoou34emq2sshf3may3hlblvipdjtybbovpb7c7zodxmtqd.onion
+  - http://liredejj74h5xjqr2dylnl5howb2bpikfowqoveub55ru27x43357iid.onion
+  yggdrasil: []
+  hostname:
+  - reddit.com
+  type:
+  - link
+
+neuters:
+  clearnet:
+  - https://neuters.de
+  - https://neuters.privacyfucking.rocks
+  hostname:
+  - reuters.com
+  type:
+  - link
 
 nitter:
-  hostname:
-  - twitter.com
-  - x.com
   clearnet:
   - https://nitter.hu
   - https://nitter.actionsack.com
@@ -207,3 +365,113 @@ nitter:
   - http://qwikxx2erhx6qrymued6ox2qkf2yeogjwypqvzoif4fqkljixasr6oid.onion
   - http://n.sneed4fmhevap3ci4xhf4wgkf72lwk275lcgomnfgwniwmqvaxyluuid.onion
   yggdrasil: []
+  hostname:
+  - twitter.com
+  - x.com
+  type:
+  - feed
+  - link
+
+proxitok:
+  clearnet:
+  - https://proxitok.lunar.icu
+  - https://tik.hostux.net
+  - https://proxitok.pabloferreiro.es
+  - https://proxitok.privacy.com.de
+  - https://tok.adminforge.de
+  - https://tok.habedieeh.re
+  - https://proxitok.pussthecat.org
+  - https://proxitok.privacyfucking.rocks
+  - https://cringe.whatever.social
+  - https://proxitok.esmailelbob.xyz
+  - https://proxitok.privacydev.net
+  - https://proxitok.pufe.org
+  - https://tok.artemislena.eu
+  - https://tok.thekitty.zone
+  - https://tiktok.chauvet.pro
+  - https://tt.vern.cc
+  - https://farside.link/proxitok
+  i2p:
+  - http://qr.vern.i2p
+  loki: []
+  tor: []
+  yggdrasil: []
+  hostname:
+  - tiktok.com
+  type:
+  - link
+
+quetre:
+  clearnet:
+  - https://quetre.privacydev.net
+  - https://quetre.pufe.org
+  - https://que.wilbvr.me
+  - https://quetre.iket.me
+  - https://quetre.pussthecat.org
+  - https://quetre.tokhmi.xyz
+  - https://quetre.projectsegfau.lt
+  - https://quetre.esmailelbob.xyz
+  - https://quetre.odyssey346.dev
+  - ://ask.habedieeh.re
+  - https://quetre.marcopisco.com
+  - https://quetre.blackdrgn.nl
+  - https://quetre.lunar.icu
+  - https://quora.femboy.hu
+  - https://quora.vern.cc
+  - https://farside.link/quetre
+  - https://quetre.fascinated.cc
+  i2p: []
+  loki: []
+  tor:
+  - http://ask.habeehrhadazsw3izbrbilqajalfyqqln54mrja3iwpqxgcuxnus7eid.onion
+  - http://qr.vernccvbvyi5qhfzyqengccj7lkove6bjot2xhh5kajhwvidqafczrad.onion
+  - http://quetre.esmail5pdn24shtvieloeedh7ehz3nrwcdivnfhfcedl7gf4kwddhkqd.onion
+  - http://quetre.g4c3eya4clenolymqbpgwz3q3tawoxw56yhzk4vugqrl6dtu3ejvhjid.onion
+  - http://quora.cepyxplublbyw2f4axy4pyztfbxmf63lrt2c7uwv6wl4iixz53czload.onion
+  yggdrasil: []
+  hostname:
+  - quora.com
+  type:
+  - link
+
+teddit:
+  clearnet:
+  - https://teddit.pussthecat.org
+  - https://teddit.zaggy.nl
+  - https://teddit.bus-hit.me
+  - https://teddit.adminforge.de
+  - https://incogsnoo.com
+  - https://teddit.hostux.net
+  - https://teddit.ggc-project.de
+  - https://teddit.httpjames.space
+  - https://snoo.ioens.is
+  - https://teddit.no-logs.com
+  - https://teddit.net
+  - https://i.opnxng.com
+  - https://tedd.it
+  - https://teddit.projectsegfau.lt
+  - https://reddit.lol
+  - https://rdt.trom.tf
+  - https://t.sneed.network
+  - https://farside.link/teddit
+  - https://teddit.alefvanoon.xyz
+  - https://teddit.domain.glass
+  - https://teddit.froth.zone
+  - https://teddit.namazso.eu
+  - https://teddit.sethforprivacy.com
+  - https://teddit.tinfoil-hat.net
+  - https://teddit.totaldarkness.net
+  - https://td.vern.cc
+  i2p:
+  - http://k62ptris7p72aborr4zoanee7xai6wguucveptwgxs5vbgt7qzpq.b32.i2p
+  - http://teddit.i2p
+  loki: []
+  tor:
+  - http://t.sneed4fmhevap3ci4xhf4wgkf72lwk275lcgomnfgwniwmqvaxyluuid.onion
+  - http://tedditfyn6idalzso5wam5qd3kdtxoljjhbrbbx34q2xkcisvshuytad.onion
+  yggdrasil:
+  - http://[200:5e4b:515c:e42b:3e73:6fbf:2f11:779d]
+  hostname:
+  - reddit.com
+  type:
+  - link

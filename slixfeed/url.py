@@ -31,7 +31,7 @@ from urllib.parse import (
 # proxies.yaml. Perhaps a better practice would be to have
 # them separated. File proxies.yaml will remainas is in order
 # to be coordinated with the dataset of project LibRedirect.
-async def replace_hostname(url):
+async def replace_hostname(url, url_type):
     """
     Replace hostname.
 
@@ -39,6 +39,8 @@ async def replace_hostname(url):
     ----------
     url : str
         URL.
+    url_type : str
+        "feed" or "link".
 
     Returns
     -------
@@ -55,7 +57,7 @@ async def replace_hostname(url):
     proxies = await config.get_list("proxies.yaml")
     for proxy in proxies:
         proxy = proxies[proxy]
-        if hostname in proxy["hostname"]:
+        if hostname in proxy["hostname"] and url_type in proxy["type"]:
             select_proxy = random.choice(proxy["clearnet"])
             parted_proxy = urlsplit(select_proxy)
             protocol_new = parted_proxy.scheme
