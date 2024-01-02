@@ -121,7 +121,7 @@ async def list_feeds(results):
 
 
 async def list_bookmarks(self):
-    conferences = bookmark.get(self)
+    conferences = await bookmark.get(self)
     groupchat_list = "\nList of groupchats:\n\n```\n"
     counter = 0
     for conference in conferences:
