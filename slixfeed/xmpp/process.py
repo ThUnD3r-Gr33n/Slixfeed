@@ -147,7 +147,14 @@ async def message(self, message):
     
         match message_lowercase:
             case "breakpoint":
-                breakpoint()
+                if jid == get_value("accounts", "XMPP", "operator"):
+                    breakpoint()
+                else:
+                    response = (
+                        "This action is restricted. "
+                        "Type: breakpoint."
+                        )
+                send_reply_message(self, message, response)
             case "commands":
                 response = text.print_cmd()
                 send_reply_message(self, message, response)
