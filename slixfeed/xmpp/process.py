@@ -137,6 +137,7 @@ async def message(self, message):
 
         # await compose.message(self, jid, message)
 
+        response = "Empty message (action only)."
         message_text = " ".join(message["body"].split())
         if message["type"] == "groupchat":
             message_text = message_text[1:]
