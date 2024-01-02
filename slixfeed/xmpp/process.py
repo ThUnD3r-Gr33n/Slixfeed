@@ -712,6 +712,7 @@ async def message(self, message):
         # commands are sent one close to the next
         # if response: message.reply(response).send()
 
+        response = "EMPTY MESSAGE - ACTION ONLY"
         log_dir = get_default_dbdir()
         if not os.path.isdir(log_dir):
             os.mkdir(log_dir)
