@@ -31,7 +31,7 @@ from urllib.parse import (
 # proxies.yaml. Perhaps a better practice would be to have
 # them separated. File proxies.yaml will remainas is in order
 # to be coordinated with the dataset of project LibRedirect.
-async def replace_hostname(url, url_type):
+def replace_hostname(url, url_type):
     """
     Replace hostname.
 
@@ -54,7 +54,7 @@ async def replace_hostname(url, url_type):
     pathname = parted_url.path
     queries = parted_url.query
     fragment = parted_url.fragment
-    proxies = await config.get_list("proxies.yaml")
+    proxies = config.get_list("proxies.yaml")
     for proxy in proxies:
         proxy = proxies[proxy]
         if hostname in proxy["hostname"] and url_type in proxy["type"]:
@@ -72,7 +72,7 @@ async def replace_hostname(url, url_type):
             return url
 
 
-async def remove_tracking_parameters(url):
+def remove_tracking_parameters(url):
     """
     Remove queries with tracking parameters.
 
@@ -92,7 +92,7 @@ async def remove_tracking_parameters(url):
     pathname = parted_url.path
     queries = parse_qs(parted_url.query)
     fragment = parted_url.fragment
-    trackers = await config.get_list("queries.yaml")
+    trackers = config.get_list("queries.yaml")
     trackers = trackers["trackers"]
     for tracker in trackers:
         if tracker in queries: del queries[tracker]

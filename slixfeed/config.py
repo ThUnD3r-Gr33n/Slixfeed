@@ -16,19 +16,62 @@ TODO
     Refer to sqlitehandler.search_entries for implementation.
     It is expected to be more complex than function search_entries.
 
-"""
+5) Copy file from /etc/slixfeed/ or /usr/share/slixfeed/
 
+"""
 
 import configparser
 # from file import get_default_confdir
 import slixfeed.config as config
 import slixfeed.sqlite as sqlite
 import os
-from random import randrange
+# from random import randrange
 import sys
 import yaml
 
-async def get_value_default(key, section):
+
+def get_value(filename, section, keys):
+    """
+    Get setting value.
+
+    Parameters
+    ----------
+    filename : str
+        INI filename.
+    keys : list or str
+        A single key as string or multiple keys as list.
+    section : str
+        INI Section.
+
+    Returns
+    -------
+    result : list or str
+        A single value as string or multiple values as list.
+    """
+    config_res = configparser.RawConfigParser()
+    config_dir = config.get_default_confdir()
+    # if not os.path.isdir(config_dir):
+    #     config_dir = '/usr/share/slixfeed/'
+    if not os.path.isdir(config_dir):
+        os.mkdir(config_dir)
+    config_file = os.path.join(config_dir, filename + ".ini")
+    config_res.read(config_file)
+    if config_res.has_section(section):
+        section_res = config_res[section]
+        if isinstance(keys, list):
+            result = []
+            for key in keys:
+                result.extend([section_res[key]])
+        elif isinstance(keys, str):
+            key = keys
+            result = section_res[key]
+    return result
+
+
+# TODO Store config file as an object in runtime, otherwise
+# the file will be opened time and time again.
+# TODO Copy file from /etc/slixfeed/ or /usr/share/slixfeed/
+def get_value_default(filename, section, key):
     """
     Get settings default value.
 
@@ -47,17 +90,14 @@ async def get_value_default(key, section):
     config_dir = config.get_default_confdir()
     if not os.path.isdir(config_dir):
         config_dir = '/usr/share/slixfeed/'
-    config_file = os.path.join(config_dir, r"settings.ini")
+    config_file = os.path.join(config_dir, filename + ".ini")
     config_res.read(config_file)
     if config_res.has_section(section):
         result = config_res[section][key]
-    isinstance(result, int)
-    isinstance(result, str)
-    breakpoint
     return result
 
 
-async def get_list(filename):
+def get_list(filename):
     """
     Get settings default value.
 
@@ -149,7 +189,7 @@ def get_default_confdir():
     return os.path.join(config_home, 'slixfeed')
 
 
-async def initdb(jid, callback, message=None):
+def get_pathname_to_database(jid):
     """
     Callback function to instantiate action on database.
 
@@ -173,11 +213,12 @@ async def initdb(jid, callback, message=None):
         os.mkdir(db_dir)
     db_file = os.path.join(db_dir, r"{}.db".format(jid))
     sqlite.create_tables(db_file)
+    return db_file
     # await set_default_values(db_file)
-    if message:
-        return await callback(db_file, message)
-    else:
-        return await callback(db_file)
+    # if message:
+    #     return await callback(db_file, message)
+    # else:
+    #     return await callback(db_file)
 
 
 async def add_to_list(newwords, keywords):

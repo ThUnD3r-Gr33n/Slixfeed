@@ -40,6 +40,13 @@ async def add(self, muc_jid):
     # await self['xep_0402'].publish(bm)
 
 
+async def get(self):
+    result = await self.plugin['xep_0048'].get_bookmarks()
+    bookmarks = result["private"]["bookmarks"]
+    conferences = bookmarks["conferences"]
+    return conferences
+
+
 async def remove(self, muc_jid):
     result = await self.plugin['xep_0048'].get_bookmarks()
     bookmarks = result["private"]["bookmarks"]

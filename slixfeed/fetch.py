@@ -14,7 +14,7 @@ TODO
 
 2) Check also for HTML, not only feed.bozo.
 
-3) Add "if is_feed(url, feed)" to view_entry and view_feed
+3) Add "if utility.is_feed(url, feed)" to view_entry and view_feed
 
 4) Refactor view_entry and view_feed - Why "if" twice?
 
@@ -24,17 +24,18 @@ from aiohttp import ClientError, ClientSession, ClientTimeout
 from asyncio import TimeoutError
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
-import slixfeed.config as config
-from slixfeed.datetime import now, rfc2822_to_iso8601
 from email.utils import parseaddr
 from feedparser import parse
 from http.client import IncompleteRead
 from lxml import html
+import slixfeed.config as config
+from slixfeed.datetime import now, rfc2822_to_iso8601
+import slixfeed.utility as utility
 import slixfeed.sqlite as sqlite
 from slixfeed.url import complete_url, join_url, trim_url
 from urllib import error
 # from xml.etree.ElementTree import ElementTree, ParseError
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 
 # NOTE Why (if res[0]) and (if res[1] == 200)?
 async def download_updates(db_file, url=None):
@@ -262,9 +263,9 @@ async def view_feed(url):
             # breakpoint()
     if result[1] == 200:
         feed = parse(result[0])
-        title = get_title(url, feed)
+        title = utility.get_title(url, feed)
         entries = feed.entries
-        msg = "Preview of {}:\n```\n".format(title)
+        msg = "Preview of {}:\n\n```\n".format(title)
         counter = 0
         for entry in entries:
             counter += 1
@@ -339,7 +340,7 @@ async def view_entry(url, num):
             # breakpoint()
     if result[1] == 200:
         feed = parse(result[0])
-        title = get_title(url, result[0])
+        title = utility.get_title(url, result[0])
         entries = feed.entries
         num = int(num) - 1
         entry = entries[num]
@@ -447,8 +448,8 @@ async def add_feed(db_file, url):
         res = await download_feed(url)
         if res[0]:
             feed = parse(res[0])
-            title = get_title(url, feed)
-            if is_feed(url, feed):
+            title = utility.get_title(url, feed)
+            if utility.is_feed(url, feed):
                 status = res[1]
                 msg = await sqlite.insert_feed(
                     db_file,
@@ -533,17 +534,23 @@ async def download_feed(url):
         Document or error message.
     """
     try:
-        user_agent = await config.get_value_default("user-agent", "Network")
+        user_agent = config.get_value_default("settings", "Network", "user-agent")
     except:
         user_agent = "Slixfeed/0.1"
     if not len(user_agent):
         user_agent = "Slixfeed/0.1"
+    proxy = config.get_value("settings", "Network", "http_proxy")
     timeout = ClientTimeout(total=10)
     headers = {'User-Agent': user_agent}
     async with ClientSession(headers=headers) as session:
     # async with ClientSession(trust_env=True) as session:
         try:
-            async with session.get(url, timeout=timeout) as response:
+            async with session.get(
+                url,
+                proxy=proxy,
+                # proxy_auth=(proxy_username, proxy_password)
+                timeout=timeout
+                ) as response:
                 status = response.status
                 if response.status == 200:
                     try:
@@ -584,31 +591,6 @@ async def download_feed(url):
     return msg
 
 
-def get_title(url, feed):
-    """
-    Get title of feed.
-
-    Parameters
-    ----------
-    url : str
-        URL.
-    feed : dict
-        Parsed feed document.
-
-    Returns
-    -------
-    title : str
-        Title or URL hostname.
-    """
-    try:
-        title = feed["feed"]["title"]
-    except:
-        title = urlsplit(url).netloc
-    if not title:
-        title = urlsplit(url).netloc
-    return title
-
-
 # TODO Improve scan by gradual decreasing of path
 async def feed_mode_request(url, tree):
     """
@@ -630,7 +612,7 @@ async def feed_mode_request(url, tree):
     """
     feeds = {}
     parted_url = urlsplit(url)
-    paths = await config.get_list("lists.yaml")
+    paths = config.get_list("lists.yaml")
     paths = paths["pathnames"]
     for path in paths:
         address = urlunsplit([
@@ -650,7 +632,9 @@ async def feed_mode_request(url, tree):
                 title = '*** No Title ***'
             feeds[address] = title
         # Check whether URL has path (i.e. not root)
-        if parted_url.path.split('/')[1]:
+        # Check parted_url.path to avoid error in case root wasn't given
+        # TODO Make more tests
+        if parted_url.path and parted_url.path.split('/')[1]:
             paths.extend(
                 [".atom", ".feed", ".rdf", ".rss"]
                 ) if '.rss' not in paths else -1
@@ -673,8 +657,9 @@ async def feed_mode_request(url, tree):
     if len(feeds) > 1:
         counter = 0
         msg = (
-            "RSS URL discovery has found {} feeds:\n```\n"
+            "RSS URL discovery has found {} feeds:\n\n```\n"
             ).format(len(feeds))
+        feed_mark = 0
         for feed in feeds:
             try:
                 feed_name = feeds[feed]["feed"]["title"]
@@ -686,7 +671,6 @@ async def feed_mode_request(url, tree):
                 feed_amnt = len(feeds[feed].entries)
             except:
                 continue
-            feed_mark = 0
             if feed_amnt:
                 # NOTE Because there could be many false positives
                 # which are revealed in second phase of scan, we
@@ -741,7 +725,7 @@ async def feed_mode_scan(url, tree):
     feeds = {}
     # paths = []
     # TODO Test
-    paths = await config.get_list("lists.yaml")
+    paths = config.get_list("lists.yaml")
     paths = paths["pathnames"]
     for path in paths:
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
@@ -794,8 +778,9 @@ async def feed_mode_scan(url, tree):
         # breakpoint()
         counter = 0
         msg = (
-            "RSS URL scan has found {} feeds:\n```\n"
+            "RSS URL scan has found {} feeds:\n\n```\n"
             ).format(len(feeds))
+        feed_mark = 0
         for feed in feeds:
             # try:
             #     res = await download_feed(feed)
@@ -807,7 +792,6 @@ async def feed_mode_scan(url, tree):
                 feed_name = urlsplit(feed).netloc
             feed_addr = feed
             feed_amnt = len(feeds[feed].entries)
-            feed_mark = 0
             if feed_amnt:
                 # NOTE Because there could be many false positives
                 # which are revealed in second phase of scan, we
@@ -872,7 +856,7 @@ async def feed_mode_auto_discovery(url, tree):
     feeds = tree.xpath(xpath_query)
     if len(feeds) > 1:
         msg = (
-            "RSS Auto-Discovery has found {} feeds:\n```\n"
+            "RSS Auto-Discovery has found {} feeds:\n\n```\n"
             ).format(len(feeds))
         for feed in feeds:
             # # The following code works;
@@ -896,46 +880,3 @@ async def feed_mode_auto_discovery(url, tree):
     elif feeds:
         feed_addr = join_url(url, feeds[0].xpath('@href')[0])
         return [feed_addr]
-
-
-def is_feed(url, feed):
-    """
-    Determine whether document is feed or not.
-
-    Parameters
-    ----------
-    url : str
-        URL.
-    feed : dict
-        Parsed feed.
-
-    Returns
-    -------
-    val : boolean
-        True or False.
-    """
-    msg = None
-    if not feed.entries:
-        try:
-            feed["feed"]["title"]
-            val = True
-            msg = (
-                "Empty feed for {}"
-                ).format(url)
-        except:
-            val = False
-            msg = (
-            "No entries nor title for {}"
-            ).format(url)
-    elif feed.bozo:
-        val = False
-        msg = (
-            "Bozo detected for {}"
-            ).format(url)
-    else:
-        val = True
-        msg = (
-            "Good feed for {}"
-            ).format(url)
-    print(msg)
-    return val

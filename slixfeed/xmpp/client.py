@@ -48,7 +48,7 @@ NOTE
 """
 
 import asyncio
-from slixfeed.config import add_to_list, initdb, get_list, remove_from_list
+from slixfeed.config import add_to_list, get_list, remove_from_list
 import slixfeed.fetch as fetcher
 from slixfeed.datetime import current_time
 import logging
@@ -69,10 +69,13 @@ import xmltodict
 import xml.etree.ElementTree as ET
 from lxml import etree
 
-import slixfeed.xmpp.compose as compose
 import slixfeed.xmpp.connect as connect
+import slixfeed.xmpp.process as process
 import slixfeed.xmpp.muc as muc
+import slixfeed.xmpp.roster as roster
+import slixfeed.xmpp.state as state
 import slixfeed.xmpp.status as status
+import slixfeed.xmpp.utility as utility
 
 main_task = []
 jid_tasker = {}
@@ -108,42 +111,39 @@ class Slixfeed(slixmpp.ClientXMPP):
         # and the XML streams are ready for use. We want to
         # listen for this event so that we we can initialize
         # our roster.
-        self.add_event_handler("session_start", self.start_session)
-        self.add_event_handler("session_resumed", self.start_session)
-        self.add_event_handler("session_start", self.autojoin_muc)
-        self.add_event_handler("session_resumed", self.autojoin_muc)
+        self.add_event_handler("session_start", self.on_session_start)
+        self.add_event_handler("session_resumed", self.on_session_resumed)
         self.add_event_handler("got_offline", print("got_offline"))
         # self.add_event_handler("got_online", self.check_readiness)
-        self.add_event_handler("changed_status", self.check_readiness)
-        self.add_event_handler("presence_unavailable", self.stop_tasks)
+        self.add_event_handler("changed_status", self.on_changed_status)
+        self.add_event_handler("presence_available", self.on_presence_available)
+        self.add_event_handler("presence_unavailable", self.on_presence_unavailable)
 
-        # self.add_event_handler("changed_subscription", self.check_subscription)
+        self.add_event_handler("changed_subscription", self.on_changed_subscription)
 
-        # self.add_event_handler("chatstate_active", self.check_chatstate_active)
-        # self.add_event_handler("chatstate_gone", self.check_chatstate_gone)
+        self.add_event_handler("chatstate_active", self.on_chatstate_active)
+        self.add_event_handler("chatstate_gone", self.on_chatstate_gone)
         self.add_event_handler("chatstate_composing", self.check_chatstate_composing)
         self.add_event_handler("chatstate_paused", self.check_chatstate_paused)
 
         # The message event is triggered whenever a message
         # stanza is received. Be aware that that includes
         # MUC messages and error messages.
-        self.add_event_handler("message", self.process_message)
-        self.add_event_handler("message", self.settle)
+        self.add_event_handler("message", self.on_message)
 
-        self.add_event_handler("groupchat_invite", self.process_muc_invite) # XEP_0045
-        self.add_event_handler("groupchat_direct_invite", self.process_muc_invite) # XEP_0249
+        self.add_event_handler("groupchat_invite", self.on_groupchat_invite) # XEP_0045
+        self.add_event_handler("groupchat_direct_invite", self.on_groupchat_direct_invite) # XEP_0249
         # self.add_event_handler("groupchat_message", self.message)
 
         # self.add_event_handler("disconnected", self.reconnect)
         # self.add_event_handler("disconnected", self.inspect_connection)
 
-        self.add_event_handler("reactions", self.reactions)
-        self.add_event_handler("presence_available", self.presence_available)
-        self.add_event_handler("presence_error", self.presence_error)
-        self.add_event_handler("presence_subscribe", self.presence_subscribe)
-        self.add_event_handler("presence_subscribed", self.presence_subscribed)
-        self.add_event_handler("presence_unsubscribe", self.presence_unsubscribe)
-        self.add_event_handler("presence_unsubscribed", self.unsubscribe)
+        self.add_event_handler("reactions", self.on_reactions)
+        self.add_event_handler("presence_error", self.on_presence_error)
+        self.add_event_handler("presence_subscribe", self.on_presence_subscribe)
+        self.add_event_handler("presence_subscribed", self.on_presence_subscribed)
+        self.add_event_handler("presence_unsubscribe", self.on_presence_unsubscribe)
+        self.add_event_handler("presence_unsubscribed", self.on_presence_unsubscribed)
 
         # Initialize event loop
         # self.loop = asyncio.get_event_loop()
@@ -154,110 +154,110 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.add_event_handler("connection_failed", self.on_connection_failed)
         self.add_event_handler("session_end", self.on_session_end)
 
-    """
 
-    FIXME
-
-    This function is triggered even when status is dnd/away/xa.
-    This results in sending messages even when status is dnd/away/xa.
-    See function check_readiness.
-    
-    NOTE
-
-    The issue occurs only at bot startup.
-    Once status is changed to dnd/away/xa, the interval stops - as expected.
-    
-    TODO
-
-    Use "sleep()"
-
-    """
-    async def presence_available(self, presence):
-        # print("def presence_available", presence["from"].bare)
-        jid = presence["from"].bare
-        print("presence_available", jid)
-        if jid not in self.boundjid.bare:
-            await task.clean_tasks_xmpp(
-                jid,
-                ["interval", "status", "check"]
-                )
-            await task.start_tasks_xmpp(
-                self,
-                jid,
-                ["interval", "status", "check"]
-                )
-            # await task_jid(self, jid)
-            # main_task.extend([asyncio.create_task(task_jid(jid))])
-            # print(main_task)
-
-    async def stop_tasks(self, presence):
-        if not self.boundjid.bare:
-            jid = presence["from"].bare
-            print(">>> unavailable:", jid)
-            await task.clean_tasks_xmpp(
-                jid,
-                ["interval", "status", "check"]
-                )
+    async def on_groupchat_invite(self, message):
+        print("on_groupchat_invite")
+        await muc.accept_invitation(self, message)
 
 
-    async def presence_error(self, presence):
-        print("presence_error")
-        print(presence)
-
-    async def presence_subscribe(self, presence):
-        print("presence_subscribe")
-        print(presence)
-
-    async def presence_subscribed(self, presence):
-        print("presence_subscribed")
-        print(presence)
-
-    async def reactions(self, message):
-        print("reactions")
-        print(message)
-
-    # async def accept_muc_invite(self, message, ctr=None):
-    #     # if isinstance(message, str):
-    #     if not ctr:
-    #         ctr = message["from"].bare
-    #         jid = message['groupchat_invite']['jid']
-    #     else:
-    #         jid = message
-    async def process_muc_invite(self, message):
-        # operator muc_chat
-        inviter = message["from"].bare
-        muc_jid = message['groupchat_invite']['jid']
-        await muc.join_groupchat(self, inviter, muc_jid)
-
-
-    async def autojoin_muc(self, event):
-        result = await self.plugin['xep_0048'].get_bookmarks()
-        bookmarks = result["private"]["bookmarks"]
-        conferences = bookmarks["conferences"]
-        for conference in conferences:
-            if conference["autojoin"]:
-                muc_jid = conference["jid"]
-                print(current_time(), "Autojoining groupchat", muc_jid)
-                self.plugin['xep_0045'].join_muc(
-                    muc_jid,
-                    self.nick,
-                    # If a room password is needed, use:
-                    # password=the_room_password,
-                    )
+    async def on_groupchat_direct_invite(self, message):
+        print("on_groupchat_direct_invite")
+        await muc.accept_invitation(self, message)
 
 
     async def on_session_end(self, event):
-        print(current_time(), "Session ended. Attempting to reconnect.")
-        print(event)
-        logging.warning("Session ended. Attempting to reconnect.")
-        await connect.recover_connection(self, event)
+        message = "Session has ended."
+        await connect.recover_connection(self, event, message)
 
 
     async def on_connection_failed(self, event):
-        print(current_time(), "Connection failed. Attempting to reconnect.")
-        print(event)
-        logging.warning("Connection failed. Attempting to reconnect.")
-        await connect.recover_connection(self, event)
+        message = "Connection has failed."
+        await connect.recover_connection(self, event, message)
+
+
+    async def on_session_start(self, event):
+        await process.event(self, event)
+        await muc.autojoin(self, event)
+
+
+    async def on_session_resumed(self, event):
+        await process.event(self, event)
+        await muc.autojoin(self, event)
+
+
+    # TODO Request for subscription
+    async def on_message(self, message):
+        jid = message["from"].bare
+        if "chat" == await utility.jid_type(self, jid):
+            await roster.add(self, jid)
+            await state.request(self, jid)
+        # chat_type = message["type"]
+        # message_body = message["body"]
+        # message_reply = message.reply
+        await process.message(self, message)
+
+
+    async def on_changed_status(self, presence):
+        await task.check_readiness(self, presence)
+
+
+    # TODO Request for subscription
+    async def on_presence_subscribe(self, presence):
+        jid = presence["from"].bare
+        await state.request(self, jid)
+        print("on_presence_subscribe")
+        print(presence)
+
+
+    async def on_presence_subscribed(self, presence):
+        jid = presence["from"].bare
+        process.greet(self, jid)
+
+
+    async def on_presence_available(self, presence):
+        await task.start_tasks(self, presence)
+        print("on_presence_available")
+        print(presence)
+
+
+    async def on_presence_unsubscribed(self, presence):
+        await state.unsubscribed(self, presence)
+
+
+    async def on_presence_unavailable(self, presence):
+        await task.stop_tasks(self, presence)
+
+
+    async def on_changed_subscription(self, presence):
+        print("on_changed_subscription")
+        print(presence)
+        jid = presence["from"].bare
+        # breakpoint()
+
+
+    async def on_presence_unsubscribe(self, presence):
+        print("on_presence_unsubscribe")
+        print(presence)
+
+
+    async def on_presence_error(self, presence):
+        print("on_presence_error")
+        print(presence)
+
+
+    async def on_reactions(self, message):
+        print("on_reactions")
+        print(message)
+
+
+    async def on_chatstate_active(self, message):
+        print("on_chatstate_active")
+        print(message)
+
+
+    async def on_chatstate_gone(self, message):
+        print("on_chatstate_gone")
+        print(message)
 
 
     async def check_chatstate_composing(self, message):
@@ -286,266 +286,3 @@ class Slixfeed(slixmpp.ClientXMPP):
             20
             )
 
-
-    async def check_readiness(self, presence):
-        """
-        If available, begin tasks.
-        If unavailable, eliminate tasks.
-
-        Parameters
-        ----------
-        presence : str
-            XML stanza .
-
-        Returns
-        -------
-        None.
-        """
-        # print("def check_readiness", presence["from"].bare, presence["type"])
-        # # available unavailable away (chat) dnd xa
-        # print(">>> type", presence["type"], presence["from"].bare)
-        # # away chat dnd xa
-        # print(">>> show", presence["show"], presence["from"].bare)
-
-        jid = presence["from"].bare
-        if presence["show"] in ("away", "dnd", "xa"):
-            print(">>> away, dnd, xa:", jid)
-            await task.clean_tasks_xmpp(
-                jid,
-                ["interval"]
-                )
-            await task.start_tasks_xmpp(
-                self,
-                jid,
-                ["status", "check"]
-                )
-
-
-    async def resume(self, event):
-        print("def resume")
-        print(event)
-        self.send_presence()
-        await self.get_roster()
-
-
-    async def start_session(self, event):
-        """
-        Process the session_start event.
-
-        Typical actions for the session_start event are
-        requesting the roster and broadcasting an initial
-        presence stanza.
-
-        Arguments:
-            event -- An empty dictionary. The session_start
-                     event does not provide any additional
-                     data.
-        """
-        print("def start_session")
-        print(event)
-        self.send_presence()
-        await self.get_roster()
-
-        # for task in main_task:
-        #     task.cancel()
-
-        # Deprecated in favour of event "presence_available"
-        # if not main_task:
-        #     await select_file()
-
-
-    async def is_muc(self, jid):
-        """
-        Check whether a JID is of MUC.
-
-        Parameters
-        ----------
-        jid : str
-            Jabber ID.
-
-        Returns
-        -------
-        str
-            "chat" or "groupchat.
-        """
-        try:
-            iqresult = await self["xep_0030"].get_info(jid=jid)
-            features = iqresult["disco_info"]["features"]
-            # identity = iqresult['disco_info']['identities']
-            # if 'account' in indentity:
-            # if 'conference' in indentity:
-            if 'http://jabber.org/protocol/muc' in features:
-                return "groupchat"
-            # TODO elif <feature var='jabber:iq:gateway'/>
-            # NOTE Is it needed? We do not interact with gateways or services
-            else:
-                return "chat"
-        # TODO Test whether this exception is realized
-        except IqTimeout as e:
-            messages = [
-                ("Timeout IQ"),
-                ("IQ Stanza:", e),
-                ("Jabber ID:", jid)
-                ]
-            for message in messages:
-                print(current_time(), message)
-                logging.error(current_time(), message)
-
-
-    async def settle(self, msg):
-        """
-        Add JID to roster and settle subscription.
-
-        Parameters
-        ----------
-        jid : str
-            Jabber ID.
-
-        Returns
-        -------
-        None.
-        """
-        jid = msg["from"].bare
-        if await self.is_muc(jid):
-            # Check whether JID is in bookmarks; otherwise, add it.
-            print(jid, "is muc")
-        else:
-            await self.get_roster()
-            # Check whether JID is in roster; otherwise, add it.
-            if jid not in self.client_roster.keys():
-                self.send_presence_subscription(
-                    pto=jid,
-                    ptype="subscribe",
-                    pnick=self.nick
-                    )
-                self.update_roster(
-                    jid,
-                    subscription="both"
-                    )
-            # Check whether JID is subscribed; otherwise, ask for presence.
-            if not self.client_roster[jid]["to"]:
-                self.send_presence_subscription(
-                    pto=jid,
-                    pfrom=self.boundjid.bare,
-                    ptype="subscribe",
-                    pnick=self.nick
-                    )
-                self.send_message(
-                    mto=jid,
-                    # mtype="headline",
-                    msubject="RSS News Bot",
-                    mbody=(
-                        "Accept subscription request to receive updates."
-                        ),
-                    mfrom=self.boundjid.bare,
-                    mnick=self.nick
-                    )
-                self.send_presence(
-                    pto=jid,
-                    pfrom=self.boundjid.bare,
-                    # Accept symbol 🉑️ 👍️ ✍
-                    pstatus=(
-                        "✒️ Accept subscription request to receive updates."
-                        ),
-                    # ptype="subscribe",
-                    pnick=self.nick
-                    )
-
-
-    async def presence_unsubscribe(self, presence):
-        print("presence_unsubscribe")
-        print(presence)
-
-
-    async def unsubscribe(self, presence):
-        jid = presence["from"].bare
-        self.send_presence(
-            pto=jid,
-            pfrom=self.boundjid.bare,
-            pstatus="🖋️ Subscribe to receive updates",
-            pnick=self.nick
-            )
-        self.send_message(
-            mto=jid,
-            mbody="You have been unsubscribed."
-            )
-        self.update_roster(
-            jid,
-            subscription="remove"
-            )
-
-
-    async def process_message(self, message):
-        """
-        Process incoming message stanzas. Be aware that this also
-        includes MUC messages and error messages. It is usually
-        a good practice to check the messages's type before
-        processing or sending replies.
-
-        Parameters
-        ----------
-        message : str
-            The received message stanza. See the documentation
-            for stanza objects and the Message stanza to see
-            how it may be used.
-        """
-        # print("message")
-        # print(message)
-        if message["type"] in ("chat", "groupchat", "normal"):
-            jid = message["from"].bare
-            if message["type"] == "groupchat":
-                # nick = message["from"][message["from"].index("/")+1:]
-                nick = str(message["from"])
-                nick = nick[nick.index("/")+1:]
-                if (message['muc']['nick'] == self.nick or
-                    not message["body"].startswith("!")):
-                    return
-                # token = await initdb(
-                #     jid,
-                #     get_settings_value,
-                #     "token"
-                #     )
-                # if token == "accepted":
-                #     operator = await initdb(
-                #         jid,
-                #         get_settings_value,
-                #         "masters"
-                #         )
-                #     if operator:
-                #         if nick not in operator:
-                #             return
-                # approved = False
-                jid_full = str(message["from"])
-                role = self.plugin['xep_0045'].get_jid_property(
-                    jid,
-                    jid_full[jid_full.index("/")+1:],
-                    "role")
-                if role != "moderator":
-                    return
-                # if role == "moderator":
-                #     approved = True
-                # TODO Implement a list of temporary operators
-                # Once an operator is appointed, the control would last
-                # untile the participant has been disconnected from MUC
-                # An operator is a function to appoint non moderators.
-                # Changing nickname is fine and consist of no problem.
-                # if not approved:
-                #     operator = await initdb(
-                #         jid,
-                #         get_settings_value,
-                #         "masters"
-                #         )
-                #     if operator:
-                #         if nick in operator:
-                #             approved = True
-                # if not approved:
-                #     return
-
-            # # Begin processing new JID
-            # # Deprecated in favour of event "presence_available"
-            # db_dir = get_default_dbdir()
-            # os.chdir(db_dir)
-            # if jid + ".db" not in os.listdir():
-            #     await task_jid(jid)
-
-            await compose.message(self, jid, message)

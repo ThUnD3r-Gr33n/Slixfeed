@@ -55,7 +55,8 @@ TODO
     Did you know that you can follow you favorite Mastodon feeds by just
     sending the URL address?
     Supported fediverse websites are:
-        Akkoma, HubZilla, Mastodon, Misskey, Pixelfed, Pleroma, Soapbox.
+        Akkoma, Firefish (Calckey), Friendica, HubZilla,
+        Mastodon, Misskey, Pixelfed, Pleroma, Socialhome, Soapbox.
 
 15) Brand: News Broker, Newsman, Newsdealer, Laura Harbinger
     
@@ -88,14 +89,13 @@ import os
 # # with start_action(action_type="message()", msg=msg):
 
 #import slixfeed.irchandler
+from slixfeed.config import get_value
 from slixfeed.xmpp.client import Slixfeed
 #import slixfeed.matrixhandler
 
 
 class Jabber:
-
     def __init__(self, jid, password, nick):
-
         # Setup the Slixfeed and register plugins. Note that while plugins may
         # have interdependencies, the order in which you register them does
         # not matter.
@@ -104,11 +104,31 @@ class Jabber:
         xmpp.register_plugin('xep_0030') # Service Discovery
         xmpp.register_plugin('xep_0045') # Multi-User Chat
         xmpp.register_plugin('xep_0048') # Bookmarks
-        xmpp.register_plugin('xep_0060') # PubSub
-        xmpp.register_plugin('xep_0199', {'keepalive': True, 'frequency': 15}) # XMPP Ping
+        xmpp.register_plugin('xep_0060') # Publish-Subscribe
+        # xmpp.register_plugin('xep_0065') # SOCKS5 Bytestreams
+        xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
         xmpp.register_plugin('xep_0249') # Multi-User Chat
         xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
-    
+
+        # proxy_enabled = get_value("accounts", "XMPP Connect", "proxy_enabled")
+        # if proxy_enabled == '1':
+        #     values = get_value("accounts", "XMPP Connect", [
+        #         "proxy_host",
+        #         "proxy_port",
+        #         "proxy_username",
+        #         "proxy_password"
+        #         ])
+        #     print("Proxy is enabled: {}:{}".format(values[0], values[1]))
+        #     xmpp.use_proxy = True
+        #     xmpp.proxy_config = {
+        #         'host': values[0],
+        #         'port': values[1],
+        #         'username': values[2],
+        #         'password': values[3]
+        #     }
+        #     proxy = {'socks5': (values[0], values[1])}
+        #     xmpp.proxy = {'socks5': ('localhost', 9050)}
+
         # Connect to the XMPP server and start processing XMPP stanzas.
         xmpp.connect()
         xmpp.process()

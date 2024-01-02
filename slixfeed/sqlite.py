@@ -311,7 +311,7 @@ async def check_feed_exist(db_file, url):
     return result
 
 
-async def get_number_of_items(db_file, table):
+def get_number_of_items(db_file, table):
     """
     Return number of entries or feeds.
 
@@ -337,7 +337,7 @@ async def get_number_of_items(db_file, table):
         return count
 
 
-async def get_number_of_feeds_active(db_file):
+def get_number_of_feeds_active(db_file):
     """
     Return number of active feeds.
 
@@ -362,7 +362,7 @@ async def get_number_of_feeds_active(db_file):
         return count
 
 
-async def get_number_of_entries_unread(db_file):
+def get_number_of_entries_unread(db_file):
     """
     Return number of unread items.
 
@@ -491,8 +491,8 @@ async def get_entry_unread(db_file, num=None):
             # summary = ["> " + line for line in summary]
             # summary = "\n".join(summary)
             link = result[2]
-            link = await remove_tracking_parameters(link)
-            link = (await replace_hostname(link, "link")) or link
+            link = remove_tracking_parameters(link)
+            link = (replace_hostname(link, "link")) or link
             sql = (
                 "SELECT name "
                 "FROM feeds "
@@ -504,19 +504,11 @@ async def get_entry_unread(db_file, num=None):
             if num > 1:
                 news_list += (
                     "\n{}\n{}\n{}\n"
-                    ).format(
-                        str(title),
-                        str(link),
-                        str(feed)
-                        )
+                    ).format(str(title), str(link), str(feed))
             else:
                 news_list = (
                     "{}\n{}\n{}"
-                    ).format(
-                        str(title),
-                        str(link),
-                        str(feed)
-                        )
+                    ).format(str(title), str(link), str(feed))
             # TODO While `async with DBLOCK` does work well from
             # outside of functions, it would be better practice
             # to place it within the functions.
@@ -625,53 +617,31 @@ async def statistics(db_file):
     msg : str
         Statistics as message.
     """
-    feeds = await get_number_of_items(db_file, 'feeds')
-    active_feeds = await get_number_of_feeds_active(db_file)
-    entries = await get_number_of_items(db_file, 'entries')
-    archive = await get_number_of_items(db_file, 'archive')
-    unread_entries = await get_number_of_entries_unread(db_file)
+    values = []
+    values.extend([get_number_of_entries_unread(db_file)])
+    entries = get_number_of_items(db_file, 'entries')
+    archive = get_number_of_items(db_file, 'archive')
+    values.extend([entries + archive])
+    values.extend([get_number_of_feeds_active(db_file)])
+    values.extend([get_number_of_items(db_file, 'feeds')])
     # msg = """You have {} unread news items out of {} from {} news sources.
     #       """.format(unread_entries, entries, feeds)
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        vals = []
-        for key in [
-                "archive",
-                "interval",
-                "quantum",
-                "enabled"
-                ]:
+        for key in ["archive", "interval",
+                    "quantum", "enabled"]:
             sql = (
             "SELECT value "
             "FROM settings "
             "WHERE key = ?"
             )
             try:
-                val = cur.execute(sql, (key,)).fetchone()[0]
+                value = cur.execute(sql, (key,)).fetchone()[0]
             except:
                 print("Error for key:", key)
-                val = "none"
-            vals.extend([val])
-        msg = (
-            "```"
-            "\nSTATISTICS\n"
-            "News items   : {} / {}\n"
-            "News sources : {} / {}\n"
-            "\nOPTIONS\n"
-            "Items to archive : {}\n"
-            "Update interval  : {}\n"
-            "Items per update : {}\n"
-            "Operation status : {}\n"
-            "```"
-            ).format(
-                unread_entries, entries + archive,
-                active_feeds, feeds,
-                vals[0],
-                vals[1],
-                vals[2],
-                vals[3]
-                )
-    return msg
+                value = "none"
+            values.extend([value])
+    return values
 
 
 async def update_statistics(cur):
@@ -684,9 +654,9 @@ async def update_statistics(cur):
         Cursor object.
     """
     stat_dict = {}
-    stat_dict["feeds"] = await get_number_of_items(cur, 'feeds')
-    stat_dict["entries"] = await get_number_of_items(cur, 'entries')
-    stat_dict["unread"] = await get_number_of_entries_unread(cur=cur)
+    stat_dict["feeds"] = get_number_of_items(cur, 'feeds')
+    stat_dict["entries"] = get_number_of_items(cur, 'entries')
+    stat_dict["unread"] = get_number_of_entries_unread(cur=cur)
     for i in stat_dict:
         sql = (
             "SELECT id "
@@ -913,13 +883,14 @@ async def add_entry(cur, entry):
     try:
         cur.execute(sql, entry)
     except:
-        print(current_time(), "COROUTINE OBJECT NOW")
+        print("Unknown error for sqlite.add_entry")
+        # print(current_time(), "COROUTINE OBJECT NOW")
         # for i in entry:
         #     print(type(i))
         #     print(i)
         # print(type(entry))
         print(entry)
-        print(current_time(), "COROUTINE OBJECT NOW")
+        # print(current_time(), "COROUTINE OBJECT NOW")
         # breakpoint()
 
 
@@ -1147,7 +1118,7 @@ async def get_feeds_url(db_file):
         return result
 
 
-async def list_feeds(db_file):
+async def get_feeds(db_file):
     """
     Query table feeds and list items.
 
@@ -1158,8 +1129,8 @@ async def list_feeds(db_file):
 
     Returns
     -------
-    msg : str
-        URLs of feeds as message.
+    msg : ???
+        URLs of feeds.
     """
     cur = get_cursor(db_file)
     sql = (
@@ -1167,37 +1138,11 @@ async def list_feeds(db_file):
         "FROM feeds"
         )
     results = cur.execute(sql)
-    feeds_list = "\nList of subscriptions:\n```\n"
-    counter = 0
-    for result in results:
-        counter += 1
-        feeds_list += (
-            "Name    : {}\n"
-            "Address : {}\n"
-            "Updated : {}\n"
-            "Status  : {}\n"
-            "ID      : {}\n"
-            "\n"
-            ).format(
-                str(result[0]),
-                str(result[1]),
-                str(result[2]),
-                str(result[3]),
-                str(result[4])
-                )
-    if counter:
-        return feeds_list + (
-            "```\nTotal of {} subscriptions.\n"
-            ).format(counter)
-    else:
-        msg = (
-            "List of subscriptions is empty.\n"
-            "To add feed, send a URL\n"
-            "Try these:\n"
-            # TODO Pick random from featured/recommended
-            "https://reclaimthenet.org/feed/"
-            )
-        return msg
+    print("type of resilts in sqlite.py is:")
+    print(type(results))
+    print(results)
+    breakpoint()
+    return results
 
 
 async def last_entries(db_file, num):
@@ -1235,21 +1180,6 @@ async def last_entries(db_file, num):
         "LIMIT :num "
         )
     results = cur.execute(sql, (num,))
-    titles_list = "Recent {} titles:\n```".format(num)
-    counter = 0
-    for result in results:
-        counter += 1
-        titles_list += (
-            "\n{}\n{}\n"
-            ).format(
-                str(result[0]),
-                str(result[1])
-                )
-    if counter:
-        titles_list += "```\n"
-        return titles_list
-    else:
-        return "There are no news at the moment."
 
 
 async def search_feeds(db_file, query):
@@ -1277,28 +1207,7 @@ async def search_feeds(db_file, query):
         "LIMIT 50"
         )
     results = cur.execute(sql, [f'%{query}%', f'%{query}%'])
-    results_list = (
-        "Feeds containing '{}':\n```"
-        ).format(query)
-    counter = 0
-    for result in results:
-        counter += 1
-        results_list += (
-            "\nName  : {}"
-            "\nURL   : {}"
-            "\nIndex : {}"
-            "\nMode  : {}"
-            "\n"
-            ).format(
-                str(result[0]),
-                str(result[1]),
-                str(result[2]),
-                str(result[3])
-                )
-    if counter:
-        return results_list + "\n```\nTotal of {} feeds".format(counter)
-    else:
-        return "No feeds were found for: {}".format(query)
+    return results
 
 
 async def search_entries(db_file, query):
@@ -1332,22 +1241,7 @@ async def search_entries(db_file, query):
         f'%{query}%',
         f'%{query}%'
         ))
-    results_list = (
-        "Search results for '{}':\n```"
-        ).format(query)
-    counter = 0
-    for result in results:
-        counter += 1
-        results_list += (
-            "\n{}\n{}\n"
-            ).format(
-                str(result[0]),
-                str(result[1])
-                )
-    if counter:
-        return results_list + "```\nTotal of {} results".format(counter)
-    else:
-        return "No results were found for: {}".format(query)
+    return results
 
 """
 FIXME
@@ -1471,7 +1365,7 @@ async def set_settings_value(db_file, key_value):
     #     key = "enabled"
     #     val = 0
     key = key_value[0]
-    val = key_value[1]
+    value = key_value[1]
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1483,7 +1377,7 @@ async def set_settings_value(db_file, key_value):
                 )
             cur.execute(sql, {
                 "key": key,
-                "value": val
+                "value": value
                 })
 
 
@@ -1509,7 +1403,7 @@ async def set_settings_value_default(cur, key):
 #         sql = "SELECT id FROM settings WHERE key = ?"
 #         cur.execute(sql, (i,))
 #         if not cur.fetchone():
-#             val = await settings.get_value_default(i)
+#             val = settings.get_value_default(i)
 #             sql = "INSERT INTO settings(key,value) VALUES(?,?)"
 #             cur.execute(sql, (i, val))
     sql = (
@@ -1519,14 +1413,14 @@ async def set_settings_value_default(cur, key):
         )
     cur.execute(sql, (key,))
     if not cur.fetchone():
-        val = await config.get_value_default(key, "Settings")
+        value = config.get_value_default("settings", "Settings", key)
         sql = (
             "INSERT "
             "INTO settings(key,value) "
             "VALUES(?,?)"
             )
-        cur.execute(sql, (key, val))
-        return val
+        cur.execute(sql, (key, value))
+        return value
 
 
 async def get_settings_value(db_file, key):
@@ -1553,9 +1447,9 @@ async def get_settings_value(db_file, key):
     #         cur.execute(sql, (key,))
     #         result = cur.fetchone()
     # except:
-    #     result = await settings.get_value_default(key)
+    #     result = settings.get_value_default(key)
     # if not result:
-    #     result = await settings.get_value_default(key)
+    #     result = settings.get_value_default(key)
     # return result
     with create_connection(db_file) as conn:
         try:
@@ -1636,7 +1530,7 @@ async def set_filters_value_default(cur, key):
         )
     cur.execute(sql, (key,))
     if not cur.fetchone():
-        val = await config.get_list("lists.yaml")
+        val = config.get_list("lists.yaml")
         val = val[key]
         val = ",".join(val)
         sql = (

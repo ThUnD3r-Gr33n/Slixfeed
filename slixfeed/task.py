@@ -44,7 +44,10 @@ import logging
 import os
 import slixmpp
 
-from slixfeed.config import initdb, get_default_dbdir, get_value_default
+from slixfeed.config import (
+    get_pathname_to_database,
+    get_default_dbdir,
+    get_value_default)
 from slixfeed.datetime import current_time
 from slixfeed.fetch import download_updates
 from slixfeed.sqlite import (
@@ -55,6 +58,7 @@ from slixfeed.sqlite import (
     )
 # from xmpp import Slixfeed
 import slixfeed.xmpp.client as xmpp
+import slixfeed.xmpp.utility as utility
 
 main_task = []
 jid_tasker = {}
@@ -87,16 +91,13 @@ async def start_tasks_xmpp(self, jid, tasks):
         match task:
             case "check":
                 task_manager[jid]["check"] = asyncio.create_task(
-                    check_updates(jid)
-                    )
+                    check_updates(jid))
             case "status":
                 task_manager[jid]["status"] = asyncio.create_task(
-                    send_status(self, jid)
-                    )
+                    send_status(self, jid))
             case "interval":
                 task_manager[jid]["interval"] = asyncio.create_task(
-                    send_update(self, jid)
-                    )
+                    send_update(self, jid))
     # for task in task_manager[jid].values():
     #     print("task_manager[jid].values()")
     #     print(task_manager[jid].values())
@@ -106,6 +107,7 @@ async def start_tasks_xmpp(self, jid, tasks):
     #     print(jid)
     #     breakpoint()
     #     await task
+
 
 async def clean_tasks_xmpp(jid, tasks):
     # print("clean_tasks_xmpp", jid, tasks)
@@ -140,25 +142,19 @@ async def task_jid(self, jid):
     jid : str
         Jabber ID.
     """
-    enabled = await initdb(
-        jid,
-        get_settings_value,
-        "enabled"
-    )
+    db_file = get_pathname_to_database(jid)
+    enabled = await get_settings_value(db_file, "enabled")
     # print(await current_time(), "enabled", enabled, jid)
     if enabled:
         # NOTE Perhaps we want to utilize super with keyword
         # arguments in order to know what tasks to initiate.
         task_manager[jid] = {}
         task_manager[jid]["check"] = asyncio.create_task(
-            check_updates(jid)
-            )
+            check_updates(jid))
         task_manager[jid]["status"] = asyncio.create_task(
-            send_status(self, jid)
-            )
+            send_status(self, jid))
         task_manager[jid]["interval"] = asyncio.create_task(
-            send_update(self, jid)
-            )
+            send_update(self, jid))
         await task_manager[jid]["check"]
         await task_manager[jid]["status"]
         await task_manager[jid]["interval"]
@@ -200,37 +196,22 @@ async def send_update(self, jid, num=None):
     """
     # print("Starting send_update()")
     # print(jid)
-    enabled = await initdb(
-        jid,
-        get_settings_value,
-        "enabled"
-    )
+    db_file = get_pathname_to_database(jid)
+    enabled = await get_settings_value(db_file, "enabled")
     if enabled:
-        new = await initdb(
-            jid,
-            get_entry_unread,
-            num
-        )
+        new = await get_entry_unread(db_file, num)
         if new:
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
-            chat_type = await xmpp.Slixfeed.is_muc(self, jid)
+            chat_type = await utility.jid_type(self, jid)
             # NOTE Do we need "if statement"? See NOTE at is_muc.
             if chat_type in ("chat", "groupchat"):
                 xmpp.Slixfeed.send_message(
-                    self,
-                    mto=jid,
-                    mbody=new,
-                    mtype=chat_type
-                )
+                    self, mto=jid, mbody=new, mtype=chat_type)
         # TODO Do not refresh task before
         # verifying that it was completed.
         await refresh_task(
-            self,
-            jid,
-            send_update,
-            "interval"
-            )
+            self, jid, send_update, "interval")
     # interval = await initdb(
     #     jid,
     #     get_settings_value,
@@ -269,20 +250,13 @@ async def send_status(self, jid):
     """
     # print(await current_time(), "> SEND STATUS",jid)
     status_text="🤖️ Slixfeed RSS News Bot"
-    enabled = await initdb(
-        jid,
-        get_settings_value,
-        "enabled"
-    )
+    db_file = get_pathname_to_database(jid)
+    enabled = await get_settings_value(db_file, "enabled")
     if not enabled:
         status_mode = "xa"
         status_text = "📫️ Send \"Start\" to receive updates"
     else:
-        feeds = await initdb(
-            jid,
-            get_number_of_items,
-            "feeds"
-        )
+        feeds = get_number_of_items(db_file, "feeds")
         # print(await current_time(), jid, "has", feeds, "feeds")
         if not feeds:
             print(">>> not feeds:", feeds, "jid:", jid)
@@ -291,10 +265,7 @@ async def send_status(self, jid):
                 "📪️ Send a URL from a blog or a news website"
                 )
         else:
-            unread = await initdb(
-                jid,
-                get_number_of_entries_unread
-            )
+            unread = await get_number_of_entries_unread(db_file)
             if unread:
                 status_mode = "chat"
                 status_text = (
@@ -321,12 +292,7 @@ async def send_status(self, jid):
         )
     # await asyncio.sleep(60 * 20)
     await refresh_task(
-        self,
-        jid,
-        send_status,
-        "status",
-        "20"
-        )
+        self, jid, send_status, "status", "20")
     # loop.call_at(
     #     loop.time() + 60 * 20,
     #     loop.create_task,
@@ -349,11 +315,8 @@ async def refresh_task(self, jid, callback, key, val=None):
         Value. The default is None.
     """
     if not val:
-        val = await initdb(
-            jid,
-            get_settings_value,
-            key
-            )
+        db_file = get_pathname_to_database(jid)
+        val = await get_settings_value(db_file, key)
     # if task_manager[jid][key]:
     if jid in task_manager:
         try:
@@ -401,8 +364,9 @@ async def check_updates(jid):
     """
     while True:
         # print(await current_time(), "> CHCK UPDATE",jid)
-        await initdb(jid, download_updates)
-        val = await get_value_default("check", "Settings")
+        db_file = get_pathname_to_database(jid)
+        await download_updates(db_file)
+        val = get_value_default("settings", "Settings", "check")
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes
         # loop.call_at(
@@ -410,6 +374,55 @@ async def check_updates(jid):
         #     loop.create_task,
         #     self.check_updates(jid)
         # )
+
+
+async def start_tasks(self, presence):
+    # print("def presence_available", presence["from"].bare)
+    jid = presence["from"].bare
+    if jid not in self.boundjid.bare:
+        await clean_tasks_xmpp(
+            jid, ["interval", "status", "check"])
+        await start_tasks_xmpp(
+            self, jid, ["interval", "status", "check"])
+        # await task_jid(self, jid)
+        # main_task.extend([asyncio.create_task(task_jid(jid))])
+        # print(main_task)
+
+
+async def stop_tasks(self, presence):
+    if not self.boundjid.bare:
+        jid = presence["from"].bare
+        print(">>> unavailable:", jid)
+        await clean_tasks_xmpp(
+            jid, ["interval", "status", "check"])
+
+
+async def check_readiness(self, presence):
+    """
+    Begin tasks if available, otherwise eliminate tasks.
+
+    Parameters
+    ----------
+    presence : str
+        XML stanza .
+
+    Returns
+    -------
+    None.
+    """
+    # print("def check_readiness", presence["from"].bare, presence["type"])
+    # # available unavailable away (chat) dnd xa
+    # print(">>> type", presence["type"], presence["from"].bare)
+    # # away chat dnd xa
+    # print(">>> show", presence["show"], presence["from"].bare)
+
+    jid = presence["from"].bare
+    if presence["show"] in ("away", "dnd", "xa"):
+        print(">>> away, dnd, xa:", jid)
+        await clean_tasks_xmpp(
+            jid, ["interval"])
+        await start_tasks_xmpp(
+            self, jid, ["status", "check"])
 
 
 """
