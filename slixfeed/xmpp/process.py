@@ -146,6 +146,15 @@ async def message(self, message):
         print(current_time(), "COMMAND:", message_text)
     
         match message_lowercase:
+            # case "breakpoint":
+            #     if jid == get_value("accounts", "XMPP", "operator"):
+            #         breakpoint()
+            #     else:
+            #         response = (
+            #             "This action is restricted. "
+            #             "Type: breakpoint."
+            #             )
+            #         send_reply_message(self, message, response)
             case "commands":
                 response = text.print_cmd()
                 send_reply_message(self, message, response)
@@ -329,7 +338,6 @@ async def message(self, message):
                     "📫️ Processing request to fetch data from {}"
                     ).format(url)
                 send_status_message(self, jid, status_type, status_message)
-                send_reply_message(self, message, response)
                 if url.startswith("feed:"):
                     url = uri.feed_to_http(url)
                 # url_alt = await uri.replace_hostname(url, "feed")
