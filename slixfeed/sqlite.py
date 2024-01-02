@@ -26,11 +26,7 @@ from slixfeed.datetime import (
     rfc2822_to_iso8601
     )
 from sqlite3 import connect, Error
-from slixfeed.url import (
-    join_url,
-    remove_tracking_parameters,
-    replace_hostname
-    )
+from slixfeed.url import join_url
 
 # from eliot import start_action, to_file
 # # with start_action(action_type="list_feeds()", db=db_file):
@@ -397,7 +393,7 @@ async def get_number_of_entries_unread(db_file):
 
 
 # TODO Read from entries and archives
-async def get_entry_unread(db_file, num=None):
+async def get_unread_entries(db_file, num):
     """
     Extract information from unread entries.
 
@@ -413,10 +409,6 @@ async def get_entry_unread(db_file, num=None):
     entry : str
         News item message.
     """
-    if not num:
-        num = await get_settings_value(db_file, "quantum")
-    else:
-        num = int(num)
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         # sql = (
@@ -450,78 +442,13 @@ async def get_entry_unread(db_file, num=None):
             )
         results = cur.execute(sql, (num,))
         results = results.fetchall()
-        
-        # TODO Add filtering
-        # TODO Do this when entry is added to list and mark it as read
-        # DONE!
-        # results = []
-        # if get_settings_value(db_file, "filter-deny"):
-        #     while len(results) < num:
-        #         result = cur.execute(sql).fetchone()
-        #         blacklist = await get_settings_value(db_file, "filter-deny").split(",")
-        #         for i in blacklist:
-        #             if i in result[1]:
-        #                 continue
-        #                 print("rejected:", result[1])
-        #         print("accepted:", result[1])
-        #         results.extend([result])
-
-        # news_list = "You've got {} news items:\n".format(num)
-        news_list = ""
-        # NOTE Why doesn't this work without list?
-        #      i.e. for result in results
-        # for result in results.fetchall():
-        for result in results:
-            ix = result[0]
-            title = result[1]
-            # # TODO Retrieve summary from feed
-            # # See fetch.view_entry
-            # summary = result[2]
-            # # Remove HTML tags
-            # try:
-            #     summary = BeautifulSoup(summary, "lxml").text
-            # except:
-            #     print(result[2])
-            #     breakpoint()
-            # # TODO Limit text length
-            # summary = summary.replace("\n\n\n", "\n\n")
-            # length = await get_settings_value(db_file, "length")
-            # summary = summary[:length] + " […]"
-            # summary = summary.strip().split('\n')
-            # summary = ["> " + line for line in summary]
-            # summary = "\n".join(summary)
-            link = result[2]
-            link = remove_tracking_parameters(link)
-            link = (replace_hostname(link, "link")) or link
-            sql = (
-                "SELECT name "
-                "FROM feeds "
-                "WHERE address = :source "
-                )
-            source = result[3]
-            feed = cur.execute(sql, (source,))
-            feed = feed.fetchone()[0]
-            if num > 1:
-                news_list += (
-                    "\n{}\n{}\n{}\n"
-                    ).format(str(title), str(link), str(feed))
-            else:
-                news_list = (
-                    "{}\n{}\n{}"
-                    ).format(str(title), str(link), str(feed))
-            # TODO While `async with DBLOCK` does work well from
-            # outside of functions, it would be better practice
-            # to place it within the functions.
-            async with DBLOCK:
-                # NOTE: We can use DBLOCK once for both
-                # functions, because, due to exclusive
-                # ID, only one can ever occur.
-                await mark_entry_as_read(cur, ix)
-                await delete_entry(cur, ix)
-        return news_list
+        # print("### sqlite.get_unread_entries ###")
+        # print(results)
+        # breakpoint()
+        return results
 
 
-async def mark_entry_as_read(cur, ix):
+def mark_entry_as_read(cur, ix):
     """
     Set read status of entry as read.
 
@@ -562,6 +489,32 @@ async def mark_source_as_read(db_file, source):
             cur.execute(sql, (source,))
 
 
+def get_feed_title(db_file, source):
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            "SELECT name "
+            "FROM feeds "
+            "WHERE address = :source "
+            )
+        feed_title = cur.execute(sql, (source,))
+        feed_title = feed_title.fetchone()[0]
+        return feed_title
+
+
+async def mark_as_read(db_file, ix):
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            # TODO While `async with DBLOCK` does work well from
+            # outside of functions, it would be better practice
+            # to place it within the functions.
+            # NOTE: We can use DBLOCK once for both
+            # functions, because, due to exclusive
+            # ID, only one can ever occur.
+            mark_entry_as_read(cur, ix)
+            delete_archived_entry(cur, ix)
+
 async def mark_all_as_read(db_file):
     """
     Set read status of all entries as read.
@@ -585,7 +538,7 @@ async def mark_all_as_read(db_file):
             cur.execute(sql)
 
 
-async def delete_entry(cur, ix):
+def delete_archived_entry(cur, ix):
     """
     Delete entry from table archive.
 
@@ -614,8 +567,8 @@ async def statistics(db_file):
 
     Returns
     -------
-    msg : str
-        Statistics as message.
+    values : list
+        List of values.
     """
     values = []
     values.extend([await get_number_of_entries_unread(db_file)])
@@ -883,13 +836,15 @@ async def add_entry(cur, entry):
     try:
         cur.execute(sql, entry)
     except:
-        print("Unknown error for sqlite.add_entry")
+        print("")
+        # print("Unknown error for sqlite.add_entry")
+        # print(entry)
         # print(current_time(), "COROUTINE OBJECT NOW")
         # for i in entry:
         #     print(type(i))
         #     print(i)
         # print(type(entry))
-        print(entry)
+        # print(entry)
         # print(current_time(), "COROUTINE OBJECT NOW")
         # breakpoint()
 

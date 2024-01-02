@@ -144,7 +144,7 @@ async def message(self, message):
     
         print(current_time(), "ACCOUNT: " + str(message["from"]))
         print(current_time(), "COMMAND:", message_text)
-    
+        response = 0
         match message_lowercase:
             # case "breakpoint":
             #     if jid == get_value("accounts", "XMPP", "operator"):
@@ -712,7 +712,7 @@ async def message(self, message):
         # commands are sent one close to the next
         # if response: message.reply(response).send()
 
-        response = "EMPTY MESSAGE - ACTION ONLY"
+        if not response: response = "EMPTY MESSAGE - ACTION ONLY"
         log_dir = get_default_dbdir()
         if not os.path.isdir(log_dir):
             os.mkdir(log_dir)

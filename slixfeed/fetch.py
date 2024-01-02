@@ -18,6 +18,9 @@ TODO
 
 4) Refactor view_entry and view_feed - Why "if" twice?
 
+5) Replace sqlite.remove_nonexistent_entries by sqlite.check_entry_exist
+   Same check, just reverse.
+
 """
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
@@ -64,10 +67,7 @@ async def download_updates(db_file, url=None):
             # next(urls)
             continue
         await sqlite.update_source_status(
-            db_file,
-            res[1],
-            source
-            )
+            db_file, res[1], source)
         if res[0]:
             try:
                 feed = parse(res[0])
@@ -82,9 +82,7 @@ async def download_updates(db_file, url=None):
                 else:
                     valid = 1
                 await sqlite.update_source_validity(
-                    db_file,
-                    source,
-                    valid)
+                    db_file, source, valid)
             except (
                     IncompleteReadError,
                     IncompleteRead,
@@ -107,10 +105,7 @@ async def download_updates(db_file, url=None):
             # length = len(entries)
             # await remove_entry(db_file, source, length)
             await sqlite.remove_nonexistent_entries(
-                db_file,
-                feed,
-                source
-                )
+                db_file, feed, source)
             # new_entry = 0
             for entry in entries:
                 # TODO Pass date too for comparion check
@@ -144,13 +139,8 @@ async def download_updates(db_file, url=None):
                 else:
                     eid = link
                 exist = await sqlite.check_entry_exist(
-                    db_file,
-                    source,
-                    eid=eid,
-                    title=title,
-                    link=link,
-                    date=date
-                    )
+                    db_file, source, eid=eid,
+                    title=title, link=link, date=date)
                 if not exist:
                     # new_entry = new_entry + 1
                     # TODO Enhance summary
@@ -176,16 +166,10 @@ async def download_updates(db_file, url=None):
                             pathname
                             )
                     allow_list = await config.is_listed(
-                        db_file,
-                        "filter-allow",
-                        string
-                        )
+                        db_file, "filter-allow", string)
                     if not allow_list:
                         reject_list = await config.is_listed(
-                            db_file,
-                            "filter-deny",
-                            string
-                            )
+                            db_file, "filter-deny", string)
                         if reject_list:
                             # print(">>> REJECTED", title)
                             summary = (
@@ -196,13 +180,7 @@ async def download_updates(db_file, url=None):
                             # summary = ""
                             read_status = 1
                     entry = (
-                        title,
-                        link,
-                        eid,
-                        source,
-                        date,
-                        read_status
-                        )
+                        title, link, eid, source, date, read_status)
                     if isinstance(date, int):
                         print("PROBLEM: date is int")
                         print(date)
@@ -210,10 +188,7 @@ async def download_updates(db_file, url=None):
                     # print(source)
                     # print(date)
                     await sqlite.add_entry_and_set_date(
-                        db_file,
-                        source,
-                        entry
-                        )
+                        db_file, source, entry)
                 #     print(current_time(), entry, title)
                 # else:
                 #     print(current_time(), exist, title)
@@ -293,12 +268,7 @@ async def view_feed(url):
                 "Link  : {}\n"
                 "Count : {}\n"
                 "\n"
-                ).format(
-                    title,
-                    date,
-                    link,
-                    counter
-                    )
+                ).format(title, date, link, counter)
             if counter > 4:
                 break
         msg += (
@@ -377,11 +347,7 @@ async def view_entry(url, num):
             "\n"
             "{}\n"
             "\n"
-            ).format(
-                title,
-                summary,
-                link
-                )
+            ).format(title, summary, link)
     else:
         msg = (
             ">{}\n"
@@ -452,19 +418,11 @@ async def add_feed(db_file, url):
             if utility.is_feed(url, feed):
                 status = res[1]
                 msg = await sqlite.insert_feed(
-                    db_file,
-                    url,
-                    title,
-                    status
-                    )
+                    db_file, url, title, status)
                 await download_updates(db_file, [url])
             else:
                 msg = await probe_page(
-                    add_feed,
-                    url,
-                    res[0],
-                    db_file=db_file
-                    )
+                    add_feed, url, res[0], db_file=db_file)
         else:
             status = res[1]
             msg = (
@@ -684,11 +642,7 @@ async def feed_mode_request(url, tree):
                     "Link : {}\n"
                     "Items: {}\n"
                     "\n"
-                    ).format(
-                        feed_name,
-                        feed_addr,
-                        feed_amnt
-                        )
+                    ).format(feed_name, feed_addr, feed_amnt)
         if counter > 1:
             msg += (
                 "```\nThe above feeds were extracted from\n{}"
@@ -805,11 +759,7 @@ async def feed_mode_scan(url, tree):
                     "Link  : {}\n"
                     "Count : {}\n"
                     "\n"
-                    ).format(
-                        feed_name,
-                        feed_addr,
-                        feed_amnt
-                        )
+                    ).format(feed_name, feed_addr, feed_amnt)
         if counter > 1:
             msg += (
                 "```\nThe above feeds were extracted from\n{}"

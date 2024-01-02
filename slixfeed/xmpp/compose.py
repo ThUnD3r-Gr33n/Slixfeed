@@ -9,6 +9,53 @@ import slixfeed.xmpp.bookmark as bookmark
 from slixfeed.url import remove_tracking_parameters, replace_hostname
 
 
+def list_unread_entries(result, feed_title):
+    # TODO Add filtering
+    # TODO Do this when entry is added to list and mark it as read
+    # DONE!
+    # results = []
+    # if get_settings_value(db_file, "filter-deny"):
+    #     while len(results) < num:
+    #         result = cur.execute(sql).fetchone()
+    #         blacklist = await get_settings_value(db_file, "filter-deny").split(",")
+    #         for i in blacklist:
+    #             if i in result[1]:
+    #                 continue
+    #                 print("rejected:", result[1])
+    #         print("accepted:", result[1])
+    #         results.extend([result])
+
+    # news_list = "You've got {} news items:\n".format(num)
+    # NOTE Why doesn't this work without list?
+    #      i.e. for result in results
+    # for result in results.fetchall():
+    ix = result[0]
+    title = result[1]
+    # # TODO Retrieve summary from feed
+    # # See fetch.view_entry
+    # summary = result[2]
+    # # Remove HTML tags
+    # try:
+    #     summary = BeautifulSoup(summary, "lxml").text
+    # except:
+    #     print(result[2])
+    #     breakpoint()
+    # # TODO Limit text length
+    # summary = summary.replace("\n\n\n", "\n\n")
+    # length = await get_settings_value(db_file, "length")
+    # summary = summary[:length] + " […]"
+    # summary = summary.strip().split('\n')
+    # summary = ["> " + line for line in summary]
+    # summary = "\n".join(summary)
+    link = result[2]
+    link = remove_tracking_parameters(link)
+    link = (replace_hostname(link, "link")) or link
+    news_item = (
+        "\n{}\n{}\n{}\n"
+        ).format(str(title), str(link), str(feed_title))
+    return news_item
+
+
 def list_search_results(query, results):
     results_list = (
         "Search results for '{}':\n\n```"
@@ -76,7 +123,7 @@ def list_statistics(values):
     return msg
 
 
-async def list_last_entries(results, num):
+def list_last_entries(results, num):
     titles_list = "Recent {} titles:\n\n```".format(num)
     counter = 0
     for result in results:
@@ -91,7 +138,7 @@ async def list_last_entries(results, num):
         return "There are no news at the moment."
 
 
-async def list_feeds(results):
+def list_feeds(results):
     feeds_list = "\nList of subscriptions:\n\n```\n"
     counter = 0
     for result in results:

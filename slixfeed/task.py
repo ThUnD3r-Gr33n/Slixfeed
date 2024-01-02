@@ -51,13 +51,18 @@ from slixfeed.config import (
 from slixfeed.datetime import current_time
 from slixfeed.fetch import download_updates
 from slixfeed.sqlite import (
-    get_entry_unread,
+    get_unread_entries,
+    get_feed_title,
     get_settings_value,
     get_number_of_items,
-    get_number_of_entries_unread
+    get_number_of_entries_unread,
+    mark_as_read,
+    mark_entry_as_read,
+    delete_archived_entry
     )
 # from xmpp import Slixfeed
 import slixfeed.xmpp.client as xmpp
+from slixfeed.xmpp.compose import list_unread_entries
 import slixfeed.xmpp.utility as utility
 
 main_task = []
@@ -199,8 +204,25 @@ async def send_update(self, jid, num=None):
     db_file = get_pathname_to_database(jid)
     enabled = await get_settings_value(db_file, "enabled")
     if enabled:
-        new = await get_entry_unread(db_file, num)
+        if not num:
+            num = await get_settings_value(db_file, "quantum")
+        else:
+            num = int(num)
+        news_digest = []
+        results = await get_unread_entries(db_file, num)
+        for result in results:
+            title = get_feed_title(db_file, result[3])
+            news_item = list_unread_entries(result, title)
+            news_digest.extend([news_item])
+            # print(db_file)
+            # print(result[0])
+            # breakpoint()
+            await mark_as_read(db_file, result[0])
+        new = " ".join(news_digest)
+        # breakpoint()
         if new:
+            # print("if new")
+            # breakpoint()
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
             chat_type = await utility.jid_type(self, jid)
