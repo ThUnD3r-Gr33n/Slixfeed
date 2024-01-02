@@ -311,7 +311,7 @@ async def check_feed_exist(db_file, url):
     return result
 
 
-def get_number_of_items(db_file, table):
+async def get_number_of_items(db_file, table):
     """
     Return number of entries or feeds.
 
@@ -337,7 +337,7 @@ def get_number_of_items(db_file, table):
         return count
 
 
-def get_number_of_feeds_active(db_file):
+async def get_number_of_feeds_active(db_file):
     """
     Return number of active feeds.
 
@@ -362,7 +362,7 @@ def get_number_of_feeds_active(db_file):
         return count
 
 
-def get_number_of_entries_unread(db_file):
+async def get_number_of_entries_unread(db_file):
     """
     Return number of unread items.
 
@@ -618,12 +618,12 @@ async def statistics(db_file):
         Statistics as message.
     """
     values = []
-    values.extend([get_number_of_entries_unread(db_file)])
-    entries = get_number_of_items(db_file, 'entries')
-    archive = get_number_of_items(db_file, 'archive')
+    values.extend([await get_number_of_entries_unread(db_file)])
+    entries = await get_number_of_items(db_file, 'entries')
+    archive = await get_number_of_items(db_file, 'archive')
     values.extend([entries + archive])
-    values.extend([get_number_of_feeds_active(db_file)])
-    values.extend([get_number_of_items(db_file, 'feeds')])
+    values.extend([await get_number_of_feeds_active(db_file)])
+    values.extend([await get_number_of_items(db_file, 'feeds')])
     # msg = """You have {} unread news items out of {} from {} news sources.
     #       """.format(unread_entries, entries, feeds)
     with create_connection(db_file) as conn:
@@ -654,9 +654,9 @@ async def update_statistics(cur):
         Cursor object.
     """
     stat_dict = {}
-    stat_dict["feeds"] = get_number_of_items(cur, 'feeds')
-    stat_dict["entries"] = get_number_of_items(cur, 'entries')
-    stat_dict["unread"] = get_number_of_entries_unread(cur=cur)
+    stat_dict["feeds"] = await get_number_of_items(cur, 'feeds')
+    stat_dict["entries"] = await get_number_of_items(cur, 'entries')
+    stat_dict["unread"] = await get_number_of_entries_unread(cur=cur)
     for i in stat_dict:
         sql = (
             "SELECT id "

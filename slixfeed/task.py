@@ -256,7 +256,7 @@ async def send_status(self, jid):
         status_mode = "xa"
         status_text = "📫️ Send \"Start\" to receive updates"
     else:
-        feeds = get_number_of_items(db_file, "feeds")
+        feeds = await get_number_of_items(db_file, "feeds")
         # print(await current_time(), jid, "has", feeds, "feeds")
         if not feeds:
             print(">>> not feeds:", feeds, "jid:", jid)
