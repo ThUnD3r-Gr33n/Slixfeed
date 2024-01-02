@@ -275,12 +275,18 @@ async def message(self, message):
                         ).format(muc_jid)
                 else:
                     response = (
-                        "This response is restricted. "
+                        "This action is restricted. "
                         "Type: removing bookmarks."
                         )
                 send_reply_message(self, message, response)
             case "bookmarks":
-                response = await compose.list_bookmarks(self)
+                if jid == get_value("accounts", "XMPP", "operator"):
+                    response = await compose.list_bookmarks(self)
+                else:
+                    response = (
+                        "This action is restricted. "
+                        "Type: viewing bookmarks."
+                        )
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("deny +"):
                     key = "filter-" + message_text[:4]
