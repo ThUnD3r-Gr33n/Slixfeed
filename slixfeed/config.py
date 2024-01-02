@@ -61,10 +61,19 @@ def get_value(filename, section, keys):
         if isinstance(keys, list):
             result = []
             for key in keys:
-                result.extend([section_res[key]])
+                try:
+                    value = section_res[key]
+                except:
+                    print("Missing key:", key)
+                    value = ''
+                result.extend([value])
         elif isinstance(keys, str):
             key = keys
-            result = section_res[key]
+            try:
+                result = section_res[key]
+            except:
+                print("Missing key:", key)
+                result = ''
     return result
 
 
