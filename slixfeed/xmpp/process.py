@@ -137,7 +137,6 @@ async def message(self, message):
 
         # await compose.message(self, jid, message)
 
-        response = "Empty message (action only)."
         message_text = " ".join(message["body"].split())
         if message["type"] == "groupchat":
             message_text = message_text[1:]
@@ -147,15 +146,6 @@ async def message(self, message):
         print(current_time(), "COMMAND:", message_text)
     
         match message_lowercase:
-            case "breakpoint":
-                if jid == get_value("accounts", "XMPP", "operator"):
-                    breakpoint()
-                else:
-                    response = (
-                        "This action is restricted. "
-                        "Type: breakpoint."
-                        )
-                    send_reply_message(self, message, response)
             case "commands":
                 response = text.print_cmd()
                 send_reply_message(self, message, response)
