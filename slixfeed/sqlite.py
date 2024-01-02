@@ -1069,28 +1069,29 @@ async def remove_nonexistent_entries(db_file, feed, source):
             await maintain_archive(cur, limit)
 
 
-async def get_feeds(db_file):
-    """
-    Query table feeds for Title, URL, Categories, Tags.
+# TODO What is this function for? 2024-01-02
+# async def get_feeds(db_file):
+#     """
+#     Query table feeds for Title, URL, Categories, Tags.
 
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
+#     Parameters
+#     ----------
+#     db_file : str
+#         Path to database file.
 
-    Returns
-    -------
-    result : list
-        Title, URL, Categories, Tags of feeds.
-    """
-    with create_connection(db_file) as conn:
-        cur = conn.cursor()
-        sql = (
-            "SELECT name, address, type, categories, tags "
-            "FROM feeds"
-            )
-        result = cur.execute(sql).fetchall()
-        return result
+#     Returns
+#     -------
+#     result : list
+#         Title, URL, Categories, Tags of feeds.
+#     """
+#     with create_connection(db_file) as conn:
+#         cur = conn.cursor()
+#         sql = (
+#             "SELECT name, address, type, categories, tags "
+#             "FROM feeds"
+#             )
+#         result = cur.execute(sql).fetchall()
+#         return result
 
 
 async def get_feeds_url(db_file):
@@ -1138,10 +1139,6 @@ async def get_feeds(db_file):
         "FROM feeds"
         )
     results = cur.execute(sql)
-    print("type of resilts in sqlite.py is:")
-    print(type(results))
-    print(results)
-    breakpoint()
     return results
 
 
@@ -1180,6 +1177,7 @@ async def last_entries(db_file, num):
         "LIMIT :num "
         )
     results = cur.execute(sql, (num,))
+    return results
 
 
 async def search_feeds(db_file, query):
