@@ -757,6 +757,8 @@ async def message(self, message):
         data_dir = get_default_dbdir()
         if not os.path.isdir(data_dir):
             os.mkdir(data_dir)
+        if not os.path.isdir(data_dir + '/logs/'):
+            os.mkdir(data_dir + '/logs/')
         utility.log_as_markdown(
             current_time(), os.path.join(data_dir, "logs", jid),
             jid, message_text)
