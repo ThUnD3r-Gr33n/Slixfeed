@@ -33,8 +33,6 @@
  'version': 'opml2'
  }
 
-"""
-
 import listparser
 import lxml
 
@@ -48,17 +46,19 @@ async def import_from_file(db_file, opml_doc):
         # tags = feed['tags']
         # await datahandler.add_feed_no_check(db_file, [url, title])
 
+"""
+
 from slixfeed.datetime import current_time
 import xml.etree.ElementTree as ET
 
 # NOTE Use OPyML or LXML
-async def export_to_file(jid, filename, results):
+def export_to_file(jid, filename, results):
     root = ET.Element("opml")
     root.set("version", "1.0")
     head = ET.SubElement(root, "head")
     ET.SubElement(head, "title").text = "Subscriptions for {}".format(jid)
     ET.SubElement(head, "description").text = (
-        "Set of feeds exported with Slixfeed.")
+        "Set of feeds exported with Slixfeed")
     ET.SubElement(head, "generator").text = "Slixfeed"
     ET.SubElement(head, "urlPublic").text = (
         "https://gitgud.io/sjehuda/slixfeed")

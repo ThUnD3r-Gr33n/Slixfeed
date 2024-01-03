@@ -26,6 +26,7 @@ from slixfeed.config import (
     get_pathname_to_database,
     remove_from_list)
 from slixfeed.datetime import current_time, timestamp
+import slixfeed.export as export
 import slixfeed.fetch as fetcher
 import slixfeed.opml as opml
 import slixfeed.sqlite as sqlite
@@ -38,6 +39,7 @@ import slixfeed.xmpp.muc as groupchat
 import slixfeed.xmpp.status as status
 import slixfeed.xmpp.text as text
 import slixfeed.xmpp.upload as upload
+from slixfeed.xmpp.utility import jid_type
 
 
 async def event(self, event):
@@ -326,38 +328,43 @@ async def message(self, message):
                         response = "Missing keywords."
                     send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("export "):
-                valid = 1
                 key = message_text[7:]
-                data_dir = get_default_dbdir()
-                if not os.path.isdir(data_dir):
-                    os.mkdir(data_dir)
-                filename = os.path.join(
-                    data_dir, "opml", "slixfeed_" + timestamp() + "." + key)
-                db_file = get_pathname_to_database(jid)
-                results = await sqlite.get_feeds(db_file)
-                match key:
-                    case "opml":
-                        status_type = "dnd"
-                        status_message = (
-                            "📂️ Procesing request to export feeds into OPML ...")
-                        send_status_message(self, jid, status_type, status_message)
-                        await opml.export_to_file(
-                            jid, filename, results)
-                        url = await upload.start(self, jid, filename)
-                        response = (
-                            "Feeds exported successfully to an OPML "
-                            "Outline Syndication.\n{}").format(url)
-                        await task.start_tasks_xmpp(self, jid, ["status"])
-                    case "html":
-                        response = "Not yet implemented."
-                    case "markdown":
-                        response = "Not yet implemented"
-                    case _:
-                        response = "Unsupported filetype."
-                        valid = 0
-                if valid:
+                if key in ("opml", "html", "md", "xbel"):
+                    status_type = "dnd"
+                    status_message = (
+                        "📂️ Procesing request to export feeds into {} ..."
+                        ).format(key)
+                    send_status_message(
+                        self, jid, status_type, status_message)
+                    data_dir = get_default_dbdir()
+                    if not os.path.isdir(data_dir):
+                        os.mkdir(data_dir)
+                    if not os.path.isdir(data_dir + '/' + key):
+                        os.mkdir(data_dir + '/' + key)
+                    filename = os.path.join(
+                        data_dir, key, "slixfeed_" + timestamp() + "." + key)
+                    db_file = get_pathname_to_database(jid)
+                    results = await sqlite.get_feeds(db_file)
+                    match key:
+                        case "html":
+                            response = "Not yet implemented."
+                        case "md":
+                            export.markdown(
+                                jid, filename, results)
+                        case "opml":
+                            opml.export_to_file(
+                                jid, filename, results)
+                        case "xbel":
+                            response = "Not yet implemented."
+                    url = await upload.start(self, jid, filename)
+                    response = (
+                        "Feeds exported successfully to {}.\n{}"
+                        ).format(key, url)
                     # send_oob_reply_message(message, url, response)
-                    send_oob_message(self, jid, url)
+                    await send_oob_message(self, jid, url)
+                    await task.start_tasks_xmpp(self, jid, ["status"])
+                else:
+                    response = "Unsupported filetype."
                 send_reply_message(self, message, response)
             case _ if (message_lowercase.startswith("gemini") or
                         message_lowercase.startswith("gopher")):
@@ -775,11 +782,12 @@ def send_oob_reply_message(message, url, response):
     reply.send()
 
 
-def send_oob_message(self, jid, url):
+async def send_oob_message(self, jid, url):
+    chat_type = await jid_type(self, jid)
     html = (
         f'<body xmlns="http://www.w3.org/1999/xhtml">'
         f'<a href="{url}">{url}</a></body>')
-    message = self.make_message(mto=jid, mbody=url, mhtml=html)
+    message = self.make_message(mto=jid, mbody=url, mhtml=html, mtype=chat_type)
     message['oob']['url'] = url
     message.send()
 

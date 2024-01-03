@@ -22,6 +22,20 @@ def now():
     return date
 
 
+def current_date():
+    """
+    Print MM DD, YYYY (Weekday Time) timestamp.
+
+    Returns
+    -------
+    date : str
+        MM DD, YYYY (Weekday Time) timestamp.
+    """
+    now = datetime.now()
+    time = now.strftime("%B %d, %Y (%A %T)")
+    return time
+
+
 def current_time():
     """
     Print HH:MM:SS timestamp.
