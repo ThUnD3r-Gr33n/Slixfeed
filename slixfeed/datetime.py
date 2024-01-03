@@ -15,7 +15,7 @@ def now():
 
     Returns
     -------
-    date : ?
+    date : ???
         ISO 8601 Timestamp.
     """
     date = datetime.now().isoformat()
@@ -28,12 +28,26 @@ def current_time():
 
     Returns
     -------
-    date : ?
+    date : str
         HH:MM:SS timestamp.
     """
     now = datetime.now()
     time = now.strftime("%H:%M:%S")
     return time
+
+
+def timestamp():
+    """
+    Print time stamp to be used in filename.
+
+    Returns
+    -------
+    formatted_time : str
+        %Y%m%d-%H%M%S timestamp.
+    """
+    now = datetime.now()
+    formatted_time = now.strftime("%Y%m%d-%H%M%S")
+    return formatted_time
 
 
 def validate(date):

@@ -1,14 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-
-TODO
-
-1) Function to list bookmarks
-
-"""
-
 
 from slixmpp.plugins.xep_0048.stanza import Bookmarks
 

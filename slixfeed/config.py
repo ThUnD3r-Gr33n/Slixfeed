@@ -5,30 +5,25 @@
 
 TODO
 
-1) Use file settings.csv and pathnames.txt instead:
-    See get_value_default and get_default_list
+1) Website-specific filter (i.e. audiobookbay).
 
-2) Website-specific filter (i.e. audiobookbay).
+2) Exclude websites from being subjected to filtering (e.g. metapedia).
 
-3) Exclude websites from filtering (e.g. metapedia).
-
-4) Filter phrases:
+3) Filter phrases:
     Refer to sqlitehandler.search_entries for implementation.
     It is expected to be more complex than function search_entries.
 
-5) Copy file from /etc/slixfeed/ or /usr/share/slixfeed/
+4) Copy file from /etc/slixfeed/ or /usr/share/slixfeed/
 
 """
 
 import configparser
-# from file import get_default_confdir
-import slixfeed.config as config
 import slixfeed.sqlite as sqlite
 import os
 # from random import randrange
 import sys
 import yaml
-
+import logging
 
 def get_value(filename, section, keys):
     """
@@ -48,8 +43,9 @@ def get_value(filename, section, keys):
     result : list or str
         A single value as string or multiple values as list.
     """
+    result = None
     config_res = configparser.RawConfigParser()
-    config_dir = config.get_default_confdir()
+    config_dir = get_default_confdir()
     # if not os.path.isdir(config_dir):
     #     config_dir = '/usr/share/slixfeed/'
     if not os.path.isdir(config_dir):
@@ -63,18 +59,28 @@ def get_value(filename, section, keys):
             for key in keys:
                 try:
                     value = section_res[key]
+                    logging.debug("Found value {} for key {}".format(
+                        value, key))
                 except:
-                    print("Missing key:", key)
                     value = ''
+                    logging.error("Missing key:", key)
                 result.extend([value])
         elif isinstance(keys, str):
             key = keys
             try:
                 result = section_res[key]
+                logging.debug("Found value {} for key {}".format(
+                    value, key))
             except:
-                print("Missing key:", key)
                 result = ''
-    return result
+                # logging.error("Missing key:", key)
+    if result == None:
+        logging.error(
+            "Check configuration file {} for "
+            "missing key {} under section {}.".format(
+                filename, section, keys))
+    else:
+        return result
 
 
 # TODO Store config file as an object in runtime, otherwise
@@ -96,7 +102,7 @@ def get_value_default(filename, section, key):
         Value.
     """
     config_res = configparser.RawConfigParser()
-    config_dir = config.get_default_confdir()
+    config_dir = get_default_confdir()
     if not os.path.isdir(config_dir):
         config_dir = '/usr/share/slixfeed/'
     config_file = os.path.join(config_dir, filename + ".ini")
@@ -120,7 +126,7 @@ def get_list(filename):
     result : list
         List of pathnames or keywords.
     """
-    config_dir = config.get_default_confdir()
+    config_dir = get_default_confdir()
     if not os.path.isdir(config_dir):
         config_dir = '/usr/share/slixfeed/'
     config_file = os.path.join(config_dir, filename)

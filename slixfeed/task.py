@@ -86,7 +86,7 @@ await taskhandler.start_tasks(
 
 """
 async def start_tasks_xmpp(self, jid, tasks):
-    # print("start_tasks_xmpp", jid, tasks)
+    logging.debug("Starting tasks {} for JID {}".format(tasks, jid))
     task_manager[jid] = {}
     for task in tasks:
         # print("task:", task)
@@ -115,13 +115,14 @@ async def start_tasks_xmpp(self, jid, tasks):
 
 
 async def clean_tasks_xmpp(jid, tasks):
-    # print("clean_tasks_xmpp", jid, tasks)
+    logging.debug("Stopping tasks {} for JID {}".format(tasks, jid))
     for task in tasks:
         # if task_manager[jid][task]:
         try:
             task_manager[jid][task].cancel()
         except:
-            print("No task", task, "for JID", jid, "(clean_tasks)")
+            logging.debug(
+                "No task {} for JID {} (clean_tasks)".format(task, jid))
 
 
 """
@@ -138,7 +139,6 @@ Consider callback e.g. Slixfeed.send_status.
 Or taskhandler for each protocol or specific taskhandler function.
 """
 async def task_jid(self, jid):
-    # print("task_jid", jid)
     """
     JID (Jabber ID) task manager.
 
@@ -149,7 +149,6 @@ async def task_jid(self, jid):
     """
     db_file = get_pathname_to_database(jid)
     enabled = await get_settings_value(db_file, "enabled")
-    # print(await current_time(), "enabled", enabled, jid)
     if enabled:
         # NOTE Perhaps we want to utilize super with keyword
         # arguments in order to know what tasks to initiate.
@@ -187,8 +186,6 @@ async def task_jid(self, jid):
 
 
 async def send_update(self, jid, num=None):
-    print("send_update", jid)
-    # print(await current_time(), jid, "def send_update")
     """
     Send news items as messages.
 
@@ -199,8 +196,7 @@ async def send_update(self, jid, num=None):
     num : str, optional
         Number. The default is None.
     """
-    # print("Starting send_update()")
-    # print(jid)
+    logging.debug("Sending a news update to JID {}".format(jid))
     db_file = get_pathname_to_database(jid)
     enabled = await get_settings_value(db_file, "enabled")
     if enabled:
@@ -260,8 +256,6 @@ async def send_update(self, jid, num=None):
 
 
 async def send_status(self, jid):
-    # print("send_status", jid)
-    # print(await current_time(), jid, "def send_status")
     """
     Send status message.
 
@@ -270,7 +264,7 @@ async def send_status(self, jid):
     jid : str
         Jabber ID.
     """
-    # print(await current_time(), "> SEND STATUS",jid)
+    logging.debug("Sending a status message to JID {}".format(jid))
     status_text="🤖️ Slixfeed RSS News Bot"
     db_file = get_pathname_to_database(jid)
     enabled = await get_settings_value(db_file, "enabled")
@@ -323,7 +317,6 @@ async def send_status(self, jid):
 
 
 async def refresh_task(self, jid, callback, key, val=None):
-    # print("refresh_task", jid, key)
     """
     Apply new setting at runtime.
 
@@ -336,6 +329,7 @@ async def refresh_task(self, jid, callback, key, val=None):
     val : str, optional
         Value. The default is None.
     """
+    logging.debug("Refreshing task {} for JID {}".format(callback, jid))
     if not val:
         db_file = get_pathname_to_database(jid)
         val = await get_settings_value(db_file, key)
@@ -344,7 +338,9 @@ async def refresh_task(self, jid, callback, key, val=None):
         try:
             task_manager[jid][key].cancel()
         except:
-            print("No task of type", key, "to cancel for JID", jid)
+            logging.debug(
+                "No task of type {} to cancel for "
+                "JID {} (clean_tasks)").format(key, jid)
         # task_manager[jid][key] = loop.call_at(
         #     loop.time() + 60 * float(val),
         #     loop.create_task,
@@ -374,8 +370,6 @@ async def wait_and_run(self, callback, jid, val):
 # TODO Take this function out of
 # <class 'slixmpp.clientxmpp.ClientXMPP'>
 async def check_updates(jid):
-    # print("check_updates", jid)
-    # print(await current_time(), jid, "def check_updates")
     """
     Start calling for update check up.
 
@@ -384,8 +378,8 @@ async def check_updates(jid):
     jid : str
         Jabber ID.
     """
+    logging.debug("Scanning for updates for JID {}".format(jid))
     while True:
-        # print(await current_time(), "> CHCK UPDATE",jid)
         db_file = get_pathname_to_database(jid)
         await download_updates(db_file)
         val = get_value_default("settings", "Settings", "check")
@@ -399,8 +393,8 @@ async def check_updates(jid):
 
 
 async def start_tasks(self, presence):
-    # print("def presence_available", presence["from"].bare)
     jid = presence["from"].bare
+    logging.debug("Beginning tasks for JID {}".format(jid))
     if jid not in self.boundjid.bare:
         await clean_tasks_xmpp(
             jid, ["interval", "status", "check"])
@@ -414,7 +408,7 @@ async def start_tasks(self, presence):
 async def stop_tasks(self, presence):
     if not self.boundjid.bare:
         jid = presence["from"].bare
-        print(">>> unavailable:", jid)
+        logging.debug("Stopping tasks for JID {}".format(jid))
         await clean_tasks_xmpp(
             jid, ["interval", "status", "check"])
 
@@ -440,7 +434,7 @@ async def check_readiness(self, presence):
 
     jid = presence["from"].bare
     if presence["show"] in ("away", "dnd", "xa"):
-        print(">>> away, dnd, xa:", jid)
+        logging.debug("Stopping updates for JID {}".format(jid))
         await clean_tasks_xmpp(
             jid, ["interval"])
         await start_tasks_xmpp(

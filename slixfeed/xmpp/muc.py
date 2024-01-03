@@ -12,7 +12,7 @@ TODO
 3) If groupchat error is received, send that error message to inviter.
 
 """
-
+import logging
 import slixfeed.xmpp.bookmark as bookmark
 import slixfeed.xmpp.process as process
 from slixfeed.datetime import current_time
@@ -38,7 +38,7 @@ async def autojoin(self, event):
     for conference in conferences:
         if conference["autojoin"]:
             muc_jid = conference["jid"]
-            print(current_time(), "Autojoining groupchat", muc_jid)
+            logging.debug("Autojoin groupchat", muc_jid)
             self.plugin['xep_0045'].join_muc(
                 muc_jid,
                 self.nick,

@@ -25,8 +25,9 @@ from slixfeed.config import (
     get_value,
     get_pathname_to_database,
     remove_from_list)
-from slixfeed.datetime import current_time
+from slixfeed.datetime import current_time, timestamp
 import slixfeed.fetch as fetcher
+import slixfeed.opml as opml
 import slixfeed.sqlite as sqlite
 import slixfeed.task as task
 import slixfeed.utility as utility
@@ -36,6 +37,7 @@ import slixfeed.xmpp.compose as compose
 import slixfeed.xmpp.muc as groupchat
 import slixfeed.xmpp.status as status
 import slixfeed.xmpp.text as text
+import slixfeed.xmpp.upload as upload
 
 
 async def event(self, event):
@@ -76,8 +78,6 @@ async def message(self, message):
         for stanza objects and the Message stanza to see
         how it may be used.
     """
-    # print("message")
-    # print(message)
     if message["type"] in ("chat", "groupchat", "normal"):
         jid = message["from"].bare
         if message["type"] == "groupchat":
@@ -325,12 +325,46 @@ async def message(self, message):
                     else:
                         response = "Missing keywords."
                     send_reply_message(self, message, response)
+            case _ if message_lowercase.startswith("export "):
+                valid = 1
+                key = message_text[7:]
+                data_dir = get_default_dbdir()
+                if not os.path.isdir(data_dir):
+                    os.mkdir(data_dir)
+                filename = os.path.join(
+                    data_dir, "opml", "slixfeed_" + timestamp() + "." + key)
+                db_file = get_pathname_to_database(jid)
+                results = await sqlite.get_feeds(db_file)
+                match key:
+                    case "opml":
+                        status_type = "dnd"
+                        status_message = (
+                            "📂️ Procesing request to export feeds into OPML ...")
+                        send_status_message(self, jid, status_type, status_message)
+                        await opml.export_to_file(
+                            jid, filename, results)
+                        url = await upload.start(self, jid, filename)
+                        response = (
+                            "Feeds exported successfully to an OPML "
+                            "Outline Syndication.\n{}").format(url)
+                        await task.start_tasks_xmpp(self, jid, ["status"])
+                    case "html":
+                        response = "Not yet implemented."
+                    case "markdown":
+                        response = "Not yet implemented"
+                    case _:
+                        response = "Unsupported filetype."
+                        valid = 0
+                if valid:
+                    # send_oob_reply_message(message, url, response)
+                    send_oob_message(self, jid, url)
+                send_reply_message(self, message, response)
             case _ if (message_lowercase.startswith("gemini") or
-                        message_lowercase.startswith("gopher:")):
+                        message_lowercase.startswith("gopher")):
                 response = "Gemini and Gopher are not supported yet."
                 send_reply_message(self, message, response)
             case _ if (message_lowercase.startswith("http") or
-                        message_lowercase.startswith("feed:")):
+                        message_lowercase.startswith("feed")):
                 url = message_text
                 await task.clean_tasks_xmpp(jid, ["status"])
                 status_type = "dnd"
@@ -713,14 +747,14 @@ async def message(self, message):
         # if response: message.reply(response).send()
 
         if not response: response = "EMPTY MESSAGE - ACTION ONLY"
-        log_dir = get_default_dbdir()
-        if not os.path.isdir(log_dir):
-            os.mkdir(log_dir)
+        data_dir = get_default_dbdir()
+        if not os.path.isdir(data_dir):
+            os.mkdir(data_dir)
         utility.log_as_markdown(
-            current_time(), os.path.join(log_dir, jid),
+            current_time(), os.path.join(data_dir, "logs", jid),
             jid, message_text)
         utility.log_as_markdown(
-            current_time(), os.path.join(log_dir, jid),
+            current_time(), os.path.join(data_dir, "logs", jid),
             self.boundjid.bare, response)
 
 
@@ -733,6 +767,21 @@ def send_status_message(self, jid, status_type, status_message):
 
 def send_reply_message(self, message, response):
     message.reply(response).send()
+
+
+def send_oob_reply_message(message, url, response):
+    reply = message.reply(response)
+    reply['oob']['url'] = url
+    reply.send()
+
+
+def send_oob_message(self, jid, url):
+    html = (
+        f'<body xmlns="http://www.w3.org/1999/xhtml">'
+        f'<a href="{url}">{url}</a></body>')
+    message = self.make_message(mto=jid, mbody=url, mhtml=html)
+    message['oob']['url'] = url
+    message.send()
 
 
 # def greet(self, jid, chat_type="chat"):
