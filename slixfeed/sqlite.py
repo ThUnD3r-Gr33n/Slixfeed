@@ -177,24 +177,18 @@ async def insert_feed(db_file, url, title=None, status=None):
         Feed Title. The default is None.
     status : str, optional
         HTTP status code. The default is None.
-
-    Returns
-    -------
-    msg : str
-        Message.
     """
     #TODO consider async with DBLOCK
     #conn = create_connection(db_file)
 
     # with create_connection(db_file) as conn:
-    #     #exist = await check_feed_exist(conn, url)
-    #     exist = await check_feed_exist(db_file, url)
+    #     #exist = await is_feed_exist(conn, url)
+    #     exist = await is_feed_exist(db_file, url)
 
     # if not exist:
     #     status = await main.download_feed(url)
     # else:
     #     return "News source is already listed in the subscription list"
-
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -208,13 +202,6 @@ async def insert_feed(db_file, url, title=None, status=None):
                 )
             cur.execute(sql, feed)
 
-    source = title if title else '<' + url + '>'
-    msg = (
-        "> {}\nNews source \"{}\" has been added "
-        "to subscription list."
-        ).format(url, source)
-    return msg
-
 
 async def remove_feed(db_file, ix):
     """
@@ -226,61 +213,40 @@ async def remove_feed(db_file, ix):
         Path to database file.
     ix : str
         Index of feed.
-
-    Returns
-    -------
-    msg : str
-        Message.
     """
     with create_connection(db_file) as conn:
         async with DBLOCK:
             cur = conn.cursor()
-            try:
-                sql = (
-                    "SELECT address "
-                    "FROM feeds "
-                    "WHERE id = ?"
-                    )
-                # cur
-                # for i in url:
-                #     url = i[0]
-                url = cur.execute(sql, (ix,)).fetchone()[0]
-                sql = (
-                    "SELECT name "
-                    "FROM feeds "
-                    "WHERE id = ?"
-                    )
-                name = cur.execute(sql, (ix,)).fetchone()[0]
-                # NOTE Should we move DBLOCK to this line? 2022-12-23
-                sql = (
-                    "DELETE "
-                    "FROM entries "
-                    "WHERE source = ?"
-                    )
-                cur.execute(sql, (url,))
-                sql = (
-                    "DELETE "
-                    "FROM archive "
-                    "WHERE source = ?"
-                    )
-                cur.execute(sql, (url,))
-                sql = (
-                    "DELETE FROM feeds "
-                    "WHERE id = ?"
-                    )
-                cur.execute(sql, (ix,))
-                msg = (
-                    "> {}\nNews source \"{}\" has been removed "
-                    "from subscription list."
-                    ).format(url, name)
-            except:
-                msg = (
-                    "No news source with ID {}."
-                    ).format(ix)
-    return msg
+            sql = (
+                "SELECT address "
+                "FROM feeds "
+                "WHERE id = ?"
+                )
+            # cur
+            # for i in url:
+            #     url = i[0]
+            url = cur.execute(sql, (ix,)).fetchone()[0]
+            # NOTE Should we move DBLOCK to this line? 2022-12-23
+            sql = (
+                "DELETE "
+                "FROM entries "
+                "WHERE source = ?"
+                )
+            cur.execute(sql, (url,))
+            sql = (
+                "DELETE "
+                "FROM archive "
+                "WHERE source = ?"
+                )
+            cur.execute(sql, (url,))
+            sql = (
+                "DELETE FROM feeds "
+                "WHERE id = ?"
+                )
+            cur.execute(sql, (ix,))
 
 
-async def check_feed_exist(db_file, url):
+async def is_feed_exist(db_file, url):
     """
     Check whether a feed exists.
     Query for feeds by given url.
@@ -304,7 +270,8 @@ async def check_feed_exist(db_file, url):
         "WHERE address = ?"
         )
     result = cur.execute(sql, (url,)).fetchone()
-    return result
+    if result:
+        return True
 
 
 async def get_number_of_items(db_file, table):
@@ -406,8 +373,8 @@ async def get_unread_entries(db_file, num):
 
     Returns
     -------
-    entry : str
-        News item message.
+    results : ???
+        News items.
     """
     with create_connection(db_file) as conn:
         cur = conn.cursor()
@@ -641,9 +608,9 @@ async def update_statistics(cur):
             cur.execute(sql, (ix, i, stat_dict[i]))
 
 
-async def toggle_status(db_file, ix):
+async def set_enabled_status(db_file, ix, status):
     """
-    Toggle status of feed.
+    Set status of feed to enabled or not enabled (i.e. disabled).
 
     Parameters
     ----------
@@ -651,56 +618,21 @@ async def toggle_status(db_file, ix):
         Path to database file.
     ix : str
         Index of entry.
-
-    Returns
-    -------
-    msg : str
-        Message.
+    status : int
+        0 or 1.
     """
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
-            try:
-                #cur = get_cursor(db_file)
-                sql = (
-                    "SELECT name "
-                    "FROM feeds "
-                    "WHERE id = :id"
-                    )
-                title = cur.execute(sql, (ix,)).fetchone()[0]
-                sql = (
-                    "SELECT enabled "
-                    "FROM feeds "
-                    "WHERE id = ?"
-                    )
-                # NOTE [0][1][2]
-                status = cur.execute(sql, (ix,)).fetchone()[0]
-                # FIXME always set to 1
-                # NOTE Maybe because is not integer
-                # TODO Reset feed table before further testing
-                if status == 1:
-                    status = 0
-                    state =  "disabled"
-                else:
-                    status = 1
-                    state = "enabled"
-                sql = (
-                    "UPDATE feeds "
-                    "SET enabled = :status "
-                    "WHERE id = :id"
-                    )
-                cur.execute(sql, {
-                    "status": status,
-                    "id": ix
-                    })
-                msg = (
-                    "Updates from '{}' are now {}."
-                       ).format(title, state)
-            except:
-                msg = (
-                    "No news source with ID {}."
-                       ).format(ix)
-    return msg
+            sql = (
+                "UPDATE feeds "
+                "SET enabled = :status "
+                "WHERE id = :id"
+                )
+            cur.execute(sql, {
+                "status": status,
+                "id": ix
+                })
 
 
 async def set_date(cur, url):
@@ -836,9 +768,10 @@ async def add_entry(cur, entry):
     try:
         cur.execute(sql, entry)
     except:
-        # None
-        print("Unknown error for sqlite.add_entry")
-        print(entry)
+        None
+        # print("Unknown error for sqlite.add_entry")
+        # print(entry)
+        #
         # print(current_time(), "COROUTINE OBJECT NOW")
         # for i in entry:
         #     print(type(i))
@@ -1085,7 +1018,7 @@ async def get_feeds(db_file):
 
     Returns
     -------
-    msg : ???
+    results : ???
         URLs of feeds.
     """
     cur = get_cursor(db_file)

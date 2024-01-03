@@ -69,16 +69,16 @@ def get_value(filename, section, keys):
             key = keys
             try:
                 result = section_res[key]
-                logging.debug("Found value {} for key {}".format(
-                    value, key))
+                logging.debug(
+                    "Found value {} for key {}".format(result, key))
             except:
                 result = ''
                 # logging.error("Missing key:", key)
     if result == None:
         logging.error(
-            "Check configuration file {} for "
-            "missing key {} under section {}.".format(
-                filename, section, keys))
+            "Check configuration file {}.ini for "
+            "missing key(s) \"{}\" under section [{}].".format(
+                filename, keys, section))
     else:
         return result
 

@@ -340,7 +340,7 @@ async def refresh_task(self, jid, callback, key, val=None):
         except:
             logging.debug(
                 "No task of type {} to cancel for "
-                "JID {} (clean_tasks)").format(key, jid)
+                "JID {} (clean_tasks)".format(key, jid))
         # task_manager[jid][key] = loop.call_at(
         #     loop.time() + 60 * float(val),
         #     loop.create_task,

@@ -17,9 +17,7 @@ async def recover_connection(self, event, message):
     #     print(current_time(),"Maximum connection attempts exceeded.")
     #     logging.error("Maximum connection attempts exceeded.")
     print(current_time(), "Attempt number", self.connection_attempts)
-    seconds = get_value("accounts", "XMPP Connect", "reconnect_timeout")
-    if not seconds:
-        seconds = 30
+    seconds = (get_value("accounts", "XMPP Connect", "reconnect_timeout")) or 30
     seconds = int(seconds)
     print(current_time(), "Next attempt within", seconds, "seconds")
     # NOTE asyncio.sleep doesn't interval as expected

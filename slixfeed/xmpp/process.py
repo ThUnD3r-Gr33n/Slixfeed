@@ -327,12 +327,19 @@ async def message(self, message):
                     else:
                         response = "Missing keywords."
                     send_reply_message(self, message, response)
+            case _ if message_lowercase.startswith("import "):
+                    status_type = "dnd"
+                    status_message = (
+                        "📥️ Procesing request to import feeds ..."
+                        )
+                    send_status_message(
+                        self, jid, status_type, status_message)
             case _ if message_lowercase.startswith("export "):
                 key = message_text[7:]
                 if key in ("opml", "html", "md", "xbel"):
                     status_type = "dnd"
                     status_message = (
-                        "📂️ Procesing request to export feeds into {} ..."
+                        "📤️ Procesing request to export feeds into {} ..."
                         ).format(key)
                     send_status_message(
                         self, jid, status_type, status_message)
@@ -366,12 +373,12 @@ async def message(self, message):
                 else:
                     response = "Unsupported filetype."
                 send_reply_message(self, message, response)
-            case _ if (message_lowercase.startswith("gemini") or
-                        message_lowercase.startswith("gopher")):
+            case _ if (message_lowercase.startswith("gemini:") or
+                        message_lowercase.startswith("gopher:")):
                 response = "Gemini and Gopher are not supported yet."
                 send_reply_message(self, message, response)
             case _ if (message_lowercase.startswith("http") or
-                        message_lowercase.startswith("feed")):
+                        message_lowercase.startswith("feed:")):
                 url = message_text
                 await task.clean_tasks_xmpp(jid, ["status"])
                 status_type = "dnd"
@@ -624,16 +631,22 @@ async def message(self, message):
                 ix = message_text[7:]
                 if ix:
                     db_file = get_pathname_to_database(jid)
-                    response = await sqlite.remove_feed(db_file, ix)
-                    # await refresh_task(
-                    #     self,
-                    #     jid,
-                    #     send_status,
-                    #     "status",
-                    #     20
-                    #     )
-                    await task.clean_tasks_xmpp(jid, ["status"])
-                    await task.start_tasks_xmpp(self, jid, ["status"])
+                    try:
+                        await sqlite.remove_feed(db_file, ix)
+                        response = (
+                            "> {}\nNews source  has been removed "
+                            "from subscription list.").format(url)
+                        # await refresh_task(
+                        #     self,
+                        #     jid,
+                        #     send_status,
+                        #     "status",
+                        #     20
+                        #     )
+                        await task.clean_tasks_xmpp(jid, ["status"])
+                        await task.start_tasks_xmpp(self, jid, ["status"])
+                    except:
+                        response = "No news source with ID {}.".format(ix)
                 else:
                     response = "Missing feed ID."
                 send_reply_message(self, message, response)
@@ -687,10 +700,27 @@ async def message(self, message):
                 result = await sqlite.statistics(db_file)
                 response = compose.list_statistics(result)
                 send_reply_message(self, message, response)
-            case _ if message_lowercase.startswith("status "):
+            case _ if message_lowercase.startswith("disable "):
+                ix = message_text[8:]
+                db_file = get_pathname_to_database(jid)
+                try:
+                    await sqlite.set_enabled_status(db_file, ix, 0)
+                    response = (
+                        "Updates are now disabled for news source {}."
+                        ).format(ix)
+                except:
+                    response = "No news source with ID {}.".format(ix)
+                send_reply_message(self, message, response)
+            case _ if message_lowercase.startswith("enable "):
                 ix = message_text[7:]
                 db_file = get_pathname_to_database(jid)
-                response = await sqlite.toggle_status(db_file, ix)
+                try:
+                    await sqlite.set_enabled_status(db_file, ix, 1)
+                    response = (
+                        "Updates are now disabled for news source {}."
+                        ).format(ix)
+                except:
+                    response = "No news source with ID {}.".format(ix)
                 send_reply_message(self, message, response)
             case "stop":
             # FIXME

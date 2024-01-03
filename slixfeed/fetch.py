@@ -376,7 +376,7 @@ async def add_feed_no_check(db_file, data):
     url = data[0]
     title = data[1]
     url = trim_url(url)
-    exist = await sqlite.check_feed_exist(db_file, url)
+    exist = await sqlite.is_feed_exist(db_file, url)
     if not exist:
         msg = await sqlite.insert_feed(db_file, url, title)
         await download_updates(db_file, [url])
@@ -409,7 +409,7 @@ async def add_feed(db_file, url):
     """
     msg = None
     url = trim_url(url)
-    exist = await sqlite.check_feed_exist(db_file, url)
+    exist = await sqlite.is_feed_exist(db_file, url)
     if not exist:
         res = await download_feed(url)
         if res[0]:
@@ -417,9 +417,14 @@ async def add_feed(db_file, url):
             title = utility.get_title(url, feed)
             if utility.is_feed(url, feed):
                 status = res[1]
-                msg = await sqlite.insert_feed(
+                await sqlite.insert_feed(
                     db_file, url, title, status)
                 await download_updates(db_file, [url])
+                title = title if title else url
+                msg = (
+                    "> {}\nNews source \"{}\" has been added "
+                    "to subscription list."
+                    ).format(url, title)
             else:
                 msg = await probe_page(
                     add_feed, url, res[0], db_file=db_file)
@@ -497,7 +502,7 @@ async def download_feed(url):
         user_agent = "Slixfeed/0.1"
     if not len(user_agent):
         user_agent = "Slixfeed/0.1"
-    proxy = config.get_value("settings", "Network", "http_proxy")
+    proxy = (config.get_value("settings", "Network", "http_proxy")) or ''
     timeout = ClientTimeout(total=10)
     headers = {'User-Agent': user_agent}
     async with ClientSession(headers=headers) as session:
