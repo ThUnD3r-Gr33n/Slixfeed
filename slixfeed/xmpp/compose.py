@@ -2,7 +2,16 @@
 # -*- coding: utf-8 -*-
 
 """
-TODO Port functions insert_feed, remove_feed, get_entry_unread
+
+TODO
+
+1) Port functions insert_feed, remove_feed, get_entry_unread.
+
+2) Merge with action.py
+
+3) Call sqlite function from function statistics.
+   Returning a list of values doesn't' seem to be a good practice.
+
 """
 
 import slixfeed.xmpp.bookmark as bookmark

@@ -21,7 +21,7 @@ async def add_feed(db_file, url):
     while True:
         exist = await sqlite.is_feed_exist(db_file, url)
         if not exist:
-            result = await fetch.download_feed([url])
+            result = await fetch.download_feed(url)
             document = result[0]
             status = result[1]
             if document:
@@ -82,7 +82,7 @@ async def add_feed(db_file, url):
 
 async def view_feed(url):
     while True:
-        result = await fetch.download_feed([url])
+        result = await fetch.download_feed(url)
         document = result[0]
         status = result[1]
         if document:
@@ -151,7 +151,7 @@ async def view_feed(url):
 
 async def view_entry(url, num):
     while True:
-        result = await fetch.download_feed([url])
+        result = await fetch.download_feed(url)
         document = result[0]
         status = result[1]
         if document:
@@ -320,6 +320,7 @@ async def organize_items(db_file, urls):
                     db_file, source, eid=eid,
                     title=title, link=link, date=date)
                 if not exist:
+                    print(url)
                     # new_entry = new_entry + 1
                     # TODO Enhance summary
                     if entry.has_key("summary"):
@@ -384,7 +385,7 @@ async def remove_nonexistent_entries(db_file, feed, source):
     source : str
         Feed URL. URL of associated feed.
     """
-    items = sqlite.get_entries_of_source(db_file, feed, source)
+    items = await sqlite.get_entries_of_source(db_file, feed, source)
     entries = feed.entries
     # breakpoint()
     for item in items:

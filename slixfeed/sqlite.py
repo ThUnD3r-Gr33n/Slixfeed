@@ -829,9 +829,9 @@ async def add_entry(cur, entry):
     try:
         cur.execute(sql, entry)
     except:
-        None
-        # print("Unknown error for sqlite.add_entry")
-        # print(entry)
+        # None
+        print("Unknown error for sqlite.add_entry")
+        print(entry)
         #
         # print(current_time(), "COROUTINE OBJECT NOW")
         # for i in entry:

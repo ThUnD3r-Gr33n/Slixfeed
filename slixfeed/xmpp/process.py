@@ -259,9 +259,12 @@ async def message(self, message):
                     val = message_text[7:]
                     if val:
                         db_file = get_pathname_to_database(jid)
-                        keywords = await sqlite.get_filters_value(db_file, key)
-                        val = await add_to_list(val, keywords)
-                        await sqlite.set_filters_value(db_file, [key, val])
+                        keywords = await sqlite.get_filters_value(
+                            db_file, key)
+                        val = await add_to_list(
+                            val, keywords)
+                        await sqlite.set_filters_value(
+                            db_file, [key, val])
                         response = (
                             "Approved keywords\n"
                             "```\n{}\n```"
@@ -274,9 +277,12 @@ async def message(self, message):
                     val = message_text[7:]
                     if val:
                         db_file = get_pathname_to_database(jid)
-                        keywords = await sqlite.get_filters_value(db_file, key)
-                        val = await remove_from_list(val, keywords)
-                        await sqlite.set_filters_value(db_file, [key, val])
+                        keywords = await sqlite.get_filters_value(
+                            db_file, key)
+                        val = await remove_from_list(
+                            val, keywords)
+                        await sqlite.set_filters_value(
+                            db_file, [key, val])
                         response = (
                             "Approved keywords\n"
                             "```\n{}\n```"
@@ -293,7 +299,8 @@ async def message(self, message):
                             response = "Value may not be greater than 500."
                         else:
                             db_file = get_pathname_to_database(jid)
-                            await sqlite.set_settings_value(db_file, [key, val])
+                            await sqlite.set_settings_value(
+                                db_file, [key, val])
                             response = (
                                 "Maximum archived items has been set to {}."
                                 ).format(val)
@@ -316,7 +323,8 @@ async def message(self, message):
                         )
                 send_reply_message(self, message, response)
             case "bookmarks":
-                if jid == get_value("accounts", "XMPP", "operator"):
+                if jid == get_value(
+                        "accounts", "XMPP", "operator"):
                     response = await compose.list_bookmarks(self)
                 else:
                     response = (
@@ -329,9 +337,12 @@ async def message(self, message):
                     val = message_text[6:]
                     if val:
                         db_file = get_pathname_to_database(jid)
-                        keywords = await sqlite.get_filters_value(db_file, key)
-                        val = await add_to_list(val, keywords)
-                        await sqlite.set_filters_value(db_file, [key, val])
+                        keywords = await sqlite.get_filters_value(
+                            db_file, key)
+                        val = await add_to_list(
+                            val, keywords)
+                        await sqlite.set_filters_value(
+                            db_file, [key, val])
                         response = (
                             "Rejected keywords\n"
                             "```\n{}\n```"
@@ -344,9 +355,12 @@ async def message(self, message):
                     val = message_text[6:]
                     if val:
                         db_file = get_pathname_to_database(jid)
-                        keywords = await sqlite.get_filters_value(db_file, key)
-                        val = await remove_from_list(val, keywords)
-                        await sqlite.set_filters_value(db_file, [key, val])
+                        keywords = await sqlite.get_filters_value(
+                            db_file, key)
+                        val = await remove_from_list(
+                            val, keywords)
+                        await sqlite.set_filters_value(
+                            db_file, [key, val])
                         response = (
                             "Rejected keywords\n"
                             "```\n{}\n```"
@@ -489,8 +503,9 @@ async def message(self, message):
                         try:
                             val = int(val)
                             db_file = get_pathname_to_database(jid)
-                            await sqlite.set_settings_value(db_file, [key, val])
-                            if val == 0:
+                            await sqlite.set_settings_value(
+                                db_file, [key, val])
+                            if val == 0: # if not val:
                                 response = (
                                     "Summary length limit is disabled."
                                     )
@@ -530,7 +545,8 @@ async def message(self, message):
                     send_reply_message(self, message, response)
             case "new":
                 db_file = get_pathname_to_database(jid)
-                await sqlite.set_settings_value(db_file, ["old", 0])
+                await sqlite.set_settings_value(
+                    db_file, ["old", 0])
                 response = (
                     "Only new items of newly added feeds will be sent."
                     )
@@ -538,8 +554,10 @@ async def message(self, message):
             # TODO Will you add support for number of messages?
             case "next":
                 # num = message_text[5:]
-                await task.clean_tasks_xmpp(jid, ["interval", "status"])
-                await task.start_tasks_xmpp(self, jid, ["interval", "status"])
+                await task.clean_tasks_xmpp(
+                    jid, ["interval", "status"])
+                await task.start_tasks_xmpp(
+                    self, jid, ["interval", "status"])
                 # await refresh_task(
                 #     self,
                 #     jid,
@@ -557,7 +575,8 @@ async def message(self, message):
                 # await refresh_task(jid, key, val)
             case "old":
                 db_file = get_pathname_to_database(jid)
-                await sqlite.set_settings_value(db_file, ["old", 1])
+                await sqlite.set_settings_value(
+                    db_file, ["old", 1])
                 response = (
                     "All items of newly added feeds will be sent."
                     )
@@ -572,7 +591,8 @@ async def message(self, message):
                         #     "Every update will contain {} news items."
                         #     ).format(response)
                         db_file = get_pathname_to_database(jid)
-                        await sqlite.set_settings_value(db_file, [key, val])
+                        await sqlite.set_settings_value(
+                            db_file, [key, val])
                         response = (
                             "Next update will contain {} news items."
                             ).format(val)
@@ -619,7 +639,8 @@ async def message(self, message):
                             "URL must not contain white space."
                             )
                 send_reply_message(self, message, response)
-                await task.start_tasks_xmpp(self, jid, ["status"])
+                await task.start_tasks_xmpp(
+                    self, jid, ["status"])
             case _ if message_lowercase.startswith("recent"):
                 num = message_text[7:]
                 if num:
@@ -682,14 +703,17 @@ async def message(self, message):
                     await sqlite.mark_all_as_read(db_file)
                     response = "All entries have been marked as read."
                 send_reply_message(self, message, response)
-                await task.start_tasks_xmpp(self, jid, ["status"])
+                await task.start_tasks_xmpp(
+                    self, jid, ["status"])
             case _ if message_lowercase.startswith("search"):
                 query = message_text[7:]
                 if query:
                     if len(query) > 1:
                         db_file = get_pathname_to_database(jid)
-                        results = await sqlite.search_entries(db_file, query)
-                        response = compose.list_search_results(query, results)
+                        results = await sqlite.search_entries(
+                            db_file, query)
+                        response = compose.list_search_results(
+                            query, results)
                     else:
                         response = (
                             "Enter at least 2 characters to search"
@@ -777,7 +801,8 @@ async def message(self, message):
             case "support":
                 # TODO Send an invitation.
                 response = (
-                    "Join xmpp:slixfeed@chat.woodpeckersnest.space?join")
+                    "Join xmpp:slixfeed@chat.woodpeckersnest.space?join"
+                    )
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("xmpp:"):
                 muc_jid = uri.check_xmpp_uri(message_text)
@@ -828,6 +853,7 @@ def send_reply_message(self, message, response):
     message.reply(response).send()
 
 
+# TODO Solve this function
 def send_oob_reply_message(message, url, response):
     reply = message.reply(response)
     reply['oob']['url'] = url
@@ -839,7 +865,12 @@ async def send_oob_message(self, jid, url):
     html = (
         f'<body xmlns="http://www.w3.org/1999/xhtml">'
         f'<a href="{url}">{url}</a></body>')
-    message = self.make_message(mto=jid, mbody=url, mhtml=html, mtype=chat_type)
+    message = self.make_message(
+        mto=jid,
+        mbody=url,
+        mhtml=html,
+        mtype=chat_type
+        )
     message['oob']['url'] = url
     message.send()
 

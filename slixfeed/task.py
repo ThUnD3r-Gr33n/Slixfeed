@@ -288,7 +288,7 @@ async def send_status(self, jid):
     """
     logging.debug(
         "Sending a status message to JID {}".format(jid))
-    status_text = "🤖️ Slixfeed RSS News Bot"
+    status_text = "📜️ Slixfeed RSS News Bot"
     db_file = get_pathname_to_database(jid)
     enabled = (
         await get_settings_value(

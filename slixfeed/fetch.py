@@ -66,10 +66,11 @@ async def download_feed(url):
     msg: list or str
         Document or error message.
     """
-    user_agent = (config.get_value(
-        "settings", "Network", "user-agent")) or 'Slixfeed/0.1'
+    user_agent = (
+        config.get_value(
+            "settings", "Network", "user-agent")
+        ) or 'Slixfeed/0.1'
     headers = {'User-Agent': user_agent}
-    url = url[0]
     proxy = (config.get_value(
         "settings", "Network", "http_proxy")) or ''
     timeout = ClientTimeout(total=10)
