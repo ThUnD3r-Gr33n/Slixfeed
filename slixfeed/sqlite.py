@@ -222,9 +222,6 @@ async def remove_feed(db_file, ix):
                 "FROM feeds "
                 "WHERE id = ?"
                 )
-            # cur
-            # for i in url:
-            #     url = i[0]
             url = cur.execute(sql, (ix,)).fetchone()[0]
             # NOTE Should we move DBLOCK to this line? 2022-12-23
             sql = (
@@ -246,8 +243,10 @@ async def remove_feed(db_file, ix):
             cur.execute(sql, (ix,))
 
 
+# TODO Rename function name
 async def is_feed_exist(db_file, url):
     """
+    Get Id and Name of feed.
     Check whether a feed exists.
     Query for feeds by given url.
 
@@ -270,8 +269,7 @@ async def is_feed_exist(db_file, url):
         "WHERE address = ?"
         )
     result = cur.execute(sql, (url,)).fetchone()
-    if result:
-        return True
+    return result
 
 
 async def get_number_of_items(db_file, table):

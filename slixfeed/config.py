@@ -59,8 +59,9 @@ def get_value(filename, section, keys):
             for key in keys:
                 try:
                     value = section_res[key]
-                    logging.debug("Found value {} for key {}".format(
-                        value, key))
+                    logging.debug(
+                        "Found value {} for key {}".format(value, key)
+                        )
                 except:
                     value = ''
                     logging.error("Missing key:", key)
@@ -70,7 +71,8 @@ def get_value(filename, section, keys):
             try:
                 result = section_res[key]
                 logging.debug(
-                    "Found value {} for key {}".format(result, key))
+                    "Found value {} for key {}".format(result, key)
+                    )
             except:
                 result = ''
                 # logging.error("Missing key:", key)
@@ -78,7 +80,8 @@ def get_value(filename, section, keys):
         logging.error(
             "Check configuration file {}.ini for "
             "missing key(s) \"{}\" under section [{}].".format(
-                filename, keys, section))
+                filename, keys, section)
+            )
     else:
         return result
 
@@ -171,7 +174,9 @@ def get_default_dbdir():
             else:
                 return os.path.abspath('.')
         else:
-            data_home = os.path.join(os.environ.get('HOME'), '.local', 'share')
+            data_home = os.path.join(
+                os.environ.get('HOME'), '.local', 'share'
+                )
     return os.path.join(data_home, 'slixfeed')
 
 
@@ -200,7 +205,9 @@ def get_default_confdir():
             else:
                 return os.path.abspath('.')
         else:
-            config_home = os.path.join(os.environ.get('HOME'), '.config')
+            config_home = os.path.join(
+                os.environ.get('HOME'), '.config'
+                )
     return os.path.join(config_home, 'slixfeed')
 
 

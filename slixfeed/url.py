@@ -21,7 +21,7 @@ from urllib.parse import (
     parse_qs,
     urlencode,
     urljoin,
-    urlparse,
+    # urlparse,
     urlsplit,
     urlunsplit
     )

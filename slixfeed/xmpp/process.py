@@ -19,19 +19,22 @@ TODO
 """
 
 import os
+import slixfeed.action as action
 from slixfeed.config import (
     add_to_list,
     get_default_dbdir,
     get_value,
     get_pathname_to_database,
     remove_from_list)
+import slixfeed.crawl as crawl
 from slixfeed.datetime import current_time, timestamp
 import slixfeed.export as export
-import slixfeed.fetch as fetcher
+import slixfeed.fetch as fetch
 import slixfeed.opml as opml
 import slixfeed.sqlite as sqlite
 import slixfeed.task as task
-import slixfeed.utility as utility
+import slixfeed.log as log
+import slixfeed.read as read
 import slixfeed.url as uri
 import slixfeed.xmpp.bookmark as bookmark
 import slixfeed.xmpp.compose as compose
@@ -40,6 +43,7 @@ import slixfeed.xmpp.status as status
 import slixfeed.xmpp.text as text
 import slixfeed.xmpp.upload as upload
 from slixfeed.xmpp.utility import jid_type
+from urllib.parse import urlsplit, urlunsplit
 
 
 async def event(self, event):
@@ -210,20 +214,35 @@ async def message(self, message):
             #     else:
             #         response = "This command is valid for groupchat only."
             case _ if message_lowercase.startswith("add"):
+                # Add given feed without validity check.
                 message_text = message_text[4:]
                 url = message_text.split(" ")[0]
                 title = " ".join(message_text.split(" ")[1:])
                 if url.startswith("http"):
                     db_file = get_pathname_to_database(jid)
-                    response = await fetcher.add_feed_no_check(db_file, [url, title])
-                    old = await sqlite.get_settings_value(db_file, "old")
-                    if old:
-                        await task.clean_tasks_xmpp(jid, ["status"])
-                        # await send_status(jid)
-                        await task.start_tasks_xmpp(self, jid, ["status"])
+                    exist = await sqlite.is_feed_exist(db_file, url)
+                    if not exist:
+                        await sqlite.insert_feed(db_file, url, title)
+                        await action.organize_items(db_file, [url])
+                        old = await sqlite.get_settings_value(db_file, "old")
+                        if old:
+                            await task.clean_tasks_xmpp(jid, ["status"])
+                            # await send_status(jid)
+                            await task.start_tasks_xmpp(self, jid, ["status"])
+                        else:
+                            await sqlite.mark_source_as_read(db_file, url)
+                        response = (
+                            "> {}\nNews source has been "
+                            "added to subscription list."
+                            ).format(url)
                     else:
-                        db_file = get_pathname_to_database(jid)
-                        await sqlite.mark_source_as_read(db_file, url)
+                        ix = exist[0]
+                        name = exist[1]
+                        response = (
+                            "> {}\nNews source \"{}\" is already "
+                            "listed in the subscription list at "
+                            "index {}".format(url, name, ix)
+                            )
                 else:
                     response = "Missing URL."
                 send_reply_message(self, message, response)
@@ -388,31 +407,13 @@ async def message(self, message):
                 send_status_message(self, jid, status_type, status_message)
                 if url.startswith("feed:"):
                     url = uri.feed_to_http(url)
-                # url_alt = await uri.replace_hostname(url, "feed")
-                # if url_alt:
-                #     url = url_alt
                 url = (uri.replace_hostname(url, "feed")) or url
                 db_file = get_pathname_to_database(jid)
-                response = await fetcher.add_feed(db_file, url)
-                await task.start_tasks_xmpp(self, jid, ["status"])
-                # response = "> " + message + "\n" + response
-                # FIXME Make the taskhandler to update status message
-                # await refresh_task(
-                #     self,
-                #     jid,
-                #     send_status,
-                #     "status",
-                #     20
-                #     )
-                # NOTE This would show the number of new unread entries
-                old = await sqlite.get_settings_value(db_file, "old")
-                if old:
-                    await task.clean_tasks_xmpp(jid, ["status"])
-                    # await send_status(jid)
-                    await task.start_tasks_xmpp(self, jid, ["status"])
-                else:
-                    db_file = get_pathname_to_database(jid)
-                    await sqlite.mark_source_as_read(db_file, url)
+                response = await action.add_feed(db_file, url)
+                await task.clean_tasks_xmpp(
+                    jid, ["status"])
+                await task.start_tasks_xmpp(
+                    self, jid, ["status"])
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("feeds"):
                 query = message_text[6:]
@@ -521,7 +522,7 @@ async def message(self, message):
                     send_reply_message(self, message, response)
             case "new":
                 db_file = get_pathname_to_database(jid)
-                sqlite.set_settings_value(db_file, ["old", 0])
+                await sqlite.set_settings_value(db_file, ["old", 0])
                 response = (
                     "Only new items of newly added feeds will be sent."
                     )
@@ -581,7 +582,8 @@ async def message(self, message):
                 data = message_text[5:]
                 data = data.split()
                 url = data[0]
-                await task.clean_tasks_xmpp(jid, ["status"])
+                await task.clean_tasks_xmpp(
+                    jid, ["status"])
                 status_type = "dnd"
                 status_message = (
                     "📫️ Processing request to fetch data from {}"
@@ -593,13 +595,13 @@ async def message(self, message):
                 match len(data):
                     case 1:
                         if url.startswith("http"):
-                            response = await fetcher.view_feed(url)
+                            response = await action.view_feed(url)
                         else:
                             response = "Missing URL."
                     case 2:
                         num = data[1]
                         if url.startswith("http"):
-                            response = await fetcher.view_entry(url, num)
+                            response = await action.view_entry(url, num)
                         else:
                             response = "Missing URL."
                     case _:
@@ -627,15 +629,15 @@ async def message(self, message):
                     response = "Missing value."
                 send_reply_message(self, message, response)
             # NOTE Should people be asked for numeric value?
-            case _ if message_lowercase.startswith("remove"):
+            case _ if message_lowercase.startswith("remove "):
                 ix = message_text[7:]
                 if ix:
                     db_file = get_pathname_to_database(jid)
                     try:
                         await sqlite.remove_feed(db_file, ix)
                         response = (
-                            "> {}\nNews source  has been removed "
-                            "from subscription list.").format(url)
+                            "News source {} has been removed "
+                            "from subscription list.").format(ix)
                         # await refresh_task(
                         #     self,
                         #     jid,
@@ -643,10 +645,13 @@ async def message(self, message):
                         #     "status",
                         #     20
                         #     )
-                        await task.clean_tasks_xmpp(jid, ["status"])
-                        await task.start_tasks_xmpp(self, jid, ["status"])
+                        await task.clean_tasks_xmpp(
+                            jid, ["status"])
+                        await task.start_tasks_xmpp(
+                            self, jid, ["status"])
                     except:
-                        response = "No news source with ID {}.".format(ix)
+                        response = (
+                            "No news source with ID {}.".format(ix))
                 else:
                     response = "Missing feed ID."
                 send_reply_message(self, message, response)
@@ -655,7 +660,8 @@ async def message(self, message):
                 await task.clean_tasks_xmpp(jid, ["status"])
                 status_type = "dnd"
                 status_message = "📫️ Marking entries as read..."
-                send_status_message(self, jid, status_type, status_message)
+                send_status_message(
+                    self, jid, status_type, status_message)
                 if source:
                     db_file = get_pathname_to_database(jid)
                     await sqlite.mark_source_as_read(db_file, source)
@@ -688,9 +694,11 @@ async def message(self, message):
                 key = "enabled"
                 val = 1
                 db_file = get_pathname_to_database(jid)
-                await sqlite.set_settings_value(db_file, [key, val])
+                await sqlite.set_settings_value(
+                    db_file, [key, val])
                 # asyncio.create_task(task_jid(self, jid))
-                await task.start_tasks_xmpp(self, jid, ["interval", "status", "check"])
+                await task.start_tasks_xmpp(
+                    self, jid, ["interval", "status", "check"])
                 response = "Updates are enabled."
                 # print(current_time(), "task_manager[jid]")
                 # print(task_manager[jid])
@@ -747,13 +755,17 @@ async def message(self, message):
                 key = "enabled"
                 val = 0
                 db_file = get_pathname_to_database(jid)
-                await sqlite.set_settings_value(db_file, [key, val])
-                await task.clean_tasks_xmpp(jid, ["interval", "status"])
+                await sqlite.set_settings_value(
+                    db_file, [key, val])
+                await task.clean_tasks_xmpp(
+                    jid, ["interval", "status"])
                 response = "Updates are disabled."
                 send_reply_message(self, message, response)
                 status_type = "xa"
-                status_message = "💡️ Send \"Start\" to receive Jabber updates"
-                send_status_message(self, jid, status_type, status_message)
+                status_message = (
+                    "💡️ Send \"Start\" to receive Jabber updates")
+                send_status_message(
+                    self, jid, status_type, status_message)
             case "support":
                 # TODO Send an invitation.
                 response = (
@@ -789,10 +801,10 @@ async def message(self, message):
             os.mkdir(data_dir)
         if not os.path.isdir(data_dir + '/logs/'):
             os.mkdir(data_dir + '/logs/')
-        utility.log_as_markdown(
+        log.markdown(
             current_time(), os.path.join(data_dir, "logs", jid),
             jid, message_text)
-        utility.log_as_markdown(
+        log.markdown(
             current_time(), os.path.join(data_dir, "logs", jid),
             self.boundjid.bare, response)
 

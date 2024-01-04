@@ -49,13 +49,14 @@ from slixfeed.config import (
     get_default_dbdir,
     get_value_default)
 from slixfeed.datetime import current_time
-from slixfeed.fetch import download_updates
+from slixfeed.action import organize_items
 from slixfeed.sqlite import (
-    get_unread_entries,
     get_feed_title,
-    get_settings_value,
+    get_feeds_url,
     get_number_of_items,
     get_number_of_entries_unread,
+    get_settings_value,
+    get_unread_entries,
     mark_as_read,
     mark_entry_as_read,
     delete_archived_entry
@@ -329,7 +330,9 @@ async def refresh_task(self, jid, callback, key, val=None):
     val : str, optional
         Value. The default is None.
     """
-    logging.debug("Refreshing task {} for JID {}".format(callback, jid))
+    logging.debug(
+        "Refreshing task {} for JID {}".format(callback, jid)
+        )
     if not val:
         db_file = get_pathname_to_database(jid)
         val = await get_settings_value(db_file, key)
@@ -340,7 +343,8 @@ async def refresh_task(self, jid, callback, key, val=None):
         except:
             logging.debug(
                 "No task of type {} to cancel for "
-                "JID {} (clean_tasks)".format(key, jid))
+                "JID {} (clean_tasks)".format(key, jid)
+                )
         # task_manager[jid][key] = loop.call_at(
         #     loop.time() + 60 * float(val),
         #     loop.create_task,
@@ -378,10 +382,13 @@ async def check_updates(jid):
     jid : str
         Jabber ID.
     """
-    logging.debug("Scanning for updates for JID {}".format(jid))
+    logging.debug(
+        "Scanning for updates for JID {}".format(jid)
+        )
     while True:
         db_file = get_pathname_to_database(jid)
-        await download_updates(db_file)
+        urls = await get_feeds_url(db_file)
+        await organize_items(db_file, urls)
         val = get_value_default("settings", "Settings", "check")
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes
@@ -394,12 +401,16 @@ async def check_updates(jid):
 
 async def start_tasks(self, presence):
     jid = presence["from"].bare
-    logging.debug("Beginning tasks for JID {}".format(jid))
+    logging.debug(
+        "Beginning tasks for JID {}".format(jid)
+        )
     if jid not in self.boundjid.bare:
         await clean_tasks_xmpp(
-            jid, ["interval", "status", "check"])
+            jid, ["interval", "status", "check"]
+            )
         await start_tasks_xmpp(
-            self, jid, ["interval", "status", "check"])
+            self, jid, ["interval", "status", "check"]
+            )
         # await task_jid(self, jid)
         # main_task.extend([asyncio.create_task(task_jid(jid))])
         # print(main_task)
@@ -408,9 +419,12 @@ async def start_tasks(self, presence):
 async def stop_tasks(self, presence):
     if not self.boundjid.bare:
         jid = presence["from"].bare
-        logging.debug("Stopping tasks for JID {}".format(jid))
+        logging.debug(
+            "Stopping tasks for JID {}".format(jid)
+            )
         await clean_tasks_xmpp(
-            jid, ["interval", "status", "check"])
+            jid, ["interval", "status", "check"]
+            )
 
 
 async def check_readiness(self, presence):
@@ -434,7 +448,9 @@ async def check_readiness(self, presence):
 
     jid = presence["from"].bare
     if presence["show"] in ("away", "dnd", "xa"):
-        logging.debug("Stopping updates for JID {}".format(jid))
+        logging.debug(
+            "Stopping updates for JID {}".format(jid)
+            )
         await clean_tasks_xmpp(
             jid, ["interval"])
         await start_tasks_xmpp(
@@ -477,7 +493,9 @@ async def select_file(self):
                 if (file.endswith(".db") and
                     not file.endswith(".db-jour.db")):
                     jid = file[:-3]
-                    main_task.extend([tg.create_task(self.task_jid(jid))])
+                    main_task.extend(
+                        [tg.create_task(self.task_jid(jid))]
+                        )
                     # main_task = [tg.create_task(self.task_jid(jid))]
                     # task_manager.update({jid: tg})
 

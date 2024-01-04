@@ -48,26 +48,20 @@ NOTE
 """
 
 import asyncio
-from slixfeed.config import add_to_list, get_list, remove_from_list
-import slixfeed.fetch as fetcher
-from slixfeed.datetime import current_time
 import logging
 # import os
 from random import randrange
 import slixmpp
-from slixmpp.exceptions import IqError, IqTimeout
-import slixfeed.sqlite as sqlite
 import slixfeed.task as task
-import slixfeed.url as urlfixer
 from time import sleep
 
 from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadServiceNotFound
 # from slixmpp.plugins.xep_0402 import BookmarkStorage, Conference
 from slixmpp.plugins.xep_0048.stanza import Bookmarks
 
-import xmltodict
-import xml.etree.ElementTree as ET
-from lxml import etree
+# import xmltodict
+# import xml.etree.ElementTree as ET
+# from lxml import etree
 
 import slixfeed.xmpp.connect as connect
 import slixfeed.xmpp.process as process
