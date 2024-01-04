@@ -36,8 +36,13 @@ async def add_feed(db_file, url):
                         db_file, url, title, status)
                     await organize_items(
                         db_file, [url])
-                    old = await sqlite.get_settings_value(
-                        db_file, "old")
+                    old = (
+                        await sqlite.get_settings_value(
+                            db_file, "old")
+                        ) or (
+                        config.get_value_default(
+                            "settings", "Settings", "old")
+                        )
                     if not old:
                         await sqlite.mark_source_as_read(
                             db_file, url)
@@ -277,7 +282,7 @@ async def organize_items(db_file, urls):
             entries = feed.entries
             # length = len(entries)
             # await remove_entry(db_file, source, length)
-            await sqlite.remove_nonexistent_entries(
+            await remove_nonexistent_entries(
                 db_file, feed, source)
             # new_entry = 0
             for entry in entries:
@@ -331,17 +336,14 @@ async def organize_items(db_file, urls):
                         summary = "> *** No summary ***"
                     read_status = 0
                     pathname = urlsplit(link).path
-                    string = (
-                        "{} {} {}"
-                        ).format(
-                            title,
-                            summary,
-                            pathname
-                            )
-                    allow_list = await config.is_listed(
+                    string = ("{} {} {}"
+                              ).format(
+                                  title, summary, pathname
+                                  )
+                    allow_list = await config.is_include_keyword(
                         db_file, "filter-allow", string)
                     if not allow_list:
-                        reject_list = await config.is_listed(
+                        reject_list = await config.is_include_keyword(
                             db_file, "filter-deny", string)
                         if reject_list:
                             # print(">>> REJECTED", title)
@@ -367,3 +369,103 @@ async def organize_items(db_file, urls):
                 #     print(current_time(), exist, title)
 
 
+async def remove_nonexistent_entries(db_file, feed, source):
+    """
+    Remove entries that don't exist in a given parsed feed.
+    Check the entries returned from feed and delete read non
+    existing entries, otherwise move to table archive, if unread.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed : list
+        Parsed feed document.
+    source : str
+        Feed URL. URL of associated feed.
+    """
+    items = sqlite.get_entries_of_source(db_file, feed, source)
+    entries = feed.entries
+    # breakpoint()
+    for item in items:
+        valid = False
+        for entry in entries:
+            title = None
+            link = None
+            time = None
+            # valid = False
+            # TODO better check and don't repeat code
+            if entry.has_key("id") and item[3]:
+                if entry.id == item[3]:
+                    # print("compare1:", entry.id)
+                    # print("compare2:", item[3])
+                    # print("============")
+                    valid = True
+                    break
+            else:
+                if entry.has_key("title"):
+                    title = entry.title
+                else:
+                    title = feed["feed"]["title"]
+                if entry.has_key("link"):
+                    link = join_url(source, entry.link)
+                else:
+                    link = source
+                if entry.has_key("published") and item[4]:
+                    # print("compare11:", title, link, time)
+                    # print("compare22:", item[1], item[2], item[4])
+                    # print("============")
+                    time = rfc2822_to_iso8601(entry.published)
+                    if (item[1] == title and
+                        item[2] == link and
+                        item[4] == time):
+                        valid = True
+                        break
+                else:
+                    if (item[1] == title and
+                        item[2] == link):
+                        # print("compare111:", title, link)
+                        # print("compare222:", item[1], item[2])
+                        # print("============")
+                        valid = True
+                        break
+            # TODO better check and don't repeat code
+        if not valid:
+            # print("id:        ", item[0])
+            # if title:
+            #     print("title:     ", title)
+            #     print("item[1]:   ", item[1])
+            # if link:
+            #     print("link:      ", link)
+            #     print("item[2]:   ", item[2])
+            # if entry.id:
+            #     print("last_entry:", entry.id)
+            #     print("item[3]:   ", item[3])
+            # if time:
+            #     print("time:      ", time)
+            #     print("item[4]:   ", item[4])
+            # print("read:      ", item[5])
+            # breakpoint()
+
+            # TODO Send to table archive
+            # TODO Also make a regular/routine check for sources that
+            #      have been changed (though that can only happen when
+            #      manually editing)
+            ix = item[0]
+            # print(">>> SOURCE: ", source)
+            # print(">>> INVALID:", item[1])
+            # print("title:", item[1])
+            # print("link :", item[2])
+            # print("id   :", item[3])
+            if item[5] == 1:
+                sqlite.delete_entry_by_id(db_file, ix)
+                # print(">>> DELETING:", item[1])
+            else:
+                # print(">>> ARCHIVING:", item[1])
+                sqlite.archive_entry(db_file, ix)
+        limit = (
+            await sqlite.get_settings_value(db_file, "archive")
+            ) or (
+            config.get_value_default("settings", "Settings", "archive")
+            )
+        await sqlite.maintain_archive(db_file, limit)

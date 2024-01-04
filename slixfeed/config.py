@@ -115,14 +115,16 @@ def get_value_default(filename, section, key):
     return result
 
 
-def get_list(filename):
+def get_list(filename, key):
     """
     Get settings default value.
 
     Parameters
     ----------
     filename : str
-        filename of yaml file.
+        Filename of yaml file.
+    key: str
+        Key.
 
     Returns
     -------
@@ -137,6 +139,7 @@ def get_list(filename):
         # default = yaml.safe_load(defaults)
         # result = default[key]
         result = yaml.safe_load(defaults)
+        result = result[key]
     return result
 
 
@@ -305,7 +308,7 @@ async def remove_from_list(newwords, keywords):
     return val
 
 
-async def is_listed(db_file, key, string):
+async def is_include_keyword(db_file, key, string):
     """
     Check keyword match.
 
@@ -325,21 +328,16 @@ async def is_listed(db_file, key, string):
     """
 # async def reject(db_file, string):
 # async def is_blacklisted(db_file, string):
-    list = await sqlite.get_filters_value(
-        db_file,
-        key
-        )
-    if list:
-        list = list.split(",")
-        for i in list:
-            if not i or len(i) < 2:
-                continue
-            if i in string.lower():
-                # print(">>> ACTIVATE", i)
-                # return 1
-                return i
-    else:
-        return None
+    keywords = (await sqlite.get_filters_value(db_file, key)) or ''
+    keywords = keywords.split(",")
+    keywords = keywords + (get_list("lists.yaml", key))
+    for keyword in keywords:
+        if not keyword or len(keyword) < 2:
+            continue
+        if keyword in string.lower():
+            # print(">>> ACTIVATE", i)
+            # return 1
+            return keyword
 
 """
 

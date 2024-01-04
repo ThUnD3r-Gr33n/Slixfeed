@@ -16,9 +16,8 @@ TODO
 """
 
 from asyncio import Lock
-from bs4 import BeautifulSoup
 from datetime import date
-# from slixfeed.config import get_value_default
+import logging
 import slixfeed.config as config
 # from slixfeed.data import join_url
 from slixfeed.datetime import (
@@ -413,7 +412,7 @@ async def get_unread_entries(db_file, num):
         return results
 
 
-def mark_entry_as_read(cur, ix):
+async def mark_entry_as_read(cur, ix):
     """
     Set read status of entry as read.
 
@@ -454,6 +453,70 @@ async def mark_source_as_read(db_file, source):
             cur.execute(sql, (source,))
 
 
+async def delete_entry_by_id(db_file, ix):
+    """
+    Delete entry by Id.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    ix : str
+        Index.
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                "DELETE "
+                "FROM entries "
+                "WHERE id = :ix"
+                )
+            cur.execute(sql, (ix,))
+
+
+async def archive_entry(db_file, ix):
+    """
+    Insert entry to archive and delete entry.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    ix : str
+        Index.
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                "INSERT "
+                "INTO archive "
+                "SELECT * "
+                "FROM entries "
+                "WHERE entries.id = :ix"
+                )
+            try:
+                cur.execute(sql, (ix,))
+            except:
+                print(
+                    "ERROR DB insert from entries "
+                    "into archive at index", ix
+                    )
+            sql = (
+                "DELETE "
+                "FROM entries "
+                "WHERE id = :ix"
+                )
+            try:
+                cur.execute(sql, (ix,))
+            except:
+                print(
+                    "ERROR DB deleting items from "
+                    "table entries at index", ix
+                    )
+    
+
 def get_feed_title(db_file, source):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
@@ -477,8 +540,9 @@ async def mark_as_read(db_file, ix):
             # NOTE: We can use DBLOCK once for both
             # functions, because, due to exclusive
             # ID, only one can ever occur.
-            mark_entry_as_read(cur, ix)
-            delete_archived_entry(cur, ix)
+            await mark_entry_as_read(cur, ix)
+            await delete_archived_entry(cur, ix)
+
 
 async def mark_all_as_read(db_file):
     """
@@ -503,7 +567,7 @@ async def mark_all_as_read(db_file):
             cur.execute(sql)
 
 
-def delete_archived_entry(cur, ix):
+async def delete_archived_entry(cur, ix):
     """
     Delete entry from table archive.
 
@@ -644,7 +708,6 @@ async def set_date(cur, url):
     url : str
         URL.
     """
-    today = date.today()
     sql = (
         "UPDATE feeds "
         "SET updated = :today "
@@ -652,7 +715,7 @@ async def set_date(cur, url):
         )
     # cur = conn.cursor()
     cur.execute(sql, {
-        "today": today,
+        "today": date.today(),
         "url": url
         })
 
@@ -780,7 +843,7 @@ async def add_entry(cur, entry):
         # breakpoint()
 
 
-async def maintain_archive(cur, limit):
+async def maintain_archive(db_file, limit):
     """
     Maintain list of archived entries equal to specified number of items.
 
@@ -789,37 +852,40 @@ async def maintain_archive(cur, limit):
     db_file : str
         Path to database file.
     """
-    sql = (
-        "SELECT count(id) "
-        "FROM archive"
-        )
-    count = cur.execute(sql).fetchone()[0]
-    # FIXME Upon first time joining to a groupchat
-    # and then adding a URL, variable "limit"
-    # becomes a string in one of the iterations.
-    # if isinstance(limit,str):
-    #     print("STOP")
-    #     breakpoint()
-    reduc = count - int(limit)
-    if reduc > 0:
-        sql = (
-            "DELETE FROM archive "
-            "WHERE id "
-            "IN (SELECT id "
-            "FROM archive "
-            "ORDER BY timestamp ASC "
-            "LIMIT :reduc)"
-            )
-        cur.execute(sql, {
-            "reduc": reduc
-            })
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                "SELECT count(id) "
+                "FROM archive"
+                )
+            count = cur.execute(sql).fetchone()[0]
+            # FIXME Upon first time joining to a groupchat
+            # and then adding a URL, variable "limit"
+            # becomes a string in one of the iterations.
+            # if isinstance(limit,str):
+            #     print("STOP")
+            #     breakpoint()
+            difference = count - int(limit)
+            if difference > 0:
+                sql = (
+                    "DELETE FROM archive "
+                    "WHERE id "
+                    "IN (SELECT id "
+                    "FROM archive "
+                    "ORDER BY timestamp ASC "
+                    "LIMIT :difference)"
+                    )
+                cur.execute(sql, {
+                    "difference": difference
+                    })
 
 
 # TODO Move entries that don't exist into table archive.
 # NOTE Entries that are read from archive are deleted.
 # NOTE Unlike entries from table entries, entries from
 #      table archive are not marked as read.
-async def remove_nonexistent_entries(db_file, feed, source):
+async def get_entries_of_source(db_file, feed, source):
     """
     Remove entries that don't exist in a given parsed feed.
     Check the entries returned from feed and delete read non
@@ -842,117 +908,7 @@ async def remove_nonexistent_entries(db_file, feed, source):
             "WHERE source = ?"
             )
         items = cur.execute(sql, (source,)).fetchall()
-        entries = feed.entries
-        # breakpoint()
-        for item in items:
-            valid = False
-            for entry in entries:
-                title = None
-                link = None
-                time = None
-                # valid = False
-                # TODO better check and don't repeat code
-                if entry.has_key("id") and item[3]:
-                    if entry.id == item[3]:
-                        # print("compare1:", entry.id)
-                        # print("compare2:", item[3])
-                        # print("============")
-                        valid = True
-                        break
-                else:
-                    if entry.has_key("title"):
-                        title = entry.title
-                    else:
-                        title = feed["feed"]["title"]
-                    if entry.has_key("link"):
-                        link = join_url(source, entry.link)
-                    else:
-                        link = source
-                    if entry.has_key("published") and item[4]:
-                        # print("compare11:", title, link, time)
-                        # print("compare22:", item[1], item[2], item[4])
-                        # print("============")
-                        time = rfc2822_to_iso8601(entry.published)
-                        if (item[1] == title and
-                            item[2] == link and
-                            item[4] == time):
-                            valid = True
-                            break
-                    else:
-                        if (item[1] == title and
-                            item[2] == link):
-                            # print("compare111:", title, link)
-                            # print("compare222:", item[1], item[2])
-                            # print("============")
-                            valid = True
-                            break
-                # TODO better check and don't repeat code
-            if not valid:
-                # print("id:        ", item[0])
-                # if title:
-                #     print("title:     ", title)
-                #     print("item[1]:   ", item[1])
-                # if link:
-                #     print("link:      ", link)
-                #     print("item[2]:   ", item[2])
-                # if entry.id:
-                #     print("last_entry:", entry.id)
-                #     print("item[3]:   ", item[3])
-                # if time:
-                #     print("time:      ", time)
-                #     print("item[4]:   ", item[4])
-                # print("read:      ", item[5])
-                # breakpoint()
-                async with DBLOCK:
-                    # TODO Send to table archive
-                    # TODO Also make a regular/routine check for sources that
-                    #      have been changed (though that can only happen when
-                    #      manually editing)
-                    ix = item[0]
-                    # print(">>> SOURCE: ", source)
-                    # print(">>> INVALID:", item[1])
-                    # print("title:", item[1])
-                    # print("link :", item[2])
-                    # print("id   :", item[3])
-                    if item[5] == 1:
-                        # print(">>> DELETING:", item[1])
-                        sql = (
-                            "DELETE "
-                            "FROM entries "
-                            "WHERE id = :ix"
-                            )
-                        cur.execute(sql, (ix,))
-                    else:
-                        # print(">>> ARCHIVING:", item[1])
-                        sql = (
-                            "INSERT "
-                            "INTO archive "
-                            "SELECT * "
-                            "FROM entries "
-                            "WHERE entries.id = :ix"
-                            )
-                        try:
-                            cur.execute(sql, (ix,))
-                        except:
-                            print(
-                                "ERROR DB insert from entries "
-                                "into archive at index", ix
-                                )
-                        sql = (
-                            "DELETE "
-                            "FROM entries "
-                            "WHERE id = :ix"
-                            )
-                        try:
-                            cur.execute(sql, (ix,))
-                        except:
-                            print(
-                                "ERROR DB deleting items from "
-                                "table entries at index", ix
-                                )
-        async with DBLOCK:
-            limit = await get_settings_value(db_file, "archive")
-            await maintain_archive(cur, limit)
+        return items
 
 
 # TODO What is this function for? 2024-01-02
@@ -1253,7 +1209,7 @@ async def set_settings_value(db_file, key_value):
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
-            await set_settings_value_default(cur, key)
+            # try:
             sql = (
                 "UPDATE settings "
                 "SET value = :value "
@@ -1263,48 +1219,10 @@ async def set_settings_value(db_file, key_value):
                 "key": key,
                 "value": value
                 })
-
-
-async def set_settings_value_default(cur, key):
-    """
-    Set default settings value, if no value found.
-
-    Parameters
-    ----------
-    cur : object
-        Cursor object.
-    key : str
-        Key: enabled, interval, master, quantum, random.
-
-    Returns
-    -------
-    val : str
-        Numeric value.
-    """
-# async def set_settings_value_default(cur):
-#     keys = ["enabled", "interval", "quantum"]
-#     for i in keys:
-#         sql = "SELECT id FROM settings WHERE key = ?"
-#         cur.execute(sql, (i,))
-#         if not cur.fetchone():
-#             val = settings.get_value_default(i)
-#             sql = "INSERT INTO settings(key,value) VALUES(?,?)"
-#             cur.execute(sql, (i, val))
-    sql = (
-        "SELECT id "
-        "FROM settings "
-        "WHERE key = ?"
-        )
-    cur.execute(sql, (key,))
-    if not cur.fetchone():
-        value = config.get_value_default("settings", "Settings", key)
-        sql = (
-            "INSERT "
-            "INTO settings(key,value) "
-            "VALUES(?,?)"
-            )
-        cur.execute(sql, (key, value))
-        return value
+            # except:
+            #     logging.debug(
+            #         "No specific value set for key {}.".format(key)
+            #         )
 
 
 async def get_settings_value(db_file, key):
@@ -1324,31 +1242,20 @@ async def get_settings_value(db_file, key):
     val : str
         Numeric value.
     """
-    # try:
-    #     with create_connection(db_file) as conn:
-    #         cur = conn.cursor()
-    #         sql = "SELECT value FROM settings WHERE key = ?"
-    #         cur.execute(sql, (key,))
-    #         result = cur.fetchone()
-    # except:
-    #     result = settings.get_value_default(key)
-    # if not result:
-    #     result = settings.get_value_default(key)
-    # return result
     with create_connection(db_file) as conn:
+        cur = conn.cursor()
         try:
-            cur = conn.cursor()
             sql = (
                 "SELECT value "
                 "FROM settings "
                 "WHERE key = ?"
                 )
-            val = cur.execute(sql, (key,)).fetchone()[0]
+            value = cur.execute(sql, (key,)).fetchone()[0]
+            return value
         except:
-            val = await set_settings_value_default(cur, key)
-        if not val:
-            val = await set_settings_value_default(cur, key)
-        return val
+            logging.debug(
+                "No specific value set for key {}.".format(key)
+                )
 
 
 async def set_filters_value(db_file, key_value):
@@ -1379,7 +1286,6 @@ async def set_filters_value(db_file, key_value):
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
-            await set_filters_value_default(cur, key)
             sql = (
                 "UPDATE filters "
                 "SET value = :value "
@@ -1389,41 +1295,6 @@ async def set_filters_value(db_file, key_value):
                 "key": key,
                 "value": val
                 })
-
-
-async def set_filters_value_default(cur, key):
-    """
-    Set default filters value, if no value found.
-
-    Parameters
-    ----------
-    cur : object
-        Cursor object.
-    key : str
-        Key: filter-allow, filter-deny, filter-replace.
-
-    Returns
-    -------
-    val : str
-        List of strings.
-    """
-    sql = (
-        "SELECT id "
-        "FROM filters "
-        "WHERE key = ?"
-        )
-    cur.execute(sql, (key,))
-    if not cur.fetchone():
-        val = config.get_list("lists.yaml")
-        val = val[key]
-        val = ",".join(val)
-        sql = (
-            "INSERT "
-            "INTO filters(key,value) "
-            "VALUES(?,?)"
-            )
-        cur.execute(sql, (key, val))
-        return val
 
 
 async def get_filters_value(db_file, key):
@@ -1443,16 +1314,16 @@ async def get_filters_value(db_file, key):
         List of strings.
     """
     with create_connection(db_file) as conn:
+        cur = conn.cursor()
         try:
-            cur = conn.cursor()
             sql = (
                 "SELECT value "
                 "FROM filters "
                 "WHERE key = ?"
                 )
-            val = cur.execute(sql, (key,)).fetchone()[0]
+            value = cur.execute(sql, (key,)).fetchone()[0]
+            return value
         except:
-            val = await set_filters_value_default(cur, key)
-        if not val:
-            val = await set_filters_value_default(cur, key)
-        return val
+            logging.debug(
+                "No specific value set for key {}.".format(key)
+                )

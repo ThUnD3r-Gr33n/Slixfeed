@@ -54,7 +54,7 @@ def replace_hostname(url, url_type):
     pathname = parted_url.path
     queries = parted_url.query
     fragment = parted_url.fragment
-    proxies = config.get_list("proxies.yaml")
+    proxies = config.get_list("proxies.yaml", "proxies")
     for proxy in proxies:
         proxy = proxies[proxy]
         if hostname in proxy["hostname"] and url_type in proxy["type"]:
@@ -92,8 +92,7 @@ def remove_tracking_parameters(url):
     pathname = parted_url.path
     queries = parse_qs(parted_url.query)
     fragment = parted_url.fragment
-    trackers = config.get_list("queries.yaml")
-    trackers = trackers["trackers"]
+    trackers = config.get_list("queries.yaml", "trackers")
     for tracker in trackers:
         if tracker in queries: del queries[tracker]
     queries_new = urlencode(queries, doseq=True)

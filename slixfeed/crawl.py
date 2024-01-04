@@ -120,8 +120,7 @@ async def feed_mode_request(url, tree):
     """
     feeds = {}
     parted_url = urlsplit(url)
-    paths = config.get_list("lists.yaml")
-    paths = paths["pathnames"]
+    paths = config.get_list("lists.yaml", "pathnames")
     for path in paths:
         address = urlunsplit([
             parted_url.scheme,
@@ -229,8 +228,7 @@ async def feed_mode_scan(url, tree):
     feeds = {}
     # paths = []
     # TODO Test
-    paths = config.get_list("lists.yaml")
-    paths = paths["pathnames"]
+    paths = config.get_list("lists.yaml", "pathnames")
     for path in paths:
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
         # xpath_query = "//a[contains(@href,'{}')]".format(path)

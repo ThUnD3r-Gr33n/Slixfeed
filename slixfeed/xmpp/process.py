@@ -23,6 +23,7 @@ import slixfeed.action as action
 from slixfeed.config import (
     add_to_list,
     get_default_dbdir,
+    get_value_default,
     get_value,
     get_pathname_to_database,
     remove_from_list)
@@ -224,13 +225,20 @@ async def message(self, message):
                     if not exist:
                         await sqlite.insert_feed(db_file, url, title)
                         await action.organize_items(db_file, [url])
-                        old = await sqlite.get_settings_value(db_file, "old")
+                        old = (
+                            await sqlite.get_settings_value(db_file, "old")
+                            ) or (
+                            get_value_default("settings", "Settings", "old")
+                            )
                         if old:
-                            await task.clean_tasks_xmpp(jid, ["status"])
+                            await task.clean_tasks_xmpp(
+                                jid, ["status"])
                             # await send_status(jid)
-                            await task.start_tasks_xmpp(self, jid, ["status"])
+                            await task.start_tasks_xmpp(
+                                self, jid, ["status"])
                         else:
-                            await sqlite.mark_source_as_read(db_file, url)
+                            await sqlite.mark_source_as_read(
+                                db_file, url)
                         response = (
                             "> {}\nNews source has been "
                             "added to subscription list."

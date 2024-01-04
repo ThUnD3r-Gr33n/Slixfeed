@@ -116,14 +116,17 @@ async def start_tasks_xmpp(self, jid, tasks):
 
 
 async def clean_tasks_xmpp(jid, tasks):
-    logging.debug("Stopping tasks {} for JID {}".format(tasks, jid))
+    logging.debug(
+        "Stopping tasks {} for JID {}".format(tasks, jid)
+        )
     for task in tasks:
         # if task_manager[jid][task]:
         try:
             task_manager[jid][task].cancel()
         except:
             logging.debug(
-                "No task {} for JID {} (clean_tasks)".format(task, jid))
+                "No task {} for JID {} (clean_tasks)".format(task, jid)
+                )
 
 
 """
@@ -149,7 +152,13 @@ async def task_jid(self, jid):
         Jabber ID.
     """
     db_file = get_pathname_to_database(jid)
-    enabled = await get_settings_value(db_file, "enabled")
+    enabled = (
+        await get_settings_value(
+            db_file, "enabled")
+        ) or (
+        get_value_default(
+            "settings", "Settings", "enabled")
+        )
     if enabled:
         # NOTE Perhaps we want to utilize super with keyword
         # arguments in order to know what tasks to initiate.
@@ -199,10 +208,22 @@ async def send_update(self, jid, num=None):
     """
     logging.debug("Sending a news update to JID {}".format(jid))
     db_file = get_pathname_to_database(jid)
-    enabled = await get_settings_value(db_file, "enabled")
+    enabled = (
+        await get_settings_value(
+            db_file, "enabled")
+        ) or (
+        get_value_default(
+            "settings", "Settings", "enabled")
+        )
     if enabled:
         if not num:
-            num = await get_settings_value(db_file, "quantum")
+            num = (
+                await get_settings_value(
+                    db_file, "quantum")
+                ) or (
+                get_value_default(
+                    "settings", "Settings", "quantum")
+                )
         else:
             num = int(num)
         news_digest = []
@@ -265,15 +286,23 @@ async def send_status(self, jid):
     jid : str
         Jabber ID.
     """
-    logging.debug("Sending a status message to JID {}".format(jid))
-    status_text="🤖️ Slixfeed RSS News Bot"
+    logging.debug(
+        "Sending a status message to JID {}".format(jid))
+    status_text = "🤖️ Slixfeed RSS News Bot"
     db_file = get_pathname_to_database(jid)
-    enabled = await get_settings_value(db_file, "enabled")
+    enabled = (
+        await get_settings_value(
+            db_file, "enabled")
+        ) or (
+        get_value_default(
+            "settings", "Settings", "enabled")
+        )
     if not enabled:
         status_mode = "xa"
         status_text = "📫️ Send \"Start\" to receive updates"
     else:
-        feeds = await get_number_of_items(db_file, "feeds")
+        feeds = await get_number_of_items(
+            db_file, "feeds")
         # print(await current_time(), jid, "has", feeds, "feeds")
         if not feeds:
             print(">>> not feeds:", feeds, "jid:", jid)
@@ -335,7 +364,13 @@ async def refresh_task(self, jid, callback, key, val=None):
         )
     if not val:
         db_file = get_pathname_to_database(jid)
-        val = await get_settings_value(db_file, key)
+        val = (
+            await get_settings_value(
+                db_file, key)
+            ) or (
+            get_value_default(
+                "settings", "Settings", key)
+            )
     # if task_manager[jid][key]:
     if jid in task_manager:
         try:
@@ -389,7 +424,8 @@ async def check_updates(jid):
         db_file = get_pathname_to_database(jid)
         urls = await get_feeds_url(db_file)
         await organize_items(db_file, urls)
-        val = get_value_default("settings", "Settings", "check")
+        val = get_value_default(
+            "settings", "Settings", "check")
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes
         # loop.call_at(

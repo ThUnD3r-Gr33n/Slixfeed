@@ -16,10 +16,7 @@ TODO
 2) Assure message delivery before calling a new task.
     See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-marker_acknowledged
 
-3) Do not send updates when busy or away.
-    See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-changed_status
-
-4) XHTTML-IM
+3) XHTTML-IM
     case _ if message_lowercase.startswith("html"):
         message['html']="
 Parse me!
