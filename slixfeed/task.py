@@ -44,12 +44,12 @@ import logging
 import os
 import slixmpp
 
+import slixfeed.action as action
 from slixfeed.config import (
     get_pathname_to_database,
-    get_default_dbdir,
+    get_default_data_directory,
     get_value_default)
 from slixfeed.datetime import current_time
-from slixfeed.action import organize_items
 from slixfeed.sqlite import (
     get_feed_title,
     get_feeds_url,
@@ -63,7 +63,6 @@ from slixfeed.sqlite import (
     )
 # from xmpp import Slixfeed
 import slixfeed.xmpp.client as xmpp
-from slixfeed.xmpp.compose import list_unread_entries
 import slixfeed.xmpp.utility as utility
 
 main_task = []
@@ -229,8 +228,13 @@ async def send_update(self, jid, num=None):
         news_digest = []
         results = await get_unread_entries(db_file, num)
         for result in results:
-            title = get_feed_title(db_file, result[3])
-            news_item = list_unread_entries(result, title)
+            ix = result[0]
+            title_e = result[1]
+            url = result[2]
+            feed_id = result[3]
+            date = result[4]
+            title_f = get_feed_title(db_file, feed_id)
+            news_item = action.list_unread_entries(result, title_f)
             news_digest.extend([news_item])
             # print(db_file)
             # print(result[0])
@@ -423,7 +427,8 @@ async def check_updates(jid):
     while True:
         db_file = get_pathname_to_database(jid)
         urls = await get_feeds_url(db_file)
-        await organize_items(db_file, urls)
+        for url in urls:
+            await action.scan(db_file, url)
         val = get_value_default(
             "settings", "Settings", "check")
         await asyncio.sleep(60 * float(val))
@@ -504,7 +509,7 @@ async def select_file(self):
     Initiate actions by JID (Jabber ID).
     """
     while True:
-        db_dir = get_default_dbdir()
+        db_dir = get_default_data_directory()
         if not os.path.isdir(db_dir):
             msg = (
                 "Slixfeed can not work without a database.\n"

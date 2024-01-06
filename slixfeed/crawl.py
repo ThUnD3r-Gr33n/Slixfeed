@@ -6,10 +6,14 @@
 TODO
 
 1.1) Do not compose messages.
+     Only return results.
+     See: # TODO return feeds
 
 1.2) Return URLs, nothing else other (e.g. processed messages).
 
-1.3) Correction of URLs is aceptable.
+1.3) NOTE: Correction of URLs is aceptable.
+
+2) Consider merging with module fetch.py
 
 """
 
@@ -161,6 +165,7 @@ async def feed_mode_request(url, tree):
                     # print(feeds)
                 except:
                     continue
+    # TODO return feeds
     if len(feeds) > 1:
         counter = 0
         msg = (
@@ -275,6 +280,7 @@ async def feed_mode_scan(url, tree):
                     # print(feeds)
                 except:
                     continue
+    # TODO return feeds
     if len(feeds) > 1:
         # print(feeds)
         # breakpoint()
@@ -352,6 +358,7 @@ async def feed_mode_auto_discovery(url, tree):
     # xpath_query = """//link[(@rel="alternate") and (@type="application/atom+xml" or @type="application/rdf+xml" or @type="application/rss+xml")]/@href"""
     # xpath_query = "//link[@rel='alternate' and @type='application/atom+xml' or @rel='alternate' and @type='application/rss+xml' or @rel='alternate' and @type='application/rdf+xml']/@href"
     feeds = tree.xpath(xpath_query)
+    # TODO return feeds
     if len(feeds) > 1:
         msg = (
             "RSS Auto-Discovery has found {} feeds:\n\n```\n"

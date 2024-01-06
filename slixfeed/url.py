@@ -7,16 +7,11 @@ TODO
 
 1) ActivityPub URL revealer activitypub_to_http.
 
-2) Remove tracking queries.
-
-3) Redirect to Invidious, Librarian, Nitter, ProxiTok etc.
-   because they provide RSS.
-
 """
 
-import slixfeed.config as config
 from email.utils import parseaddr
 import random
+import slixfeed.config as config
 from urllib.parse import (
     parse_qs,
     urlencode,
@@ -129,22 +124,6 @@ def feed_to_http(url):
         par_url.fragment
         ])
     return new_url
-
-
-def activitypub_to_http(namespace):
-    """
-    Replace ActivityPub namespace by HTTP.
-
-    Parameters
-    ----------
-    namespace : str
-        Namespace.
-
-    Returns
-    -------
-    new_url : str
-        URL.
-    """
 
 
 def check_xmpp_uri(uri):
@@ -319,3 +298,19 @@ def trim_url(url):
         fragment
         ])
     return url
+
+
+def activitypub_to_http(namespace):
+    """
+    Replace ActivityPub namespace by HTTP.
+
+    Parameters
+    ----------
+    namespace : str
+        Namespace.
+
+    Returns
+    -------
+    new_url : str
+        URL.
+    """

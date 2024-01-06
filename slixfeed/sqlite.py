@@ -24,7 +24,7 @@ from slixfeed.datetime import (
     current_time,
     rfc2822_to_iso8601
     )
-from sqlite3 import connect, Error
+from sqlite3 import connect, Error, IntegrityError
 from slixfeed.url import join_url
 
 # from eliot import start_action, to_file
@@ -58,6 +58,7 @@ def create_connection(db_file):
     conn = None
     try:
         conn = connect(db_file)
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
     except Error as e:
         print(e)
@@ -74,64 +75,120 @@ def create_tables(db_file):
         Path to database file.
     """
     with create_connection(db_file) as conn:
-        feeds_table_sql =(
-            "CREATE TABLE IF NOT EXISTS feeds ("
-            "id INTEGER PRIMARY KEY,"
-            "name TEXT,"
-            "address TEXT NOT NULL,"
-            "enabled INTEGER NOT NULL,"
-            "scanned TEXT,"
-            "updated TEXT,"
-            "status INTEGER,"
-            "valid INTEGER"
-            ");"
+        feeds_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS feeds (
+                id INTEGER NOT NULL,
+                name TEXT,
+                url TEXT NOT NULL UNIQUE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
+        properties_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS properties (
+                id INTEGER NOT NULL,
+                feed_id INTEGER NOT NULL,
+                type TEXT,
+                encoding TEXT,
+                language TEXT,
+                entries INTEGER,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY (id)
+              );
+            """
+            )
+        status_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS status (
+                id INTEGER NOT NULL,
+                feed_id INTEGER NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                updated TEXT,
+                scanned TEXT,
+                renewed TEXT,
+                status_code INTEGER,
+                valid INTEGER,
+                filter INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
             )
         entries_table_sql = (
-            "CREATE TABLE IF NOT EXISTS entries ("
-            "id INTEGER PRIMARY KEY,"
-            "title TEXT NOT NULL,"
-            "link TEXT NOT NULL,"
-            "entry_id TEXT,"
-            "source TEXT NOT NULL,"
-            "timestamp TEXT,"
-            "read INTEGER"
-            ");"
+            """
+            CREATE TABLE IF NOT EXISTS entries (
+                id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                link TEXT NOT NULL,
+                entry_id TEXT NOT NULL,
+                feed_id INTEGER NOT NULL,
+                timestamp TEXT,
+                read INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
             )
         archive_table_sql = (
-            "CREATE TABLE IF NOT EXISTS archive ("
-            "id INTEGER PRIMARY KEY,"
-            "title TEXT NOT NULL,"
-            "link TEXT NOT NULL,"
-            "entry_id TEXT,"
-            "source TEXT NOT NULL,"
-            "timestamp TEXT,"
-            "read INTEGER"
-            ");"
+            """
+            CREATE TABLE IF NOT EXISTS archive (
+                id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                link TEXT NOT NULL,
+                entry_id TEXT NOT NULL,
+                feed_id INTEGER NOT NULL,
+                timestamp TEXT,
+                read INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
             )
         # statistics_table_sql = (
-        #     "CREATE TABLE IF NOT EXISTS statistics ("
-        #     "id INTEGER PRIMARY KEY,"
-        #     "title TEXT NOT NULL,"
-        #     "number INTEGER"
-        #     ");"
+        #     """
+        #     CREATE TABLE IF NOT EXISTS statistics (
+        #         id INTEGER NOT NULL,
+        #         title TEXT NOT NULL,
+        #         number INTEGER,
+        #         PRIMARY KEY ("id")
+        #       );
+        #     """
         #     )
         settings_table_sql = (
-            "CREATE TABLE IF NOT EXISTS settings ("
-            "id INTEGER PRIMARY KEY,"
-            "key TEXT NOT NULL,"
-            "value INTEGER"
-            ");"
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                id INTEGER NOT NULL,
+                key TEXT NOT NULL,
+                value INTEGER,
+                PRIMARY KEY ("id")
+              );
+            """
             )
         filters_table_sql = (
-            "CREATE TABLE IF NOT EXISTS filters ("
-            "id INTEGER PRIMARY KEY,"
-            "key TEXT NOT NULL,"
-            "value TEXT"
-            ");"
+            """
+            CREATE TABLE IF NOT EXISTS filters (
+                id INTEGER NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT,
+                PRIMARY KEY ("id")
+              );
+            """
             )
         cur = conn.cursor()
         # cur = get_cursor(db_file)
         cur.execute(feeds_table_sql)
+        cur.execute(status_table_sql)
+        cur.execute(properties_table_sql)
         cur.execute(entries_table_sql)
         cur.execute(archive_table_sql)
         # cur.execute(statistics_table_sql)
@@ -162,7 +219,45 @@ def get_cursor(db_file):
     return CURSORS[db_file]
 
 
-async def insert_feed(db_file, url, title=None, status=None):
+async def import_feeds(db_file, feeds):
+    """
+    Insert a new feed into the feeds table.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feeds : list
+        Set of feeds (Title and URL).
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            for feed in feeds:
+                url = feed[0]
+                title = feed[1]
+                feed = (
+                    title, url
+                    )
+                sql = (
+                    """
+                    INSERT
+                    INTO feeds(
+                        name, url)
+                    VALUES(
+                        ?, ?)
+                    """
+                    )
+                try:
+                    cur.execute(sql, feed)
+                except IntegrityError as e:
+                    logging.warning("Skipping: " + url)
+                    logging.error(e)
+
+
+async def insert_feed(
+    db_file, url, title=None, entries=None, version=None,
+    encoding=None, language=None, status_code=None, updated=None):
     """
     Insert a new feed into the feeds table.
 
@@ -173,36 +268,96 @@ async def insert_feed(db_file, url, title=None, status=None):
     url : str
         URL.
     title : str, optional
-        Feed Title. The default is None.
+        Feed title. The default is None.
+    entries : int, optional
+        Number of entries. The default is None.
+    version : str, optional
+        Type of feed. The default is None.
+    encoding : str, optional
+        Encoding of feed. The default is None.
+    language : str, optional
+        Language code of feed. The default is None.
     status : str, optional
         HTTP status code. The default is None.
+    updated : ???, optional
+        Date feed was last updated. The default is None.
     """
-    #TODO consider async with DBLOCK
-    #conn = create_connection(db_file)
-
-    # with create_connection(db_file) as conn:
-    #     #exist = await is_feed_exist(conn, url)
-    #     exist = await is_feed_exist(db_file, url)
-
-    # if not exist:
-    #     status = await main.download_feed(url)
-    # else:
-    #     return "News source is already listed in the subscription list"
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
-            # title = feed["feed"]["title"]
-            feed = (title, url, 1, status, 1)
+            feed = (
+                title, url
+                )
             sql = (
-                "INSERT INTO feeds("
-                "name, address, enabled, status, valid"
-                ")"
-                "VALUES(?, ?, ?, ?, ?) "
+                """
+                INSERT
+                INTO feeds(
+                    name, url)
+                VALUES(
+                    ?, ?)
+                """
                 )
             cur.execute(sql, feed)
+            sql = (
+                """
+                SELECT id
+                FROM feeds
+                WHERE url = :url
+                """
+                )
+            feed_id = cur.execute(sql, (url,)).fetchone()[0]
+            status = (
+                feed_id, 1, updated, status_code, 1
+                )
+            sql = (
+                """
+                INSERT
+                INTO status(
+                    feed_id, enabled, updated, status_code, valid)
+                VALUES(
+                    ?, ?, ?, ?, ?)
+                """
+                )
+            cur.execute(sql, status)
+            properties = (
+                feed_id, entries, version, encoding, language
+                )
+            sql = (
+                """
+                INSERT
+                INTO properties(
+                    feed_id, entries, type, encoding, language)
+                VALUES(
+                    ?, ?, ?, ?, ?)
+                """
+                )
+            cur.execute(sql, properties)
 
 
-async def remove_feed(db_file, ix):
+async def remove_feed_by_url(db_file, url):
+    """
+    Delete a feed by feed URL.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str
+        URL of feed.
+    """
+    with create_connection(db_file) as conn:
+        async with DBLOCK:
+            cur = conn.cursor()
+            sql = (
+                """
+                DELETE FROM feeds
+                WHERE url = ?
+                """
+                )
+            cur.execute(sql, (url,))
+
+
+async def remove_feed_by_index(db_file, ix):
     """
     Delete a feed by feed ID.
 
@@ -217,33 +372,37 @@ async def remove_feed(db_file, ix):
         async with DBLOCK:
             cur = conn.cursor()
             sql = (
-                "SELECT address "
-                "FROM feeds "
-                "WHERE id = ?"
+                """
+                SELECT url
+                FROM feeds
+                WHERE id = ?
+                """
                 )
             url = cur.execute(sql, (ix,)).fetchone()[0]
-            # NOTE Should we move DBLOCK to this line? 2022-12-23
+            # # NOTE Should we move DBLOCK to this line? 2022-12-23
+            # sql = (
+            #     "DELETE "
+            #     "FROM entries "
+            #     "WHERE feed_id = ?"
+            #     )
+            # cur.execute(sql, (url,)) # Error? 2024-01-05
+            # sql = (
+            #     "DELETE "
+            #     "FROM archive "
+            #     "WHERE feed_id = ?"
+            #     )
+            # cur.execute(sql, (url,))
             sql = (
-                "DELETE "
-                "FROM entries "
-                "WHERE source = ?"
-                )
-            cur.execute(sql, (url,))
-            sql = (
-                "DELETE "
-                "FROM archive "
-                "WHERE source = ?"
-                )
-            cur.execute(sql, (url,))
-            sql = (
-                "DELETE FROM feeds "
-                "WHERE id = ?"
+                """
+                DELETE FROM feeds
+                WHERE id = ?
+                """
                 )
             cur.execute(sql, (ix,))
+            return url
 
 
-# TODO Rename function name
-async def is_feed_exist(db_file, url):
+async def get_feed_id_and_name(db_file, url):
     """
     Get Id and Name of feed.
     Check whether a feed exists.
@@ -263,9 +422,11 @@ async def is_feed_exist(db_file, url):
     """
     cur = get_cursor(db_file)
     sql = (
-        "SELECT id, name "
-        "FROM feeds "
-        "WHERE address = ?"
+        """
+        SELECT id, name
+        FROM feeds
+        WHERE url = ?
+        """
         )
     result = cur.execute(sql, (url,)).fetchone()
     return result
@@ -290,8 +451,10 @@ async def get_number_of_items(db_file, table):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
-            "SELECT count(id) "
-            "FROM {}"
+            """
+            SELECT count(id)
+            FROM {}
+            """
             ).format(table)
         count = cur.execute(sql).fetchone()[0]
         return count
@@ -314,9 +477,11 @@ async def get_number_of_feeds_active(db_file):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
-            "SELECT count(id) "
-            "FROM feeds "
-            "WHERE enabled = 1"
+            """
+            SELECT count(id)
+            FROM status
+            WHERE enabled = 1
+            """
             )
         count = cur.execute(sql).fetchone()[0]
         return count
@@ -339,24 +504,23 @@ async def get_number_of_entries_unread(db_file):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
-            "SELECT "
-            "("
-            "SELECT count(id) "
-            "FROM entries "
-            "WHERE read = 0"
-            ") "
-            "+ "
-            "("
-            "SELECT count(id) "
-            "FROM archive"
-            ") "
-            "AS total_count"
+            """
+            SELECT
+            (
+                SELECT count(id)
+                FROM entries
+                WHERE read = 0
+            ) + (
+                SELECT count(id)
+                FROM archive
+            )
+            AS total_count
+            """
             )
         count = cur.execute(sql).fetchone()[0]
         return count
 
 
-# TODO Read from entries and archives
 async def get_unread_entries(db_file, num):
     """
     Extract information from unread entries.
@@ -375,40 +539,19 @@ async def get_unread_entries(db_file, num):
     """
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        # sql = (
-        #     "SELECT id "
-        #     "FROM entries "
-        #     "WHERE read = 0 "
-        #     "LIMIT 1"
-        #     )
-        # sql = ("SELECT id "
-        #        "FROM entries "
-        #        "WHERE read = 0 "
-        #        "ORDER BY timestamp DESC "
-        #        "LIMIT 1"
-        #        )
-        # sql = (
-        #     "SELECT id, title, summary, link "
-        #     "FROM entries "
-        #     "WHERE read = 0 "
-        #     "ORDER BY timestamp "
-        #     "DESC LIMIT :num"
-        #     )
         sql = (
-            "SELECT id, title, link, source, timestamp "
-            "FROM entries "
-            "WHERE read = 0 "
-            "UNION ALL "
-            "SELECT id, title, link, source, timestamp "
-            "FROM archive "
-            "ORDER BY timestamp "
-            "DESC LIMIT :num"
+            """
+            SELECT id, title, link, feed_id, timestamp
+            FROM entries
+            WHERE read = 0
+            UNION ALL
+            SELECT id, title, link, feed_id, timestamp
+            FROM archive
+            ORDER BY timestamp
+            DESC LIMIT :num
+            """
             )
-        results = cur.execute(sql, (num,))
-        results = results.fetchall()
-        # print("### sqlite.get_unread_entries ###")
-        # print(results)
-        # breakpoint()
+        results = cur.execute(sql, (num,)).fetchall()
         return results
 
 
@@ -424,33 +567,37 @@ async def mark_entry_as_read(cur, ix):
         Index of entry.
     """
     sql = (
-        "UPDATE entries "
-        "SET read = 1 "
-        "WHERE id = ?"
+        """
+        UPDATE entries
+        SET read = 1
+        WHERE id = ?
+        """
         )
     cur.execute(sql, (ix,))
 
 
-async def mark_source_as_read(db_file, source):
+async def mark_feed_as_read(db_file, url):
     """
-    Set read status of entries of given source as read.
+    Set read status of entries of given feed as read.
 
     Parameters
     ----------
     db_file : str
         Path to database file.
-    source : str
+    url : str
         URL.
     """
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
             sql = (
-                "UPDATE entries "
-                "SET read = 1 "
-                "WHERE source = ?"
+                """
+                UPDATE entries
+                SET read = 1
+                WHERE feed_id = ?
+                """
                 )
-            cur.execute(sql, (source,))
+            cur.execute(sql, (url,))
 
 
 async def delete_entry_by_id(db_file, ix):
@@ -468,9 +615,11 @@ async def delete_entry_by_id(db_file, ix):
         with create_connection(db_file) as conn:
             cur = conn.cursor()
             sql = (
-                "DELETE "
-                "FROM entries "
-                "WHERE id = :ix"
+                """
+                DELETE
+                FROM entries
+                WHERE id = :ix
+                """
                 )
             cur.execute(sql, (ix,))
 
@@ -490,11 +639,13 @@ async def archive_entry(db_file, ix):
         with create_connection(db_file) as conn:
             cur = conn.cursor()
             sql = (
-                "INSERT "
-                "INTO archive "
-                "SELECT * "
-                "FROM entries "
-                "WHERE entries.id = :ix"
+                """
+                INSERT
+                INTO archive
+                SELECT *
+                FROM entries
+                WHERE entries.id = :ix
+                """
                 )
             try:
                 cur.execute(sql, (ix,))
@@ -504,9 +655,11 @@ async def archive_entry(db_file, ix):
                     "into archive at index", ix
                     )
             sql = (
-                "DELETE "
-                "FROM entries "
-                "WHERE id = :ix"
+                """
+                DELETE
+                FROM entries
+                WHERE id = :ix
+                """
                 )
             try:
                 cur.execute(sql, (ix,))
@@ -517,17 +670,18 @@ async def archive_entry(db_file, ix):
                     )
     
 
-def get_feed_title(db_file, source):
+def get_feed_title(db_file, ix):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
-            "SELECT name "
-            "FROM feeds "
-            "WHERE address = :source "
+            """
+            SELECT name
+            FROM feeds
+            WHERE id = :ix
+            """
             )
-        feed_title = cur.execute(sql, (source,))
-        feed_title = feed_title.fetchone()[0]
-        return feed_title
+        title = cur.execute(sql, (ix,)).fetchone()[0]
+        return title
 
 
 async def mark_as_read(db_file, ix):
@@ -557,12 +711,17 @@ async def mark_all_as_read(db_file):
         with create_connection(db_file) as conn:
             cur = conn.cursor()
             sql = (
-                "UPDATE entries "
-                "SET read = 1 "
+                """
+                UPDATE entries
+                SET read = 1
+                """
                 )
             cur.execute(sql)
             sql = (
-                "DELETE FROM archive"
+                """
+                DELETE
+                FROM archive
+                """
                 )
             cur.execute(sql)
 
@@ -579,8 +738,10 @@ async def delete_archived_entry(cur, ix):
         Index of entry.
     """
     sql = (
-        "DELETE FROM archive "
-        "WHERE id = ?"
+        """
+        DELETE FROM archive
+        WHERE id = ?
+        """
         )
     cur.execute(sql, (ix,))
 
@@ -621,7 +782,7 @@ async def statistics(db_file):
                 value = cur.execute(sql, (key,)).fetchone()[0]
             except:
                 print("Error for key:", key)
-                value = "none"
+                value = "Default"
             values.extend([value])
     return values
 
@@ -687,9 +848,11 @@ async def set_enabled_status(db_file, ix, status):
         with create_connection(db_file) as conn:
             cur = conn.cursor()
             sql = (
-                "UPDATE feeds "
-                "SET enabled = :status "
-                "WHERE id = :id"
+                """
+                UPDATE feeds
+                SET enabled = :status
+                WHERE id = :id
+                """
                 )
             cur.execute(sql, {
                 "status": status,
@@ -697,150 +860,225 @@ async def set_enabled_status(db_file, ix, status):
                 })
 
 
-async def set_date(cur, url):
-    """
-    Set last update date of feed.
-
-    Parameters
-    ----------
-    cur : object
-        Cursor object.
-    url : str
-        URL.
-    """
-    sql = (
-        "UPDATE feeds "
-        "SET updated = :today "
-        "WHERE address = :url"
-        )
-    # cur = conn.cursor()
-    cur.execute(sql, {
-        "today": date.today(),
-        "url": url
-        })
-
-
-async def add_entry_and_set_date(db_file, source, entry):
-    """
-    Add an entry to table entries and set date of source in table feeds.
-
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
-    source : str
-        Feed URL.
-    entry : list
-        Entry properties.
-    """
-    # TODO While `async with DBLOCK` does work well from
-    # outside of functions, it would be better practice
-    # to place it within the functions.
-    async with DBLOCK:
-        with create_connection(db_file) as conn:
-            cur = conn.cursor()
-            await add_entry(cur, entry)
-            await set_date(cur, source)
-
-
-async def update_source_status(db_file, status, source):
-    """
-    Set HTTP status of source in table feeds.
-
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
-    source : str
-        Feed URL.
-    status : str
-        Status ID or message.
-    """
-    sql = (
-        "UPDATE feeds "
-        "SET status = :status, scanned = :scanned "
-        "WHERE address = :url"
-        )
-    async with DBLOCK:
-        with create_connection(db_file) as conn:
-            cur = conn.cursor()
-            cur.execute(sql, {
-                "status"  : status,
-                "scanned" : date.today(),
-                "url"     : source
-                })
-
-
-async def update_source_validity(db_file, source, valid):
-    """
-    Set validity status of source in table feeds.
-
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
-    source : str
-        Feed URL.
-    valid : boolean
-        0 or 1.
-    """
-    sql = (
-        "UPDATE feeds "
-        "SET valid = :validity "
-        "WHERE address = :url"
-        )
-    async with DBLOCK:
-        with create_connection(db_file) as conn:
-            cur = conn.cursor()
-            cur.execute(sql, {
-                "validity": valid,
-                "url": source
-                })
-
 """
 TODO
 
-Investigate why causes entry[6] (date) to be int 0
+Investigate what causes date to be int 0
+
+NOTE
+
+When time functions of slixfeed.timedate
+were async, there were errors of coroutines
 
 """
-async def add_entry(cur, entry):
+async def add_entry(db_file, title, link,
+                    entry_id, url, date, read_status):
     """
     Add a new entry row into the entries table.
 
     Parameters
     ----------
-    cur : object
-        Cursor object.
+    db_file : str
+        Path to database file.
     entry : str
         Entry properties.
     """
-    sql = (
-        "INSERT "
-        "INTO entries("
-                "title, "
-                "link, "
-                "entry_id, "
-                "source, "
-                "timestamp, "
-                "read"
-                ") "
-        "VALUES(?, ?, ?, ?, ?, ?)"
-        )
-    try:
-        cur.execute(sql, entry)
-    except:
-        # None
-        print("Unknown error for sqlite.add_entry")
-        print(entry)
-        #
-        # print(current_time(), "COROUTINE OBJECT NOW")
-        # for i in entry:
-        #     print(type(i))
-        #     print(i)
-        # print(type(entry))
-        # print(entry)
-        # print(current_time(), "COROUTINE OBJECT NOW")
-        # breakpoint()
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                SELECT id
+                FROM feeds
+                WHERE url = :url
+                """
+                )
+            feed_id = cur.execute(sql, (url,)).fetchone()[0]
+            sql = (
+                """
+                INSERT
+                INTO entries(
+                    title, link, entry_id, feed_id, timestamp, read)
+                VALUES(
+                    :title, :link, :entry_id, :feed_id, :timestamp, :read)
+                """
+                )
+            cur.execute(sql, {
+                "title": title,
+                "link": link,
+                "entry_id": entry_id,
+                "feed_id": feed_id,
+                "timestamp": date,
+                "read": read_status
+                })
+            # try:
+            #     cur.execute(sql, entry)
+            # except:
+            #     # None
+            #     print("Unknown error for sqlite.add_entry")
+            #     print(entry)
+            #     #
+            #     # print(current_time(), "COROUTINE OBJECT NOW")
+            #     # for i in entry:
+            #     #     print(type(i))
+            #     #     print(i)
+            #     # print(type(entry))
+            #     # print(entry)
+            #     # print(current_time(), "COROUTINE OBJECT NOW")
+            #     # breakpoint()
+
+
+async def set_date(db_file, url):
+    """
+    Set renewed date of given feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str
+        URL.
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                SELECT id
+                FROM feeds
+                WHERE url = :url
+                """
+                )
+            feed_id = cur.execute(sql, (url,)).fetchone()[0]
+            sql = (
+                """
+                UPDATE status
+                SET renewed = :today
+                WHERE feed_id = :feed_id
+                """
+                )
+            # cur = conn.cursor()
+            cur.execute(sql, {
+                "today": date.today(),
+                "feed_id": feed_id
+                })
+
+
+async def update_feed_status(db_file, url, status_code):
+    """
+    Set status_code of feed_id in table status.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str
+        Feed URL.
+    status : str
+        Status ID or message.
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                SELECT id
+                FROM feeds
+                WHERE url = :url
+                """
+                )
+            try:
+                feed_id = cur.execute(sql, (url,)).fetchone()[0]
+            except:
+                breakpoint()
+            sql = (
+                """
+                UPDATE status
+                SET status_code = :status_code, scanned = :scanned
+                WHERE feed_id = :feed_id
+                """
+                )
+            cur.execute(sql, {
+                "status_code" : status_code,
+                "scanned"     : date.today(),
+                "feed_id"     : feed_id
+                })
+
+
+async def update_feed_validity(db_file, url, valid):
+    """
+    Set validity status of feed_id in table status.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str
+        Feed URL.
+    valid : boolean
+        0 or 1.
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                SELECT id
+                FROM feeds
+                WHERE url = :url
+                """
+                )
+            feed_id = cur.execute(sql, (url,)).fetchone()[0]
+            sql = (
+                """
+                UPDATE status
+                SET valid = :valid
+                WHERE feed_id = :feed_id
+                """
+                )
+            cur.execute(sql, {
+                "valid": valid,
+                "feed_id": feed_id
+                })
+
+
+async def update_feed_properties(db_file, url, entries, updated):
+    """
+    Update properties of url in table feeds.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str
+        Feed URL.
+    entries : int
+        Number of entries.
+    updated : ???
+        Date feed was last updated.
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                SELECT id
+                FROM feeds
+                WHERE url = :url
+                """
+                )
+            feed_id = cur.execute(sql, (url,)).fetchone()[0]
+            sql = (
+                """
+                UPDATE properties
+                SET entries = :entries
+                WHERE feed_id = :feed_id
+                """
+                )
+            cur.execute(sql, {
+                "entries"  : entries,
+                "feed_id": feed_id
+                })
 
 
 async def maintain_archive(db_file, limit):
@@ -851,13 +1089,17 @@ async def maintain_archive(db_file, limit):
     ----------
     db_file : str
         Path to database file.
+    limit : str
+        Number of maximum entries to store.
     """
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
             sql = (
-                "SELECT count(id) "
-                "FROM archive"
+                """
+                SELECT count(id)
+                FROM archive
+                """
                 )
             count = cur.execute(sql).fetchone()[0]
             # FIXME Upon first time joining to a groupchat
@@ -869,12 +1111,14 @@ async def maintain_archive(db_file, limit):
             difference = count - int(limit)
             if difference > 0:
                 sql = (
-                    "DELETE FROM archive "
-                    "WHERE id "
-                    "IN (SELECT id "
-                    "FROM archive "
-                    "ORDER BY timestamp ASC "
-                    "LIMIT :difference)"
+                    """
+                    DELETE FROM archive
+                    WHERE id
+                    IN (SELECT id
+                    FROM archive
+                    ORDER BY timestamp ASC
+                    LIMIT :difference)
+                    """
                     )
                 cur.execute(sql, {
                     "difference": difference
@@ -885,7 +1129,7 @@ async def maintain_archive(db_file, limit):
 # NOTE Entries that are read from archive are deleted.
 # NOTE Unlike entries from table entries, entries from
 #      table archive are not marked as read.
-async def get_entries_of_source(db_file, feed, source):
+async def get_entries_of_feed(db_file, feed, url):
     """
     Remove entries that don't exist in a given parsed feed.
     Check the entries returned from feed and delete read non
@@ -897,17 +1141,19 @@ async def get_entries_of_source(db_file, feed, source):
         Path to database file.
     feed : list
         Parsed feed document.
-    source : str
+    url : str
         Feed URL. URL of associated feed.
     """
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
-            "SELECT id, title, link, entry_id, timestamp, read "
-            "FROM entries "
-            "WHERE source = ?"
+            """
+            SELECT id, title, link, entry_id, timestamp, read
+            FROM entries
+            WHERE feed_id = ?
+            """
             )
-        items = cur.execute(sql, (source,)).fetchall()
+        items = cur.execute(sql, (url,)).fetchall()
         return items
 
 
@@ -935,7 +1181,8 @@ async def get_entries_of_source(db_file, feed, source):
 #         result = cur.execute(sql).fetchall()
 #         return result
 
-
+# TODO select by "feed_id" (of table "status") from
+# "feed" urls that are enabled in table "status"
 async def get_feeds_url(db_file):
     """
     Query active feeds for URLs.
@@ -953,9 +1200,10 @@ async def get_feeds_url(db_file):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
-            "SELECT address "
-            "FROM feeds "
-            "WHERE enabled = 1"
+            """
+            SELECT url
+            FROM feeds
+            """
             )
         result = cur.execute(sql).fetchall()
         return result
@@ -975,12 +1223,19 @@ async def get_feeds(db_file):
     results : ???
         URLs of feeds.
     """
+    # TODO
+    # 1) Select id from table feeds
+    #    Select name, url (feeds) updated, enabled, feed_id (status)
+    # 2) Sort feeds by id. Sort status by feed_id
+    # results += cur.execute(sql).fetchall()
     cur = get_cursor(db_file)
     sql = (
-        "SELECT name, address, updated, enabled, id "
-        "FROM feeds"
+        """
+        SELECT name, url, id
+        FROM feeds
+        """
         )
-    results = cur.execute(sql)
+    results = cur.execute(sql).fetchall()
     return results
 
 
@@ -1008,17 +1263,20 @@ async def last_entries(db_file, num):
     #     "LIMIT :num"
     #     )
     sql = (
-        "SELECT title, link, timestamp "
-        "FROM entries "
-        "WHERE read = 0 "
-        "UNION ALL "
-        "SELECT title, link, timestamp "
-        "FROM archive "
-        "WHERE read = 0 "
-        "ORDER BY timestamp DESC "
-        "LIMIT :num "
+        """
+        SELECT title, link, timestamp
+        FROM entries
+        WHERE read = 0
+        UNION ALL
+        SELECT title, link, timestamp
+        FROM archive
+        WHERE read = 0
+        ORDER BY timestamp DESC
+        LIMIT :num
+        """
         )
-    results = cur.execute(sql, (num,))
+    results = cur.execute(
+        sql, (num,)).fetchall()
     return results
 
 
@@ -1040,13 +1298,16 @@ async def search_feeds(db_file, query):
     """
     cur = get_cursor(db_file)
     sql = (
-        "SELECT name, address, id, enabled "
-        "FROM feeds "
-        "WHERE name LIKE ? "
-        "OR address LIKE ? "
-        "LIMIT 50"
+        """
+        SELECT name, id, url
+        FROM feeds
+        WHERE name LIKE ?
+        OR url LIKE ?
+        LIMIT 50
+        """
         )
-    results = cur.execute(sql, [f'%{query}%', f'%{query}%'])
+    results = cur.execute(
+        sql, [f'%{query}%', f'%{query}%']).fetchall()
     return results
 
 
@@ -1068,19 +1329,19 @@ async def search_entries(db_file, query):
     """
     cur = get_cursor(db_file)
     sql = (
-        "SELECT title, link "
-        "FROM entries "
-        "WHERE title LIKE ? "
-        "UNION ALL "
-        "SELECT title, link "
-        "FROM archive "
-        "WHERE title LIKE ? "
-        "LIMIT 50"
+        """
+        SELECT title, link
+        FROM entries
+        WHERE title LIKE ?
+        UNION ALL
+        SELECT title, link
+        FROM archive
+        WHERE title LIKE ?
+        LIMIT 50
+        """
         )
-    results = cur.execute(sql, (
-        f'%{query}%',
-        f'%{query}%'
-        ))
+    results = cur.execute(
+        sql, (f'%{query}%', f'%{query}%')).fetchall()
     return results
 
 """
@@ -1105,8 +1366,8 @@ ERROR DATE: result = https://blog.heckel.io/feed/
 19:32:06 ERROR DATE: result = https://mwl.io/feed
 
 """
-async def check_entry_exist(db_file, source, eid=None,
-                            title=None, link=None, date=None):
+async def check_entry_exist(
+    db_file, url, entry_id=None, title=None, link=None, date=None):
     """
     Check whether an entry exists.
     If entry has an ID, check by ID.
@@ -1119,7 +1380,7 @@ async def check_entry_exist(db_file, source, eid=None,
         Path to database file.
     source : str
         Feed URL. URL of associated feed.
-    eid : str, optional
+    entry_id : str, optional
         Entry ID. The default is None.
     title : str, optional
         Entry title. The default is None.
@@ -1134,24 +1395,28 @@ async def check_entry_exist(db_file, source, eid=None,
         True or None.
     """
     cur = get_cursor(db_file)
-    if eid:
+    if entry_id:
         sql = (
-            "SELECT id "
-            "FROM entries "
-            "WHERE entry_id = :eid and source = :source"
+            """
+            SELECT id
+            FROM entries
+            WHERE entry_id = :entry_id and feed_id = :feed_id
+            """
             )
         result = cur.execute(sql, {
-            "eid": eid,
-            "source": source
+            "entry_id": entry_id,
+            "feed_id": url
             }).fetchone()
     elif date:
         sql = (
-            "SELECT id "
-            "FROM entries "
-            "WHERE "
-            "title = :title and "
-            "link = :link and "
-            "timestamp = :date"
+            """
+            SELECT id
+            FROM entries
+            WHERE
+            title = :title and
+            link = :link and
+            timestamp = :date
+            """
             )
         try:
             result = cur.execute(sql, {
@@ -1160,13 +1425,15 @@ async def check_entry_exist(db_file, source, eid=None,
                 "timestamp": date
                 }).fetchone()
         except:
-            print(current_time(), "ERROR DATE: source =", source)
+            print(current_time(), "ERROR DATE: source =", url)
             print(current_time(), "ERROR DATE: date =", date)
     else:
         sql = (
-            "SELECT id "
-            "FROM entries "
-            "WHERE title = :title and link = :link"
+            """
+            SELECT id
+            FROM entries
+            WHERE title = :title and link = :link
+            """
             )
         result = cur.execute(sql, {
             "title": title,
@@ -1176,9 +1443,9 @@ async def check_entry_exist(db_file, source, eid=None,
         if result:
             return True
         else:
-            None
+            return None
     except:
-        print(current_time(), "ERROR DATE: result =", source)
+        print(current_time(), "ERROR DATE: result =", url)
 
 
 async def set_settings_value(db_file, key_value):
@@ -1211,9 +1478,11 @@ async def set_settings_value(db_file, key_value):
             cur = conn.cursor()
             # try:
             sql = (
-                "UPDATE settings "
-                "SET value = :value "
-                "WHERE key = :key"
+                """
+                UPDATE settings
+                SET value = :value
+                WHERE key = :key
+                """
                 )
             cur.execute(sql, {
                 "key": key,
@@ -1246,9 +1515,11 @@ async def get_settings_value(db_file, key):
         cur = conn.cursor()
         try:
             sql = (
-                "SELECT value "
-                "FROM settings "
-                "WHERE key = ?"
+                """
+                SELECT value
+                FROM settings
+                WHERE key = ?
+                """
                 )
             value = cur.execute(sql, (key,)).fetchone()[0]
             return value
@@ -1287,9 +1558,11 @@ async def set_filters_value(db_file, key_value):
         with create_connection(db_file) as conn:
             cur = conn.cursor()
             sql = (
-                "UPDATE filters "
-                "SET value = :value "
-                "WHERE key = :key"
+                """
+                UPDATE filters
+                SET value = :value
+                WHERE key = :key
+                """
                 )
             cur.execute(sql, {
                 "key": key,
@@ -1317,9 +1590,11 @@ async def get_filters_value(db_file, key):
         cur = conn.cursor()
         try:
             sql = (
-                "SELECT value "
-                "FROM filters "
-                "WHERE key = ?"
+                """
+                SELECT value
+                FROM filters
+                WHERE key = ?
+                """
                 )
             value = cur.execute(sql, (key,)).fetchone()[0]
             return value

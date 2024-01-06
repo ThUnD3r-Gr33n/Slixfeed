@@ -25,19 +25,12 @@ TODO
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
 from asyncio import TimeoutError
-from asyncio.exceptions import IncompleteReadError
-from bs4 import BeautifulSoup
-from email.utils import parseaddr
-from feedparser import parse
-from http.client import IncompleteRead
-from lxml import html
+# from asyncio.exceptions import IncompleteReadError
+# from bs4 import BeautifulSoup
+# from http.client import IncompleteRead
+# from lxml import html
 import slixfeed.config as config
-from slixfeed.datetime import now, rfc2822_to_iso8601
-import slixfeed.sqlite as sqlite
-from slixfeed.url import complete_url, join_url, trim_url
-from urllib import error
 # from xml.etree.ElementTree import ElementTree, ParseError
-from urllib.parse import urlsplit, urlunsplit
 
 
 # async def dat():

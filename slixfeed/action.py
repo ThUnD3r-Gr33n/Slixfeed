@@ -1,41 +1,391 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+
+TODO
+
+1) Call sqlite function from function statistics.
+   Returning a list of values doesn't' seem to be a good practice.
+
+"""
+
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
 from http.client import IncompleteRead
 from feedparser import parse
+import logging
 import slixfeed.config as config
 import slixfeed.crawl as crawl
-from slixfeed.datetime import now, rfc2822_to_iso8601
+from slixfeed.datetime import (
+    current_date, current_time, now,
+    convert_struct_time_to_iso8601,
+    rfc2822_to_iso8601
+    )
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
-import slixfeed.read as read
-import slixfeed.task as task
-from slixfeed.url import complete_url, join_url, trim_url
+from slixfeed.url import (
+    # complete_url,
+    join_url,
+    remove_tracking_parameters,
+    replace_hostname,
+    trim_url
+    )
+import slixfeed.xmpp.bookmark as bookmark
 from urllib import error
 from urllib.parse import urlsplit
+import xml.etree.ElementTree as ET
+
+
+def log_to_markdown(timestamp, filename, jid, message):
+    """
+    Log message to file.
+
+    Parameters
+    ----------
+    timestamp : str
+        Time stamp.
+    filename : str
+        Jabber ID as name of file.
+    jid : str
+        Jabber ID.
+    message : str
+        Message content.
+
+    Returns
+    -------
+    None.
+    
+    """
+    with open(filename + '.md', 'a') as file:
+        # entry = "{} {}:\n{}\n\n".format(timestamp, jid, message)
+        entry = (
+        "## {}\n"
+        "### {}\n\n"
+        "{}\n\n").format(jid, timestamp, message)
+        file.write(entry)
+
+
+def is_feed(feed):
+    """
+    Determine whether document is feed or not.
+
+    Parameters
+    ----------
+    feed : dict
+        Parsed feed.
+
+    Returns
+    -------
+    val : boolean
+        True or False.
+    """
+    print("Check function action.is_feed")
+    breakpoint()
+    value = False
+    message = None
+    if not feed.entries:
+        if "version" in feed.keys():
+            feed["version"]
+            if feed.version:
+                value = True
+                # message = (
+                #     "Empty feed for {}"
+                #     ).format(url)
+        elif "title" in feed["feed"].keys():
+            value = True
+            # message = (
+            #     "Empty feed for {}"
+            #     ).format(url)
+        else:
+            value = False
+            # message = (
+            #     "No entries nor title for {}"
+            #     ).format(url)
+    elif feed.bozo:
+        value = False
+        # message = (
+        #     "Bozo detected for {}"
+        #     ).format(url)
+    else:
+        value = True
+        # message = (
+        #     "Good feed for {}"
+        #     ).format(url)
+    print(message)
+    return value
+
+
+def list_unread_entries(result, feed_title):
+    # TODO Add filtering
+    # TODO Do this when entry is added to list and mark it as read
+    # DONE!
+    # results = []
+    # if get_settings_value(db_file, "filter-deny"):
+    #     while len(results) < num:
+    #         result = cur.execute(sql).fetchone()
+    #         blacklist = await get_settings_value(db_file, "filter-deny").split(",")
+    #         for i in blacklist:
+    #             if i in result[1]:
+    #                 continue
+    #                 print("rejected:", result[1])
+    #         print("accepted:", result[1])
+    #         results.extend([result])
+
+    # news_list = "You've got {} news items:\n".format(num)
+    # NOTE Why doesn't this work without list?
+    #      i.e. for result in results
+    # for result in results.fetchall():
+    ix = result[0]
+    title = result[1]
+    # # TODO Retrieve summary from feed
+    # # See fetch.view_entry
+    # summary = result[2]
+    # # Remove HTML tags
+    # try:
+    #     summary = BeautifulSoup(summary, "lxml").text
+    # except:
+    #     print(result[2])
+    #     breakpoint()
+    # # TODO Limit text length
+    # summary = summary.replace("\n\n\n", "\n\n")
+    # length = await get_settings_value(db_file, "length")
+    # summary = summary[:length] + " […]"
+    # summary = summary.strip().split('\n')
+    # summary = ["> " + line for line in summary]
+    # summary = "\n".join(summary)
+    link = result[2]
+    link = remove_tracking_parameters(link)
+    link = (replace_hostname(link, "link")) or link
+    news_item = (
+        "\n{}\n{}\n{}\n"
+        ).format(str(title), str(link), str(feed_title))
+    return news_item
+
+
+def list_search_results(query, results):
+    results_list = (
+        "Search results for '{}':\n\n```"
+        ).format(query)
+    for result in results:
+        results_list += (
+            "\n{}\n{}\n"
+            ).format(str(result[0]), str(result[1]))
+    if len(results):
+        return results_list + "```\nTotal of {} results".format(len(results))
+    else:
+        return "No results were found for: {}".format(query)
+
+
+def list_feeds_by_query(query, results):
+    results_list = (
+        "Feeds containing '{}':\n\n```"
+        ).format(query)
+    for result in results:
+        results_list += (
+            "\nName : {} [{}]"
+            "\nURL  : {}"
+            "\n"
+            ).format(
+                str(result[0]), str(result[1]), str(result[2]))
+    if len(results):
+        return results_list + "\n```\nTotal of {} feeds".format(len(results))
+    else:
+        return "No feeds were found for: {}".format(query)
+
+
+def list_statistics(values):
+    """
+    Return table statistics.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    msg : str
+        Statistics as message.
+    """
+    msg = (
+        "```"
+        "\nSTATISTICS\n"
+        "News items   : {}/{}\n"
+        "News sources : {}/{}\n"
+        "\nOPTIONS\n"
+        "Items to archive : {}\n"
+        "Update interval  : {}\n"
+        "Items per update : {}\n"
+        "Operation status : {}\n"
+        "```"
+        ).format(values[0], values[1], values[2], values[3],
+                 values[4], values[5], values[6], values[7])
+    return msg
+
+
+# FIXME Replace counter by len
+def list_last_entries(results, num):
+    titles_list = "Recent {} titles:\n\n```".format(num)
+    for result in results:
+        titles_list += (
+            "\n{}\n{}\n"
+            ).format(
+                str(result[0]), str(result[1]))
+    if len(results):
+        titles_list += "```\n"
+        return titles_list
+    else:
+        return "There are no news at the moment."
+
+
+def list_feeds(results):
+    feeds_list = "\nList of subscriptions:\n\n```\n"
+    for result in results:
+        feeds_list += (
+            "Name : {}\n"
+            "URL  : {}\n"
+            # "Updated : {}\n"
+            # "Status  : {}\n"
+            "ID   : {}\n"
+            "\n"
+            ).format(
+                str(result[0]), str(result[1]), str(result[2]))
+    if len(results):
+        return feeds_list + (
+            "```\nTotal of {} subscriptions.\n"
+            ).format(len(results))
+    else:
+        msg = (
+            "List of subscriptions is empty.\n"
+            "To add feed, send a URL\n"
+            "Try these:\n"
+            # TODO Pick random from featured/recommended
+            "https://reclaimthenet.org/feed/"
+            )
+        return msg
+
+
+async def list_bookmarks(self):
+    conferences = await bookmark.get(self)
+    groupchat_list = "\nList of groupchats:\n\n```\n"
+    counter = 0
+    for conference in conferences:
+        counter += 1
+        groupchat_list += (
+            "{}\n"
+            "\n"
+            ).format(
+                conference["jid"]
+                )
+    groupchat_list += (
+        "```\nTotal of {} groupchats.\n"
+        ).format(counter)
+    return groupchat_list
+
+
+def export_to_markdown(jid, filename, results):
+    with open(filename, 'w') as file:
+        file.write(
+            '# Subscriptions for {}\n'.format(jid))
+        file.write(
+            '## Set of feeds exported with Slixfeed\n')
+        for result in results:
+            file.write(
+                '- [{}]({})\n'.format(result[0], result[1]))
+        file.write(
+            '\n\n* * *\n\nThis list was saved on {} from xmpp:{} using '
+            '[Slixfeed](https://gitgud.io/sjehuda/slixfeed)\n'.format(
+                current_date(), jid))
+
+
+def export_to_opml(jid, filename, results):
+    root = ET.Element("opml")
+    root.set("version", "1.0")
+    head = ET.SubElement(root, "head")
+    ET.SubElement(head, "title").text = "Subscriptions for {}".format(jid)
+    ET.SubElement(head, "description").text = (
+        "Set of feeds exported with Slixfeed")
+    ET.SubElement(head, "generator").text = "Slixfeed"
+    ET.SubElement(head, "urlPublic").text = (
+        "https://gitgud.io/sjehuda/slixfeed")
+    time_stamp = current_time()
+    ET.SubElement(head, "dateCreated").text = time_stamp
+    ET.SubElement(head, "dateModified").text = time_stamp
+    body = ET.SubElement(root, "body")
+    for result in results:
+        outline = ET.SubElement(body, "outline")
+        outline.set("text", result[0])
+        outline.set("xmlUrl", result[1])
+        # outline.set("type", result[2])
+    tree = ET.ElementTree(root)
+    tree.write(filename)
+
+
+async def import_opml(db_file, url):
+    result = await fetch.download_feed(url)
+    document = result[0]
+    if document:
+        root = ET.fromstring(document)
+        before = await sqlite.get_number_of_items(
+            db_file, 'feeds')
+        feeds = []
+        for child in root.findall(".//outline"):
+            url = child.get("xmlUrl")
+            title = child.get("text")
+            # feed = (url, title)
+            # feeds.extend([feed])
+            feeds.extend([(url, title)])
+        await sqlite.import_feeds(
+            db_file, feeds)
+        after = await sqlite.get_number_of_items(
+            db_file, 'feeds')
+        difference = int(after) - int(before)
+        return difference
 
 
 async def add_feed(db_file, url):
     while True:
-        exist = await sqlite.is_feed_exist(db_file, url)
+        exist = await sqlite.get_feed_id_and_name(db_file, url)
         if not exist:
             result = await fetch.download_feed(url)
             document = result[0]
-            status = result[1]
+            status_code = result[1]
             if document:
                 feed = parse(document)
-                # if read.is_feed(url, feed):
-                if read.is_feed(feed):
-                    try:
+                # if is_feed(url, feed):
+                if is_feed(feed):
+                    if "title" in feed["feed"].keys():
                         title = feed["feed"]["title"]
-                    except:
+                    else:
                         title = urlsplit(url).netloc
+                    if "language" in feed["feed"].keys():
+                        language = feed["feed"]["language"]
+                    else:
+                        language = ''
+                    if "encoding" in feed.keys():
+                        encoding = feed["encoding"]
+                    else:
+                        encoding = ''
+                    if "updated_parsed" in feed["feed"].keys():
+                        updated = feed["feed"]["updated_parsed"]
+                        updated = convert_struct_time_to_iso8601(updated)
+                    else:
+                        updated = ''
+                    version = feed["version"]
+                    entries = len(feed["entries"])
                     await sqlite.insert_feed(
-                        db_file, url, title, status)
-                    await organize_items(
-                        db_file, [url])
+                        db_file, url,
+                        title=title,
+                        entries=entries,
+                        version=version,
+                        encoding=encoding,
+                        language=language,
+                        status_code=status_code,
+                        updated=updated
+                        )
+                    await scan(
+                        db_file, url)
                     old = (
                         await sqlite.get_settings_value(
                             db_file, "old")
@@ -44,7 +394,7 @@ async def add_feed(db_file, url):
                             "settings", "Settings", "old")
                         )
                     if not old:
-                        await sqlite.mark_source_as_read(
+                        await sqlite.mark_feed_as_read(
                             db_file, url)
                     response = (
                         "> {}\nNews source {} has been "
@@ -66,7 +416,7 @@ async def add_feed(db_file, url):
             else:
                 response = (
                     "> {}\nFailed to load URL.  Reason: {}"
-                    ).format(url, status)
+                    ).format(url, status_code)
                 break
         else:
             ix = exist[0]
@@ -87,11 +437,11 @@ async def view_feed(url):
         status = result[1]
         if document:
             feed = parse(document)
-            # if read.is_feed(url, feed):
-            if read.is_feed(feed):
-                try:
+            # if is_feed(url, feed):
+            if is_feed(feed):
+                if "title" in feed["feed"].keys():
                     title = feed["feed"]["title"]
-                except:
+                else:
                     title = urlsplit(url).netloc
                 entries = feed.entries
                 response = "Preview of {}:\n\n```\n".format(title)
@@ -156,11 +506,11 @@ async def view_entry(url, num):
         status = result[1]
         if document:
             feed = parse(document)
-            # if read.is_feed(url, feed):
-            if read.is_feed(feed):
-                try:
+            # if is_feed(url, feed):
+            if is_feed(feed):
+                if "title" in feed["feed"].keys():
                     title = feed["feed"]["title"]
-                except:
+                else:
                     title = urlsplit(url).netloc
                 entries = feed.entries
                 num = int(num) - 1
@@ -222,6 +572,113 @@ async def view_entry(url, num):
     return response
 
 
+async def scan(db_file, url):
+    """
+    Check feeds for new entries.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str, optional
+        URL. The default is None.
+    """
+    if isinstance(url, tuple): url = url[0]
+    try:
+        result = await fetch.download_feed(url)
+    except:
+        breakpoint()
+    # if not result:
+    #     return
+    try:
+        document = result[0]
+        status = result[1]
+    except:
+        return
+    if document and status == 200:
+        feed = parse(document)
+        entries = feed.entries
+        # length = len(entries)
+        await remove_nonexistent_entries(
+            db_file, feed, url)
+        try:
+            if feed.bozo:
+                # bozo = (
+                #     "WARNING: Bozo detected for feed: {}\n"
+                #     "For more information, visit "
+                #     "https://pythonhosted.org/feedparser/bozo.html"
+                #     ).format(url)
+                # print(bozo)
+                valid = 0
+            else:
+                valid = 1
+            await sqlite.update_feed_validity(
+                db_file, url, valid)
+            if "updated_parsed" in feed["feed"].keys():
+                updated = feed["feed"]["updated_parsed"]
+                updated = convert_struct_time_to_iso8601(updated)
+            else:
+                updated = ''
+            await sqlite.update_feed_properties(
+                db_file, url, len(feed["entries"]), updated)
+            # await update_feed_status
+        except (
+                IncompleteReadError,
+                IncompleteRead,
+                error.URLError
+                ) as e:
+            print("Error:", e)
+            return
+        # new_entry = 0
+        for entry in entries:
+            if entry.has_key("published"):
+                date = entry.published
+                date = rfc2822_to_iso8601(date)
+            elif entry.has_key("updated"):
+                date = entry.updated
+                date = rfc2822_to_iso8601(date)
+            else:
+                date = now()
+            if entry.has_key("link"):
+                # link = complete_url(source, entry.link)
+                link = join_url(url, entry.link)
+                link = trim_url(link)
+            else:
+                link = url
+            # title = feed["feed"]["title"]
+            # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
+            title = entry.title if entry.has_key("title") else date
+            entry_id = entry.id if entry.has_key("id") else link
+            summary = entry.summary if entry.has_key("summary") else ''
+            exist = await sqlite.check_entry_exist(
+                db_file, url, entry_id=entry_id,
+                title=title, link=link, date=date)
+            if not exist:
+                if entry.has_key("summary"):
+                    summary = entry.summary
+                read_status = 0
+                pathname = urlsplit(link).path
+                string = ("{} {} {}"
+                          ).format(
+                              title, summary, pathname
+                              )
+                allow_list = await config.is_include_keyword(
+                    db_file, "filter-allow", string)
+                if not allow_list:
+                    reject_list = await config.is_include_keyword(
+                        db_file, "filter-deny", string)
+                    if reject_list:
+                        read_status = 1
+                if isinstance(date, int):
+                    logging.error("Variable 'date' is int:", date)
+                await sqlite.add_entry(
+                    db_file, title, link, entry_id,
+                    url, date, read_status)
+                await sqlite.set_date(db_file, url)
+        
+
+
+
 # NOTE Why (if res[0]) and (if res[1] == 200)?
 async def organize_items(db_file, urls):
     """
@@ -236,16 +693,17 @@ async def organize_items(db_file, urls):
     """
     for url in urls:
         # print(os.path.basename(db_file), url[0])
-        source = url[0]
-        res = await fetch.download_feed(source)
+        url = url[0]
+        res = await fetch.download_feed(url)
         # TypeError: 'NoneType' object is not subscriptable
         if res is None:
             # Skip to next feed
             # urls.next()
             # next(urls)
             continue
-        await sqlite.update_source_status(
-            db_file, res[1], source)
+        status = res[1]
+        await sqlite.update_feed_status(
+            db_file, url, status)
         if res[0]:
             try:
                 feed = parse(res[0])
@@ -254,28 +712,36 @@ async def organize_items(db_file, urls):
                     #     "WARNING: Bozo detected for feed: {}\n"
                     #     "For more information, visit "
                     #     "https://pythonhosted.org/feedparser/bozo.html"
-                    #     ).format(source)
+                    #     ).format(url)
                     # print(bozo)
                     valid = 0
                 else:
                     valid = 1
-                await sqlite.update_source_validity(
-                    db_file, source, valid)
+                await sqlite.update_feed_validity(
+                    db_file, url, valid)
+                if "updated_parsed" in feed["feed"].keys():
+                    updated = feed["feed"]["updated_parsed"]
+                    updated = convert_struct_time_to_iso8601(updated)
+                else:
+                    updated = ''
+                entries = len(feed["entries"])
+                await sqlite.update_feed_properties(
+                    db_file, url, entries, updated)
             except (
                     IncompleteReadError,
                     IncompleteRead,
                     error.URLError
                     ) as e:
-                # print(e)
+                print(e)
                 # TODO Print error to log
-                None
+                # None
                 # NOTE I don't think there should be "return"
                 # because then we might stop scanning next URLs
                 # return
         # TODO Place these couple of lines back down
         # NOTE Need to correct the SQL statement to do so
         # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
-        if res[1] == 200:
+        if status == 200:
         # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
         # TODO Place these couple of lines back down
         # NOTE Need to correct the SQL statement to do so
@@ -283,7 +749,7 @@ async def organize_items(db_file, urls):
             # length = len(entries)
             # await remove_entry(db_file, source, length)
             await remove_nonexistent_entries(
-                db_file, feed, source)
+                db_file, feed, url)
             # new_entry = 0
             for entry in entries:
                 # TODO Pass date too for comparion check
@@ -308,19 +774,18 @@ async def organize_items(db_file, urls):
                     # title = feed["feed"]["title"]
                 if entry.has_key("link"):
                     # link = complete_url(source, entry.link)
-                    link = join_url(source, entry.link)
+                    link = join_url(url, entry.link)
                     link = trim_url(link)
                 else:
-                    link = source
+                    link = url
                 if entry.has_key("id"):
                     eid = entry.id
                 else:
                     eid = link
                 exist = await sqlite.check_entry_exist(
-                    db_file, source, eid=eid,
+                    db_file, url, eid=eid,
                     title=title, link=link, date=date)
                 if not exist:
-                    print(url)
                     # new_entry = new_entry + 1
                     # TODO Enhance summary
                     if entry.has_key("summary"):
@@ -356,7 +821,7 @@ async def organize_items(db_file, urls):
                             # summary = ""
                             read_status = 1
                     entry = (
-                        title, link, eid, source, date, read_status)
+                        title, link, eid, url, date, read_status)
                     if isinstance(date, int):
                         print("PROBLEM: date is int")
                         print(date)
@@ -364,13 +829,13 @@ async def organize_items(db_file, urls):
                     # print(source)
                     # print(date)
                     await sqlite.add_entry_and_set_date(
-                        db_file, source, entry)
+                        db_file, url, entry)
                 #     print(current_time(), entry, title)
                 # else:
                 #     print(current_time(), exist, title)
 
 
-async def remove_nonexistent_entries(db_file, feed, source):
+async def remove_nonexistent_entries(db_file, feed, url):
     """
     Remove entries that don't exist in a given parsed feed.
     Check the entries returned from feed and delete read non
@@ -382,10 +847,10 @@ async def remove_nonexistent_entries(db_file, feed, source):
         Path to database file.
     feed : list
         Parsed feed document.
-    source : str
+    url : str
         Feed URL. URL of associated feed.
     """
-    items = await sqlite.get_entries_of_source(db_file, feed, source)
+    items = await sqlite.get_entries_of_feed(db_file, feed, url)
     entries = feed.entries
     # breakpoint()
     for item in items:
@@ -409,9 +874,9 @@ async def remove_nonexistent_entries(db_file, feed, source):
                 else:
                     title = feed["feed"]["title"]
                 if entry.has_key("link"):
-                    link = join_url(source, entry.link)
+                    link = join_url(url, entry.link)
                 else:
-                    link = source
+                    link = url
                 if entry.has_key("published") and item[4]:
                     # print("compare11:", title, link, time)
                     # print("compare22:", item[1], item[2], item[4])
@@ -459,11 +924,11 @@ async def remove_nonexistent_entries(db_file, feed, source):
             # print("link :", item[2])
             # print("id   :", item[3])
             if item[5] == 1:
-                sqlite.delete_entry_by_id(db_file, ix)
+                await sqlite.delete_entry_by_id(db_file, ix)
                 # print(">>> DELETING:", item[1])
             else:
                 # print(">>> ARCHIVING:", item[1])
-                sqlite.archive_entry(db_file, ix)
+                await sqlite.archive_entry(db_file, ix)
         limit = (
             await sqlite.get_settings_value(db_file, "archive")
             ) or (

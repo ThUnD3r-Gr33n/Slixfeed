@@ -25,6 +25,7 @@ import sys
 import yaml
 import logging
 
+
 def get_value(filename, section, keys):
     """
     Get setting value.
@@ -45,7 +46,7 @@ def get_value(filename, section, keys):
     """
     result = None
     config_res = configparser.RawConfigParser()
-    config_dir = get_default_confdir()
+    config_dir = get_default_config_directory()
     # if not os.path.isdir(config_dir):
     #     config_dir = '/usr/share/slixfeed/'
     if not os.path.isdir(config_dir):
@@ -105,7 +106,7 @@ def get_value_default(filename, section, key):
         Value.
     """
     config_res = configparser.RawConfigParser()
-    config_dir = get_default_confdir()
+    config_dir = get_default_config_directory()
     if not os.path.isdir(config_dir):
         config_dir = '/usr/share/slixfeed/'
     config_file = os.path.join(config_dir, filename + ".ini")
@@ -131,7 +132,7 @@ def get_list(filename, key):
     result : list
         List of pathnames or keywords.
     """
-    config_dir = get_default_confdir()
+    config_dir = get_default_config_directory()
     if not os.path.isdir(config_dir):
         config_dir = '/usr/share/slixfeed/'
     config_file = os.path.join(config_dir, filename)
@@ -143,7 +144,7 @@ def get_list(filename, key):
     return result
 
 
-def get_default_dbdir():
+def get_default_data_directory():
     """
     Determine the directory path where dbfile will be stored.
 
@@ -183,7 +184,7 @@ def get_default_dbdir():
     return os.path.join(data_home, 'slixfeed')
 
 
-def get_default_confdir():
+def get_default_config_directory():
     """
     Determine the directory path where configuration will be stored.
 
@@ -233,10 +234,12 @@ def get_pathname_to_database(jid):
     object
         Coroutine object.
     """
-    db_dir = get_default_dbdir()
+    db_dir = get_default_data_directory()
     if not os.path.isdir(db_dir):
         os.mkdir(db_dir)
-    db_file = os.path.join(db_dir, r"{}.db".format(jid))
+    if not os.path.isdir(db_dir + "/sqlite"):
+        os.mkdir(db_dir + "/sqlite")
+    db_file = os.path.join(db_dir, "sqlite", r"{}.db".format(jid))
     sqlite.create_tables(db_file)
     return db_file
     # await set_default_values(db_file)

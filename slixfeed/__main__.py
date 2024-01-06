@@ -39,7 +39,10 @@ TODO
 9) Readability
     See project /buriy/python-readability
 
-10) Download and upload/send article (xHTML, HTMLZ, Markdown, MHTML, TXT).
+9.1) IDEA: Bot to display Title and Excerpt
+     (including sending a PDF version of it) of posted link
+
+10) Download and upload/send article (xHTML, HTMLZ, Markdown, MHTML, PDF, TXT).
 
 11) Fetch summary from URL, instead of storing summary, or
     Store 5 upcoming summaries.
