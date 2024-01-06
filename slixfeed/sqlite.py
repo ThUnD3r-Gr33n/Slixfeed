@@ -987,10 +987,10 @@ async def update_feed_status(db_file, url, status_code):
                 WHERE url = :url
                 """
                 )
-            try:
-                feed_id = cur.execute(sql, (url,)).fetchone()[0]
-            except:
-                breakpoint()
+            # try:
+            feed_id = cur.execute(sql, (url,)).fetchone()[0]
+            # except:
+            #     breakpoint()
             sql = (
                 """
                 UPDATE status

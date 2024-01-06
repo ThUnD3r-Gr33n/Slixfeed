@@ -80,8 +80,6 @@ def is_feed(feed):
     val : boolean
         True or False.
     """
-    print("Check function action.is_feed")
-    breakpoint()
     value = False
     message = None
     if not feed.entries:
