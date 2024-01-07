@@ -120,6 +120,11 @@ def create_tables(db_file):
               );
             """
             )
+        # TODO
+        # Consider parameter unique:
+        # entry_id TEXT NOT NULL UNIQUE,
+        # Will eliminate function:
+        # check_entry_exist
         entries_table_sql = (
             """
             CREATE TABLE IF NOT EXISTS entries (
@@ -555,6 +560,33 @@ async def get_unread_entries(db_file, num):
         return results
 
 
+async def get_feed_id(cur, url):
+    """
+    Get index of given feed.
+
+    Parameters
+    ----------
+    cur : object
+        Cursor object.
+    url : str
+        URL.
+
+    Returns
+    -------
+    feed_id : str
+        Feed index.
+    """
+    sql = (
+        """
+        SELECT id
+        FROM feeds
+        WHERE url = :url
+        """
+        )
+    feed_id = cur.execute(sql, (url,)).fetchone()[0]
+    return feed_id
+
+
 async def mark_entry_as_read(cur, ix):
     """
     Set read status of entry as read.
@@ -871,8 +903,8 @@ When time functions of slixfeed.timedate
 were async, there were errors of coroutines
 
 """
-async def add_entry(db_file, title, link,
-                    entry_id, url, date, read_status):
+async def add_entry(
+    db_file, title, link, entry_id, url, date, read_status):
     """
     Add a new entry row into the entries table.
 
@@ -880,8 +912,18 @@ async def add_entry(db_file, title, link,
     ----------
     db_file : str
         Path to database file.
-    entry : str
-        Entry properties.
+    title : str
+        Title.
+    link : str
+        Link.
+    entry_id : str
+        Entry index.
+    url : str
+        URL.
+    date : str
+        Date.
+    read_status : str
+        0 or 1.
     """
     async with DBLOCK:
         with create_connection(db_file) as conn:
@@ -999,9 +1041,9 @@ async def update_feed_status(db_file, url, status_code):
                 """
                 )
             cur.execute(sql, {
-                "status_code" : status_code,
-                "scanned"     : date.today(),
-                "feed_id"     : feed_id
+                "status_code": status_code,
+                "scanned": date.today(),
+                "feed_id": feed_id
                 })
 
 
@@ -1344,6 +1386,7 @@ async def search_entries(db_file, query):
         sql, (f'%{query}%', f'%{query}%')).fetchall()
     return results
 
+
 """
 FIXME
 
@@ -1395,18 +1438,30 @@ async def check_entry_exist(
         True or None.
     """
     cur = get_cursor(db_file)
+    exist = False
     if entry_id:
         sql = (
             """
             SELECT id
+            FROM feeds
+            WHERE url = :url
+            """
+            )
+        feed_id = cur.execute(sql, (url,)).fetchone()[0]
+        sql = (
+            """
+            SELECT id
             FROM entries
-            WHERE entry_id = :entry_id and feed_id = :feed_id
+            WHERE
+            entry_id = :entry_id and
+            feed_id = :feed_id
             """
             )
         result = cur.execute(sql, {
             "entry_id": entry_id,
-            "feed_id": url
+            "feed_id": feed_id
             }).fetchone()
+        if result: exist = True
     elif date:
         sql = (
             """
@@ -1424,6 +1479,7 @@ async def check_entry_exist(
                 "link": link,
                 "timestamp": date
                 }).fetchone()
+            if result: exist = True
         except:
             print(current_time(), "ERROR DATE: source =", url)
             print(current_time(), "ERROR DATE: date =", date)
@@ -1432,20 +1488,24 @@ async def check_entry_exist(
             """
             SELECT id
             FROM entries
-            WHERE title = :title and link = :link
+            WHERE
+            title = :title and
+            link = :link
             """
             )
         result = cur.execute(sql, {
             "title": title,
             "link": link
             }).fetchone()
-    try:
-        if result:
-            return True
-        else:
-            return None
-    except:
-        print(current_time(), "ERROR DATE: result =", url)
+        if result: exist = True
+    # try:
+    #     if result:
+    #         return True
+    #     else:
+    #         return None
+    # except:
+    #     print(current_time(), "ERROR DATE: result =", url)
+    return exist
 
 
 async def set_settings_value(db_file, key_value):

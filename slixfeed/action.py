@@ -162,34 +162,36 @@ def list_unread_entries(result, feed_title):
 
 
 def list_search_results(query, results):
-    results_list = (
+    message = (
         "Search results for '{}':\n\n```"
         ).format(query)
     for result in results:
-        results_list += (
+        message += (
             "\n{}\n{}\n"
             ).format(str(result[0]), str(result[1]))
     if len(results):
-        return results_list + "```\nTotal of {} results".format(len(results))
+        message += "```\nTotal of {} results".format(len(results))
     else:
-        return "No results were found for: {}".format(query)
+        message = "No results were found for: {}".format(query)
+    return message
 
 
 def list_feeds_by_query(query, results):
-    results_list = (
+    message = (
         "Feeds containing '{}':\n\n```"
         ).format(query)
     for result in results:
-        results_list += (
+        message += (
             "\nName : {} [{}]"
             "\nURL  : {}"
             "\n"
             ).format(
                 str(result[0]), str(result[1]), str(result[2]))
     if len(results):
-        return results_list + "\n```\nTotal of {} feeds".format(len(results))
+        message += "\n```\nTotal of {} feeds".format(len(results))
     else:
-        return "No feeds were found for: {}".format(query)
+        message = "No feeds were found for: {}".format(query)
+    return message
 
 
 def list_statistics(values):
@@ -206,7 +208,7 @@ def list_statistics(values):
     msg : str
         Statistics as message.
     """
-    msg = (
+    message = (
         "```"
         "\nSTATISTICS\n"
         "News items   : {}/{}\n"
@@ -219,28 +221,28 @@ def list_statistics(values):
         "```"
         ).format(values[0], values[1], values[2], values[3],
                  values[4], values[5], values[6], values[7])
-    return msg
+    return message
 
 
 # FIXME Replace counter by len
 def list_last_entries(results, num):
-    titles_list = "Recent {} titles:\n\n```".format(num)
+    message = "Recent {} titles:\n\n```".format(num)
     for result in results:
-        titles_list += (
+        message += (
             "\n{}\n{}\n"
             ).format(
                 str(result[0]), str(result[1]))
     if len(results):
-        titles_list += "```\n"
-        return titles_list
+        message += "```\n"
     else:
-        return "There are no news at the moment."
+        message = "There are no news at the moment."
+    return message
 
 
 def list_feeds(results):
-    feeds_list = "\nList of subscriptions:\n\n```\n"
+    message = "\nList of subscriptions:\n\n```\n"
     for result in results:
-        feeds_list += (
+        message += (
             "Name : {}\n"
             "URL  : {}\n"
             # "Updated : {}\n"
@@ -250,36 +252,34 @@ def list_feeds(results):
             ).format(
                 str(result[0]), str(result[1]), str(result[2]))
     if len(results):
-        return feeds_list + (
+        message += (
             "```\nTotal of {} subscriptions.\n"
             ).format(len(results))
     else:
-        msg = (
+        message = (
             "List of subscriptions is empty.\n"
             "To add feed, send a URL\n"
             "Try these:\n"
             # TODO Pick random from featured/recommended
             "https://reclaimthenet.org/feed/"
             )
-        return msg
+    return message
 
 
 async def list_bookmarks(self):
     conferences = await bookmark.get(self)
-    groupchat_list = "\nList of groupchats:\n\n```\n"
-    counter = 0
+    message = "\nList of groupchats:\n\n```\n"
     for conference in conferences:
-        counter += 1
-        groupchat_list += (
+        message += (
             "{}\n"
             "\n"
             ).format(
                 conference["jid"]
                 )
-    groupchat_list += (
+    message += (
         "```\nTotal of {} groupchats.\n"
-        ).format(counter)
-    return groupchat_list
+        ).format(len(conferences))
+    return message
 
 
 def export_to_markdown(jid, filename, results):
@@ -582,12 +582,7 @@ async def scan(db_file, url):
         URL. The default is None.
     """
     if isinstance(url, tuple): url = url[0]
-    try:
-        result = await fetch.download_feed(url)
-    except:
-        breakpoint()
-    # if not result:
-    #     return
+    result = await fetch.download_feed(url)
     try:
         document = result[0]
         status = result[1]
@@ -625,7 +620,7 @@ async def scan(db_file, url):
                 IncompleteRead,
                 error.URLError
                 ) as e:
-            print("Error:", e)
+            logging.error(e)
             return
         # new_entry = 0
         for entry in entries:
@@ -647,13 +642,11 @@ async def scan(db_file, url):
             # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
             title = entry.title if entry.has_key("title") else date
             entry_id = entry.id if entry.has_key("id") else link
-            summary = entry.summary if entry.has_key("summary") else ''
             exist = await sqlite.check_entry_exist(
                 db_file, url, entry_id=entry_id,
                 title=title, link=link, date=date)
             if not exist:
-                if entry.has_key("summary"):
-                    summary = entry.summary
+                summary = entry.summary if entry.has_key("summary") else ''
                 read_status = 0
                 pathname = urlsplit(link).path
                 string = ("{} {} {}"

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from slixfeed.datetime import current_time
 from slixmpp.exceptions import IqTimeout
 import logging
 
@@ -39,5 +38,4 @@ async def jid_type(self, jid):
             ("Jabber ID:", jid)
             ]
         for message in messages:
-            print(current_time(), message)
-            logging.error(current_time(), message)
+            logging.error(message)
