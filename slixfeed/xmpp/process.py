@@ -394,8 +394,8 @@ async def message(self, message):
                         response = "Missing keywords."
                     send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("export "):
-                key = message_text[7:]
-                if key in ("opml", "html", "md", "xbel"):
+                ex = message_text[7:]
+                if ex in ("opml", "html", "md", "xbel"):
                     status_type = "dnd"
                     status_message = (
                         "📤️ Procesing request to export feeds into {} ..."
@@ -423,9 +423,9 @@ async def message(self, message):
                         case "xbel":
                             response = "Not yet implemented."
                     url = await upload.start(self, jid, filename)
-                    response = (
-                        "Feeds exported successfully to {}.\n{}"
-                        ).format(key, url)
+                    # response = (
+                    #     "Feeds exported successfully to {}.\n{}"
+                    #     ).format(key, url)
                     # send_oob_reply_message(message, url, response)
                     await send_oob_message(
                         self, jid, url)
@@ -441,39 +441,54 @@ async def message(self, message):
             # TODO xHTML, HTMLZ, Markdown, MHTML, PDF, TXT
             case _ if (message_lowercase.startswith("get ")):
                 message_text = message_text[4:]
-                ix = message_text.split(" ")[0]
-                ex = " ".join(message_text.split(" ")[1:])
-                ex = ex if ex else 'pdf'
-                db_file = get_pathname_to_database(jid)
-                data_dir = get_default_data_directory()
-                if ix:
-                    if not os.path.isdir(data_dir):
-                        os.mkdir(data_dir)
-                    if not os.path.isdir(data_dir + '/readability'):
-                        os.mkdir(data_dir + '/readability')
-                    filename = os.path.join(
-                        data_dir, "readability", "saved_article_" + timestamp() + "." + ex)
-                    try:
-                        text = await action.get_content(db_file, ix)
-                    except:
-                        response = "No entry Id with {}".format(ix)
-                    if text:
-                        match ex:
-                            case "html":
-                                action.generate_html(text, filename)
-                            case "md":
-                                action.generate_markdown(text, filename)
-                            case "pdf":
-                                action.generate_pdf(text, filename)
-                        url = await upload.start(
-                            self, jid, filename)
-                        print(url)
-                        await send_oob_message(
-                            self, jid, url)
+                ix_url = message_text.split(" ")[0]
+                ext = " ".join(message_text.split(" ")[1:])
+                ext = ext if ext else 'pdf'
+                if ext in ("html", "md", "pdf"):
+                    status_type = "dnd"
+                    status_message = (
+                        "📃️ Procesing request to produce {} document ..."
+                        ).format(ext)
+                    send_status_message(
+                        self, jid, status_type, status_message)
+                    db_file = get_pathname_to_database(jid)
+                    data_dir = get_default_data_directory()
+                    if ix_url:
+                        if not os.path.isdir(data_dir):
+                            os.mkdir(data_dir)
+                        if not os.path.isdir(data_dir + '/readability'):
+                            os.mkdir(data_dir + '/readability')
+                        filename = os.path.join(
+                            data_dir, "readability", "saved_article_" + timestamp() + "." + ext)
+                        try:
+                            ix = int(ix_url)
+                            try:
+                                url = sqlite.get_entry_url(db_file, ix)
+                            except:
+                                response = "No entry Id with {}".format(ix)
+                        except:
+                            url = ix_url
+                        content = await action.get_content(url)
+                        if content:
+                            match ext:
+                                case "html":
+                                    action.generate_html(content, filename)
+                                case "md":
+                                    action.generate_markdown(content, filename)
+                                case "pdf":
+                                    action.generate_pdf(content, filename)
+                            url = await upload.start(
+                                self, jid, filename)
+                            await send_oob_message(
+                                self, jid, url)
+                            await task.start_tasks_xmpp(
+                                self, jid, ["status"])
+                        else:
+                            response = "Failed to fetch resource."
                     else:
-                        response = "Failed to fetch resource."
+                        response = "Missing entry Id."
                 else:
-                    response = "Missing entry Id."
+                    response = "Unsupported filetype."
                 if response:
                     send_reply_message(self, message, response)
             # case _ if (message_lowercase.startswith("http")) and(

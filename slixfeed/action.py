@@ -16,6 +16,7 @@ import html2text
 from http.client import IncompleteRead
 from feedparser import parse
 import logging
+from lxml import html
 import pdfkit
 from readability import Document
 import slixfeed.config as config
@@ -28,7 +29,7 @@ from slixfeed.datetime import (
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
 from slixfeed.url import (
-    # complete_url,
+    complete_url,
     join_url,
     remove_tracking_parameters,
     replace_hostname,
@@ -663,12 +664,14 @@ async def scan(db_file, url):
                 await sqlite.set_date(db_file, url)
 
 
-async def get_content(db_file, ix):
-    url = sqlite.get_entry_url(db_file, ix)
+async def get_content(url):
     result = await fetch.download_feed(url)
     if result[0]:
         document = Document(result[0])
-        return document.summary()
+        content = document.summary()
+    else:
+        content = None
+    return content
         # TODO Either adapt it to filename
         # or change it to something else
         #filename = document.title()
@@ -676,6 +679,17 @@ async def get_content(db_file, ix):
         #     html_doc = document.summary()
         #     file.write(html_doc)
 
+
+def extract_first_image(url, content):
+    tree = html.fromstring(content)
+    images = tree.xpath('//img/@src')
+    if len(images):
+        image = images[0]
+        image = str(image)
+        image_url = complete_url(url, image)
+    else:
+        image_url = None
+    return image_url
 
 def generate_html(text, filename):
         with open(filename, 'w') as file:

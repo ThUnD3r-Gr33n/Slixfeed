@@ -227,6 +227,7 @@ async def send_update(self, jid, num=None):
             num = int(num)
         news_digest = []
         results = await get_unread_entries(db_file, num)
+        image_url = None
         for result in results:
             ix = result[0]
             title_e = result[1]
@@ -240,18 +241,29 @@ async def send_update(self, jid, num=None):
             # print(result[0])
             # breakpoint()
             await mark_as_read(db_file, result[0])
+            if not image_url:
+                content = await action.get_content(url)
+                image_url = action.extract_first_image(url, content)
         new = " ".join(news_digest)
         # breakpoint()
         if new:
-            # print("if new")
-            # breakpoint()
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
             chat_type = await utility.jid_type(self, jid)
             # NOTE Do we need "if statement"? See NOTE at is_muc.
             if chat_type in ("chat", "groupchat"):
+                # TODO Provide a choice (with or without images)
                 xmpp.Slixfeed.send_message(
                     self, mto=jid, mbody=new, mtype=chat_type)
+                if image_url:
+                    # message = xmpp.Slixfeed.make_message(
+                    #     self, mto=jid, mbody=new, mtype=chat_type)
+                    message = xmpp.Slixfeed.make_message(
+                        self, mto=jid, mbody=image_url, mtype=chat_type)
+                    message['oob']['url'] = image_url
+                    print(image_url)
+                    message.send()
+                
         # TODO Do not refresh task before
         # verifying that it was completed.
         await refresh_task(

@@ -30,6 +30,6 @@ async def start(self, jid, filename, domain=None):
         )
     except IqTimeout:
         raise TimeoutError('Could not send message in time')
-    logging.info('Upload success!')
+    logging.info('Upload successful!')
     logging.info('Sending file to %s', jid)
     return url
