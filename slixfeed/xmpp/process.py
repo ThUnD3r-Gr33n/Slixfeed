@@ -34,7 +34,7 @@ import slixfeed.task as task
 import slixfeed.url as uri
 import slixfeed.xmpp.bookmark as bookmark
 import slixfeed.xmpp.muc as groupchat
-import slixfeed.xmpp.text as text
+import slixfeed.xmpp.manual as manual
 import slixfeed.xmpp.upload as upload
 from slixfeed.xmpp.utility import jid_type
 
@@ -195,13 +195,13 @@ async def message(self, message):
             #             )
             #         send_reply_message(self, message, response)
             case "commands":
-                response = text.print_cmd()
+                response = manual.print_cmd()
                 send_reply_message(self, message, response)
             case "help":
-                response = text.print_help()
+                response = manual.print_help()
                 send_reply_message(self, message, response)
             case "info":
-                response = text.print_info()
+                response = manual.print_info()
                 send_reply_message(self, message, response)
             case _ if message_lowercase in [
                 "greetings", "hallo", "hello", "hey",
@@ -438,6 +438,44 @@ async def message(self, message):
                         message_lowercase.startswith("gopher:")):
                 response = "Gemini and Gopher are not supported yet."
                 send_reply_message(self, message, response)
+            # TODO xHTML, HTMLZ, Markdown, MHTML, PDF, TXT
+            case _ if (message_lowercase.startswith("get ")):
+                message_text = message_text[4:]
+                ix = message_text.split(" ")[0]
+                ex = " ".join(message_text.split(" ")[1:])
+                ex = ex if ex else 'pdf'
+                db_file = get_pathname_to_database(jid)
+                data_dir = get_default_data_directory()
+                if ix:
+                    if not os.path.isdir(data_dir):
+                        os.mkdir(data_dir)
+                    if not os.path.isdir(data_dir + '/readability'):
+                        os.mkdir(data_dir + '/readability')
+                    filename = os.path.join(
+                        data_dir, "readability", "saved_article_" + timestamp() + "." + ex)
+                    try:
+                        text = await action.get_content(db_file, ix)
+                    except:
+                        response = "No entry Id with {}".format(ix)
+                    if text:
+                        match ex:
+                            case "html":
+                                action.generate_html(text, filename)
+                            case "md":
+                                action.generate_markdown(text, filename)
+                            case "pdf":
+                                action.generate_pdf(text, filename)
+                        url = await upload.start(
+                            self, jid, filename)
+                        print(url)
+                        await send_oob_message(
+                            self, jid, url)
+                    else:
+                        response = "Failed to fetch resource."
+                else:
+                    response = "Missing entry Id."
+                if response:
+                    send_reply_message(self, message, response)
             # case _ if (message_lowercase.startswith("http")) and(
             #     message_lowercase.endswith(".opml")):
             #     url = message_text

@@ -700,7 +700,7 @@ async def archive_entry(db_file, ix):
                     "ERROR DB deleting items from "
                     "table entries at index", ix
                     )
-    
+
 
 def get_feed_title(db_file, ix):
     with create_connection(db_file) as conn:
@@ -714,6 +714,21 @@ def get_feed_title(db_file, ix):
             )
         title = cur.execute(sql, (ix,)).fetchone()[0]
         return title
+
+
+# TODO Handletable archive too
+def get_entry_url(db_file, ix):
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT link
+            FROM entries
+            WHERE id = :ix
+            """
+            )
+        url = cur.execute(sql, (ix,)).fetchone()[0]
+        return url
 
 
 async def mark_as_read(db_file, ix):

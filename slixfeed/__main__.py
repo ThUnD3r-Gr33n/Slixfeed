@@ -42,32 +42,32 @@ TODO
 9.1) IDEA: Bot to display Title and Excerpt
      (including sending a PDF version of it) of posted link
 
-10) Download and upload/send article (xHTML, HTMLZ, Markdown, MHTML, PDF, TXT).
-
-11) Fetch summary from URL, instead of storing summary, or
+10) Fetch summary from URL, instead of storing summary, or
     Store 5 upcoming summaries.
     This would help making the database files smaller.
 
-12) Support protocol Gopher
+11) Support protocol Gopher
     See project /michael-lazar/pygopherd
     See project /gopherball/gb
 
-13) Support ActivityPub @person@domain (see Tip Of The Day).
+12) Support ActivityPub @person@domain (see Tip Of The Day).
 
-14) Tip Of The Day.
+13) Tip Of The Day.
     Did you know that you can follow you favorite Mastodon feeds by just
     sending the URL address?
     Supported fediverse websites are:
         Akkoma, Firefish (Calckey), Friendica, HubZilla,
         Mastodon, Misskey, Pixelfed, Pleroma, Socialhome, Soapbox.
 
-15) Brand: News Broker, Newsman, Newsdealer, Laura Harbinger
+14) Brand: News Broker, Newsman, Newsdealer, Laura Harbinger
     
-16) See project /offpunk/offblocklist.py
+15) See project /offpunk/offblocklist.py
 
-18) Search messages of government regulated publishers, and promote other sources.
+16) Search messages of government regulated publishers, and promote other sources.
     Dear reader, we couldn't get news from XYZ as they don't provide RSS feeds.
     However, you might want to get news from (1) (2) and (3) instead!
+
+17) Make the program portable (directly use the directory assets) -- Thorsten
 
 """
 

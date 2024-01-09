@@ -16,7 +16,10 @@ setup(
         'aiohttp',
         'bs4',
         'feedparser',
+        'html2text',
         'lxml',
+        'pdfkit',
+        'readability-lxml',
         'slixmpp'
     ],
     classifiers=[

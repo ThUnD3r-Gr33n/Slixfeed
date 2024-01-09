@@ -12,9 +12,12 @@ TODO
 
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
+import html2text
 from http.client import IncompleteRead
 from feedparser import parse
 import logging
+import pdfkit
+from readability import Document
 import slixfeed.config as config
 import slixfeed.crawl as crawl
 from slixfeed.datetime import (
@@ -656,8 +659,37 @@ async def scan(db_file, url):
                     db_file, title, link, entry_id,
                     url, date, read_status)
                 await sqlite.set_date(db_file, url)
-        
 
+
+async def get_content(db_file, ix):
+    url = sqlite.get_entry_url(db_file, ix)
+    result = await fetch.download_feed(url)
+    if result[0]:
+        document = Document(result[0])
+        return document.summary()
+        # TODO Either adapt it to filename
+        # or change it to something else
+        #filename = document.title()
+        # with open(filename, 'w') as file:
+        #     html_doc = document.summary()
+        #     file.write(html_doc)
+
+
+def generate_html(text, filename):
+        with open(filename, 'w') as file:
+            file.write(text)
+
+
+def generate_pdf(text, filename):
+        pdfkit.from_string(text, filename)
+
+
+def generate_markdown(text, filename):
+        h2m = html2text.HTML2Text()
+        # Convert HTML to Markdown
+        markdown = h2m.handle(text)
+        with open(filename, 'w') as file:
+            file.write(markdown)
 
 
 # NOTE Why (if res[0]) and (if res[1] == 200)?
