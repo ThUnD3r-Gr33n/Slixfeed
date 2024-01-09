@@ -81,7 +81,7 @@ def is_feed(feed):
         True or False.
     """
     value = False
-    message = None
+    # message = None
     if not feed.entries:
         if "version" in feed.keys():
             feed["version"]
@@ -110,7 +110,6 @@ def is_feed(feed):
         # message = (
         #     "Good feed for {}"
         #     ).format(url)
-    print(message)
     return value
 
 
@@ -402,15 +401,11 @@ async def add_feed(db_file, url):
                 else:
                     result = await crawl.probe_page(
                         url, document)
-                    # TODO Check length and for a write a
-                    # unified message for a set of feeds.
-                    # Use logging if you so choose to
-                    # distinct the methods
-                    if isinstance(result, list):
-                        url = result[0]
-                    elif isinstance(result, str):
+                    if isinstance(result, str):
                         response = result
                         break
+                    else:
+                        url = result[0]
             else:
                 response = (
                     "> {}\nFailed to load URL.  Reason: {}"
@@ -480,15 +475,11 @@ async def view_feed(url):
             else:
                 result = await crawl.probe_page(
                     url, document)
-                # TODO Check length and for a write a
-                # unified message for a set of feeds.
-                # Use logging if you so choose to
-                # distinct the methods
-                if isinstance(result, list):
-                    url = result[0]
-                elif isinstance(result, str):
+                if isinstance(result, str):
                     response = result
                     break
+                else:
+                    url = result[0]
         else:
             response = (
                 "> {}\nFailed to load URL.  Reason: {}"
@@ -553,15 +544,11 @@ async def view_entry(url, num):
             else:
                 result = await crawl.probe_page(
                     url, document)
-                # TODO Check length and for a write a
-                # unified message for a set of feeds.
-                # Use logging if you so choose to
-                # distinct the methods
-                if isinstance(result, list):
-                    url = result[0]
-                elif isinstance(result, str):
+                if isinstance(result, str):
                     response = result
                     break
+                else:
+                    url = result[0]
         else:
             response = (
                 "> {}\nFailed to load URL.  Reason: {}"
@@ -660,8 +647,11 @@ async def scan(db_file, url):
                         db_file, "filter-deny", string)
                     if reject_list:
                         read_status = 1
+                        logging.debug(
+                            "Rejected due to keyword {}".format(reject_list))
                 if isinstance(date, int):
-                    logging.error("Variable 'date' is int:", date)
+                    logging.error(
+                        "Variable 'date' is int: {}".format(date))
                 await sqlite.add_entry(
                     db_file, title, link, entry_id,
                     url, date, read_status)
@@ -723,7 +713,7 @@ async def organize_items(db_file, urls):
                     IncompleteRead,
                     error.URLError
                     ) as e:
-                print(e)
+                logging.error(e)
                 # TODO Print error to log
                 # None
                 # NOTE I don't think there should be "return"

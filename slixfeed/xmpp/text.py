@@ -216,7 +216,7 @@ def print_help():
         " info\n"
         "   Print information page.\n"
         " support\n"
-        "   Join xmpp:slixmpp@muc.poez.io?join\n"
+        "   Join xmpp:slixfeed@chat.woodpeckersnest.space?join\n"
         # "\n"
         # "PROTOCOLS\n"
         # " Supported prootcols are IRC, Matrix and XMPP.\n"

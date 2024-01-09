@@ -18,6 +18,7 @@ TODO
 
 """
 
+import logging
 import os
 import slixfeed.action as action
 from slixfeed.config import (
@@ -78,6 +79,38 @@ async def message(self, message):
     """
     if message["type"] in ("chat", "groupchat", "normal"):
         jid = message["from"].bare
+        message_text = " ".join(message["body"].split())
+
+        # BOTE This is an exceptional case in which we treat
+        # type groupchat the same as type chat.
+        if (message_text.lower().startswith("http")) and(
+            message_text.lower().endswith(".opml")):
+            url = message_text
+            await task.clean_tasks_xmpp(
+                jid, ["status"])
+            status_type = "dnd"
+            status_message = (
+                "📥️ Procesing request to import feeds ..."
+                )
+            send_status_message(
+                self, jid, status_type, status_message)
+            db_file = get_pathname_to_database(jid)
+            count = await action.import_opml(db_file, url)
+            if count:
+                response = (
+                    "Successfully imported {} feeds"
+                    ).format(count)
+            else:
+                response = (
+                    "OPML file was not imported."
+                    )
+            await task.clean_tasks_xmpp(
+                jid, ["status"])
+            await task.start_tasks_xmpp(
+                self, jid, ["status"])
+            send_reply_message(self, message, response)
+
+
         if message["type"] == "groupchat":
             # nick = message["from"][message["from"].index("/")+1:]
             nick = str(message["from"])
@@ -135,18 +168,26 @@ async def message(self, message):
 
         # await compose.message(self, jid, message)
 
-        message_text = " ".join(message["body"].split())
         if message["type"] == "groupchat":
             message_text = message_text[1:]
         message_lowercase = message_text.lower()
     
-        print(current_time(), "ACCOUNT: " + str(message["from"]))
-        print(current_time(), "COMMAND:", message_text)
-        response = 0
+        logging.debug(
+            [str(message["from"]), ":", message_text])
+        response = None
         match message_lowercase:
             # case "breakpoint":
             #     if jid == get_value("accounts", "XMPP", "operator"):
             #         breakpoint()
+            #         print("task_manager[jid]")
+            #         print(task_manager[jid])
+            #         await self.get_roster()
+            #         print("roster 1")
+            #         print(self.client_roster)
+            #         print("roster 2")
+            #         print(self.client_roster.keys())
+            #         print("jid")
+            #         print(jid)
             #     else:
             #         response = (
             #             "This action is restricted. "
@@ -171,15 +212,6 @@ async def message(self, message):
                     "Send \"help\" for instructions.\n"
                     )
                 send_reply_message(self, message, response)
-                # print("task_manager[jid]")
-                # print(task_manager[jid])
-                await self.get_roster()
-                print("roster 1")
-                print(self.client_roster)
-                print("roster 2")
-                print(self.client_roster.keys())
-                print("jid")
-                print(jid)
     
             # case _ if message_lowercase.startswith("activate"):
             #     if message["type"] == "groupchat":
@@ -242,8 +274,8 @@ async def message(self, message):
                         response = (
                             "> {}\nNews source \"{}\" is already "
                             "listed in the subscription list at "
-                            "index {}".format(url, name, ix)
-                            )
+                            "index {}"
+                            ).format(url, name, ix)
                 else:
                     response = "Missing URL."
                 send_reply_message(self, message, response)
@@ -406,32 +438,32 @@ async def message(self, message):
                         message_lowercase.startswith("gopher:")):
                 response = "Gemini and Gopher are not supported yet."
                 send_reply_message(self, message, response)
-            case _ if (message_lowercase.startswith("http")) and(
-                message_lowercase.endswith(".opml")):
-                url = message_text
-                await task.clean_tasks_xmpp(
-                    jid, ["status"])
-                status_type = "dnd"
-                status_message = (
-                    "📥️ Procesing request to import feeds ..."
-                    )
-                send_status_message(
-                    self, jid, status_type, status_message)
-                db_file = get_pathname_to_database(jid)
-                count = await action.import_opml(db_file, url)
-                if count:
-                    response = (
-                        "Successfully imported {} feeds"
-                        ).format(count)
-                else:
-                    response = (
-                        "OPML file was not imported."
-                        )
-                await task.clean_tasks_xmpp(
-                    jid, ["status"])
-                await task.start_tasks_xmpp(
-                    self, jid, ["status"])
-                send_reply_message(self, message, response)
+            # case _ if (message_lowercase.startswith("http")) and(
+            #     message_lowercase.endswith(".opml")):
+            #     url = message_text
+            #     await task.clean_tasks_xmpp(
+            #         jid, ["status"])
+            #     status_type = "dnd"
+            #     status_message = (
+            #         "📥️ Procesing request to import feeds ..."
+            #         )
+            #     send_status_message(
+            #         self, jid, status_type, status_message)
+            #     db_file = get_pathname_to_database(jid)
+            #     count = await action.import_opml(db_file, url)
+            #     if count:
+            #         response = (
+            #             "Successfully imported {} feeds"
+            #             ).format(count)
+            #     else:
+            #         response = (
+            #             "OPML file was not imported."
+            #             )
+            #     await task.clean_tasks_xmpp(
+            #         jid, ["status"])
+            #     await task.start_tasks_xmpp(
+            #         self, jid, ["status"])
+            #     send_reply_message(self, message, response)
             case _ if (message_lowercase.startswith("http") or
                         message_lowercase.startswith("feed:")):
                 url = message_text
@@ -447,7 +479,8 @@ async def message(self, message):
                     url = uri.feed_to_http(url)
                 url = (uri.replace_hostname(url, "feed")) or url
                 db_file = get_pathname_to_database(jid)
-                response = await action.add_feed(db_file, url)
+                response = await action.add_feed(
+                    db_file, url)
                 await task.clean_tasks_xmpp(
                     jid, ["status"])
                 await task.start_tasks_xmpp(
@@ -458,8 +491,10 @@ async def message(self, message):
                 if query:
                     if len(query) > 3:
                         db_file = get_pathname_to_database(jid)
-                        result = await sqlite.search_feeds(db_file, query)
-                        response = action.list_feeds_by_query(query, result)
+                        result = await sqlite.search_feeds(
+                            db_file, query)
+                        response = action.list_feeds_by_query(
+                            query, result)
                     else:
                         response = (
                             "Enter at least 4 characters to search"
@@ -506,11 +541,11 @@ async def message(self, message):
                     await groupchat.join(self, jid, muc_jid)
                     response = (
                         "Joined groupchat {}"
-                                ).format(message_text)
+                        ).format(message_text)
                 else:
                     response = (
                         "> {}\nXMPP URI is not valid."
-                                ).format(message_text)
+                        ).format(message_text)
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("length"):
                     key = message_text[:6]
@@ -685,16 +720,19 @@ async def message(self, message):
                                 db_file, ix)
                             response = (
                                 "> {}\nNews source {} has been removed "
-                                "from subscription list.").format(url, ix)
+                                "from subscription list."
+                                ).format(url, ix)
                         except:
                             response = (
-                                "No news source with ID {}.".format(ix))
+                                "No news source with ID {}."
+                                ).format(ix)
                     except:
                         url = ix_url
                         await sqlite.remove_feed_by_url(db_file, url)
                         response = (
                             "> {}\nNews source has been removed "
-                            "from subscription list.").format(url)
+                            "from subscription list."
+                            ).format(url)
                     # await refresh_task(
                     #     self,
                     #     jid,
@@ -835,11 +873,11 @@ async def message(self, message):
                     await groupchat.join(self, jid, muc_jid)
                     response = (
                         "Joined groupchat {}"
-                                ).format(message_text)
+                        ).format(message_text)
                 else:
                     response = (
                         "> {}\nXMPP URI is not valid."
-                                ).format(message_text)
+                        ).format(message_text)
                 send_reply_message(self, message, response)
             case _:
                 response = (

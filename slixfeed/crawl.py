@@ -19,6 +19,7 @@ TODO
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
 from feedparser import parse
+import logging
 from lxml import html
 import slixfeed.config as config
 from slixfeed.fetch import download_feed
@@ -88,15 +89,20 @@ async def probe_page(url, document):
             "> {}\nFailed to parse URL as feed."
             ).format(url)
     if not result:
-        print("RSS Auto-Discovery Engaged")
+        logging.debug(
+            "Feed auto-discovery engaged for {}".format(url))
         result = await feed_mode_auto_discovery(url, tree)
     if not result:
-        print("RSS Scan Mode Engaged")
+        logging.debug(
+            "Feed link scan mode engaged for {}".format(url))
         result = await feed_mode_scan(url, tree)
     if not result:
-        print("RSS Arbitrary Mode Engaged")
-        result = await feed_mode_request(url, tree)
+        logging.debug(
+            "Feed arbitrary mode engaged for {}".format(url))
+        result = await feed_mode_guess(url, tree)
     if not result:
+        logging.debug(
+            "No feeds were found for {}".format(url))
         result = (
             "> {}\nNo news feeds were found for URL."
             ).format(url)
@@ -104,7 +110,7 @@ async def probe_page(url, document):
 
 
 # TODO Improve scan by gradual decreasing of path
-async def feed_mode_request(url, tree):
+async def feed_mode_guess(url, tree):
     """
     Lookup for feeds by pathname using HTTP Requests.
 
@@ -122,94 +128,26 @@ async def feed_mode_request(url, tree):
     msg : str
         Message with URLs.
     """
-    feeds = {}
+    urls = []
     parted_url = urlsplit(url)
     paths = config.get_list("lists.yaml", "pathnames")
+    # Check whether URL has path (i.e. not root)
+    # Check parted_url.path to avoid error in case root wasn't given
+    # TODO Make more tests
+    if parted_url.path and parted_url.path.split('/')[1]:
+        paths.extend(
+            [".atom", ".feed", ".rdf", ".rss"]
+            ) if '.rss' not in paths else -1
+        # if paths.index('.rss'):
+        #     paths.extend([".atom", ".feed", ".rdf", ".rss"])
     for path in paths:
-        address = urlunsplit([
-            parted_url.scheme,
-            parted_url.netloc,
-            path,
-            None,
-            None
-            ])
-        res = await download_feed(address)
-        if res[1] == 200:
-            # print(parse(res[0])["feed"]["title"])
-            # feeds[address] = parse(res[0])["feed"]["title"]
-            try:
-                title = parse(res[0])["feed"]["title"]
-            except:
-                title = '*** No Title ***'
-            feeds[address] = title
-        # Check whether URL has path (i.e. not root)
-        # Check parted_url.path to avoid error in case root wasn't given
-        # TODO Make more tests
-        if parted_url.path and parted_url.path.split('/')[1]:
-            paths.extend(
-                [".atom", ".feed", ".rdf", ".rss"]
-                ) if '.rss' not in paths else -1
-            # if paths.index('.rss'):
-            #     paths.extend([".atom", ".feed", ".rdf", ".rss"])
-            address = urlunsplit([
-                parted_url.scheme,
-                parted_url.netloc,
-                parted_url.path.split('/')[1] + path,
-                None,
-                None
-                ])
-            res = await download_feed(address)
-            if res[1] == 200:
-                try:
-                    feeds[address] = parse(res[0])
-                    # print(feeds)
-                except:
-                    continue
-    # TODO return feeds
-    if len(feeds) > 1:
-        counter = 0
-        msg = (
-            "RSS URL discovery has found {} feeds:\n\n```\n"
-            ).format(len(feeds))
-        feed_mark = 0
-        for feed in feeds:
-            try:
-                feed_name = feeds[feed]["feed"]["title"]
-            except:
-                feed_name = urlsplit(feed).netloc
-            feed_addr = feed
-            # AttributeError: 'str' object has no attribute 'entries'
-            try:
-                feed_amnt = len(feeds[feed].entries)
-            except:
-                continue
-            if feed_amnt:
-                # NOTE Because there could be many false positives
-                # which are revealed in second phase of scan, we
-                # could end with a single feed, which would be
-                # listed instead of fetched, so feed_mark is
-                # utilized in order to make fetch possible.
-                feed_mark = [feed_addr]
-                counter += 1
-                msg += (
-                    "Title: {}\n"
-                    "Link : {}\n"
-                    "Items: {}\n"
-                    "\n"
-                    ).format(feed_name, feed_addr, feed_amnt)
-        if counter > 1:
-            msg += (
-                "```\nThe above feeds were extracted from\n{}"
-                ).format(url)
-        elif feed_mark:
-            return feed_mark
-        else:
-            msg = (
-                "No feeds were found for {}"
-                ).format(url)
-        return msg
-    elif feeds:
-        return feeds
+        address = join_url(url, parted_url.path.split('/')[1] + path)
+        if address not in urls:
+            urls.extend([address])
+    # breakpoint()
+    # print("feed_mode_guess")
+    urls = await process_feed_selection(url, urls)
+    return urls
 
 
 async def feed_mode_scan(url, tree):
@@ -230,9 +168,7 @@ async def feed_mode_scan(url, tree):
     msg : str
         Message with URLs.
     """
-    feeds = {}
-    # paths = []
-    # TODO Test
+    urls = []
     paths = config.get_list("lists.yaml", "pathnames")
     for path in paths:
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
@@ -242,91 +178,16 @@ async def feed_mode_scan(url, tree):
         addresses = tree.xpath(xpath_query)
         xpath_query = "(//a[contains(@href,'{}')])[position()>last()-{}]".format(path, num)
         addresses += tree.xpath(xpath_query)
-        parted_url = urlsplit(url)
         # NOTE Should number of addresses be limited or
         # perhaps be N from the start and N from the end
         for address in addresses:
-            # print(address.xpath('@href')[0])
-            # print(addresses)
-            address = address.xpath('@href')[0]
-            if "/" not in address:
-                protocol = parted_url.scheme
-                hostname = parted_url.netloc
-                pathname = address
-                address = urlunsplit([
-                    protocol,
-                    hostname,
-                    pathname,
-                    None,
-                    None
-                    ])
-            if address.startswith('/'):
-                protocol = parted_url.scheme
-                hostname = parted_url.netloc
-                pathname = address
-                address = urlunsplit([
-                    protocol,
-                    hostname,
-                    pathname,
-                    None,
-                    None
-                    ])
-            res = await download_feed(address)
-            if res[1] == 200:
-                try:
-                    feeds[address] = parse(res[0])
-                    # print(feeds[address])
-                    # breakpoint()
-                    # print(feeds)
-                except:
-                    continue
-    # TODO return feeds
-    if len(feeds) > 1:
-        # print(feeds)
-        # breakpoint()
-        counter = 0
-        msg = (
-            "RSS URL scan has found {} feeds:\n\n```\n"
-            ).format(len(feeds))
-        feed_mark = 0
-        for feed in feeds:
-            # try:
-            #     res = await download_feed(feed)
-            # except:
-            #     continue
-            try:
-                feed_name = feeds[feed]["feed"]["title"]
-            except:
-                feed_name = urlsplit(feed).netloc
-            feed_addr = feed
-            feed_amnt = len(feeds[feed].entries)
-            if feed_amnt:
-                # NOTE Because there could be many false positives
-                # which are revealed in second phase of scan, we
-                # could end with a single feed, which would be
-                # listed instead of fetched, so feed_mark is
-                # utilized in order to make fetch possible.
-                feed_mark = [feed_addr]
-                counter += 1
-                msg += (
-                    "Title : {}\n"
-                    "Link  : {}\n"
-                    "Count : {}\n"
-                    "\n"
-                    ).format(feed_name, feed_addr, feed_amnt)
-        if counter > 1:
-            msg += (
-                "```\nThe above feeds were extracted from\n{}"
-                ).format(url)
-        elif feed_mark:
-            return feed_mark
-        else:
-            msg = (
-                "No feeds were found for {}"
-                ).format(url)
-        return msg
-    elif feeds:
-        return feeds
+            address = join_url(url, address.xpath('@href')[0])
+            if address not in urls:
+                urls.extend([address])
+    # breakpoint()
+    # print("feed_mode_scan")
+    urls = await process_feed_selection(url, urls)
+    return urls
 
 
 async def feed_mode_auto_discovery(url, tree):
@@ -358,11 +219,8 @@ async def feed_mode_auto_discovery(url, tree):
     # xpath_query = """//link[(@rel="alternate") and (@type="application/atom+xml" or @type="application/rdf+xml" or @type="application/rss+xml")]/@href"""
     # xpath_query = "//link[@rel='alternate' and @type='application/atom+xml' or @rel='alternate' and @type='application/rss+xml' or @rel='alternate' and @type='application/rdf+xml']/@href"
     feeds = tree.xpath(xpath_query)
-    # TODO return feeds
-    if len(feeds) > 1:
-        msg = (
-            "RSS Auto-Discovery has found {} feeds:\n\n```\n"
-            ).format(len(feeds))
+    if feeds:
+        urls = []
         for feed in feeds:
             # # The following code works;
             # # The following code will catch
@@ -373,15 +231,129 @@ async def feed_mode_auto_discovery(url, tree):
             #     disco = parse(res[0])
             #     title = disco["feed"]["title"]
             #     msg += "{} \n {} \n\n".format(title, feed)
-            feed_name = feed.xpath('@title')[0]
-            feed_addr = join_url(url, feed.xpath('@href')[0])
+
+            # feed_name = feed.xpath('@title')[0]
+            # feed_addr = join_url(url, feed.xpath('@href')[0])
+
             # if feed_addr.startswith("/"):
             #     feed_addr = url + feed_addr
-            msg += "{}\n{}\n\n".format(feed_name, feed_addr)
-        msg += (
-            "```\nThe above feeds were extracted from\n{}"
-            ).format(url)
-        return msg
-    elif feeds:
-        feed_addr = join_url(url, feeds[0].xpath('@href')[0])
-        return [feed_addr]
+            address = join_url(url, feed.xpath('@href')[0])
+            if address not in urls:
+                urls.extend([address])
+        # breakpoint()
+        # print("feed_mode_auto_discovery")
+        urls = await process_feed_selection(url, urls)
+        return urls
+
+
+# TODO Segregate function into function that returns
+# URLs (string) and Feeds (dict) and function that
+# composes text message (string).
+# Maybe that's not necessary.
+async def process_feed_selection(url, urls):
+    feeds = {}
+    for i in urls:
+        res = await download_feed(i)
+        if res[1] == 200:
+            try:
+                feeds[i] = [parse(res[0])]
+            except:
+                continue
+    message = (
+        "Web feeds found for {}\n\n```\n"
+        ).format(url)
+    counter = 0
+    feed_url_mark = 0
+    for feed_url in feeds:
+        # try:
+        #     res = await download_feed(feed)
+        # except:
+        #     continue
+        feed_name = None
+        if "title" in feeds[feed_url][0]["feed"].keys():
+            feed_name = feeds[feed_url][0].feed.title
+        feed_name = feed_name if feed_name else "Untitled"
+        # feed_name = feed_name if feed_name else urlsplit(feed_url).netloc
+        # AttributeError: 'str' object has no attribute 'entries'
+        if "entries" in feeds[feed_url][0].keys():
+            feed_amnt = feeds[feed_url][0].entries
+        else:
+            continue
+        if feed_amnt:
+            # NOTE Because there could be many false positives
+            # which are revealed in second phase of scan, we
+            # could end with a single feed, which would be
+            # listed instead of fetched, so feed_url_mark is
+            # utilized in order to make fetch possible.
+            feed_url_mark = [feed_url]
+            counter += 1
+            message += (
+                "Title : {}\n"
+                "Link  : {}\n"
+                "\n"
+                ).format(feed_name, feed_url)
+    if counter > 1:
+        message += (
+            "```\nTotal of {} feeds."
+            ).format(counter)
+        result = message
+    elif feed_url_mark:
+        result = feed_url_mark
+    else:
+        result = None
+    return result
+
+
+# def get_discovered_feeds(url, urls):
+#     message = (
+#         "Found {} web feeds:\n\n```\n"
+#         ).format(len(urls))
+#     if len(urls) > 1:
+#         for urls in urls:
+#                 message += (
+#                     "Title : {}\n"
+#                     "Link  : {}\n"
+#                     "\n"
+#                     ).format(url, url.title)
+#         message += (
+#             "```\nThe above feeds were extracted from\n{}"
+#             ).format(url)
+#     elif len(urls) > 0:
+#         result = urls
+#     else:
+#         message = (
+#             "No feeds were found for {}"
+#             ).format(url)
+#     return result
+
+
+# Test module
+# TODO ModuleNotFoundError: No module named 'slixfeed'
+# import slixfeed.fetch as fetch
+# from slixfeed.action import is_feed, process_feed_selection
+
+# async def start(url):
+#     while True:
+#         result = await fetch.download_feed(url)
+#         document = result[0]
+#         status = result[1]
+#         if document:
+#             feed = parse(document)
+#             if is_feed(feed):
+#                 print(url)
+#             else:
+#                 urls = await probe_page(
+#                     url, document)
+#                 if len(urls) > 1:
+#                     await process_feed_selection(urls)
+#                 elif urls:
+#                     url = urls[0]
+#         else:
+#             response = (
+#                 "> {}\nFailed to load URL.  Reason: {}"
+#                 ).format(url, status)
+#             break
+#     return response
+
+# url = "https://www.smh.com.au/rssheadlines"
+# start(url)
