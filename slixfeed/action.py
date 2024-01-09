@@ -158,8 +158,10 @@ def list_unread_entries(result, feed_title):
     link = remove_tracking_parameters(link)
     link = (replace_hostname(link, "link")) or link
     news_item = (
-        "\n{}\n{}\n{}\n"
-        ).format(str(title), str(link), str(feed_title))
+        "\n{}\n{}\n{} [{}]\n"
+        ).format(
+            str(title), str(link), str(feed_title), str(ix)
+            )
     return news_item
 
 
