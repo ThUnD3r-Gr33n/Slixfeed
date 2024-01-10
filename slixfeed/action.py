@@ -24,7 +24,6 @@ from http.client import IncompleteRead
 from feedparser import parse
 import logging
 from lxml import html
-from readability import Document
 import slixfeed.config as config
 import slixfeed.crawl as crawl
 from slixfeed.datetime import (
@@ -59,6 +58,13 @@ except:
     logging.info(
         "Package pdfkit was not found.\n"
         "PDF support is disabled.")
+
+try:
+    from readability import Document
+except:
+    logging.info(
+        "Package readability was not found.\n"
+        "Arc90 Lab algorithm is disabled.")
 
 
 def log_to_markdown(timestamp, filename, jid, message):
@@ -706,9 +712,14 @@ async def get_content(url):
     data = result[0]
     code = result[1]
     if data:
-        document = Document(result[0])
-        content = document.summary()
-        info = [code, content]
+        try:
+            document = Document(result[0])
+            content = document.summary()
+            info = [code, content]
+        except:
+            logging.warning(
+                "Install package readability.")
+            info = result
     else:
         info = [code, None]
     return info
