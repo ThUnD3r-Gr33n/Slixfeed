@@ -715,13 +715,13 @@ async def get_content(url):
         try:
             document = Document(result[0])
             content = document.summary()
-            info = [code, content]
+            info = [content, code]
         except:
             logging.warning(
                 "Install package readability.")
             info = result
     else:
-        info = [code, None]
+        info = [None, code]
     return info
         # TODO Either adapt it to filename
         # or change it to something else

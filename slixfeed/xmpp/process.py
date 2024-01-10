@@ -83,7 +83,7 @@ async def message(self, message):
 
         # BOTE This is an exceptional case in which we treat
         # type groupchat the same as type chat.
-        if (message_text.lower().startswith("http")) and(
+        if (message_text.lower().startswith("http") and
             message_text.lower().endswith(".opml")):
             url = message_text
             await task.clean_tasks_xmpp(
@@ -472,8 +472,8 @@ async def message(self, message):
                         url = uri.remove_tracking_parameters(url)
                         url = (uri.replace_hostname(url, "link")) or url
                         info = await action.get_content(url)
-                        content = info[1]
-                        status = info[0]
+                        content = info[0]
+                        status = info[1]
                         if content:
                             try:
                                 match ext:
@@ -487,8 +487,6 @@ async def message(self, message):
                                     self, jid, filename)
                                 await send_oob_message(
                                     self, jid, url)
-                                await task.start_tasks_xmpp(
-                                    self, jid, ["status"])
                             except:
                                 logging.warning(
                                     "Check that packages html2text, pdfkit "
@@ -496,6 +494,8 @@ async def message(self, message):
                                 response = (
                                     "Failed to export to {}"
                                     ).format(ext)
+                            await task.start_tasks_xmpp(
+                                self, jid, ["status"])
                         else:
                             response = (
                                 "Failed to fetch resource.  Reason: {}"
