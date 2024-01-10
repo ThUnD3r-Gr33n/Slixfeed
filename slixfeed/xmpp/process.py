@@ -98,7 +98,7 @@ async def message(self, message):
             count = await action.import_opml(db_file, url)
             if count:
                 response = (
-                    "Successfully imported {} feeds"
+                    "Successfully imported {} feeds."
                     ).format(count)
             else:
                 response = (
@@ -109,6 +109,7 @@ async def message(self, message):
             await task.start_tasks_xmpp(
                 self, jid, ["status"])
             send_reply_message(self, message, response)
+            return
 
 
         if message["type"] == "groupchat":
@@ -399,19 +400,19 @@ async def message(self, message):
                     status_type = "dnd"
                     status_message = (
                         "📤️ Procesing request to export feeds into {} ..."
-                        ).format(key)
+                        ).format(ex)
                     send_status_message(
                         self, jid, status_type, status_message)
                     data_dir = get_default_data_directory()
                     if not os.path.isdir(data_dir):
                         os.mkdir(data_dir)
-                    if not os.path.isdir(data_dir + '/' + key):
-                        os.mkdir(data_dir + '/' + key)
+                    if not os.path.isdir(data_dir + '/' + ex):
+                        os.mkdir(data_dir + '/' + ex)
                     filename = os.path.join(
-                        data_dir, key, "slixfeed_" + timestamp() + "." + key)
+                        data_dir, ex, "slixfeed_" + timestamp() + "." + ex)
                     db_file = get_pathname_to_database(jid)
                     results = await sqlite.get_feeds(db_file)
-                    match key:
+                    match ex:
                         case "html":
                             response = "Not yet implemented."
                         case "md":
@@ -425,7 +426,7 @@ async def message(self, message):
                     url = await upload.start(self, jid, filename)
                     # response = (
                     #     "Feeds exported successfully to {}.\n{}"
-                    #     ).format(key, url)
+                    #     ).format(ex, url)
                     # send_oob_reply_message(message, url, response)
                     await send_oob_message(
                         self, jid, url)
@@ -468,23 +469,37 @@ async def message(self, message):
                                 response = "No entry Id with {}".format(ix)
                         except:
                             url = ix_url
-                        content = await action.get_content(url)
+                        url = uri.remove_tracking_parameters(url)
+                        url = (uri.replace_hostname(url, "link")) or url
+                        info = await action.get_content(url)
+                        content = info[1]
+                        status = info[0]
                         if content:
-                            match ext:
-                                case "html":
-                                    action.generate_html(content, filename)
-                                case "md":
-                                    action.generate_markdown(content, filename)
-                                case "pdf":
-                                    action.generate_pdf(content, filename)
-                            url = await upload.start(
-                                self, jid, filename)
-                            await send_oob_message(
-                                self, jid, url)
-                            await task.start_tasks_xmpp(
-                                self, jid, ["status"])
+                            try:
+                                match ext:
+                                    case "html":
+                                        action.generate_html(content, filename)
+                                    case "md":
+                                        action.generate_markdown(content, filename)
+                                    case "pdf":
+                                        action.generate_pdf(content, filename)
+                                url = await upload.start(
+                                    self, jid, filename)
+                                await send_oob_message(
+                                    self, jid, url)
+                                await task.start_tasks_xmpp(
+                                    self, jid, ["status"])
+                            except:
+                                logging.warning(
+                                    "Check that packages html2text, pdfkit "
+                                    "and wkhtmltopdf are installed")
+                                response = (
+                                    "Failed to export to {}"
+                                    ).format(ext)
                         else:
-                            response = "Failed to fetch resource."
+                            response = (
+                                "Failed to fetch resource.  Reason: {}"
+                                ).format(status)
                     else:
                         response = "Missing entry Id."
                 else:
@@ -506,7 +521,7 @@ async def message(self, message):
             #     count = await action.import_opml(db_file, url)
             #     if count:
             #         response = (
-            #             "Successfully imported {} feeds"
+            #             "Successfully imported {} feeds."
             #             ).format(count)
             #     else:
             #         response = (
@@ -532,12 +547,19 @@ async def message(self, message):
                     url = uri.feed_to_http(url)
                 url = (uri.replace_hostname(url, "feed")) or url
                 db_file = get_pathname_to_database(jid)
-                response = await action.add_feed(
-                    db_file, url)
-                await task.clean_tasks_xmpp(
-                    jid, ["status"])
-                await task.start_tasks_xmpp(
-                    self, jid, ["status"])
+                try:
+                    response = await action.add_feed(
+                        db_file, url)
+                    await task.clean_tasks_xmpp(
+                        jid, ["status"])
+                    await task.start_tasks_xmpp(
+                        self, jid, ["status"])
+                except:
+                    response = (
+                        "> {}\nNews source is in the process "
+                        "of being added to the subscription "
+                        "list.".format(url)
+                        )
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("feeds"):
                 query = message_text[6:]
@@ -872,7 +894,7 @@ async def message(self, message):
                 try:
                     await sqlite.set_enabled_status(db_file, ix, 1)
                     response = (
-                        "Updates are now disabled for news source {}."
+                        "Updates are now enabled for news source {}."
                         ).format(ix)
                 except:
                     response = "No news source with ID {}.".format(ix)

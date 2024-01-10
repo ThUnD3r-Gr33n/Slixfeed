@@ -242,8 +242,11 @@ async def send_update(self, jid, num=None):
             # breakpoint()
             await mark_as_read(db_file, result[0])
             if not image_url:
-                content = await action.get_content(url)
-                image_url = action.extract_first_image(url, content)
+                info = await action.get_content(url)
+                content = info[1]
+                status = info[0]
+                if status == 200:
+                    image_url = action.extract_first_image(url, content)
         new = " ".join(news_digest)
         # breakpoint()
         if new:

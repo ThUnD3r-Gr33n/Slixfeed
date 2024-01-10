@@ -5,19 +5,25 @@
 
 TODO
 
-1) Call sqlite function from function statistics.
+1) Function scan at "for entry in entries"
+   Suppress directly calling function "add_entry" (accept db_file)
+   Pass a list of valid entries to a new function "add_entries"
+   (accept db_file) which would call function "add_entry" (accept cur).
+   * accelerate adding of large set of entries at once.
+   * prevent (or mitigate halt of consequent actions).
+   * reduce I/O.
+
+2) Call sqlite function from function statistics.
    Returning a list of values doesn't' seem to be a good practice.
 
 """
 
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
-import html2text
 from http.client import IncompleteRead
 from feedparser import parse
 import logging
 from lxml import html
-import pdfkit
 from readability import Document
 import slixfeed.config as config
 import slixfeed.crawl as crawl
@@ -39,6 +45,20 @@ import slixfeed.xmpp.bookmark as bookmark
 from urllib import error
 from urllib.parse import urlsplit
 import xml.etree.ElementTree as ET
+
+try:
+    import html2text
+except:
+    logging.info(
+        "Package html2text was not found.\n"
+        "Markdown support is disabled.")
+
+try:
+    import pdfkit
+except:
+    logging.info(
+        "Package pdfkit was not found.\n"
+        "PDF support is disabled.")
 
 
 def log_to_markdown(timestamp, filename, jid, message):
@@ -302,13 +322,14 @@ def export_to_markdown(jid, filename, results):
                 current_date(), jid))
 
 
+# TODO Consider adding element jid as a pointer of import
 def export_to_opml(jid, filename, results):
     root = ET.Element("opml")
     root.set("version", "1.0")
     head = ET.SubElement(root, "head")
-    ET.SubElement(head, "title").text = "Subscriptions for {}".format(jid)
+    ET.SubElement(head, "title").text = "{}".format(jid)
     ET.SubElement(head, "description").text = (
-        "Set of feeds exported with Slixfeed")
+        "Set of subscriptions exported by Slixfeed")
     ET.SubElement(head, "generator").text = "Slixfeed"
     ET.SubElement(head, "urlPublic").text = (
         "https://gitgud.io/sjehuda/slixfeed")
@@ -339,8 +360,8 @@ async def import_opml(db_file, url):
             # feed = (url, title)
             # feeds.extend([feed])
             feeds.extend([(url, title)])
-        await sqlite.import_feeds(
-            db_file, feeds)
+        await sqlite.import_feeds(db_file, feeds)
+        await sqlite.add_metadata(db_file)
         after = await sqlite.get_number_of_items(
             db_file, 'feeds')
         difference = int(after) - int(before)
@@ -581,6 +602,7 @@ async def scan(db_file, url):
         status = result[1]
     except:
         return
+    new_entries = []
     if document and status == 200:
         feed = parse(document)
         entries = feed.entries
@@ -642,10 +664,10 @@ async def scan(db_file, url):
                 summary = entry.summary if entry.has_key("summary") else ''
                 read_status = 0
                 pathname = urlsplit(link).path
-                string = ("{} {} {}"
-                          ).format(
-                              title, summary, pathname
-                              )
+                string = (
+                    "{} {} {}"
+                    ).format(
+                        title, summary, pathname)
                 allow_list = await config.is_include_keyword(
                     db_file, "filter-allow", string)
                 if not allow_list:
@@ -654,24 +676,42 @@ async def scan(db_file, url):
                     if reject_list:
                         read_status = 1
                         logging.debug(
-                            "Rejected due to keyword {}".format(reject_list))
+                            "Rejected : {}\n"
+                            "Keyword  : {}".format(
+                                link, reject_list))
                 if isinstance(date, int):
                     logging.error(
                         "Variable 'date' is int: {}".format(date))
-                await sqlite.add_entry(
-                    db_file, title, link, entry_id,
-                    url, date, read_status)
-                await sqlite.set_date(db_file, url)
+                entry = {
+                    "title": title,
+                    "link": link,
+                    "entry_id": entry_id,
+                    "url": url,
+                    "date": date,
+                    "read_status": read_status
+                    }
+                new_entries.extend([entry])
+                # await sqlite.add_entry(
+                #     db_file, title, link, entry_id,
+                #     url, date, read_status)
+                # await sqlite.set_date(db_file, url)
+    if len(new_entries):
+        await sqlite.add_entries_and_update_timestamp(
+            db_file, new_entries)
+        
 
 
 async def get_content(url):
     result = await fetch.download_feed(url)
-    if result[0]:
+    data = result[0]
+    code = result[1]
+    if data:
         document = Document(result[0])
         content = document.summary()
+        info = [code, content]
     else:
-        content = None
-    return content
+        info = [code, None]
+    return info
         # TODO Either adapt it to filename
         # or change it to something else
         #filename = document.title()
@@ -691,21 +731,22 @@ def extract_first_image(url, content):
         image_url = None
     return image_url
 
+
 def generate_html(text, filename):
-        with open(filename, 'w') as file:
-            file.write(text)
+    with open(filename, 'w') as file:
+        file.write(text)
 
 
 def generate_pdf(text, filename):
-        pdfkit.from_string(text, filename)
+    pdfkit.from_string(text, filename)
 
 
 def generate_markdown(text, filename):
-        h2m = html2text.HTML2Text()
-        # Convert HTML to Markdown
-        markdown = h2m.handle(text)
-        with open(filename, 'w') as file:
-            file.write(markdown)
+    h2m = html2text.HTML2Text()
+    # Convert HTML to Markdown
+    markdown = h2m.handle(text)
+    with open(filename, 'w') as file:
+        file.write(markdown)
 
 
 # NOTE Why (if res[0]) and (if res[1] == 200)?
