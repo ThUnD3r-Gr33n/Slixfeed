@@ -45,7 +45,7 @@ import slixfeed.config as config
 
 # async def ipfs():
 
-async def download_feed(url):
+async def http(url):
     """
     Download content of given URL.
 

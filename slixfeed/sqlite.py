@@ -847,11 +847,10 @@ def get_feed_title(db_file, ix):
         return title
 
 
-# TODO Handletable archive too
 def get_entry_url(db_file, ix):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        sql = (
+        sql = ( # TODO Handletable archive too
             """
             SELECT link
             FROM entries
@@ -859,6 +858,28 @@ def get_entry_url(db_file, ix):
             """
             )
         url = cur.execute(sql, (ix,)).fetchone()[0]
+        return url
+
+
+def get_feed_url(db_file, ix):
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = ( # TODO Handletable archive too
+            """
+            SELECT feed_id
+            FROM entries
+            WHERE id = :ix
+            """
+            )
+        feed_id = cur.execute(sql, (ix,)).fetchone()[0]
+        sql = (
+            """
+            SELECT url
+            FROM feeds
+            WHERE id = :feed_id
+            """
+            )
+        url = cur.execute(sql, (feed_id,)).fetchone()[0]
         return url
 
 

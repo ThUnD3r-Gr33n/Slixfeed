@@ -445,6 +445,8 @@ async def message(self, message):
                 ix_url = message_text.split(" ")[0]
                 ext = " ".join(message_text.split(" ")[1:])
                 ext = ext if ext else 'pdf'
+                url = None
+                status = None
                 if ext in ("html", "md", "pdf"):
                     status_type = "dnd"
                     status_message = (
@@ -469,42 +471,25 @@ async def message(self, message):
                                 response = "No entry Id with {}".format(ix)
                         except:
                             url = ix_url
-                        url = uri.remove_tracking_parameters(url)
-                        url = (uri.replace_hostname(url, "link")) or url
-                        info = await action.get_content(url)
-                        content = info[0]
-                        status = info[1]
-                        if content:
-                            try:
-                                match ext:
-                                    case "html":
-                                        action.generate_html(content, filename)
-                                    case "md":
-                                        action.generate_markdown(content, filename)
-                                    case "pdf":
-                                        action.generate_pdf(content, filename)
-                                url = await upload.start(
-                                    self, jid, filename)
-                                await send_oob_message(
-                                    self, jid, url)
-                            except:
-                                logging.warning(
-                                    "Check that packages html2text, pdfkit "
-                                    "and wkhtmltopdf are installed")
+                        if url:
+                            url = uri.remove_tracking_parameters(url)
+                            url = (uri.replace_hostname(url, "link")) or url
+                            status = await action.generate_document(url, ext, filename)
+                            if status:
                                 response = (
-                                    "Failed to export to {}"
-                                    ).format(ext)
-                            await task.start_tasks_xmpp(
-                                self, jid, ["status"])
-                        else:
-                            response = (
-                                "Failed to fetch resource.  Reason: {}"
-                                ).format(status)
+                                    "Failed to export {}.  Reason: {}"
+                                    ).format(ext, status)
+                            else:
+                                url = await upload.start(self, jid, filename)
+                                await send_oob_message(self, jid, url)
+                        await task.start_tasks_xmpp(
+                            self, jid, ["status"])
                     else:
                         response = "Missing entry Id."
                 else:
                     response = "Unsupported filetype."
                 if response:
+                    print(response)
                     send_reply_message(self, message, response)
             # case _ if (message_lowercase.startswith("http")) and(
             #     message_lowercase.endswith(".opml")):

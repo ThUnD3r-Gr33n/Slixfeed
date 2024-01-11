@@ -353,7 +353,7 @@ def export_to_opml(jid, filename, results):
 
 
 async def import_opml(db_file, url):
-    result = await fetch.download_feed(url)
+    result = await fetch.http(url)
     document = result[0]
     if document:
         root = ET.fromstring(document)
@@ -378,7 +378,7 @@ async def add_feed(db_file, url):
     while True:
         exist = await sqlite.get_feed_id_and_name(db_file, url)
         if not exist:
-            result = await fetch.download_feed(url)
+            result = await fetch.http(url)
             document = result[0]
             status_code = result[1]
             if document:
@@ -458,7 +458,7 @@ async def add_feed(db_file, url):
 
 async def view_feed(url):
     while True:
-        result = await fetch.download_feed(url)
+        result = await fetch.http(url)
         document = result[0]
         status = result[1]
         if document:
@@ -523,7 +523,7 @@ async def view_feed(url):
 
 async def view_entry(url, num):
     while True:
-        result = await fetch.download_feed(url)
+        result = await fetch.http(url)
         document = result[0]
         status = result[1]
         if document:
@@ -602,7 +602,7 @@ async def scan(db_file, url):
         URL. The default is None.
     """
     if isinstance(url, tuple): url = url[0]
-    result = await fetch.download_feed(url)
+    result = await fetch.http(url)
     try:
         document = result[0]
         status = result[1]
@@ -704,34 +704,87 @@ async def scan(db_file, url):
     if len(new_entries):
         await sqlite.add_entries_and_update_timestamp(
             db_file, new_entries)
-        
 
 
-async def get_content(url):
-    result = await fetch.download_feed(url)
+async def generate_document(url, ext, filename):
+    result = await fetch.http(url)
     data = result[0]
     code = result[1]
+    status = None
     if data:
         try:
-            document = Document(result[0])
+            document = Document(data)
             content = document.summary()
-            info = [content, code]
         except:
             logging.warning(
-                "Install package readability.")
-            info = result
+                "Check that package readability is installed.")
+        match ext:
+            case "html":
+                generate_html(content, filename)
+            case "md":
+                try:
+                    generate_markdown(content, filename)
+                except:
+                    logging.warning(
+                        "Check that package html2text is installed.")
+                    status = (
+                        "Package html2text was not found.")
+            case "pdf":
+                try:
+                    generate_pdf(content, filename)
+                except:
+                    logging.warning(
+                        "Check that packages pdfkit and wkhtmltopdf "
+                        "are installed.")
+                    status = (
+                        "Package pdfkit or wkhtmltopdf was not found.")
     else:
-        info = [None, code]
-    return info
-        # TODO Either adapt it to filename
-        # or change it to something else
-        #filename = document.title()
-        # with open(filename, 'w') as file:
-        #     html_doc = document.summary()
-        #     file.write(html_doc)
+        status = code
+    if status:
+        return status
+
+    # TODO Either adapt it to filename
+    # or change it to something else
+    #filename = document.title()
+    # with open(filename, 'w') as file:
+    #     html_doc = document.summary()
+    #     file.write(html_doc)
 
 
-def extract_first_image(url, content):
+async def extract_image_from_feed(db_file, ix, url):
+    feed_url = sqlite.get_feed_url(db_file, ix)
+    result = await fetch.http(feed_url)
+    document = result[0]
+    # breakpoint()
+    print("extract_image_from_feed")
+    if document:
+        feed = parse(document)
+        for entry in feed.entries:
+            print(len(feed.entries))
+            print(entry.link)
+            print(url)
+            if entry.link == url:
+                for link in entry.links:
+                    if (link.rel == "enclosure" and
+                        link.type.startswith("image/")):
+                    # if link.type.startswith("image/"):
+                        image_url = link.href
+                        print("found")
+                        print(image_url)
+                        break
+    return image_url
+
+
+async def extract_image_from_html(url):
+    result = await fetch.http(url)
+    data = result[0]
+    if data:
+        try:
+            document = Document(data)
+            content = document.summary()
+        except:
+            logging.warning(
+                "Check that package readability is installed.")
     tree = html.fromstring(content)
     images = tree.xpath('//img/@src')
     if len(images):
@@ -775,7 +828,7 @@ async def organize_items(db_file, urls):
     for url in urls:
         # print(os.path.basename(db_file), url[0])
         url = url[0]
-        res = await fetch.download_feed(url)
+        res = await fetch.http(url)
         # TypeError: 'NoneType' object is not subscriptable
         if res is None:
             # Skip to next feed

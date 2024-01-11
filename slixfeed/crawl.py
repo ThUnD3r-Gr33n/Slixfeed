@@ -22,7 +22,7 @@ from feedparser import parse
 import logging
 from lxml import html
 import slixfeed.config as config
-from slixfeed.fetch import download_feed
+import slixfeed.fetch as fetch
 from slixfeed.url import complete_url, join_url, trim_url
 from urllib.parse import urlsplit, urlunsplit
 
@@ -174,9 +174,13 @@ async def feed_mode_scan(url, tree):
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
         # xpath_query = "//a[contains(@href,'{}')]".format(path)
         num = 5
-        xpath_query = "(//a[contains(@href,'{}')])[position()<={}]".format(path, num)
+        xpath_query = (
+            "(//a[contains(@href,'{}')])[position()<={}]"
+            ).format(path, num)
         addresses = tree.xpath(xpath_query)
-        xpath_query = "(//a[contains(@href,'{}')])[position()>last()-{}]".format(path, num)
+        xpath_query = (
+            "(//a[contains(@href,'{}')])[position()>last()-{}]"
+            ).format(path, num)
         addresses += tree.xpath(xpath_query)
         # NOTE Should number of addresses be limited or
         # perhaps be N from the start and N from the end
@@ -226,7 +230,7 @@ async def feed_mode_auto_discovery(url, tree):
             # # The following code will catch
             # # only valid resources (i.e. not 404);
             # # The following code requires more bandwidth.
-            # res = await download_feed(feed)
+            # res = await fetch.http(feed)
             # if res[0]:
             #     disco = parse(res[0])
             #     title = disco["feed"]["title"]
@@ -253,7 +257,7 @@ async def feed_mode_auto_discovery(url, tree):
 async def process_feed_selection(url, urls):
     feeds = {}
     for i in urls:
-        res = await download_feed(i)
+        res = await fetch.http(i)
         if res[1] == 200:
             try:
                 feeds[i] = [parse(res[0])]
@@ -266,7 +270,7 @@ async def process_feed_selection(url, urls):
     feed_url_mark = 0
     for feed_url in feeds:
         # try:
-        #     res = await download_feed(feed)
+        #     res = await fetch.http(feed)
         # except:
         #     continue
         feed_name = None
@@ -334,7 +338,7 @@ async def process_feed_selection(url, urls):
 
 # async def start(url):
 #     while True:
-#         result = await fetch.download_feed(url)
+#         result = await fetch.http(url)
 #         document = result[0]
 #         status = result[1]
 #         if document:
