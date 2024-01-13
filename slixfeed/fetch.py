@@ -28,9 +28,16 @@ from asyncio import TimeoutError
 # from asyncio.exceptions import IncompleteReadError
 # from bs4 import BeautifulSoup
 # from http.client import IncompleteRead
+import logging
 # from lxml import html
-import slixfeed.config as config
 # from xml.etree.ElementTree import ElementTree, ParseError
+import slixfeed.config as config
+try:
+    from magnet2torrent import Magnet2Torrent, FailedToFetchException
+except:
+    logging.info(
+        "Package magnet2torrent was not found.\n"
+        "BitTorrent is disabled.")
 
 
 # async def dat():
@@ -105,3 +112,11 @@ async def http(url):
                 False, "Timeout: " + str(e)
                 ]
     return msg
+
+
+async def magnet(link):
+    m2t = Magnet2Torrent(link)
+    try:
+        filename, torrent_data = await m2t.retrieve_torrent()
+    except FailedToFetchException:
+        logging.debug("Failed")

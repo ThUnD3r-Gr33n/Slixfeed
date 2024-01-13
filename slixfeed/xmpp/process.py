@@ -18,6 +18,7 @@ TODO
 
 """
 
+import slixfeed.fetch as fetch
 import logging
 import os
 import slixfeed.action as action
@@ -335,7 +336,7 @@ async def message(self, message):
                 else:
                     response = "Missing value."
                 send_reply_message(self, message, response)
-            case _ if message_lowercase.startswith("bookmark - "):
+            case _ if message_lowercase.startswith("bookmark -"):
                 if jid == get_value("accounts", "XMPP", "operator"):
                     muc_jid = message_text[11:]
                     await bookmark.remove(self, muc_jid)
@@ -394,7 +395,7 @@ async def message(self, message):
                     else:
                         response = "Missing keywords."
                     send_reply_message(self, message, response)
-            case _ if message_lowercase.startswith("export "):
+            case _ if message_lowercase.startswith("export"):
                 ex = message_text[7:]
                 if ex in ("opml", "html", "md", "xbel"):
                     status_type = "dnd"
@@ -440,7 +441,7 @@ async def message(self, message):
                 response = "Gemini and Gopher are not supported yet."
                 send_reply_message(self, message, response)
             # TODO xHTML, HTMLZ, Markdown, MHTML, PDF, TXT
-            case _ if (message_lowercase.startswith("get ")):
+            case _ if (message_lowercase.startswith("get")):
                 message_text = message_text[4:]
                 ix_url = message_text.split(" ")[0]
                 ext = " ".join(message_text.split(" ")[1:])
@@ -450,8 +451,8 @@ async def message(self, message):
                 if ext in ("html", "md", "pdf"):
                     status_type = "dnd"
                     status_message = (
-                        "📃️ Procesing request to produce {} document ..."
-                        ).format(ext)
+                        "📃️ Procesing request to produce {} document..."
+                        ).format(ext.upper())
                     send_status_message(
                         self, jid, status_type, status_message)
                     db_file = get_pathname_to_database(jid)
@@ -461,27 +462,43 @@ async def message(self, message):
                             os.mkdir(data_dir)
                         if not os.path.isdir(data_dir + '/readability'):
                             os.mkdir(data_dir + '/readability')
-                        filename = os.path.join(
-                            data_dir, "readability", "saved_article_" + timestamp() + "." + ext)
                         try:
                             ix = int(ix_url)
                             try:
                                 url = sqlite.get_entry_url(db_file, ix)
                             except:
-                                response = "No entry Id with {}".format(ix)
+                                response = "No entry with Id {}".format(ix)
                         except:
                             url = ix_url
                         if url:
                             url = uri.remove_tracking_parameters(url)
                             url = (uri.replace_hostname(url, "link")) or url
-                            status = await action.generate_document(url, ext, filename)
-                            if status:
-                                response = (
-                                    "Failed to export {}.  Reason: {}"
-                                    ).format(ext, status)
+                            result = await fetch.http(url)
+                            data = result[0]
+                            code = result[1]
+                            if data:
+                                title = action.get_document_title(data)
+                                title = title.strip().lower()
+                                for i in (" ", "-"):
+                                    title = title.replace(i, "_")
+                                for i in ("?", "'", "!"):
+                                    title = title.replace(i, "")
+                                filename = os.path.join(
+                                    data_dir, "readability",
+                                    title + "_" + timestamp() + "." + ext)
+                                error = action.generate_document(
+                                    data, url, ext, filename)
+                                if status:
+                                    response = (
+                                        "Failed to export {}.  Reason: {}"
+                                        ).format(ext.upper(), error)
+                                else:
+                                    url = await upload.start(self, jid, filename)
+                                    await send_oob_message(self, jid, url)
                             else:
-                                url = await upload.start(self, jid, filename)
-                                await send_oob_message(self, jid, url)
+                                response = (
+                                    "Failed to fetch {}.  Reason: {}"
+                                    ).format(url, code)
                         await task.start_tasks_xmpp(
                             self, jid, ["status"])
                     else:
@@ -769,7 +786,7 @@ async def message(self, message):
                 else:
                     response = "Missing value."
                 send_reply_message(self, message, response)
-            case _ if message_lowercase.startswith("remove "):
+            case _ if message_lowercase.startswith("remove"):
                 ix_url = message_text[7:]
                 if ix_url:
                     db_file = get_pathname_to_database(jid)
@@ -873,7 +890,7 @@ async def message(self, message):
                 except:
                     response = "No news source with ID {}.".format(ix)
                 send_reply_message(self, message, response)
-            case _ if message_lowercase.startswith("enable "):
+            case _ if message_lowercase.startswith("enable"):
                 ix = message_text[7:]
                 db_file = get_pathname_to_database(jid)
                 try:

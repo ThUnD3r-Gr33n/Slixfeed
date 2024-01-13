@@ -129,6 +129,7 @@ def create_tables(db_file):
                 id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 link TEXT NOT NULL,
+                enclosure TEXT,
                 entry_id TEXT NOT NULL,
                 feed_id INTEGER NOT NULL,
                 timestamp TEXT,
@@ -146,6 +147,7 @@ def create_tables(db_file):
                 id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 link TEXT NOT NULL,
+                enclosure TEXT,
                 entry_id TEXT NOT NULL,
                 feed_id INTEGER NOT NULL,
                 timestamp TEXT,
@@ -486,7 +488,8 @@ async def remove_feed_by_url(db_file, url):
             cur = conn.cursor()
             sql = (
                 """
-                DELETE FROM feeds
+                DELETE
+                FROM feeds
                 WHERE url = ?
                 """
                 )
@@ -556,16 +559,17 @@ async def get_feed_id_and_name(db_file, url):
     result : list
         List of ID and Name of feed.
     """
-    cur = get_cursor(db_file)
-    sql = (
-        """
-        SELECT id, name
-        FROM feeds
-        WHERE url = ?
-        """
-        )
-    result = cur.execute(sql, (url,)).fetchone()
-    return result
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT id, name
+            FROM feeds
+            WHERE url = ?
+            """
+            )
+        result = cur.execute(sql, (url,)).fetchone()
+        return result
 
 
 async def get_number_of_items(db_file, table):
@@ -677,11 +681,11 @@ async def get_unread_entries(db_file, num):
         cur = conn.cursor()
         sql = (
             """
-            SELECT id, title, link, feed_id, timestamp
+            SELECT id, title, link, enclosure, feed_id, timestamp
             FROM entries
             WHERE read = 0
             UNION ALL
-            SELECT id, title, link, feed_id, timestamp
+            SELECT id, title, link, enclosure, feed_id, timestamp
             FROM archive
             ORDER BY timestamp
             DESC LIMIT :num
@@ -861,17 +865,9 @@ def get_entry_url(db_file, ix):
         return url
 
 
-def get_feed_url(db_file, ix):
+def get_feed_url(db_file, feed_id):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        sql = ( # TODO Handletable archive too
-            """
-            SELECT feed_id
-            FROM entries
-            WHERE id = :ix
-            """
-            )
-        feed_id = cur.execute(sql, (ix,)).fetchone()[0]
         sql = (
             """
             SELECT url
@@ -1152,14 +1148,15 @@ async def add_entries_and_update_timestamp(db_file, new_entries):
                     """
                     INSERT
                     INTO entries(
-                        title, link, entry_id, feed_id, timestamp, read)
+                        title, link, enclosure, entry_id, feed_id, timestamp, read)
                     VALUES(
-                        :title, :link, :entry_id, :feed_id, :timestamp, :read)
+                        :title, :link, :enclosure, :entry_id, :feed_id, :timestamp, :read)
                     """
                     )
                 cur.execute(sql, {
                     "title": entry["title"],
                     "link": entry["link"],
+                    "enclosure": entry["enclosure"],
                     "entry_id": entry["entry_id"],
                     "feed_id": feed_id,
                     "timestamp": entry["date"],
@@ -1338,10 +1335,12 @@ async def maintain_archive(db_file, limit):
                     """
                     DELETE FROM archive
                     WHERE id
-                    IN (SELECT id
-                    FROM archive
-                    ORDER BY timestamp ASC
-                    LIMIT :difference)
+                    IN (
+                        SELECT id
+                        FROM archive
+                        ORDER BY timestamp ASC
+                        LIMIT :difference
+                        )
                     """
                     )
                 cur.execute(sql, {
@@ -1452,15 +1451,16 @@ async def get_feeds(db_file):
     #    Select name, url (feeds) updated, enabled, feed_id (status)
     # 2) Sort feeds by id. Sort status by feed_id
     # results += cur.execute(sql).fetchall()
-    cur = get_cursor(db_file)
-    sql = (
-        """
-        SELECT name, url, id
-        FROM feeds
-        """
-        )
-    results = cur.execute(sql).fetchall()
-    return results
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT name, url, id
+            FROM feeds
+            """
+            )
+        results = cur.execute(sql).fetchall()
+        return results
 
 
 async def last_entries(db_file, num):
@@ -1479,29 +1479,30 @@ async def last_entries(db_file, num):
     titles_list : str
         List of recent N entries as message.
     """
-    cur = get_cursor(db_file)
-    # sql = (
-    #     "SELECT title, link "
-    #     "FROM entries "
-    #     "ORDER BY ROWID DESC "
-    #     "LIMIT :num"
-    #     )
-    sql = (
-        """
-        SELECT title, link, timestamp
-        FROM entries
-        WHERE read = 0
-        UNION ALL
-        SELECT title, link, timestamp
-        FROM archive
-        WHERE read = 0
-        ORDER BY timestamp DESC
-        LIMIT :num
-        """
-        )
-    results = cur.execute(
-        sql, (num,)).fetchall()
-    return results
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        # sql = (
+        #     "SELECT title, link "
+        #     "FROM entries "
+        #     "ORDER BY ROWID DESC "
+        #     "LIMIT :num"
+        #     )
+        sql = (
+            """
+            SELECT title, link, timestamp
+            FROM entries
+            WHERE read = 0
+            UNION ALL
+            SELECT title, link, timestamp
+            FROM archive
+            WHERE read = 0
+            ORDER BY timestamp DESC
+            LIMIT :num
+            """
+            )
+        results = cur.execute(
+            sql, (num,)).fetchall()
+        return results
 
 
 async def search_feeds(db_file, query):
@@ -1520,19 +1521,20 @@ async def search_feeds(db_file, query):
     titles_list : str
         Feeds of specified keywords as message.
     """
-    cur = get_cursor(db_file)
-    sql = (
-        """
-        SELECT name, id, url
-        FROM feeds
-        WHERE name LIKE ?
-        OR url LIKE ?
-        LIMIT 50
-        """
-        )
-    results = cur.execute(
-        sql, [f'%{query}%', f'%{query}%']).fetchall()
-    return results
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT name, id, url
+            FROM feeds
+            WHERE name LIKE ?
+            OR url LIKE ?
+            LIMIT 50
+            """
+            )
+        results = cur.execute(
+            sql, [f'%{query}%', f'%{query}%']).fetchall()
+        return results
 
 
 async def search_entries(db_file, query):
@@ -1551,22 +1553,23 @@ async def search_entries(db_file, query):
     titles_list : str
         Entries of specified keywords as message.
     """
-    cur = get_cursor(db_file)
-    sql = (
-        """
-        SELECT title, link
-        FROM entries
-        WHERE title LIKE ?
-        UNION ALL
-        SELECT title, link
-        FROM archive
-        WHERE title LIKE ?
-        LIMIT 50
-        """
-        )
-    results = cur.execute(
-        sql, (f'%{query}%', f'%{query}%')).fetchall()
-    return results
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT title, link
+            FROM entries
+            WHERE title LIKE ?
+            UNION ALL
+            SELECT title, link
+            FROM archive
+            WHERE title LIKE ?
+            LIMIT 50
+            """
+            )
+        results = cur.execute(
+            sql, (f'%{query}%', f'%{query}%')).fetchall()
+        return results
 
 
 """
@@ -1619,68 +1622,62 @@ async def check_entry_exist(
     bool
         True or None.
     """
-    cur = get_cursor(db_file)
-    exist = False
-    if entry_id:
-        feed_id = get_feed_id(cur, url)
-        sql = (
-            """
-            SELECT id
-            FROM entries
-            WHERE
-            entry_id = :entry_id and
-            feed_id = :feed_id
-            """
-            )
-        result = cur.execute(sql, {
-            "entry_id": entry_id,
-            "feed_id": feed_id
-            }).fetchone()
-        if result: exist = True
-    elif date:
-        sql = (
-            """
-            SELECT id
-            FROM entries
-            WHERE
-            title = :title and
-            link = :link and
-            timestamp = :date
-            """
-            )
-        try:
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        exist = False
+        if entry_id:
+            feed_id = get_feed_id(cur, url)
+            sql = (
+                """
+                SELECT id
+                FROM entries
+                WHERE entry_id = :entry_id and feed_id = :feed_id
+                """
+                )
             result = cur.execute(sql, {
-                "title": title,
-                "link": link,
-                "timestamp": date
+                "entry_id": entry_id,
+                "feed_id": feed_id
                 }).fetchone()
             if result: exist = True
-        except:
-            print(current_time(), "ERROR DATE: source =", url)
-            print(current_time(), "ERROR DATE: date =", date)
-    else:
-        sql = (
-            """
-            SELECT id
-            FROM entries
-            WHERE
-            title = :title and
-            link = :link
-            """
-            )
-        result = cur.execute(sql, {
-            "title": title,
-            "link": link
-            }).fetchone()
-        if result: exist = True
-    # try:
-    #     if result:
-    #         return True
-    #     else:
-    #         return None
-    # except:
-    #     print(current_time(), "ERROR DATE: result =", url)
-    return exist
+        elif date:
+            sql = (
+                """
+                SELECT id
+                FROM entries
+                WHERE title = :title and link = :link and timestamp = :date
+                """
+                )
+            try:
+                result = cur.execute(sql, {
+                    "title": title,
+                    "link": link,
+                    "timestamp": date
+                    }).fetchone()
+                if result: exist = True
+            except:
+                print(current_time(), "ERROR DATE: source =", url)
+                print(current_time(), "ERROR DATE: date =", date)
+        else:
+            sql = (
+                """
+                SELECT id
+                FROM entries
+                WHERE title = :title and link = :link
+                """
+                )
+            result = cur.execute(sql, {
+                "title": title,
+                "link": link
+                }).fetchone()
+            if result: exist = True
+        # try:
+        #     if result:
+        #         return True
+        #     else:
+        #         return None
+        # except:
+        #     print(current_time(), "ERROR DATE: result =", url)
+        return exist
 
 
 async def set_settings_value(db_file, key_value):

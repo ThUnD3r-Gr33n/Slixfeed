@@ -42,7 +42,7 @@ from slixfeed.url import (
     )
 import slixfeed.xmpp.bookmark as bookmark
 from urllib import error
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 import xml.etree.ElementTree as ET
 
 try:
@@ -688,9 +688,34 @@ async def scan(db_file, url):
                 if isinstance(date, int):
                     logging.error(
                         "Variable 'date' is int: {}".format(date))
+                media_link = ''
+                if entry.has_key("links"):
+                    for e_link in entry.links:
+                        try:
+                            # if (link.rel == "enclosure" and
+                            #     (link.type.startswith("audio/") or
+                            #      link.type.startswith("image/") or
+                            #      link.type.startswith("video/"))
+                            #     ):
+                            media_type = e_link.type[:e_link.type.index("/")]
+                            if e_link.has_key("rel"):
+                                if (e_link.rel == "enclosure" and
+                                    media_type in ("audio", "image", "video")):
+                                    media_link = e_link.href
+                                    media_link = join_url(url, e_link.href)
+                                    media_link = trim_url(media_link)
+                                    break
+                        except:
+                            logging.error(
+                                "KeyError: 'href'\n"
+                                "Missing 'href' attribute for {}".format(url))
+                            logging.info(
+                                "Continue scanning for next potential "
+                                "enclosure of {}".format(link))
                 entry = {
                     "title": title,
                     "link": link,
+                    "enclosure": media_link,
                     "entry_id": entry_id,
                     "url": url,
                     "date": date,
@@ -706,42 +731,47 @@ async def scan(db_file, url):
             db_file, new_entries)
 
 
-async def generate_document(url, ext, filename):
-    result = await fetch.http(url)
-    data = result[0]
-    code = result[1]
-    status = None
-    if data:
-        try:
-            document = Document(data)
-            content = document.summary()
-        except:
-            logging.warning(
-                "Check that package readability is installed.")
-        match ext:
-            case "html":
-                generate_html(content, filename)
-            case "md":
-                try:
-                    generate_markdown(content, filename)
-                except:
-                    logging.warning(
-                        "Check that package html2text is installed.")
-                    status = (
-                        "Package html2text was not found.")
-            case "pdf":
-                try:
-                    generate_pdf(content, filename)
-                except:
-                    logging.warning(
-                        "Check that packages pdfkit and wkhtmltopdf "
-                        "are installed.")
-                    status = (
-                        "Package pdfkit or wkhtmltopdf was not found.")
-    else:
-        status = code
-    if status:
-        return status
+def get_document_title(data):
+    try:
+        document = Document(data)
+        title = document.short_title()
+    except:
+        document = BeautifulSoup(data, 'html.parser')
+        title = document.title.string
+    return title
+
+
+def generate_document(data, url, ext, filename):
+    error = None
+    try:
+        document = Document(data)
+        content = document.summary()
+    except:
+        content = data
+        logging.warning(
+            "Check that package readability is installed.")
+    match ext:
+        case "html":
+            generate_html(content, filename)
+        case "md":
+            try:
+                generate_markdown(content, filename)
+            except:
+                logging.warning(
+                    "Check that package html2text is installed.")
+                error = (
+                    "Package html2text was not found.")
+        case "pdf":
+            try:
+                generate_pdf(content, filename)
+            except:
+                logging.warning(
+                    "Check that packages pdfkit and wkhtmltopdf "
+                    "are installed.")
+                error = (
+                    "Package pdfkit or wkhtmltopdf was not found.")
+    if error:
+        return error
 
     # TODO Either adapt it to filename
     # or change it to something else
@@ -751,28 +781,25 @@ async def generate_document(url, ext, filename):
     #     file.write(html_doc)
 
 
-async def extract_image_from_feed(db_file, ix, url):
-    feed_url = sqlite.get_feed_url(db_file, ix)
+async def extract_image_from_feed(db_file, feed_id, url):
+    feed_url = sqlite.get_feed_url(db_file, feed_id)
     result = await fetch.http(feed_url)
     document = result[0]
-    # breakpoint()
-    print("extract_image_from_feed")
     if document:
         feed = parse(document)
         for entry in feed.entries:
-            print(len(feed.entries))
-            print(entry.link)
-            print(url)
-            if entry.link == url:
-                for link in entry.links:
-                    if (link.rel == "enclosure" and
-                        link.type.startswith("image/")):
-                    # if link.type.startswith("image/"):
-                        image_url = link.href
-                        print("found")
-                        print(image_url)
-                        break
-    return image_url
+            try:
+                if entry.link == url:
+                    for link in entry.links:
+                        if (link.rel == "enclosure" and
+                            link.type.startswith("image/")):
+                            image_url = link.href
+                            return image_url
+            except:
+                logging.error(url)
+                logging.error(
+                    "AttributeError: object has no attribute 'link'")
+                breakpoint()
 
 
 async def extract_image_from_html(url):
@@ -783,17 +810,17 @@ async def extract_image_from_html(url):
             document = Document(data)
             content = document.summary()
         except:
+            content = data
             logging.warning(
                 "Check that package readability is installed.")
     tree = html.fromstring(content)
+    # TODO Exclude banners, class="share" links etc.
     images = tree.xpath('//img/@src')
     if len(images):
         image = images[0]
         image = str(image)
         image_url = complete_url(url, image)
-    else:
-        image_url = None
-    return image_url
+        return image_url
 
 
 def generate_html(text, filename):
@@ -811,6 +838,35 @@ def generate_markdown(text, filename):
     markdown = h2m.handle(text)
     with open(filename, 'w') as file:
         file.write(markdown)
+
+
+# TODO Add support for eDonkey, Gnutella, Soulseek
+async def get_magnet(link):
+    parted_link = urlsplit(link)
+    queries = parse_qs(parted_link.query)
+    query_xt = queries["xt"][0]
+    if query_xt.startswith("urn:btih:"):
+        filename = queries["dn"][0]
+        checksum = query_xt[len("urn:btih:"):]
+        torrent = await fetch.magnet(link)
+        logging.debug(
+            "Attempting to retrieve {} ({})".format(
+                filename, checksum))
+        if not torrent:
+            logging.debug(
+                "Attempting to retrieve {} from HTTP caching service".format(
+                    filename))
+            urls = [
+                'https://watercache.libertycorp.org/get/{}/{}',
+                'https://itorrents.org/torrent/{}.torrent?title={}',
+                'https://firecache.libertycorp.org/get/{}/{}',
+                'http://fcache63sakpihd44kxdduy6kgpdhgejgp323wci435zwy6kiylcnfad.onion/get/{}/{}'
+                ]
+            for url in urls:
+                torrent = fetch.http(url.format(checksum, filename))
+                if torrent:
+                    break
+    return torrent
 
 
 # NOTE Why (if res[0]) and (if res[1] == 200)?

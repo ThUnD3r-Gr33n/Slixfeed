@@ -227,46 +227,60 @@ async def send_update(self, jid, num=None):
             num = int(num)
         news_digest = []
         results = await get_unread_entries(db_file, num)
-        image_url = None
+        news_digest = ''
+        media = None
+        chat_type = await utility.jid_type(self, jid)
         for result in results:
             ix = result[0]
             title_e = result[1]
             url = result[2]
-            feed_id = result[3]
-            date = result[4]
+            enclosure = result[3]
+            feed_id = result[4]
+            date = result[5]
             title_f = get_feed_title(db_file, feed_id)
-            news_item = action.list_unread_entries(result, title_f)
-            news_digest.extend([news_item])
+            news_digest += action.list_unread_entries(result, title_f)
             # print(db_file)
             # print(result[0])
             # breakpoint()
-            await mark_as_read(db_file, result[0])
-            if not image_url:
-                image_url = await action.extract_image_from_feed(
-                    db_file, ix, url)
-            if not image_url:
-                image_url = await action.extract_image_from_html(url)
-            print("image_url")
-            print(image_url)
-        new = " ".join(news_digest)
-        # breakpoint()
-        if new:
+            await mark_as_read(db_file, ix)
+
+            # Find media
+            if url.startswith("magnet:"):
+                media = action.get_magnet(url)
+            elif enclosure.startswith("magnet:"):
+                media = action.get_magnet(enclosure)
+            elif enclosure:
+                media = enclosure
+            else:
+                media = await action.extract_image_from_html(url)
+            
+            if media and news_digest:
+                # Send textual message
+                xmpp.Slixfeed.send_message(
+                    self, mto=jid, mbody=news_digest, mtype=chat_type)
+                news_digest = ''
+                # Send media
+                message = xmpp.Slixfeed.make_message(
+                    self, mto=jid, mbody=media, mtype=chat_type)
+                message['oob']['url'] = media
+                message.send()
+                media = None
+                
+        if news_digest:
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
-            chat_type = await utility.jid_type(self, jid)
             # NOTE Do we need "if statement"? See NOTE at is_muc.
             if chat_type in ("chat", "groupchat"):
                 # TODO Provide a choice (with or without images)
                 xmpp.Slixfeed.send_message(
-                    self, mto=jid, mbody=new, mtype=chat_type)
-                if image_url:
-                    # message = xmpp.Slixfeed.make_message(
-                    #     self, mto=jid, mbody=new, mtype=chat_type)
-                    message = xmpp.Slixfeed.make_message(
-                        self, mto=jid, mbody=image_url, mtype=chat_type)
-                    message['oob']['url'] = image_url
-                    print(image_url)
-                    message.send()
+                    self, mto=jid, mbody=news_digest, mtype=chat_type)
+        # if media:
+        #     # message = xmpp.Slixfeed.make_message(
+        #     #     self, mto=jid, mbody=new, mtype=chat_type)
+        #     message = xmpp.Slixfeed.make_message(
+        #         self, mto=jid, mbody=media, mtype=chat_type)
+        #     message['oob']['url'] = media
+        #     message.send()
                 
         # TODO Do not refresh task before
         # verifying that it was completed.
