@@ -56,7 +56,7 @@ async def join(self, inviter, muc_jid):
     #     token = randrange(10000, 99999)
     #     await initdb(
     #         muc_jid,
-    #         set_settings_value,
+    #         update_settings_value,
     #         ["token", token]
     #     )
     #     self.send_message(

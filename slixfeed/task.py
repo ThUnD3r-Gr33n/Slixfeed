@@ -245,6 +245,11 @@ async def send_update(self, jid, num=None):
             await mark_as_read(db_file, ix)
 
             # Find media
+            # if url.startswith("magnet:"):
+            #     media = action.get_magnet(url)
+            # elif enclosure.startswith("magnet:"):
+            #     media = action.get_magnet(enclosure)
+            # elif enclosure:
             if enclosure:
                 media = enclosure
             else:

@@ -82,7 +82,11 @@ async def message(self, message):
         jid = message["from"].bare
         message_text = " ".join(message["body"].split())
 
-        # BOTE This is an exceptional case in which we treat
+        if (message["type"] == "groupchat" and
+            message['muc']['nick'] == self.nick):
+                return
+
+        # NOTE This is an exceptional case in which we treat
         # type groupchat the same as type chat.
         if (message_text.lower().startswith("http") and
             message_text.lower().endswith(".opml")):
@@ -115,8 +119,8 @@ async def message(self, message):
 
         if message["type"] == "groupchat":
             # nick = message["from"][message["from"].index("/")+1:]
-            nick = str(message["from"])
-            nick = nick[nick.index("/")+1:]
+            # nick = str(message["from"])
+            # nick = nick[nick.index("/")+1:]
             if (message['muc']['nick'] == self.nick or
                 not message["body"].startswith("!")):
                 return
@@ -226,12 +230,12 @@ async def message(self, message):
             #         if int(acode) == token:
             #             await initdb(
             #                 jid,
-            #                 set_settings_value,
+            #                 update_settings_value,
             #                 ["masters", nick]
             #                 )
             #             await initdb(
             #                 jid,
-            #                 set_settings_value,
+            #                 update_settings_value,
             #                 ["token", "accepted"]
             #                 )
             #             response = "{}, your are in command.".format(nick)
@@ -290,8 +294,11 @@ async def message(self, message):
                             db_file, key)
                         val = await add_to_list(
                             val, keywords)
-                        await sqlite.set_filters_value(
-                            db_file, [key, val])
+                        if await sqlite.get_filters_value(db_file, key):
+                            await sqlite.update_filters_value(
+                                db_file, [key, val])
+                        else:
+                            await sqlite.set_filters_value(db_file, [key, val])
                         response = (
                             "Approved keywords\n"
                             "```\n{}\n```"
@@ -308,8 +315,11 @@ async def message(self, message):
                             db_file, key)
                         val = await remove_from_list(
                             val, keywords)
-                        await sqlite.set_filters_value(
-                            db_file, [key, val])
+                        if await sqlite.get_filters_value(db_file, key):
+                            await sqlite.update_filters_value(
+                                db_file, [key, val])
+                        else:
+                            await sqlite.set_filters_value(db_file, [key, val])
                         response = (
                             "Approved keywords\n"
                             "```\n{}\n```"
@@ -326,8 +336,13 @@ async def message(self, message):
                             response = "Value may not be greater than 500."
                         else:
                             db_file = get_pathname_to_database(jid)
-                            await sqlite.set_settings_value(
-                                db_file, [key, val])
+                            if await sqlite.get_settings_value(
+                                    db_file, [key, val]):
+                                await sqlite.update_settings_value(
+                                    db_file, [key, val])
+                            else:
+                                await sqlite.set_settings_value(
+                                    db_file, [key, val])
                             response = (
                                 "Maximum archived items has been set to {}."
                                 ).format(val)
@@ -368,8 +383,11 @@ async def message(self, message):
                             db_file, key)
                         val = await add_to_list(
                             val, keywords)
-                        await sqlite.set_filters_value(
-                            db_file, [key, val])
+                        if await sqlite.get_filters_value(db_file, key):
+                            await sqlite.update_filters_value(
+                                db_file, [key, val])
+                        else:
+                            await sqlite.set_filters_value(db_file, [key, val])
                         response = (
                             "Rejected keywords\n"
                             "```\n{}\n```"
@@ -386,8 +404,11 @@ async def message(self, message):
                             db_file, key)
                         val = await remove_from_list(
                             val, keywords)
-                        await sqlite.set_filters_value(
-                            db_file, [key, val])
+                        if await sqlite.get_filters_value(db_file, key):
+                            await sqlite.update_filters_value(
+                                db_file, [key, val])
+                        else:
+                            await sqlite.set_filters_value(db_file, [key, val])
                         response = (
                             "Rejected keywords\n"
                             "```\n{}\n```"
@@ -600,7 +621,10 @@ async def message(self, message):
                     #     "Updates will be sent every {} minutes."
                     #     ).format(response)
                     db_file = get_pathname_to_database(jid)
-                    await sqlite.set_settings_value(db_file, [key, val])
+                    if await sqlite.get_settings_value(db_file, key):
+                        await sqlite.update_settings_value(db_file, [key, val])
+                    else:
+                        await sqlite.set_settings_value(db_file, [key, val])
                     # NOTE Perhaps this should be replaced
                     # by functions clean and start
                     await task.refresh_task(
@@ -631,8 +655,13 @@ async def message(self, message):
                         try:
                             val = int(val)
                             db_file = get_pathname_to_database(jid)
-                            await sqlite.set_settings_value(
-                                db_file, [key, val])
+                            if await sqlite.get_settings_value(
+                                    db_file, [key, val]):
+                                await sqlite.update_settings_value(
+                                    db_file, [key, val])
+                            else:
+                                await sqlite.set_settings_value(
+                                    db_file, [key, val])
                             if val == 0: # if not val:
                                 response = (
                                     "Summary length limit is disabled."
@@ -661,7 +690,7 @@ async def message(self, message):
             #                 )
             #             await initdb(
             #                 jid,
-            #                 set_settings_value,
+            #                 update_settings_valuevv,
             #                 [key, val]
             #                 )
             #             response = (
@@ -673,8 +702,12 @@ async def message(self, message):
                     send_reply_message(self, message, response)
             case "new":
                 db_file = get_pathname_to_database(jid)
-                await sqlite.set_settings_value(
-                    db_file, ["old", 0])
+                key = "old"
+                val = 0
+                if await sqlite.get_settings_value(db_file, key):
+                    await sqlite.update_settings_value(db_file, [key, val])
+                else:
+                    await sqlite.set_settings_value(db_file, [key, val])
                 response = (
                     "Only new items of newly added feeds will be sent."
                     )
@@ -703,8 +736,12 @@ async def message(self, message):
                 # await refresh_task(jid, key, val)
             case "old":
                 db_file = get_pathname_to_database(jid)
-                await sqlite.set_settings_value(
-                    db_file, ["old", 1])
+                key = "old"
+                val = 1
+                if await sqlite.get_settings_value(db_file, key):
+                    await sqlite.update_settings_value(db_file, [key, val])
+                else:
+                    await sqlite.set_settings_value(db_file, [key, val])
                 response = (
                     "All items of newly added feeds will be sent."
                     )
@@ -719,8 +756,20 @@ async def message(self, message):
                         #     "Every update will contain {} news items."
                         #     ).format(response)
                         db_file = get_pathname_to_database(jid)
-                        await sqlite.set_settings_value(
-                            db_file, [key, val])
+                        a = await sqlite.get_settings_value(db_file, key)
+                        print(a)
+                        print(key)
+                        print(val)
+                        print(a)
+                        print(a)
+                        print(a)
+                        if await sqlite.get_settings_value(
+                                db_file, key):
+                            await sqlite.update_settings_value(
+                                db_file, [key, val])
+                        else:
+                            await sqlite.set_settings_value(
+                                db_file, [key, val])
                         response = (
                             "Next update will contain {} news items."
                             ).format(val)
@@ -865,8 +914,10 @@ async def message(self, message):
                 key = "enabled"
                 val = 1
                 db_file = get_pathname_to_database(jid)
-                await sqlite.set_settings_value(
-                    db_file, [key, val])
+                if await sqlite.get_settings_value(db_file, key):
+                    await sqlite.update_settings_value(db_file, [key, val])
+                else:
+                    await sqlite.set_settings_value(db_file, [key, val])
                 # asyncio.create_task(task_jid(self, jid))
                 await task.start_tasks_xmpp(
                     self, jid, ["interval", "status", "check"])
@@ -916,7 +967,7 @@ async def message(self, message):
                 #     val = 0
                 #     response = await initdb(
                 #         jid,
-                #         set_settings_value,
+                #         update_settings_value,
                 #         [key, val]
                 #         )
                 # except:
@@ -926,8 +977,10 @@ async def message(self, message):
                 key = "enabled"
                 val = 0
                 db_file = get_pathname_to_database(jid)
-                await sqlite.set_settings_value(
-                    db_file, [key, val])
+                if await sqlite.get_settings_value(db_file, key):
+                    await sqlite.update_settings_value(db_file, [key, val])
+                else:
+                    await sqlite.set_settings_value(db_file, [key, val])
                 await task.clean_tasks_xmpp(
                     jid, ["interval", "status"])
                 response = "Updates are disabled."

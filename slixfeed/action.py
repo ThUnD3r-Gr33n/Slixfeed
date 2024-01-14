@@ -813,14 +813,14 @@ async def extract_image_from_html(url):
             content = data
             logging.warning(
                 "Check that package readability is installed.")
-    tree = html.fromstring(content)
-    # TODO Exclude banners, class="share" links etc.
-    images = tree.xpath('//img/@src')
-    if len(images):
-        image = images[0]
-        image = str(image)
-        image_url = complete_url(url, image)
-        return image_url
+        tree = html.fromstring(content)
+        # TODO Exclude banners, class="share" links etc.
+        images = tree.xpath('//img/@src')
+        if len(images):
+            image = images[0]
+            image = str(image)
+            image_url = complete_url(url, image)
+            return image_url
 
 
 def generate_html(text, filename):

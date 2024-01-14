@@ -241,9 +241,6 @@ async def import_feeds(db_file, feeds):
             for feed in feeds:
                 url = feed[0]
                 title = feed[1]
-                feed = (
-                    title, url
-                    )
                 sql = (
                     """
                     INSERT
@@ -253,8 +250,11 @@ async def import_feeds(db_file, feeds):
                         ?, ?)
                     """
                     )
+                par = (
+                    title, url
+                    )
                 try:
-                    cur.execute(sql, feed)
+                    cur.execute(sql, par)
                 except IntegrityError as e:
                     logging.warning("Skipping: " + url)
                     logging.error(e)
@@ -304,8 +304,9 @@ def insert_feed_status(cur, feed_id):
             ?)
         """
         )
+    par = (feed_id,)
     try:
-        cur.execute(sql, (feed_id,))
+        cur.execute(sql, par)
     except IntegrityError as e:
         logging.warning(
             "Skipping feed_id {} for table status".format(feed_id))
@@ -330,8 +331,9 @@ def insert_feed_properties(cur, feed_id):
             ?)
         """
         )
+    par = (feed_id,)
     try:
-        cur.execute(sql, (feed_id,))
+        cur.execute(sql, par)
     except IntegrityError as e:
         logging.warning(
             "Skipping feed_id {} for table properties".format(feed_id))
@@ -368,9 +370,6 @@ async def insert_feed(
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
-            feed = (
-                title, url
-                )
             sql = (
                 """
                 INSERT
@@ -380,7 +379,10 @@ async def insert_feed(
                     ?, ?)
                 """
                 )
-            cur.execute(sql, feed)
+            par = (
+                title, url
+                )
+            cur.execute(sql, par)
             sql = (
                 """
                 SELECT id
@@ -388,10 +390,8 @@ async def insert_feed(
                 WHERE url = :url
                 """
                 )
-            feed_id = cur.execute(sql, (url,)).fetchone()[0]
-            status = (
-                feed_id, 1, updated, status_code, 1
-                )
+            par = (url,)
+            feed_id = cur.execute(sql, par).fetchone()[0]
             sql = (
                 """
                 INSERT
@@ -401,10 +401,10 @@ async def insert_feed(
                     ?, ?, ?, ?, ?)
                 """
                 )
-            cur.execute(sql, status)
-            properties = (
-                feed_id, entries, version, encoding, language
+            par = (
+                feed_id, 1, updated, status_code, 1
                 )
+            cur.execute(sql, par)
             sql = (
                 """
                 INSERT
@@ -414,7 +414,10 @@ async def insert_feed(
                     ?, ?, ?, ?, ?)
                 """
                 )
-            cur.execute(sql, properties)
+            par = (
+                feed_id, entries, version, encoding, language
+                )
+            cur.execute(sql, par)
 
 
 async def insert_feed_(
@@ -451,9 +454,6 @@ async def insert_feed_(
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
-            feed = (
-                title, url
-                )
             sql = (
                 """
                 INSERT
@@ -463,7 +463,10 @@ async def insert_feed_(
                     ?, ?)
                 """
                 )
-            cur.execute(sql, feed)
+            par = (
+                title, url
+                )
+            cur.execute(sql, par)
             feed_id = get_feed_id(cur, url)
             insert_feed_properties(
                 cur, feed_id, entries=None, 
@@ -493,7 +496,8 @@ async def remove_feed_by_url(db_file, url):
                 WHERE url = ?
                 """
                 )
-            cur.execute(sql, (url,))
+            par = (url,)
+            cur.execute(sql, par)
 
 
 async def remove_feed_by_index(db_file, ix):
@@ -517,27 +521,31 @@ async def remove_feed_by_index(db_file, ix):
                 WHERE id = ?
                 """
                 )
-            url = cur.execute(sql, (ix,)).fetchone()[0]
+            par = (ix,)
+            url = cur.execute(sql, par).fetchone()[0]
             # # NOTE Should we move DBLOCK to this line? 2022-12-23
             # sql = (
             #     "DELETE "
             #     "FROM entries "
             #     "WHERE feed_id = ?"
             #     )
-            # cur.execute(sql, (url,)) # Error? 2024-01-05
+            # par = (url,)
+            # cur.execute(sql, par) # Error? 2024-01-05
             # sql = (
             #     "DELETE "
             #     "FROM archive "
             #     "WHERE feed_id = ?"
             #     )
-            # cur.execute(sql, (url,))
+            # par = (url,)
+            # cur.execute(sql, par)
             sql = (
                 """
                 DELETE FROM feeds
                 WHERE id = ?
                 """
                 )
-            cur.execute(sql, (ix,))
+            par = (ix,)
+            cur.execute(sql, par)
             return url
 
 
@@ -568,7 +576,8 @@ async def get_feed_id_and_name(db_file, url):
             WHERE url = ?
             """
             )
-        result = cur.execute(sql, (url,)).fetchone()
+        par = (url,)
+        result = cur.execute(sql, par).fetchone()
         return result
 
 
@@ -691,7 +700,8 @@ async def get_unread_entries(db_file, num):
             DESC LIMIT :num
             """
             )
-        results = cur.execute(sql, (num,)).fetchall()
+        par = (num,)
+        results = cur.execute(sql, par).fetchall()
         return results
 
 
@@ -718,7 +728,8 @@ def get_feed_id(cur, url):
         WHERE url = :url
         """
         )
-    feed_id = cur.execute(sql, (url,)).fetchone()[0]
+    par = (url,)
+    feed_id = cur.execute(sql, par).fetchone()[0]
     return feed_id
 
 
@@ -740,7 +751,8 @@ async def mark_entry_as_read(cur, ix):
         WHERE id = ?
         """
         )
-    cur.execute(sql, (ix,))
+    par = (ix,)
+    cur.execute(sql, par)
 
 
 async def mark_feed_as_read(db_file, url):
@@ -764,7 +776,8 @@ async def mark_feed_as_read(db_file, url):
                 WHERE feed_id = ?
                 """
                 )
-            cur.execute(sql, (url,))
+            par = (url,)
+            cur.execute(sql, par)
 
 
 async def delete_entry_by_id(db_file, ix):
@@ -788,7 +801,8 @@ async def delete_entry_by_id(db_file, ix):
                 WHERE id = :ix
                 """
                 )
-            cur.execute(sql, (ix,))
+            par = (ix,)
+            cur.execute(sql, par)
 
 
 async def archive_entry(db_file, ix):
@@ -814,8 +828,9 @@ async def archive_entry(db_file, ix):
                 WHERE entries.id = :ix
                 """
                 )
+            par = (ix,)
             try:
-                cur.execute(sql, (ix,))
+                cur.execute(sql, par)
             except:
                 print(
                     "ERROR DB insert from entries "
@@ -828,8 +843,9 @@ async def archive_entry(db_file, ix):
                 WHERE id = :ix
                 """
                 )
+            par = (ix,)
             try:
-                cur.execute(sql, (ix,))
+                cur.execute(sql, par)
             except:
                 print(
                     "ERROR DB deleting items from "
@@ -847,7 +863,8 @@ def get_feed_title(db_file, ix):
             WHERE id = :ix
             """
             )
-        title = cur.execute(sql, (ix,)).fetchone()[0]
+        par = (ix,)
+        title = cur.execute(sql, par).fetchone()[0]
         return title
 
 
@@ -861,7 +878,8 @@ def get_entry_url(db_file, ix):
             WHERE id = :ix
             """
             )
-        url = cur.execute(sql, (ix,)).fetchone()[0]
+        par = (ix,)
+        url = cur.execute(sql, par).fetchone()[0]
         return url
 
 
@@ -875,7 +893,8 @@ def get_feed_url(db_file, feed_id):
             WHERE id = :feed_id
             """
             )
-        url = cur.execute(sql, (feed_id,)).fetchone()[0]
+        par = (feed_id,)
+        url = cur.execute(sql, par).fetchone()[0]
         return url
 
 
@@ -938,7 +957,8 @@ async def delete_archived_entry(cur, ix):
         WHERE id = ?
         """
         )
-    cur.execute(sql, (ix,))
+    par = (ix,)
+    cur.execute(sql, par)
 
 
 async def statistics(db_file):
@@ -973,8 +993,9 @@ async def statistics(db_file):
             "FROM settings "
             "WHERE key = ?"
             )
+            par = (key,)
             try:
-                value = cur.execute(sql, (key,)).fetchone()[0]
+                value = cur.execute(sql, par).fetchone()[0]
             except:
                 print("Error for key:", key)
                 value = "Default"
@@ -1001,17 +1022,19 @@ async def update_statistics(cur):
             "FROM statistics "
             "WHERE title = ?"
             )
-        cur.execute(sql, (i,))
+        par = (i,)
+        cur.execute(sql, par)
         if cur.fetchone():
             sql = (
                 "UPDATE statistics "
                 "SET number = :num "
                 "WHERE title = :title"
                 )
-            cur.execute(sql, {
+            par = {
                 "title": i,
                 "num": stat_dict[i]
-                })
+                }
+            cur.execute(sql, par)
         else:
             sql = (
                 "SELECT count(id) "
@@ -1023,7 +1046,8 @@ async def update_statistics(cur):
                 "INSERT INTO statistics "
                 "VALUES(?,?,?)"
                 )
-            cur.execute(sql, (ix, i, stat_dict[i]))
+            par = (ix, i, stat_dict[i])
+            cur.execute(sql, par)
 
 
 async def set_enabled_status(db_file, ix, status):
@@ -1049,10 +1073,11 @@ async def set_enabled_status(db_file, ix, status):
                 WHERE feed_id = :id
                 """
                 )
-            cur.execute(sql, {
+            par = {
                 "status": status,
                 "id": ix
-                })
+                }
+            cur.execute(sql, par)
 
 
 """
@@ -1101,14 +1126,15 @@ async def add_entry(
                     :title, :link, :entry_id, :feed_id, :timestamp, :read)
                 """
                 )
-            cur.execute(sql, {
+            par = {
                 "title": title,
                 "link": link,
                 "entry_id": entry_id,
                 "feed_id": feed_id,
                 "timestamp": date,
                 "read": read_status
-                })
+                }
+            cur.execute(sql, par)
             # try:
             #     cur.execute(sql, entry)
             # except:
@@ -1153,7 +1179,7 @@ async def add_entries_and_update_timestamp(db_file, new_entries):
                         :title, :link, :enclosure, :entry_id, :feed_id, :timestamp, :read)
                     """
                     )
-                cur.execute(sql, {
+                par = {
                     "title": entry["title"],
                     "link": entry["link"],
                     "enclosure": entry["enclosure"],
@@ -1161,7 +1187,8 @@ async def add_entries_and_update_timestamp(db_file, new_entries):
                     "feed_id": feed_id,
                     "timestamp": entry["date"],
                     "read": entry["read_status"]
-                    })
+                    }
+                cur.execute(sql, par)
                 if url not in feeds:
                     feeds.extend([url])
             for feed in feeds:
@@ -1174,10 +1201,11 @@ async def add_entries_and_update_timestamp(db_file, new_entries):
                     WHERE feed_id = :feed_id
                     """
                     )
-                cur.execute(sql, {
+                par = {
                     "today": date.today(),
                     "feed_id": feed_id
-                    })
+                    }
+                cur.execute(sql, par)
 
 
 async def set_date(db_file, url):
@@ -1202,11 +1230,12 @@ async def set_date(db_file, url):
                 WHERE feed_id = :feed_id
                 """
                 )
-            # cur = conn.cursor()
-            cur.execute(sql, {
+            par = {
                 "today": date.today(),
                 "feed_id": feed_id
-                })
+                }
+            # cur = conn.cursor()
+            cur.execute(sql, par)
 
 
 async def update_feed_status(db_file, url, status_code):
@@ -1233,11 +1262,12 @@ async def update_feed_status(db_file, url, status_code):
                 WHERE feed_id = :feed_id
                 """
                 )
-            cur.execute(sql, {
+            par = {
                 "status_code": status_code,
                 "scanned": date.today(),
                 "feed_id": feed_id
-                })
+                }
+            cur.execute(sql, par)
 
 
 async def update_feed_validity(db_file, url, valid):
@@ -1264,10 +1294,11 @@ async def update_feed_validity(db_file, url, valid):
                 WHERE feed_id = :feed_id
                 """
                 )
-            cur.execute(sql, {
+            par = {
                 "valid": valid,
                 "feed_id": feed_id
-                })
+                }
+            cur.execute(sql, par)
 
 
 async def update_feed_properties(db_file, url, entries, updated):
@@ -1296,10 +1327,11 @@ async def update_feed_properties(db_file, url, entries, updated):
                 WHERE feed_id = :feed_id
                 """
                 )
-            cur.execute(sql, {
+            par = {
                 "entries"  : entries,
                 "feed_id": feed_id
-                })
+                }
+            cur.execute(sql, par)
 
 
 async def maintain_archive(db_file, limit):
@@ -1343,9 +1375,10 @@ async def maintain_archive(db_file, limit):
                         )
                     """
                     )
-                cur.execute(sql, {
+                par = {
                     "difference": difference
-                    })
+                    }
+                cur.execute(sql, par)
 
 
 # TODO Move entries that don't exist into table archive.
@@ -1376,7 +1409,8 @@ async def get_entries_of_feed(db_file, feed, url):
             WHERE feed_id = ?
             """
             )
-        items = cur.execute(sql, (url,)).fetchall()
+        par = (url,)
+        items = cur.execute(sql, par).fetchall()
         return items
 
 
@@ -1500,8 +1534,8 @@ async def last_entries(db_file, num):
             LIMIT :num
             """
             )
-        results = cur.execute(
-            sql, (num,)).fetchall()
+        par = (num,)
+        results = cur.execute(sql, par).fetchall()
         return results
 
 
@@ -1532,8 +1566,8 @@ async def search_feeds(db_file, query):
             LIMIT 50
             """
             )
-        results = cur.execute(
-            sql, [f'%{query}%', f'%{query}%']).fetchall()
+        par = [f'%{query}%', f'%{query}%']
+        results = cur.execute(sql, par).fetchall()
         return results
 
 
@@ -1567,8 +1601,8 @@ async def search_entries(db_file, query):
             LIMIT 50
             """
             )
-        results = cur.execute(
-            sql, (f'%{query}%', f'%{query}%')).fetchall()
+        par = (f'%{query}%', f'%{query}%')
+        results = cur.execute(sql, par).fetchall()
         return results
 
 
@@ -1634,10 +1668,11 @@ async def check_entry_exist(
                 WHERE entry_id = :entry_id and feed_id = :feed_id
                 """
                 )
-            result = cur.execute(sql, {
+            par = {
                 "entry_id": entry_id,
                 "feed_id": feed_id
-                }).fetchone()
+                }
+            result = cur.execute(sql, par).fetchone()
             if result: exist = True
         elif date:
             sql = (
@@ -1647,12 +1682,13 @@ async def check_entry_exist(
                 WHERE title = :title and link = :link and timestamp = :date
                 """
                 )
+            par = {
+                "title": title,
+                "link": link,
+                "timestamp": date
+                }
             try:
-                result = cur.execute(sql, {
-                    "title": title,
-                    "link": link,
-                    "timestamp": date
-                    }).fetchone()
+                result = cur.execute(sql, par).fetchone()
                 if result: exist = True
             except:
                 print(current_time(), "ERROR DATE: source =", url)
@@ -1665,10 +1701,11 @@ async def check_entry_exist(
                 WHERE title = :title and link = :link
                 """
                 )
-            result = cur.execute(sql, {
+            par = {
                 "title": title,
                 "link": link
-                }).fetchone()
+                }
+            result = cur.execute(sql, par).fetchone()
             if result: exist = True
         # try:
         #     if result:
@@ -1694,6 +1731,41 @@ async def set_settings_value(db_file, key_value):
          value : int
                Numeric value.
     """
+    key = key_value[0]
+    value = key_value[1]
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                INSERT
+                INTO settings(
+                    key, value)
+                VALUES(
+                    :key, :value)
+                """
+                )
+            par = {
+                "key": key,
+                "value": value
+                }
+            cur.execute(sql, par)
+
+
+async def update_settings_value(db_file, key_value):
+    """
+    Update settings value.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    key_value : list
+         key : str
+               enabled, interval, masters, quantum, random.
+         value : int
+               Numeric value.
+    """
     # if isinstance(key_value, list):
     #     key = key_value[0]
     #     val = key_value[1]
@@ -1708,7 +1780,6 @@ async def set_settings_value(db_file, key_value):
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
-            # try:
             sql = (
                 """
                 UPDATE settings
@@ -1716,10 +1787,11 @@ async def set_settings_value(db_file, key_value):
                 WHERE key = :key
                 """
                 )
-            cur.execute(sql, {
+            par = {
                 "key": key,
                 "value": value
-                })
+                }
+            cur.execute(sql, par)
             # except:
             #     logging.debug(
             #         "No specific value set for key {}.".format(key)
@@ -1753,17 +1825,55 @@ async def get_settings_value(db_file, key):
                 WHERE key = ?
                 """
                 )
-            value = cur.execute(sql, (key,)).fetchone()[0]
-            return value
+            par = (key,)
+            value = cur.execute(sql, par).fetchone()[0]
+            value = str(value)
         except:
+            value = None
             logging.debug(
                 "No specific value set for key {}.".format(key)
                 )
+    return value
 
 
 async def set_filters_value(db_file, key_value):
     """
     Set settings value.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    key_value : list
+         key : str
+               filter-allow, filter-deny, filter-replace.
+         value : int
+               Numeric value.
+    """
+    key = key_value[0]
+    val = key_value[1]
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                INSERT
+                INTO filters(
+                    key, value)
+                VALUES(
+                    :key, :value)
+                """
+                )
+            par = {
+                "key": key,
+                "value": val
+                }
+            cur.execute(sql, par)
+
+
+async def update_filters_value(db_file, key_value):
+    """
+    Update settings value.
 
     Parameters
     ----------
@@ -1796,10 +1906,11 @@ async def set_filters_value(db_file, key_value):
                 WHERE key = :key
                 """
                 )
-            cur.execute(sql, {
+            par = {
                 "key": key,
                 "value": val
-                })
+                }
+            cur.execute(sql, par)
 
 
 async def get_filters_value(db_file, key):
@@ -1828,9 +1939,12 @@ async def get_filters_value(db_file, key):
                 WHERE key = ?
                 """
                 )
-            value = cur.execute(sql, (key,)).fetchone()[0]
-            return value
+            par = (key,)
+            value = cur.execute(sql, par).fetchone()[0]
+            value = str(value)
         except:
+            value = None
             logging.debug(
                 "No specific value set for key {}.".format(key)
                 )
+    return value
