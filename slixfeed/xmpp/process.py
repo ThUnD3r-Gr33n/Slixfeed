@@ -838,8 +838,8 @@ async def message(self, message):
                             url = await sqlite.remove_feed_by_index(
                                 db_file, ix)
                             response = (
-                                "> {}\nNews source {} has been removed "
-                                "from subscription list."
+                                "> {}\nNews source \"{}\" has been "
+                                "removed from subscription list."
                                 ).format(url, ix)
                         except:
                             response = (

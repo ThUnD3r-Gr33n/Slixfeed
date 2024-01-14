@@ -459,18 +459,12 @@ async def add_feed(db_file, url):
                         )
                     await scan(
                         db_file, url)
-                    old = (
-                        await sqlite.get_settings_value(
-                            db_file, "old")
-                        ) or (
-                        config.get_value_default(
-                            "settings", "Settings", "old")
-                        )
+                    old = await get_setting_value(db_file, "old")
                     if not old:
                         await sqlite.mark_feed_as_read(
                             db_file, url)
                     response = (
-                        "> {}\nNews source {} has been "
+                        "> {}\nNews source \"{}\" has been "
                         "added to subscription list."
                         ).format(url, title)
                     break
@@ -657,7 +651,7 @@ async def scan(db_file, url):
         entries = feed.entries
         # length = len(entries)
         await remove_nonexistent_entries(
-            db_file, feed, url)
+            db_file, url, feed)
         try:
             if feed.bozo:
                 # bozo = (
@@ -669,15 +663,17 @@ async def scan(db_file, url):
                 valid = 0
             else:
                 valid = 1
+            feed_id = await sqlite.get_feed_id(db_file, url)
             await sqlite.update_feed_validity(
-                db_file, url, valid)
+                db_file, feed_id, valid)
             if "updated_parsed" in feed["feed"].keys():
                 updated = feed["feed"]["updated_parsed"]
                 updated = convert_struct_time_to_iso8601(updated)
             else:
                 updated = ''
+            feed_id = await sqlite.get_feed_id(db_file, url)
             await sqlite.update_feed_properties(
-                db_file, url, len(feed["entries"]), updated)
+                db_file, feed_id, len(feed["entries"]), updated)
             # await update_feed_status
         except (
                 IncompleteReadError,
@@ -706,8 +702,9 @@ async def scan(db_file, url):
             # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
             title = entry.title if entry.has_key("title") else date
             entry_id = entry.id if entry.has_key("id") else link
+            feed_id = await sqlite.get_feed_id(db_file, url)
             exist = await sqlite.check_entry_exist(
-                db_file, url, entry_id=entry_id,
+                db_file, feed_id, entry_id=entry_id,
                 title=title, link=link, date=date)
             if not exist:
                 summary = entry.summary if entry.has_key("summary") else ''
@@ -760,7 +757,6 @@ async def scan(db_file, url):
                     "link": link,
                     "enclosure": media_link,
                     "entry_id": entry_id,
-                    "url": url,
                     "date": date,
                     "read_status": read_status
                     }
@@ -770,8 +766,9 @@ async def scan(db_file, url):
                 #     url, date, read_status)
                 # await sqlite.set_date(db_file, url)
     if len(new_entries):
+        feed_id = await sqlite.get_feed_id(db_file, url)
         await sqlite.add_entries_and_update_timestamp(
-            db_file, new_entries)
+            db_file, feed_id, new_entries)
 
 
 def get_document_title(data):
@@ -912,163 +909,7 @@ async def get_magnet(link):
     return torrent
 
 
-# NOTE Why (if res[0]) and (if res[1] == 200)?
-async def organize_items(db_file, urls):
-    """
-    Check feeds for new entries.
-
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
-    url : str, optional
-        URL. The default is None.
-    """
-    for url in urls:
-        # print(os.path.basename(db_file), url[0])
-        url = url[0]
-        res = await fetch.http(url)
-        # TypeError: 'NoneType' object is not subscriptable
-        if res is None:
-            # Skip to next feed
-            # urls.next()
-            # next(urls)
-            continue
-        status = res[1]
-        await sqlite.update_feed_status(
-            db_file, url, status)
-        if res[0]:
-            try:
-                feed = parse(res[0])
-                if feed.bozo:
-                    # bozo = (
-                    #     "WARNING: Bozo detected for feed: {}\n"
-                    #     "For more information, visit "
-                    #     "https://pythonhosted.org/feedparser/bozo.html"
-                    #     ).format(url)
-                    # print(bozo)
-                    valid = 0
-                else:
-                    valid = 1
-                await sqlite.update_feed_validity(
-                    db_file, url, valid)
-                if "updated_parsed" in feed["feed"].keys():
-                    updated = feed["feed"]["updated_parsed"]
-                    updated = convert_struct_time_to_iso8601(updated)
-                else:
-                    updated = ''
-                entries = len(feed["entries"])
-                await sqlite.update_feed_properties(
-                    db_file, url, entries, updated)
-            except (
-                    IncompleteReadError,
-                    IncompleteRead,
-                    error.URLError
-                    ) as e:
-                logging.error(e)
-                # TODO Print error to log
-                # None
-                # NOTE I don't think there should be "return"
-                # because then we might stop scanning next URLs
-                # return
-        # TODO Place these couple of lines back down
-        # NOTE Need to correct the SQL statement to do so
-        # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
-        if status == 200:
-        # NOT SURE WHETHER I MEANT THE LINES ABOVE OR BELOW
-        # TODO Place these couple of lines back down
-        # NOTE Need to correct the SQL statement to do so
-            entries = feed.entries
-            # length = len(entries)
-            # await remove_entry(db_file, source, length)
-            await remove_nonexistent_entries(
-                db_file, feed, url)
-            # new_entry = 0
-            for entry in entries:
-                # TODO Pass date too for comparion check
-                if entry.has_key("published"):
-                    date = entry.published
-                    date = rfc2822_to_iso8601(date)
-                elif entry.has_key("updated"):
-                    date = entry.updated
-                    date = rfc2822_to_iso8601(date)
-                else:
-                    # TODO Just set date = "*** No date ***"
-                    # date = await datetime.now().isoformat()
-                    date = now()
-                    # NOTE Would seconds result in better database performance
-                    # date = datetime.datetime(date)
-                    # date = (date-datetime.datetime(1970,1,1)).total_seconds()
-                if entry.has_key("title"):
-                    title = entry.title
-                    # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
-                else:
-                    title = date
-                    # title = feed["feed"]["title"]
-                if entry.has_key("link"):
-                    # link = complete_url(source, entry.link)
-                    link = join_url(url, entry.link)
-                    link = trim_url(link)
-                else:
-                    link = url
-                if entry.has_key("id"):
-                    eid = entry.id
-                else:
-                    eid = link
-                exist = await sqlite.check_entry_exist(
-                    db_file, url, eid=eid,
-                    title=title, link=link, date=date)
-                if not exist:
-                    # new_entry = new_entry + 1
-                    # TODO Enhance summary
-                    if entry.has_key("summary"):
-                        summary = entry.summary
-                        # # Remove HTML tags
-                        # summary = BeautifulSoup(summary, "lxml").text
-                        # # TODO Limit text length
-                        # summary = summary.replace("\n\n\n", "\n\n")
-                        # summary = summary[:300] + " […]‍⃨"
-                        # summary = summary.strip().split('\n')
-                        # summary = ["> " + line for line in summary]
-                        # summary = "\n".join(summary)
-                    else:
-                        summary = "> *** No summary ***"
-                    read_status = 0
-                    pathname = urlsplit(link).path
-                    string = ("{} {} {}"
-                              ).format(
-                                  title, summary, pathname
-                                  )
-                    allow_list = await config.is_include_keyword(
-                        db_file, "filter-allow", string)
-                    if not allow_list:
-                        reject_list = await config.is_include_keyword(
-                            db_file, "filter-deny", string)
-                        if reject_list:
-                            # print(">>> REJECTED", title)
-                            summary = (
-                                "REJECTED {}".format(
-                                    reject_list.upper()
-                                    )
-                                )
-                            # summary = ""
-                            read_status = 1
-                    entry = (
-                        title, link, eid, url, date, read_status)
-                    if isinstance(date, int):
-                        print("PROBLEM: date is int")
-                        print(date)
-                        # breakpoint()
-                    # print(source)
-                    # print(date)
-                    await sqlite.add_entry_and_set_date(
-                        db_file, url, entry)
-                #     print(current_time(), entry, title)
-                # else:
-                #     print(current_time(), exist, title)
-
-
-async def remove_nonexistent_entries(db_file, feed, url):
+async def remove_nonexistent_entries(db_file, url, feed):
     """
     Remove entries that don't exist in a given parsed feed.
     Check the entries returned from feed and delete read non
@@ -1078,15 +919,21 @@ async def remove_nonexistent_entries(db_file, feed, url):
     ----------
     db_file : str
         Path to database file.
+    url : str
+        Feed URL.
     feed : list
         Parsed feed document.
-    url : str
-        Feed URL. URL of associated feed.
     """
-    items = await sqlite.get_entries_of_feed(db_file, feed, url)
+    feed_id = await sqlite.get_feed_id(db_file, url)
+    items = await sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed.entries
-    # breakpoint()
     for item in items:
+        ix = item[0]
+        entry_title = item[1]
+        entry_link = item[2]
+        entry_id = item[3]
+        timestamp = item[4]
+        read_status = item[5]
         valid = False
         for entry in entries:
             title = None
@@ -1094,10 +941,10 @@ async def remove_nonexistent_entries(db_file, feed, url):
             time = None
             # valid = False
             # TODO better check and don't repeat code
-            if entry.has_key("id") and item[3]:
-                if entry.id == item[3]:
+            if entry.has_key("id") and entry_id:
+                if entry.id == entry_id:
                     # print("compare1:", entry.id)
-                    # print("compare2:", item[3])
+                    # print("compare2:", entry_id)
                     # print("============")
                     valid = True
                     break
@@ -1110,61 +957,57 @@ async def remove_nonexistent_entries(db_file, feed, url):
                     link = join_url(url, entry.link)
                 else:
                     link = url
-                if entry.has_key("published") and item[4]:
+                if entry.has_key("published") and timestamp:
                     # print("compare11:", title, link, time)
-                    # print("compare22:", item[1], item[2], item[4])
+                    # print("compare22:", entry_title, entry_link, timestamp)
                     # print("============")
                     time = rfc2822_to_iso8601(entry.published)
-                    if (item[1] == title and
-                        item[2] == link and
-                        item[4] == time):
+                    if (entry_title == title and
+                        entry_link == link and
+                        timestamp == time):
                         valid = True
                         break
                 else:
-                    if (item[1] == title and
-                        item[2] == link):
+                    if (entry_title == title and
+                        entry_link == link):
                         # print("compare111:", title, link)
-                        # print("compare222:", item[1], item[2])
+                        # print("compare222:", entry_title, entry_link)
                         # print("============")
                         valid = True
                         break
             # TODO better check and don't repeat code
         if not valid:
-            # print("id:        ", item[0])
+            # print("id:        ", ix)
             # if title:
             #     print("title:     ", title)
-            #     print("item[1]:   ", item[1])
+            #     print("entry_title:   ", entry_title)
             # if link:
             #     print("link:      ", link)
-            #     print("item[2]:   ", item[2])
+            #     print("entry_link:   ", entry_link)
             # if entry.id:
             #     print("last_entry:", entry.id)
-            #     print("item[3]:   ", item[3])
+            #     print("entry_id:   ", entry_id)
             # if time:
             #     print("time:      ", time)
-            #     print("item[4]:   ", item[4])
-            # print("read:      ", item[5])
+            #     print("timestamp:   ", timestamp)
+            # print("read:      ", read_status)
             # breakpoint()
 
             # TODO Send to table archive
             # TODO Also make a regular/routine check for sources that
             #      have been changed (though that can only happen when
             #      manually editing)
-            ix = item[0]
+            # ix = item[0]
             # print(">>> SOURCE: ", source)
-            # print(">>> INVALID:", item[1])
-            # print("title:", item[1])
-            # print("link :", item[2])
-            # print("id   :", item[3])
-            if item[5] == 1:
+            # print(">>> INVALID:", entry_title)
+            # print("title:", entry_title)
+            # print("link :", entry_link)
+            # print("id   :", entry_id)
+            if read_status == 1:
                 await sqlite.delete_entry_by_id(db_file, ix)
-                # print(">>> DELETING:", item[1])
+                # print(">>> DELETING:", entry_title)
             else:
-                # print(">>> ARCHIVING:", item[1])
+                # print(">>> ARCHIVING:", entry_title)
                 await sqlite.archive_entry(db_file, ix)
-        limit = (
-            await sqlite.get_settings_value(db_file, "archive")
-            ) or (
-            config.get_value_default("settings", "Settings", "archive")
-            )
+        limit = await get_setting_value(db_file, "archive")
         await sqlite.maintain_archive(db_file, limit)
