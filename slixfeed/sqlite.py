@@ -961,48 +961,6 @@ async def delete_archived_entry(cur, ix):
     cur.execute(sql, par)
 
 
-async def statistics(db_file):
-    """
-    Return table statistics.
-
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
-
-    Returns
-    -------
-    values : list
-        List of values.
-    """
-    values = []
-    values.extend([await get_number_of_entries_unread(db_file)])
-    entries = await get_number_of_items(db_file, 'entries')
-    archive = await get_number_of_items(db_file, 'archive')
-    values.extend([entries + archive])
-    values.extend([await get_number_of_feeds_active(db_file)])
-    values.extend([await get_number_of_items(db_file, 'feeds')])
-    # msg = """You have {} unread news items out of {} from {} news sources.
-    #       """.format(unread_entries, entries, feeds)
-    with create_connection(db_file) as conn:
-        cur = conn.cursor()
-        for key in ["archive", "interval",
-                    "quantum", "enabled"]:
-            sql = (
-            "SELECT value "
-            "FROM settings "
-            "WHERE key = ?"
-            )
-            par = (key,)
-            try:
-                value = cur.execute(sql, par).fetchone()[0]
-            except:
-                print("Error for key:", key)
-                value = "Default"
-            values.extend([value])
-    return values
-
-
 async def update_statistics(cur):
     """
     Update table statistics.

@@ -16,9 +16,7 @@ TODO
 
 3) Add "if utility.is_feed(url, feed)" to view_entry and view_feed
 
-4) Refactor view_entry and view_feed - Why "if" twice?
-
-5) Replace sqlite.remove_nonexistent_entries by sqlite.check_entry_exist
+4) Replace sqlite.remove_nonexistent_entries by sqlite.check_entry_exist
    Same check, just reverse.
 
 """

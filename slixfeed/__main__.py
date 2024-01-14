@@ -69,6 +69,10 @@ TODO
 
 17) Make the program portable (directly use the directory assets) -- Thorsten
 
+18) The operator account will be given reports from the bot about its
+    activities every X minutes.
+    When a suspicious activity is detected, it will be reported immediately.
+
 """
 
 # vars and their meanings:

@@ -16,6 +16,12 @@ TODO
 2) Call sqlite function from function statistics.
    Returning a list of values doesn't' seem to be a good practice.
 
+3) Special statistics for operator:
+   * Size of database(s);
+   * Amount of JIDs subscribed;
+   * Amount of feeds of all JIDs;
+   * Amount of entries of all JIDs.
+
 """
 
 from asyncio.exceptions import IncompleteReadError
@@ -225,7 +231,15 @@ def list_feeds_by_query(query, results):
     return message
 
 
-def list_statistics(values):
+async def get_setting_value(db_file, key):
+    value = (
+        await sqlite.get_settings_value(db_file, key) or
+        config.get_value_default("settings", "Settings", key)
+        )
+    return value
+
+
+async def list_statistics(db_file):
     """
     Return table statistics.
 
@@ -239,6 +253,27 @@ def list_statistics(values):
     msg : str
         Statistics as message.
     """
+    entries_unread = await sqlite.get_number_of_entries_unread(db_file)
+    entries = await sqlite.get_number_of_items(db_file, 'entries')
+    archive = await sqlite.get_number_of_items(db_file, 'archive')
+    entries_all = entries + archive
+    feeds_active = await sqlite.get_number_of_feeds_active(db_file)
+    feeds_all = await sqlite.get_number_of_items(db_file, 'feeds')
+    key_archive = await get_setting_value(db_file, "archive")
+    key_interval = await get_setting_value(db_file, "interval")
+    key_quantum = await get_setting_value(db_file, "quantum")
+    key_enabled = await get_setting_value(db_file, "enabled")
+
+    # msg = """You have {} unread news items out of {} from {} news sources.
+    #       """.format(unread_entries, entries, feeds)
+
+    # try:
+    #     value = cur.execute(sql, par).fetchone()[0]
+    # except:
+    #     print("Error for key:", key)
+    #     value = "Default"
+    # values.extend([value])
+
     message = (
         "```"
         "\nSTATISTICS\n"
@@ -250,8 +285,16 @@ def list_statistics(values):
         "Items per update : {}\n"
         "Operation status : {}\n"
         "```"
-        ).format(values[0], values[1], values[2], values[3],
-                 values[4], values[5], values[6], values[7])
+        ).format(
+            entries_unread,
+            entries_all,
+            feeds_active,
+            feeds_all,
+            key_archive,
+            key_interval,
+            key_quantum,
+            key_enabled
+            )
     return message
 
 

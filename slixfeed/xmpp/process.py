@@ -756,13 +756,6 @@ async def message(self, message):
                         #     "Every update will contain {} news items."
                         #     ).format(response)
                         db_file = get_pathname_to_database(jid)
-                        a = await sqlite.get_settings_value(db_file, key)
-                        print(a)
-                        print(key)
-                        print(val)
-                        print(a)
-                        print(a)
-                        print(a)
                         if await sqlite.get_settings_value(
                                 db_file, key):
                             await sqlite.update_settings_value(
@@ -927,8 +920,7 @@ async def message(self, message):
                 send_reply_message(self, message, response)
             case "stats":
                 db_file = get_pathname_to_database(jid)
-                result = await sqlite.statistics(db_file)
-                response = action.list_statistics(result)
+                response = await action.list_statistics(db_file)
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("disable "):
                 ix = message_text[8:]
