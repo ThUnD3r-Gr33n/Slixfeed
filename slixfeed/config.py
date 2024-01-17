@@ -15,6 +15,8 @@ TODO
 
 4) Copy file from /etc/slixfeed/ or /usr/share/slixfeed/
 
+5) Merge get_value_default into get_value.
+
 """
 
 import configparser

@@ -7,7 +7,8 @@ https://codeberg.org/poezio/slixmpp/src/branch/master/examples/http_upload.py
 """
 
 import logging
-from slixmpp.exceptions import IqTimeout
+from slixmpp.exceptions import IqTimeout, IqError
+from slixmpp.plugins.xep_0363.http_upload import HTTPError
 # import sys
 
 
@@ -25,11 +26,23 @@ async def start(self, jid, filename, domain=None):
         #     return
         # elif self.encrypted:
         #     upload_file = self['xep_0454'].upload_file
-        url = await upload_file(
-            filename, domain, timeout=10,
-        )
+        try:
+            url = await upload_file(
+                filename, domain, timeout=10,
+            )
+            logging.info('Upload successful!')
+            logging.info('Sending file to %s', jid)
+        except HTTPError:
+            url = (
+                "Error: It appears that this server doesn't support "
+                "HTTP File Upload."
+                )
+            logging.error(
+                "It appears that this server doesn't support HTTP File Upload."
+                )
+            # raise HTTPError(
+            #     "This server doesn't appear to support HTTP File Upload"
+            #     )
     except IqTimeout:
         raise TimeoutError('Could not send message in time')
-    logging.info('Upload successful!')
-    logging.info('Sending file to %s', jid)
     return url

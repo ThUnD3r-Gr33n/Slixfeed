@@ -4,6 +4,7 @@
 from slixmpp.exceptions import IqTimeout
 import logging
 
+
 async def jid_type(self, jid):
     """
     Check whether a JID is of MUC.

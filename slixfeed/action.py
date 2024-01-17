@@ -442,7 +442,10 @@ async def add_feed(db_file, url):
                         encoding = ''
                     if "updated_parsed" in feed["feed"].keys():
                         updated = feed["feed"]["updated_parsed"]
-                        updated = convert_struct_time_to_iso8601(updated)
+                        try:
+                            updated = convert_struct_time_to_iso8601(updated)
+                        except:
+                            updated = ''
                     else:
                         updated = ''
                     version = feed["version"]
@@ -668,7 +671,10 @@ async def scan(db_file, url):
                 db_file, feed_id, valid)
             if "updated_parsed" in feed["feed"].keys():
                 updated = feed["feed"]["updated_parsed"]
-                updated = convert_struct_time_to_iso8601(updated)
+                try:
+                    updated = convert_struct_time_to_iso8601(updated)
+                except:
+                    updated = ''
             else:
                 updated = ''
             feed_id = await sqlite.get_feed_id(db_file, url)
@@ -855,7 +861,14 @@ async def extract_image_from_html(url):
                 "Check that package readability is installed.")
         tree = html.fromstring(content)
         # TODO Exclude banners, class="share" links etc.
-        images = tree.xpath('//img/@src')
+        images = tree.xpath(
+            '//img[not('
+                'contains(@src, "avatar") or '
+                'contains(@src, "emoji") or '
+                'contains(@src, "icon") or '
+                'contains(@src, "logo") or '
+                'contains(@src, "smiley")'
+            ')]/@src')
         if len(images):
             image = images[0]
             image = str(image)

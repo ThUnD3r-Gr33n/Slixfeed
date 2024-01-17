@@ -111,10 +111,13 @@ class Jabber:
         xmpp.register_plugin('xep_0030') # Service Discovery
         xmpp.register_plugin('xep_0045') # Multi-User Chat
         xmpp.register_plugin('xep_0048') # Bookmarks
+        xmpp.register_plugin('xep_0054') # vcard-temp
         xmpp.register_plugin('xep_0060') # Publish-Subscribe
         # xmpp.register_plugin('xep_0065') # SOCKS5 Bytestreams
         xmpp.register_plugin('xep_0066') # Out of Band Data
         xmpp.register_plugin('xep_0071') # XHTML-IM
+        xmpp.register_plugin('xep_0084') # User Avatar
+        xmpp.register_plugin('xep_0153') # vCard-Based Avatars
         xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
         xmpp.register_plugin('xep_0249') # Multi-User Chat
         xmpp.register_plugin('xep_0363') # HTTP File Upload

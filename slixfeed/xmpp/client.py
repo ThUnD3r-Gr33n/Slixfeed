@@ -61,8 +61,9 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 # from lxml import etree
 
 import slixfeed.xmpp.connect as connect
-import slixfeed.xmpp.process as process
 import slixfeed.xmpp.muc as muc
+import slixfeed.xmpp.process as process
+import slixfeed.xmpp.profile as profile
 import slixfeed.xmpp.roster as roster
 import slixfeed.xmpp.state as state
 import slixfeed.xmpp.status as status
@@ -169,6 +170,7 @@ class Slixfeed(slixmpp.ClientXMPP):
     async def on_session_start(self, event):
         await process.event(self, event)
         await muc.autojoin(self, event)
+        await profile.update(self)
 
 
     async def on_session_resumed(self, event):

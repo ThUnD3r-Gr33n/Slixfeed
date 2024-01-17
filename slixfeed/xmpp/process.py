@@ -352,7 +352,8 @@ async def message(self, message):
                     response = "Missing value."
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("bookmark -"):
-                if jid == get_value("accounts", "XMPP", "operator"):
+                if jid == get_value(
+                        "accounts", "XMPP", "operator"):
                     muc_jid = message_text[11:]
                     await bookmark.remove(self, muc_jid)
                     response = (
