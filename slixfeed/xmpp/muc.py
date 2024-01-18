@@ -15,7 +15,7 @@ TODO
 import logging
 import slixfeed.xmpp.bookmark as bookmark
 import slixfeed.xmpp.process as process
-from slixfeed.datetime import current_time
+from slixfeed.dt import current_time
 
 # async def accept_muc_invite(self, message, ctr=None):
 #     # if isinstance(message, str):

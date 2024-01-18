@@ -32,7 +32,7 @@ import logging
 from lxml import html
 import slixfeed.config as config
 import slixfeed.crawl as crawl
-from slixfeed.datetime import (
+from slixfeed.dt import (
     current_date, current_time, now,
     convert_struct_time_to_iso8601,
     rfc2822_to_iso8601

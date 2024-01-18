@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 """
 
 FIXME
@@ -80,6 +77,8 @@ TODO
 # res = response (HTTP)
 
 from argparse import ArgumentParser
+from getpass import getpass
+import sys
 import configparser
 # import filehandler
 # from slixfeed.file import get_default_confdir
@@ -145,3 +144,60 @@ class Jabber:
         # Connect to the XMPP server and start processing XMPP stanzas.
         xmpp.connect()
         xmpp.process()
+def main():
+
+    # Setup the command line arguments.
+    parser = ArgumentParser(description=Slixfeed.__doc__)
+
+    # Output verbosity options.
+    parser.add_argument(
+        "-q", "--quiet", help="set logging to ERROR",
+        action="store_const", dest="loglevel",
+        const=logging.ERROR, default=logging.INFO)
+    parser.add_argument(
+        "-d", "--debug", help="set logging to DEBUG",
+        action="store_const", dest="loglevel",
+        const=logging.DEBUG, default=logging.INFO)
+
+    # JID and password options.
+    parser.add_argument(
+        "-j", "--jid", dest="jid", help="Jabber ID")
+    parser.add_argument(
+        "-p", "--password", dest="password", help="Password of JID")
+    parser.add_argument(
+        "-n", "--nickname", dest="nickname", help="Display name")
+
+    args = parser.parse_args()
+
+    # Setup logging.
+    logging.basicConfig(
+        level=args.loglevel, format='%(levelname)-8s %(message)s')
+
+    # Try configuration file
+    values = get_value(
+        "accounts", "XMPP", ["nickname", "username", "password"])
+    nickname = values[0]
+    username = values[1]
+    password = values[2]
+
+    # Use arguments if were given
+    if args.jid:
+        username = args.jid
+    if args.password:
+        password = args.password
+    if args.nickname:
+        nickname = args.nickname
+
+    # Prompt for credentials if none were given
+    if not username:
+        username = input("Username: ")
+    if not password:
+        password = getpass("Password: ")
+    if not nickname:
+        nickname = input("Nickname: ")
+
+    Jabber(username, password, nickname)
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()

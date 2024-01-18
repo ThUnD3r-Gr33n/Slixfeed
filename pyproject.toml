@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Slixfeed"
+version = "1.0"
+description = "RSS news bot for XMPP"
+authors = [{name = "Schimon Zachary", email = "sch@fedora.email"}]
+license = {text = "MIT"}
+classifiers = [
+    "Framework :: slixmpp",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Communications :: Chat",
+    "Topic :: Internet :: Extensible Messaging and Presence Protocol (XMPP)",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content :: News/Diary",
+    "Topic :: Internet :: Instant Messaging",
+    "Topic :: Internet :: XMPP",
+    "Topic :: Office/Business :: News/Diary",
+]
+keywords = [
+    "atom",
+    "bot",
+    "chat",
+    "im",
+    "jabber",
+    "news",
+    "rdf",
+    "rss",
+    "syndication",
+    "xmpp",
+]
+urls = {Homepage = "https://gitgud.io/sjehuda/slixfeed"}
+dependencies = [
+    "pyyaml",
+    "python-dateutil",
+    "aiohttp",
+    "bs4",
+    "feedparser",
+    "lxml",
+    "slixmpp",
+]
+
+[project.optional-dependencies]
+"export as markdown" = ["html2text"]
+"export as pdf" = ["pdfkit"]
+"readable html" = ["readability-lxml"]
+
+# [project.readme]
+# text = "Slixfeed is a news aggregator bot for online news feeds. This program is primarily designed for XMPP"
+
+[project.scripts]
+slixfeed = "slixfeed.__main__:main"
+
+[tool.setuptools]
+platforms = ["any"]
+[tool.setuptools.package-data]
+"*" = ["*.ini", "*.csv", "*.svg", "*.yaml"]

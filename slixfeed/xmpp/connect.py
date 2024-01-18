@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from slixfeed.config import get_value
-from slixfeed.datetime import current_time
+from slixfeed.dt import current_time
 from time import sleep
 import logging
 

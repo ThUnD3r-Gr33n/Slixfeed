@@ -29,7 +29,7 @@ from slixfeed.config import (
     get_value,
     get_pathname_to_database,
     remove_from_list)
-from slixfeed.datetime import current_time, timestamp
+from slixfeed.dt import current_time, timestamp
 import slixfeed.sqlite as sqlite
 import slixfeed.task as task
 import slixfeed.url as uri

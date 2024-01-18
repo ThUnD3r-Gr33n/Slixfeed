@@ -17,7 +17,7 @@ from datetime import date
 import logging
 import slixfeed.config as config
 # from slixfeed.data import join_url
-from slixfeed.datetime import (
+from slixfeed.dt import (
     current_time,
     rfc2822_to_iso8601
     )

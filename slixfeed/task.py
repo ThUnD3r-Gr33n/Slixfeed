@@ -49,7 +49,7 @@ from slixfeed.config import (
     get_pathname_to_database,
     get_default_data_directory,
     get_value_default)
-from slixfeed.datetime import current_time
+# from slixfeed.dt import current_time
 from slixfeed.sqlite import (
     get_feed_title,
     get_feeds_url,
