@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2024 Schiomn Zachary
+# All Rights Reserved
+#
+# This software is licensed as described in the README.rst and LICENSE
+# file, which you should have received as part of this distribution.
+
+from distutils.core import setup
+
+setup(
+    name='Slixfeed',
+    version='1.0',
+    description='RSS news bot for XMPP',
+    long_description='Slixfeed is a news aggregator bot for online news feeds. This program is primarily designed for XMPP',
+    author='Schimon Zachary',
+    author_email='sch@fedora.email',
+    url='https://gitgud.io/sjehuda/slixfeed',
+    license='MIT',
+    platforms=['any'],
+    extras_require={
+        'Export as Markdown': ['html2text'],
+        'Export as PDF': ['pdfkit'],
+        'Readable HTML': ['readability-lxml']
+    },
+    install_requires=[
+        'aiohttp',
+        'bs4',
+        'feedparser',
+        'lxml',
+        'slixmpp'
+    ],
+    classifiers=[
+        'Framework :: slixmpp',
+        'Intended Audience :: End Users/Desktop',
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
+        'License :: OSI Approved :: MIT License',
+        'Natural Language :: English',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3.10',
+        'Topic :: Communications :: Chat',
+        'Topic :: Internet :: Extensible Messaging and Presence Protocol (XMPP)',
+        'Topic :: Internet :: WWW/HTTP :: Dynamic Content :: News/Diary',
+        'Topic :: Internet :: Instant Messaging',
+        'Topic :: Internet :: XMPP',
+        'Topic :: Office/Business :: News/Diary',
+    ],
+    keywords=[
+        'atom',
+        'bot',
+        'chat',
+        'im',
+        'jabber',
+        'news',
+        'rdf',
+        'rss',
+        'syndication',
+        'xmpp'
+    ],
+)
+
