@@ -15,6 +15,39 @@ TODO
 
 2) Consider merging with module fetch.py
 
+3) Mark redirects for manual check
+
+Title : JSON Feed
+Link  : https://www.jsonfeed.org/feed.json.xml
+
+Title : JSON Feed
+Link  : https://www.jsonfeed.org/feed.json/atom.xml
+
+Title : JSON Feed
+Link  : https://www.jsonfeed.org/feed.json/feed.xml
+
+Title : JSON Feed
+Link  : https://www.jsonfeed.org/feed.json/feeds/rss/news.xml.php
+
+Title : JSON Feed
+Link  : https://www.jsonfeed.org/feed.json/jekyll/feed.xml
+
+Title : JSON Feed
+Link  : https://www.jsonfeed.org/feed.json/news.xml
+
+Title : JSON Feed
+Link  : https://www.jsonfeed.org/feed.json/news.xml.php
+
+Title : JSON Feed
+Link  : https://www.jsonfeed.org/feed.json/rdf.xml
+
+Title : JSON Feed
+Link  : https://www.jsonfeed.org/feed.json/rss.xml
+
+Title : JSON Feed
+Link  : https://www.jsonfeed.org/feed.json/videos.xml
+
+
 """
 
 from aiohttp import ClientError, ClientSession, ClientTimeout

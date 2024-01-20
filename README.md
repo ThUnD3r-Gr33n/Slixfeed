@@ -14,21 +14,33 @@ Slixfeed is primarily designed for XMPP (aka Jabber), yet it is built to be exte
 
 ### Features
 
-#### Simultaneous
-
-Slixfeed is designed to handle multiple contacts, including groupchats, Simultaneously.
-
 #### Ease
 
 Slixfeed automatically scans (i.e. crawls) for web feeds of given URL.
 
+#### Export
+
+Download articles as ePUB, HTML, Markdown and PDF.
+
 #### Filtering
 
-Slixfeed provides positive and nagative ways to filter by allow and deny lists.
+Filter using lists of allow and deny.
+
+#### Multimedia
+
+Display audios pictures and videos inline.
+
+#### Portable
+
+Export and import feeds with a standard OPML file.
 
 #### Proxy
 
-Redirect to alternative online back-ends, such as Invidious, Librarian, Nitter, for increased privacy and productivity and security.
+Redirect to alternative back-ends, such as Invidious, Librarian, Nitter, for increased privacy, productivity and security.
+
+#### Simultaneous
+
+Slixfeed is designed to handle multiple contacts, including groupchats, Simultaneously.
 
 ## Getting Started
 

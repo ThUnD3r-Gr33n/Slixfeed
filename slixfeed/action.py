@@ -26,8 +26,9 @@ TODO
 
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
-from http.client import IncompleteRead
 from feedparser import parse
+from http.client import IncompleteRead
+import json
 import logging
 from lxml import html
 import slixfeed.config as config
@@ -102,6 +103,38 @@ def log_to_markdown(timestamp, filename, jid, message):
         file.write(entry)
 
 
+def is_feed_json(document):
+    """
+
+    NOTE /kurtmckee/feedparser/issues/103
+
+    Determine whether document is json feed or not.
+
+    Parameters
+    ----------
+    feed : dict
+        Parsed feed.
+
+    Returns
+    -------
+    val : boolean
+        True or False.
+    """
+    value = False
+    feed = json.loads(document)
+    if not feed['items']:
+        if "version" in feed.keys():
+            if 'jsonfeed' in feed['version']:
+                value = True
+        # elif 'title' in feed.keys():
+        #     value = True
+        else:
+            value = False
+    else:
+        value = True
+    return value
+
+
 def is_feed(feed):
     """
     Determine whether document is feed or not.
@@ -120,7 +153,7 @@ def is_feed(feed):
     # message = None
     if not feed.entries:
         if "version" in feed.keys():
-            feed["version"]
+            # feed["version"]
             if feed.version:
                 value = True
                 # message = (
@@ -471,6 +504,53 @@ async def add_feed(db_file, url):
                         "added to subscription list."
                         ).format(url, title)
                     break
+                # NOTE This elif statement be unnecessary
+                # when feedparser be supporting json feed.
+                elif is_feed_json(document):
+                    feed = json.loads(document)
+                    if "title" in feed.keys():
+                        title = feed["title"]
+                    else:
+                        title = urlsplit(url).netloc
+                    if "language" in feed.keys():
+                        language = feed["language"]
+                    else:
+                        language = ''
+                    if "encoding" in feed.keys():
+                        encoding = feed["encoding"]
+                    else:
+                        encoding = ''
+                    if "date_published" in feed.keys():
+                        updated = feed["date_published"]
+                        try:
+                            updated = convert_struct_time_to_iso8601(updated)
+                        except:
+                            updated = ''
+                    else:
+                        updated = ''
+                    version = 'json' + feed["version"].split('/').pop()
+                    entries = len(feed["items"])
+                    await sqlite.insert_feed(
+                        db_file, url,
+                        title=title,
+                        entries=entries,
+                        version=version,
+                        encoding=encoding,
+                        language=language,
+                        status_code=status_code,
+                        updated=updated
+                        )
+                    await scan_json(
+                        db_file, url)
+                    old = await get_setting_value(db_file, "old")
+                    if not old:
+                        await sqlite.mark_feed_as_read(
+                            db_file, url)
+                    response = (
+                        "> {}\nNews source \"{}\" has been "
+                        "added to subscription list."
+                        ).format(url, title)
+                    break
                 else:
                     result = await crawl.probe_page(
                         url, document)
@@ -494,6 +574,144 @@ async def add_feed(db_file, url):
                 )
             break
     return response
+
+
+async def scan_json(db_file, url):
+    """
+    Check feeds for new entries.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str, optional
+        URL. The default is None.
+    """
+    if isinstance(url, tuple): url = url[0]
+    result = await fetch.http(url)
+    try:
+        document = result[0]
+        status = result[1]
+    except:
+        return
+    new_entries = []
+    if document and status == 200:
+        feed = json.loads(document)
+        entries = feed["items"]
+        await remove_nonexistent_entries_json(
+            db_file, url, feed)
+        try:
+            feed_id = await sqlite.get_feed_id(db_file, url)
+            # await sqlite.update_feed_validity(
+            #     db_file, feed_id, valid)
+            if "date_published" in feed.keys():
+                updated = feed["date_published"]
+                try:
+                    updated = convert_struct_time_to_iso8601(updated)
+                except:
+                    updated = ''
+            else:
+                updated = ''
+            feed_id = await sqlite.get_feed_id(db_file, url)
+            await sqlite.update_feed_properties(
+                db_file, feed_id, len(feed["items"]), updated)
+            # await update_feed_status
+        except (
+                IncompleteReadError,
+                IncompleteRead,
+                error.URLError
+                ) as e:
+            logging.error(e)
+            return
+        # new_entry = 0
+        for entry in entries:
+            if "date_published" in entry.keys():
+                date = entry["date_published"]
+                date = rfc2822_to_iso8601(date)
+            elif "date_modified" in entry.keys():
+                date = entry["date_modified"]
+                date = rfc2822_to_iso8601(date)
+            else:
+                date = now()
+            if "url" in entry.keys():
+                # link = complete_url(source, entry.link)
+                link = join_url(url, entry["url"])
+                link = trim_url(link)
+            else:
+                link = url
+            # title = feed["feed"]["title"]
+            # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
+            title = entry["title"] if "title" in entry.keys() else date
+            entry_id = entry["id"] if "id" in entry.keys() else link
+            feed_id = await sqlite.get_feed_id(db_file, url)
+            exist = await sqlite.check_entry_exist(
+                db_file, feed_id, entry_id=entry_id,
+                title=title, link=link, date=date)
+            if not exist:
+                summary = entry["summary"] if "summary" in entry.keys() else ''
+                if not summary:
+                    summary = entry["content_html"] if "content_html" in entry.keys() else ''
+                if not summary:
+                    summary = entry["content_text"] if "content_text" in entry.keys() else ''
+                read_status = 0
+                pathname = urlsplit(link).path
+                string = (
+                    "{} {} {}"
+                    ).format(
+                        title, summary, pathname)
+                allow_list = await config.is_include_keyword(
+                    db_file, "filter-allow", string)
+                if not allow_list:
+                    reject_list = await config.is_include_keyword(
+                        db_file, "filter-deny", string)
+                    if reject_list:
+                        read_status = 1
+                        logging.debug(
+                            "Rejected : {}\n"
+                            "Keyword  : {}".format(
+                                link, reject_list))
+                if isinstance(date, int):
+                    logging.error(
+                        "Variable 'date' is int: {}".format(date))
+                media_link = ''
+                if "attachments" in entry.keys():
+                    for e_link in entry["attachments"]:
+                        try:
+                            # if (link.rel == "enclosure" and
+                            #     (link.type.startswith("audio/") or
+                            #      link.type.startswith("image/") or
+                            #      link.type.startswith("video/"))
+                            #     ):
+                            media_type = e_link["mime_type"][:e_link["mime_type"].index("/")]
+                            if media_type in ("audio", "image", "video"):
+                                media_link = e_link["url"]
+                                media_link = join_url(url, e_link["url"])
+                                media_link = trim_url(media_link)
+                                break
+                        except:
+                            logging.error(
+                                "KeyError: 'url'\n"
+                                "Missing 'url' attribute for {}".format(url))
+                            logging.info(
+                                "Continue scanning for next potential "
+                                "enclosure of {}".format(link))
+                entry = {
+                    "title": title,
+                    "link": link,
+                    "enclosure": media_link,
+                    "entry_id": entry_id,
+                    "date": date,
+                    "read_status": read_status
+                    }
+                new_entries.extend([entry])
+                # await sqlite.add_entry(
+                #     db_file, title, link, entry_id,
+                #     url, date, read_status)
+                # await sqlite.set_date(db_file, url)
+    if len(new_entries):
+        feed_id = await sqlite.get_feed_id(db_file, url)
+        await sqlite.add_entries_and_update_timestamp(
+            db_file, feed_id, new_entries)
 
 
 async def view_feed(url):
@@ -845,7 +1063,6 @@ async def extract_image_from_feed(db_file, feed_id, url):
                 logging.error(url)
                 logging.error(
                     "AttributeError: object has no attribute 'link'")
-                breakpoint()
 
 
 async def extract_image_from_html(url):
@@ -1021,6 +1238,78 @@ async def remove_nonexistent_entries(db_file, url, feed):
                 # print(">>> DELETING:", entry_title)
             else:
                 # print(">>> ARCHIVING:", entry_title)
+                await sqlite.archive_entry(db_file, ix)
+        limit = await get_setting_value(db_file, "archive")
+        await sqlite.maintain_archive(db_file, limit)
+
+
+
+async def remove_nonexistent_entries_json(db_file, url, feed):
+    """
+    Remove entries that don't exist in a given parsed feed.
+    Check the entries returned from feed and delete read non
+    existing entries, otherwise move to table archive, if unread.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str
+        Feed URL.
+    feed : list
+        Parsed feed document.
+    """
+    feed_id = await sqlite.get_feed_id(db_file, url)
+    items = await sqlite.get_entries_of_feed(db_file, feed_id)
+    entries = feed["items"]
+    for item in items:
+        ix = item[0]
+        entry_title = item[1]
+        entry_link = item[2]
+        entry_id = item[3]
+        timestamp = item[4]
+        read_status = item[5]
+        valid = False
+        for entry in entries:
+            title = None
+            link = None
+            time = None
+            # valid = False
+            # TODO better check and don't repeat code
+            if entry.has_key("id") and entry_id:
+                if entry["id"] == entry_id:
+                    # print("compare1:", entry.id)
+                    # print("compare2:", entry_id)
+                    # print("============")
+                    valid = True
+                    break
+            else:
+                if entry.has_key("title"):
+                    title = entry["title"]
+                else:
+                    title = feed["title"]
+                if entry.has_key("link"):
+                    link = join_url(url, entry["link"])
+                else:
+                    link = url
+                # "date_published" "date_modified"
+                if entry.has_key("date_published") and timestamp:
+                    time = rfc2822_to_iso8601(entry["date_published"])
+                    if (entry_title == title and
+                        entry_link == link and
+                        timestamp == time):
+                        valid = True
+                        break
+                else:
+                    if (entry_title == title and
+                        entry_link == link):
+                        valid = True
+                        break
+        if not valid:
+            print("CHECK ENTRY OF JSON FEED IN ARCHIVE")
+            if read_status == 1:
+                await sqlite.delete_entry_by_id(db_file, ix)
+            else:
                 await sqlite.archive_entry(db_file, ix)
         limit = await get_setting_value(db_file, "archive")
         await sqlite.maintain_archive(db_file, limit)
