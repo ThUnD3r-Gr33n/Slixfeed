@@ -35,7 +35,7 @@ keywords = [
     "syndication",
     "xmpp",
 ]
-urls = {Homepage = "https://gitgud.io/sjehuda/slixfeed"}
+# urls = {Homepage = "https://gitgud.io/sjehuda/slixfeed"}
 dependencies = [
     "pyyaml",
     "python-dateutil",
@@ -46,10 +46,22 @@ dependencies = [
     "slixmpp",
 ]
 
+[project.urls]
+Homepage = "http://slixfeed.i2p/"
+Repository = "https://gitgud.io/sjehuda/slixfeed"
+Issues = "https://gitgud.io/sjehuda/slixfeed/issues"
+
+
 [project.optional-dependencies]
-"export as markdown" = ["html2text"]
-"export as pdf" = ["pdfkit"]
-"readable html" = ["readability-lxml"]
+# socks = ["PySocks"]
+file-export = ["html2text", "pdfkit"]
+readability = ["readability-lxml"]
+
+# This section returns pep508-identifier error
+# [project.optional-dependencies]
+# "export as markdown" = ["html2text"]
+# "export as pdf" = ["pdfkit"]
+# "readable html" = ["readability-lxml"]
 
 # [project.readme]
 # text = "Slixfeed is a news aggregator bot for online news feeds. This program is primarily designed for XMPP"
