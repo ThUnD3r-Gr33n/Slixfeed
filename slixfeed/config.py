@@ -200,7 +200,7 @@ def get_default_config_directory():
     Returns
     -------
     str
-        Path to configueation directory.
+        Path to configuration directory.
     """
 #    config_home = xdg.BaseDirectory.xdg_config_home
     config_home = os.environ.get('XDG_CONFIG_HOME')

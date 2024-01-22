@@ -340,7 +340,6 @@ async def send_status(self, jid):
             db_file, "feeds")
         # print(await current_time(), jid, "has", feeds, "feeds")
         if not feeds:
-            print(">>> not feeds:", feeds, "jid:", jid)
             status_mode = "available"
             status_text = (
                 "📪️ Send a URL from a blog or a news website"

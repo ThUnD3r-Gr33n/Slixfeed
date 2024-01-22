@@ -510,11 +510,11 @@ async def message(self, message):
                                     title + "_" + timestamp() + "." + ext)
                                 error = action.generate_document(
                                     data, url, ext, filename)
-                                if status:
+                                if error or status:
                                     response = (
                                         "Failed to export {}.  Reason: {}"
                                         ).format(ext.upper(), error)
-                                elif not error:
+                                else:
                                     url = await upload.start(self, jid, filename)
                                     await send_oob_message(self, jid, url)
                             else:
