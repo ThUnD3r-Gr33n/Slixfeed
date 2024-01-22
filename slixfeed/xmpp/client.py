@@ -208,9 +208,8 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_presence_available(self, presence):
+        # TODO Add function to check whether task is already running or not
         await task.start_tasks(self, presence)
-        print("on_presence_available")
-        print(presence)
 
 
     async def on_presence_unsubscribed(self, presence):

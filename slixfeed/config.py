@@ -49,10 +49,10 @@ def get_value(filename, section, keys):
     result = None
     config_res = configparser.RawConfigParser()
     config_dir = get_default_config_directory()
-    # if not os.path.isdir(config_dir):
-    #     config_dir = '/usr/share/slixfeed/'
     if not os.path.isdir(config_dir):
-        os.mkdir(config_dir)
+        config_dir = '/usr/share/slixfeed/'
+    if not os.path.isdir(config_dir):
+        config_dir = os.path.dirname(__file__) + "/assets"
     config_file = os.path.join(config_dir, filename + ".ini")
     config_res.read(config_file)
     if config_res.has_section(section):
@@ -137,6 +137,8 @@ def get_list(filename, key):
     config_dir = get_default_config_directory()
     if not os.path.isdir(config_dir):
         config_dir = '/usr/share/slixfeed/'
+    if not os.path.isdir(config_dir):
+        config_dir = os.path.dirname(__file__) + "/assets"
     config_file = os.path.join(config_dir, filename)
     with open(config_file) as defaults:
         # default = yaml.safe_load(defaults)

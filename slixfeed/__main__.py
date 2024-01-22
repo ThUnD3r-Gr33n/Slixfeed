@@ -70,6 +70,8 @@ TODO
     activities every X minutes.
     When a suspicious activity is detected, it will be reported immediately.
 
+19) Communicate to messages of new contacts (not subscribed and not in roster)
+
 """
 
 # vars and their meanings:
@@ -99,6 +101,9 @@ from slixfeed.config import get_value
 from slixfeed.xmpp.client import Slixfeed
 #import slixfeed.matrixhandler
 
+import socks
+import socket
+
 
 class Jabber:
     def __init__(self, jid, password, nick):
@@ -116,6 +121,7 @@ class Jabber:
         xmpp.register_plugin('xep_0066') # Out of Band Data
         xmpp.register_plugin('xep_0071') # XHTML-IM
         xmpp.register_plugin('xep_0084') # User Avatar
+        # xmpp.register_plugin('xep_0085') # Chat State Notifications
         xmpp.register_plugin('xep_0153') # vCard-Based Avatars
         xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
         xmpp.register_plugin('xep_0249') # Multi-User Chat
@@ -142,9 +148,27 @@ class Jabber:
         #     xmpp.proxy = {'socks5': ('localhost', 9050)}
 
         # Connect to the XMPP server and start processing XMPP stanzas.
-        xmpp.connect()
+
+        address = get_value(
+            "accounts", "XMPP", ["address", "port"])
+        if address[0] and address[1]:
+            xmpp.connect(tuple(address))
+        else:
+            xmpp.connect()
         xmpp.process()
+
+
 def main():
+
+    values = get_value(
+        "accounts", "XMPP Proxy", ["socks5_host", "socks5_port"])
+    if values[0] and values[1]:
+        host = values[0]
+        port = values[1]
+        s = socks.socksocket()
+        s.set_proxy(socks.SOCKS5, host, port)
+        # socks.set_default_proxy(socks.SOCKS5, host, port)
+        # socket.socket = socks.socksocket
 
     # Setup the command line arguments.
     parser = ArgumentParser(description=Slixfeed.__doc__)

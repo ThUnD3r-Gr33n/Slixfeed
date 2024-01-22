@@ -48,7 +48,7 @@ import slixfeed.action as action
 from slixfeed.config import (
     get_pathname_to_database,
     get_default_data_directory,
-    get_value_default)
+    get_value)
 # from slixfeed.dt import current_time
 from slixfeed.sqlite import (
     get_feed_title,
@@ -155,7 +155,7 @@ async def task_jid(self, jid):
         await get_settings_value(
             db_file, "enabled")
         ) or (
-        get_value_default(
+        get_value(
             "settings", "Settings", "enabled")
         )
     if enabled:
@@ -211,7 +211,7 @@ async def send_update(self, jid, num=None):
         await get_settings_value(
             db_file, "enabled")
         ) or (
-        get_value_default(
+        get_value(
             "settings", "Settings", "enabled")
         )
     if enabled:
@@ -220,7 +220,7 @@ async def send_update(self, jid, num=None):
                 await get_settings_value(
                     db_file, "quantum")
                 ) or (
-                get_value_default(
+                get_value(
                     "settings", "Settings", "quantum")
                 )
         else:
@@ -329,7 +329,7 @@ async def send_status(self, jid):
         await get_settings_value(
             db_file, "enabled")
         ) or (
-        get_value_default(
+        get_value(
             "settings", "Settings", "enabled")
         )
     if not enabled:
@@ -403,7 +403,7 @@ async def refresh_task(self, jid, callback, key, val=None):
             await get_settings_value(
                 db_file, key)
             ) or (
-            get_value_default(
+            get_value(
                 "settings", "Settings", key)
             )
     # if task_manager[jid][key]:
@@ -460,7 +460,7 @@ async def check_updates(jid):
         urls = await get_feeds_url(db_file)
         for url in urls:
             await action.scan(db_file, url)
-        val = get_value_default(
+        val = get_value(
             "settings", "Settings", "check")
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes

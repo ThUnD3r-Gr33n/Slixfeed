@@ -519,7 +519,7 @@ async def message(self, message):
                                     await send_oob_message(self, jid, url)
                             else:
                                 response = (
-                                    "Failed to fetch {}.  Reason: {}"
+                                    "Failed to fetch {}  Reason: {}"
                                     ).format(url, code)
                         await task.start_tasks_xmpp(
                             self, jid, ["status"])

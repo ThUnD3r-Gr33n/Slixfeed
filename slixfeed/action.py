@@ -267,7 +267,7 @@ def list_feeds_by_query(query, results):
 async def get_setting_value(db_file, key):
     value = (
         await sqlite.get_settings_value(db_file, key) or
-        config.get_value_default("settings", "Settings", key)
+        config.get_value("settings", "Settings", key)
         )
     return value
 
@@ -1084,6 +1084,8 @@ async def extract_image_from_html(url):
                 'contains(@src, "emoji") or '
                 'contains(@src, "icon") or '
                 'contains(@src, "logo") or '
+                'contains(@src, "search") or '
+                'contains(@src, "share") or '
                 'contains(@src, "smiley")'
             ')]/@src')
         if len(images):

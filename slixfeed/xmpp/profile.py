@@ -44,7 +44,17 @@ async def set_avatar(self):
     config_dir = get_default_config_directory()
     if not os.path.isdir(config_dir):
         config_dir = '/usr/share/slixfeed/'
-    filename = glob.glob(config_dir + "/image.*")[0]
+    filename = glob.glob(config_dir + "/image.*")
+    if not filename and os.path.isdir('/usr/share/slixfeed/'):
+        # filename = '/usr/share/slixfeed/image.svg'
+        filename = glob.glob("/usr/share/slixfeed/image.*")
+    else:
+        config_dir = os.path.dirname(__file__)
+        config_dir = config_dir.split("/")
+        config_dir.pop()
+        config_dir = "/".join(config_dir)
+        filename = glob.glob(config_dir + "/assets/image.*")
+    filename = filename[0]
     image_file = os.path.join(config_dir, filename)
     with open(image_file, "rb") as avatar_file:
         avatar = avatar_file.read()

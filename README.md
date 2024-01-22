@@ -46,6 +46,18 @@ Slixfeed is designed to handle multiple contacts, including groupchats, Simultan
 
 ### Install
 
+Choose one of the following installation methods.
+
+#### Using pip inside venv
+
+```
+$ python3 -m venv .venv
+$ source .venv/bin/activate
+$ pip install git+https://gitgud.io/sjehuda/slixfeed
+```
+
+#### Using pipx
+
 ```
 $ pipx install git+https://gitgud.io/sjehuda/slixfeed
 ```
@@ -58,7 +70,7 @@ $ slixfeed
 
 ### Usage
 
-- Start a chat with the bot and follow it instructions.
+- Add the bot to contact list and follow it instructions.
 - Send command `help` or `commands` for a list of commands.
 
 ## Roadmap

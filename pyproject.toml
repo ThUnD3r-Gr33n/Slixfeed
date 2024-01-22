@@ -44,6 +44,13 @@ dependencies = [
     "feedparser",
     "lxml",
     "slixmpp",
+
+    # Optional dependencies
+    # listed here (testing)
+    "html2text",
+    "pdfkit",
+    "pysocks",
+    "readability-lxml",
 ]
 
 [project.urls]
@@ -53,8 +60,8 @@ Issues = "https://gitgud.io/sjehuda/slixfeed/issues"
 
 
 [project.optional-dependencies]
-# socks = ["PySocks"]
 file-export = ["html2text", "pdfkit"]
+proxy = ["pysocks"]
 readability = ["readability-lxml"]
 
 # This section returns pep508-identifier error
