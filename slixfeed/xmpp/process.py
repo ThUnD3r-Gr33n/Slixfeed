@@ -514,7 +514,7 @@ async def message(self, message):
                                     response = (
                                         "Failed to export {}.  Reason: {}"
                                         ).format(ext.upper(), error)
-                                else:
+                                elif not error:
                                     url = await upload.start(self, jid, filename)
                                     await send_oob_message(self, jid, url)
                             else:
