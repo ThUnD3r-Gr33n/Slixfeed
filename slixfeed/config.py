@@ -178,12 +178,43 @@ def get_default_data_directory():
             if sys.platform == 'win32':
                 data_home = os.environ.get('APPDATA')
                 if data_home is None:
-                    return os.path.abspath('.')
+                    return os.path.abspath('.slixfeed/data')
             else:
-                return os.path.abspath('.')
+                return os.path.abspath('.slixfeed/data')
         else:
             data_home = os.path.join(
                 os.environ.get('HOME'), '.local', 'share'
+                )
+    return os.path.join(data_home, 'slixfeed')
+
+
+def get_default_cache_directory():
+    """
+    Determine the directory path where dbfile will be stored.
+
+    * If $XDG_DATA_HOME is defined, use it;
+    * else if $HOME exists, use it;
+    * else if the platform is Windows, use %APPDATA%;
+    * else use the current directory.
+
+    Returns
+    -------
+    str
+        Path to cache directory.
+    """
+#    data_home = xdg.BaseDirectory.xdg_data_home
+    data_home = os.environ.get('XDG_CACHE_HOME')
+    if data_home is None:
+        if os.environ.get('HOME') is None:
+            if sys.platform == 'win32':
+                data_home = os.environ.get('APPDATA')
+                if data_home is None:
+                    return os.path.abspath('.slixfeed/cache')
+            else:
+                return os.path.abspath('.slixfeed/cache')
+        else:
+            data_home = os.path.join(
+                os.environ.get('HOME'), '.cache'
                 )
     return os.path.join(data_home, 'slixfeed')
 

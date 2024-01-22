@@ -24,6 +24,7 @@ import os
 import slixfeed.action as action
 from slixfeed.config import (
     add_to_list,
+    get_default_cache_directory,
     get_default_data_directory,
     get_value_default,
     get_value,
@@ -426,13 +427,13 @@ async def message(self, message):
                         ).format(ex)
                     send_status_message(
                         self, jid, status_type, status_message)
-                    data_dir = get_default_data_directory()
-                    if not os.path.isdir(data_dir):
-                        os.mkdir(data_dir)
-                    if not os.path.isdir(data_dir + '/' + ex):
-                        os.mkdir(data_dir + '/' + ex)
+                    cache_dir = get_default_cache_directory()
+                    if not os.path.isdir(cache_dir):
+                        os.mkdir(cache_dir)
+                    if not os.path.isdir(cache_dir + '/' + ex):
+                        os.mkdir(cache_dir + '/' + ex)
                     filename = os.path.join(
-                        data_dir, ex, "slixfeed_" + timestamp() + "." + ex)
+                        cache_dir, ex, "slixfeed_" + timestamp() + "." + ex)
                     db_file = get_pathname_to_database(jid)
                     results = await sqlite.get_feeds(db_file)
                     match ex:
@@ -469,7 +470,7 @@ async def message(self, message):
                 ext = " ".join(message_text.split(" ")[1:])
                 ext = ext if ext else 'pdf'
                 url = None
-                status = None
+                error = None
                 if ext in ("html", "md", "pdf"):
                     status_type = "dnd"
                     status_message = (
@@ -478,12 +479,12 @@ async def message(self, message):
                     send_status_message(
                         self, jid, status_type, status_message)
                     db_file = get_pathname_to_database(jid)
-                    data_dir = get_default_data_directory()
+                    cache_dir = get_default_cache_directory()
                     if ix_url:
-                        if not os.path.isdir(data_dir):
-                            os.mkdir(data_dir)
-                        if not os.path.isdir(data_dir + '/readability'):
-                            os.mkdir(data_dir + '/readability')
+                        if not os.path.isdir(cache_dir):
+                            os.mkdir(cache_dir)
+                        if not os.path.isdir(cache_dir + '/readability'):
+                            os.mkdir(cache_dir + '/readability')
                         try:
                             ix = int(ix_url)
                             try:
@@ -506,11 +507,11 @@ async def message(self, message):
                                 for i in ("?", "'", "!"):
                                     title = title.replace(i, "")
                                 filename = os.path.join(
-                                    data_dir, "readability",
+                                    cache_dir, "readability",
                                     title + "_" + timestamp() + "." + ext)
                                 error = action.generate_document(
                                     data, url, ext, filename)
-                                if error or status:
+                                if error:
                                     response = (
                                         "Failed to export {}.  Reason: {}"
                                         ).format(ext.upper(), error)
