@@ -31,6 +31,7 @@ from http.client import IncompleteRead
 import json
 import logging
 from lxml import html
+import os
 import slixfeed.config as config
 import slixfeed.crawl as crawl
 from slixfeed.dt import (
@@ -50,6 +51,7 @@ from slixfeed.url import (
 import slixfeed.xmpp.bookmark as bookmark
 from urllib import error
 from urllib.parse import parse_qs, urlsplit
+import xml2epub
 import xml.etree.ElementTree as ET
 
 try:
@@ -1015,6 +1017,8 @@ def generate_document(data, url, ext, filename):
         logging.warning(
             "Check that package readability is installed.")
     match ext:
+        case "epub":
+            generate_epub(content, filename)
         case "html":
             generate_html(content, filename)
         case "md":
@@ -1022,7 +1026,8 @@ def generate_document(data, url, ext, filename):
                 generate_markdown(content, filename)
             except:
                 logging.warning(
-                    "Check that package html2text is installed.")
+                    "Check that package html2text is installed, "
+                    "or try again.")
                 error = (
                     "Package html2text was not found.")
         case "pdf":
@@ -1031,9 +1036,13 @@ def generate_document(data, url, ext, filename):
             except:
                 logging.warning(
                     "Check that packages pdfkit and wkhtmltopdf "
-                    "are installed.")
+                    "are installed, or try again.")
                 error = (
                     "Package pdfkit or wkhtmltopdf was not found.")
+        case "text":
+            generate_txt(content, filename)
+        case "txt":
+            generate_txt(content, filename)
     if error:
         return error
 
@@ -1095,13 +1104,32 @@ async def extract_image_from_html(url):
             return image_url
 
 
+def generate_epub(text, pathname):
+    ## create an empty eBook
+    pathname_list = pathname.split("/")
+    filename = pathname_list.pop()
+    directory = "/".join(pathname_list)
+    book = xml2epub.Epub(filename)
+    ## create chapters by url
+    # chapter0 = xml2epub.create_chapter_from_string(text, title=filename, strict=False)
+    chapter0 = xml2epub.create_chapter_from_string(text, strict=False)
+    #### create chapter objects
+    # chapter1 = xml2epub.create_chapter_from_url("https://dev.to/devteam/top-7-featured-dev-posts-from-the-past-week-h6h")
+    # chapter2 = xml2epub.create_chapter_from_url("https://dev.to/ks1912/getting-started-with-docker-34g6")
+    ## add chapters to your eBook
+    book.add_chapter(chapter0)
+    # book.add_chapter(chapter1)
+    # book.add_chapter(chapter2)
+    ## generate epub file
+    filename_tmp = "slixfeedepub"
+    book.create_epub(directory, epub_name=filename_tmp)
+    pathname_tmp = os.path.join(directory, filename_tmp) + ".epub"
+    os.rename(pathname_tmp, pathname)
+
+
 def generate_html(text, filename):
     with open(filename, 'w') as file:
         file.write(text)
-
-
-def generate_pdf(text, filename):
-    pdfkit.from_string(text, filename)
 
 
 def generate_markdown(text, filename):
@@ -1111,6 +1139,20 @@ def generate_markdown(text, filename):
     with open(filename, 'w') as file:
         file.write(markdown)
 
+
+def generate_pdf(text, filename):
+    pdfkit.from_string(text, filename)
+
+
+def generate_txt(text, filename):
+    text = remove_html_tags(text)
+    with open(filename, 'w') as file:
+        file.write(text)
+
+def remove_html_tags(data):
+    data = BeautifulSoup(data, "lxml").text
+    data = data.replace("\n\n", "\n")
+    return data
 
 # TODO Add support for eDonkey, Gnutella, Soulseek
 async def get_magnet(link):

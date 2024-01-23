@@ -256,7 +256,7 @@ async def import_feeds(db_file, feeds):
                 try:
                     cur.execute(sql, par)
                 except IntegrityError as e:
-                    logging.warning("Skipping: " + url)
+                    logging.warning("Skipping: " + str(url))
                     logging.error(e)
 
 

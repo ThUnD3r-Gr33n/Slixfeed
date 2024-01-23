@@ -83,12 +83,26 @@ async def message(self, message):
         jid = message["from"].bare
         message_text = " ".join(message["body"].split())
 
-        if (message["type"] == "groupchat" and
-            message['muc']['nick'] == self.nick):
+        # if (message["type"] == "groupchat" and
+        #     message['muc']['nick'] == self.nick):
+        #         return
+
+        # FIXME Code repetition. See below.
+        if message["type"] == "groupchat":
+            if (message['muc']['nick'] == self.nick):
+                return
+            jid_full = str(message["from"])
+            role = self.plugin['xep_0045'].get_jid_property(
+                jid,
+                jid_full[jid_full.index("/")+1:],
+                "role")
+            if role != "moderator":
                 return
 
         # NOTE This is an exceptional case in which we treat
-        # type groupchat the same as type chat.
+        # type groupchat the same as type chat in a way that
+        # doesn't require an exclamation mark for actionable
+        # command.
         if (message_text.lower().startswith("http") and
             message_text.lower().endswith(".opml")):
             url = message_text
@@ -471,7 +485,7 @@ async def message(self, message):
                 ext = ext if ext else 'pdf'
                 url = None
                 error = None
-                if ext in ("html", "md", "pdf"):
+                if ext in ("epub", "html", "md", "pdf", "txt"):
                     status_type = "dnd"
                     status_message = (
                         "📃️ Procesing request to produce {} document..."
