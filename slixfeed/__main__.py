@@ -237,16 +237,16 @@ def main():
     # Try configuration file
     values = get_value(
         "accounts", "XMPP Client", [
-            "alias", "username", "password", "hostname", "port"])
+            "alias", "jid", "password", "hostname", "port"])
     alias = values[0]
-    username = values[1]
+    jid = values[1]
     password = values[2]
     hostname = values[3]
     port = values[4]
 
     # Use arguments if were given
     if args.jid:
-        username = args.jid
+        jid = args.jid
     if args.password:
         password = args.password
     if args.alias:
@@ -257,8 +257,8 @@ def main():
         port = args.port
 
     # Prompt for credentials if none were given
-    if not username:
-        username = input("Username: ")
+    if not jid:
+        jid = input("JID: ")
     if not password:
         password = getpass("Password: ")
     if not alias:
@@ -266,9 +266,9 @@ def main():
 
     match xmpp_type:
         case "client":
-            JabberClient(username, password, alias)
+            JabberClient(jid, password, alias)
         case "component":
-            JabberComponent(username, password, hostname, port, alias)
+            JabberComponent(jid, password, hostname, port, alias)
     sys.exit(0)
 
 if __name__ == "__main__":

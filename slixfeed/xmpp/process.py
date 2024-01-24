@@ -202,7 +202,7 @@ async def message(self, message):
         response = None
         match message_lowercase:
             # case "breakpoint":
-            #     if jid == get_value("accounts", "XMPP Profile", "operator"):
+            #     if jid == get_value("accounts", "XMPP", "operator"):
             #         breakpoint()
             #         print("task_manager[jid]")
             #         print(task_manager[jid])
@@ -372,7 +372,7 @@ async def message(self, message):
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("bookmark -"):
                 if jid == get_value(
-                        "accounts", "XMPP Profile", "operator"):
+                        "accounts", "XMPP", "operator"):
                     muc_jid = message_text[11:]
                     await bookmark.remove(self, muc_jid)
                     response = (
@@ -386,7 +386,7 @@ async def message(self, message):
                 send_reply_message(self, message, response)
             case "bookmarks":
                 if jid == get_value(
-                        "accounts", "XMPP Profile", "operator"):
+                        "accounts", "XMPP", "operator"):
                     response = await action.list_bookmarks(self)
                 else:
                     response = (
