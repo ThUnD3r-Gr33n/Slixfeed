@@ -123,17 +123,22 @@ def is_feed_json(document):
         True or False.
     """
     value = False
-    feed = json.loads(document)
-    if not feed['items']:
-        if "version" in feed.keys():
-            if 'jsonfeed' in feed['version']:
-                value = True
-        # elif 'title' in feed.keys():
-        #     value = True
+    try:
+        feed = json.loads(document)
+        if not feed['items']:
+            if "version" in feed.keys():
+                if 'jsonfeed' in feed['version']:
+                    value = True
+                else: # TODO Test
+                    value = False
+            # elif 'title' in feed.keys():
+            #     value = True
+            else:
+                value = False
         else:
-            value = False
-    else:
-        value = True
+            value = True
+    except:
+        pass
     return value
 
 
@@ -1039,8 +1044,6 @@ def generate_document(data, url, ext, filename):
                     "are installed, or try again.")
                 error = (
                     "Package pdfkit or wkhtmltopdf was not found.")
-        case "text":
-            generate_txt(content, filename)
         case "txt":
             generate_txt(content, filename)
     if error:

@@ -31,17 +31,20 @@ async def accept_invitation(self, message):
     await join(self, inviter, muc_jid)
 
 
-async def autojoin(self, event):
+async def autojoin(self):
     result = await self.plugin['xep_0048'].get_bookmarks()
     bookmarks = result["private"]["bookmarks"]
     conferences = bookmarks["conferences"]
     for conference in conferences:
         if conference["autojoin"]:
             muc_jid = conference["jid"]
-            logging.debug("Autojoin groupchat", muc_jid)
+            logging.debug(
+                "Autojoin {} ({})".format(conference["name"], muc_jid))
+            print(
+                "Autojoin {} ({})".format(conference["name"], muc_jid))
             self.plugin['xep_0045'].join_muc(
                 muc_jid,
-                self.nick,
+                conference["nick"],
                 # If a room password is needed, use:
                 # password=the_room_password,
                 )
@@ -61,6 +64,7 @@ async def join(self, inviter, muc_jid):
     #     )
     #     self.send_message(
     #         mto=inviter,
+    #         mfrom=self.boundjid.bare,
     #         mbody=(
     #             "Send activation token {} to groupchat xmpp:{}?join."
     #             ).format(token, muc_jid)
@@ -69,7 +73,7 @@ async def join(self, inviter, muc_jid):
     print(muc_jid)
     self.plugin['xep_0045'].join_muc(
         muc_jid,
-        self.nick,
+        self.alias,
         # If a room password is needed, use:
         # password=the_room_password,
         )
@@ -87,13 +91,14 @@ async def leave(self, muc_jid):
     for message in messages:
         self.send_message(
             mto=muc_jid,
+            mfrom=self.boundjid.bare,
             mbody=message,
             mtype="groupchat"
             )
     await bookmark.remove(self, muc_jid)
     self.plugin['xep_0045'].leave_muc(
         muc_jid,
-        self.nick,
+        self.alias,
         "Goodbye!",
         self.boundjid.bare
         )

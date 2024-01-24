@@ -96,21 +96,54 @@ import os
 # # with start_action(action_type="set_date()", jid=jid):
 # # with start_action(action_type="message()", msg=msg):
 
-#import slixfeed.irchandler
+#import slixfeed.smtp
+#import slixfeed.irc
+#import slixfeed.matrix
+
 from slixfeed.config import get_value
-from slixfeed.xmpp.client import Slixfeed
-#import slixfeed.matrixhandler
 
 import socks
 import socket
 
+xmpp_type = get_value(
+            "accounts", "XMPP", "type")
 
-class Jabber:
-    def __init__(self, jid, password, nick):
+match xmpp_type:
+    case "client":
+        from slixfeed.xmpp.client import Slixfeed
+    case "component":
+        from slixfeed.xmpp.component import Slixfeed
+
+
+class JabberComponent:
+    def __init__(self, jid, secret, hostname, port, alias):
+        xmpp = Slixfeed(jid, secret, hostname, port, alias)
+        xmpp.register_plugin('xep_0004') # Data Forms
+        xmpp.register_plugin('xep_0030') # Service Discovery
+        xmpp.register_plugin('xep_0045') # Multi-User Chat
+        # xmpp.register_plugin('xep_0048') # Bookmarks
+        xmpp.register_plugin('xep_0054') # vcard-temp
+        xmpp.register_plugin('xep_0060') # Publish-Subscribe
+        # xmpp.register_plugin('xep_0065') # SOCKS5 Bytestreams
+        xmpp.register_plugin('xep_0066') # Out of Band Data
+        xmpp.register_plugin('xep_0071') # XHTML-IM
+        xmpp.register_plugin('xep_0084') # User Avatar
+        # xmpp.register_plugin('xep_0085') # Chat State Notifications
+        xmpp.register_plugin('xep_0153') # vCard-Based Avatars
+        xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
+        xmpp.register_plugin('xep_0249') # Multi-User Chat
+        xmpp.register_plugin('xep_0363') # HTTP File Upload
+        xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
+        xmpp.connect()
+        xmpp.process()
+
+
+class JabberClient:
+    def __init__(self, jid, password, alias):
         # Setup the Slixfeed and register plugins. Note that while plugins may
         # have interdependencies, the order in which you register them does
         # not matter.
-        xmpp = Slixfeed(jid, password, nick)
+        xmpp = Slixfeed(jid, password, alias)
         xmpp.register_plugin('xep_0004') # Data Forms
         xmpp.register_plugin('xep_0030') # Service Discovery
         xmpp.register_plugin('xep_0045') # Multi-User Chat
@@ -128,9 +161,9 @@ class Jabber:
         xmpp.register_plugin('xep_0363') # HTTP File Upload
         xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
 
-        # proxy_enabled = get_value("accounts", "XMPP Connect", "proxy_enabled")
+        # proxy_enabled = get_value("accounts", "XMPP", "proxy_enabled")
         # if proxy_enabled == '1':
-        #     values = get_value("accounts", "XMPP Connect", [
+        #     values = get_value("accounts", "XMPP", [
         #         "proxy_host",
         #         "proxy_port",
         #         "proxy_username",
@@ -150,7 +183,7 @@ class Jabber:
         # Connect to the XMPP server and start processing XMPP stanzas.
 
         address = get_value(
-            "accounts", "XMPP", ["address", "port"])
+            "accounts", "XMPP Client", ["hostname", "port"])
         if address[0] and address[1]:
             xmpp.connect(tuple(address))
         else:
@@ -189,7 +222,11 @@ def main():
     parser.add_argument(
         "-p", "--password", dest="password", help="Password of JID")
     parser.add_argument(
-        "-n", "--nickname", dest="nickname", help="Display name")
+        "-a", "--alias", dest="alias", help="Display name")
+    parser.add_argument(
+        "-n", "--hostname", dest="hostname", help="Hostname")
+    parser.add_argument(
+        "-o", "--port", dest="port", help="Port number")
 
     args = parser.parse_args()
 
@@ -199,28 +236,39 @@ def main():
 
     # Try configuration file
     values = get_value(
-        "accounts", "XMPP", ["nickname", "username", "password"])
-    nickname = values[0]
+        "accounts", "XMPP Client", [
+            "alias", "username", "password", "hostname", "port"])
+    alias = values[0]
     username = values[1]
     password = values[2]
+    hostname = values[3]
+    port = values[4]
 
     # Use arguments if were given
     if args.jid:
         username = args.jid
     if args.password:
         password = args.password
-    if args.nickname:
-        nickname = args.nickname
+    if args.alias:
+        alias = args.alias
+    if args.hostname:
+        hostname = args.hostname
+    if args.port:
+        port = args.port
 
     # Prompt for credentials if none were given
     if not username:
         username = input("Username: ")
     if not password:
         password = getpass("Password: ")
-    if not nickname:
-        nickname = input("Nickname: ")
+    if not alias:
+        alias = (input("Alias: ")) or "Slixfeed"
 
-    Jabber(username, password, nickname)
+    match xmpp_type:
+        case "client":
+            JabberClient(username, password, alias)
+        case "component":
+            JabberComponent(username, password, hostname, port, alias)
     sys.exit(0)
 
 if __name__ == "__main__":

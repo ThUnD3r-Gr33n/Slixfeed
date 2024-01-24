@@ -12,6 +12,25 @@ TODO
 
 import slixfeed.xmpp.utility as utility
 
+async def remove(self, jid):
+    """
+    Remove JID to roster.
+
+    Parameters
+    ----------
+    jid : str
+        Jabber ID.
+
+    Returns
+    -------
+    None.
+    """
+    self.update_roster(
+        jid,
+        subscription="remove"
+        )
+
+
 async def add(self, jid):
     """
     Add JID to roster.
@@ -35,8 +54,9 @@ async def add(self, jid):
         if jid not in self.client_roster.keys():
             self.send_presence_subscription(
                 pto=jid,
+                pfrom=self.boundjid.bare,
                 ptype="subscribe",
-                pnick=self.nick
+                pnick=self.alias
                 )
             self.update_roster(
                 jid,

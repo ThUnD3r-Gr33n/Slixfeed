@@ -85,19 +85,15 @@ loop = asyncio.get_event_loop()
 #     return current_time
 
 
-class Slixfeed(slixmpp.ClientXMPP):
+class Slixfeed(slixmpp.ComponentXMPP):
     """
     Slixmpp
     -------
     News bot that sends updates from RSS feeds.
     """
-    def __init__(self, jid, password, alias):
-        slixmpp.ClientXMPP.__init__(self, jid, password)
+    def __init__(self, jid, secret, hostname, port, alias):
+        slixmpp.ComponentXMPP.__init__(self, jid, secret, hostname, port)
 
-        # NOTE
-        # The bot works fine when the nickname is hardcoded; or
-        # The bot won't join some MUCs when its nickname has brackets
-        self.alias = alias
         # The session_start event will be triggered when
         # the bot establishes its connection with the server
         # and the XML streams are ready for use. We want to
@@ -168,22 +164,24 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_session_start(self, event):
-        await process.event(self, event)
-        await muc.autojoin(self)
+        await process.event_component(self, event)
+        # await muc.autojoin(self)
         await profile.update(self)
 
 
     async def on_session_resumed(self, event):
-        await process.event(self, event)
-        await muc.autojoin(self)
+        await process.event_component(self, event)
+        # await muc.autojoin(self)
 
 
     # TODO Request for subscription
     async def on_message(self, message):
+        # print(message)
+        # breakpoint()
         jid = message["from"].bare
-        if "chat" == await utility.jid_type(self, jid):
-            await roster.add(self, jid)
-            await state.request(self, jid)
+        # if "chat" == await utility.jid_type(self, jid):
+        #     await roster.add(self, jid)
+        #     await state.request(self, jid)
         # chat_type = message["type"]
         # message_body = message["body"]
         # message_reply = message.reply
@@ -199,7 +197,13 @@ class Slixfeed(slixmpp.ClientXMPP):
         print("on_presence_subscribe")
         print(presence)
         jid = presence["from"].bare
-        await state.request(self, jid)
+        # await state.request(self, jid)
+        self.send_presence_subscription(
+            pto=jid,
+            pfrom=self.boundjid.bare,
+            ptype="subscribe",
+            pnick=self.alias
+            )
 
 
     async def on_presence_subscribed(self, presence):
@@ -214,8 +218,6 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def on_presence_unsubscribed(self, presence):
         await state.unsubscribed(self, presence)
-        jid = presence["from"].bare
-        await roster.remove(self, jid)
 
 
     async def on_presence_unavailable(self, presence):

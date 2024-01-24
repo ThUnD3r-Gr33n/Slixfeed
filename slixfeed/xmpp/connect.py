@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+
+TODO
+
+1) Check interval, and if no connection is establish after 30 seconds
+   then disconnect and reconnect again.
+
+2) or Check ping, and if no ping is received after 30 seconds then
+   disconnect and try to reconnect again.
+
+"""
+
 from slixfeed.config import get_value
 from slixfeed.dt import current_time
 from time import sleep
@@ -18,7 +30,7 @@ async def recover_connection(self, event, message):
     #     logging.error("Maximum connection attempts exceeded.")
     print(current_time(), "Attempt number", self.connection_attempts)
     seconds = (get_value(
-        "accounts", "XMPP Connect", "reconnect_timeout")) or 30
+        "accounts", "XMPP", "reconnect_timeout")) or 30
     seconds = int(seconds)
     print(current_time(), "Next attempt within", seconds, "seconds")
     # NOTE asyncio.sleep doesn't interval as expected

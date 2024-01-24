@@ -19,7 +19,7 @@ async def add(self, muc_jid):
         for muc in mucs:
             bookmarks.add_conference(
                 muc,
-                self.nick,
+                self.alias,
                 autojoin=True
                 )
         await self.plugin['xep_0048'].set_bookmarks(bookmarks)
@@ -28,7 +28,7 @@ async def add(self, muc_jid):
     # print(await self.plugin['xep_0048'].get_bookmarks())
 
     # bm = BookmarkStorage()
-    # bm.conferences.append(Conference(muc_jid, autojoin=True, nick=self.nick))
+    # bm.conferences.append(Conference(muc_jid, autojoin=True, nick=self.alias))
     # await self['xep_0402'].publish(bm)
 
 
@@ -53,7 +53,7 @@ async def remove(self, muc_jid):
         for muc in mucs:
             bookmarks.add_conference(
                 muc,
-                self.nick,
+                self.alias,
                 autojoin=True
                 )
         await self.plugin['xep_0048'].set_bookmarks(bookmarks)

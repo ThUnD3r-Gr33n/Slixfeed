@@ -41,6 +41,10 @@ import slixfeed.xmpp.upload as upload
 from slixfeed.xmpp.utility import jid_type
 
 
+async def event_component(self, event):
+    self.send_presence()
+
+
 async def event(self, event):
     """
     Process the session_start event.
@@ -84,12 +88,12 @@ async def message(self, message):
         message_text = " ".join(message["body"].split())
 
         # if (message["type"] == "groupchat" and
-        #     message['muc']['nick'] == self.nick):
+        #     message['muc']['nick'] == self.alias):
         #         return
 
         # FIXME Code repetition. See below.
         if message["type"] == "groupchat":
-            if (message['muc']['nick'] == self.nick):
+            if (message['muc']['nick'] == self.alias):
                 return
             jid_full = str(message["from"])
             role = self.plugin['xep_0045'].get_jid_property(
@@ -136,7 +140,7 @@ async def message(self, message):
             # nick = message["from"][message["from"].index("/")+1:]
             # nick = str(message["from"])
             # nick = nick[nick.index("/")+1:]
-            if (message['muc']['nick'] == self.nick or
+            if (message['muc']['nick'] == self.alias or
                 not message["body"].startswith("!")):
                 return
             # token = await initdb(
@@ -198,7 +202,7 @@ async def message(self, message):
         response = None
         match message_lowercase:
             # case "breakpoint":
-            #     if jid == get_value("accounts", "XMPP", "operator"):
+            #     if jid == get_value("accounts", "XMPP Profile", "operator"):
             #         breakpoint()
             #         print("task_manager[jid]")
             #         print(task_manager[jid])
@@ -368,7 +372,7 @@ async def message(self, message):
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("bookmark -"):
                 if jid == get_value(
-                        "accounts", "XMPP", "operator"):
+                        "accounts", "XMPP Profile", "operator"):
                     muc_jid = message_text[11:]
                     await bookmark.remove(self, muc_jid)
                     response = (
@@ -382,7 +386,7 @@ async def message(self, message):
                 send_reply_message(self, message, response)
             case "bookmarks":
                 if jid == get_value(
-                        "accounts", "XMPP", "operator"):
+                        "accounts", "XMPP Profile", "operator"):
                     response = await action.list_bookmarks(self)
                 else:
                     response = (
@@ -485,7 +489,13 @@ async def message(self, message):
                 ext = ext if ext else 'pdf'
                 url = None
                 error = None
-                if ext in ("epub", "html", "md", "pdf", "txt"):
+                if ext in (
+                        "epub", "html", "markdown", "md", "pdf", "text", "txt"):
+                    match ext:
+                        case "markdown":
+                            ext = "md"
+                        case "text":
+                            ext = "txt"
                     status_type = "dnd"
                     status_message = (
                         "📃️ Procesing request to produce {} document..."
@@ -504,7 +514,7 @@ async def message(self, message):
                             try:
                                 url = sqlite.get_entry_url(db_file, ix)
                             except:
-                                response = "No entry with Id {}".format(ix)
+                                response = "No entry with index {}".format(ix)
                         except:
                             url = ix_url
                         if url:
@@ -539,7 +549,7 @@ async def message(self, message):
                         await task.start_tasks_xmpp(
                             self, jid, ["status"])
                     else:
-                        response = "Missing entry Id."
+                        response = "Missing entry index number."
                 else:
                     response = "Unsupported filetype."
                 if response:
@@ -859,7 +869,7 @@ async def message(self, message):
                                 ).format(url, ix)
                         except:
                             response = (
-                                "No news source with ID {}."
+                                "No news source with index {}."
                                 ).format(ix)
                     except:
                         url = ix_url
@@ -878,7 +888,7 @@ async def message(self, message):
                     await task.clean_tasks_xmpp(jid, ["status"])
                     await task.start_tasks_xmpp(self, jid, ["status"])
                 else:
-                    response = "Missing feed ID."
+                    response = "Missing feed index number."
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("reset"):
                 url = message_text[6:]
@@ -947,7 +957,7 @@ async def message(self, message):
                         "Updates are now disabled for news source {}."
                         ).format(ix)
                 except:
-                    response = "No news source with ID {}.".format(ix)
+                    response = "No news source with index {}.".format(ix)
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith("enable"):
                 ix = message_text[7:]
@@ -958,7 +968,7 @@ async def message(self, message):
                         "Updates are now enabled for news source {}."
                         ).format(ix)
                 except:
-                    response = "No news source with ID {}.".format(ix)
+                    response = "No news source with index {}.".format(ix)
                 send_reply_message(self, message, response)
             case "stop":
             # FIXME
@@ -1067,6 +1077,7 @@ async def send_oob_message(self, jid, url):
         f'<a href="{url}">{url}</a></body>')
     message = self.make_message(
         mto=jid,
+        mfrom=self.boundjid.bare,
         mbody=url,
         mhtml=html,
         mtype=chat_type
@@ -1087,6 +1098,7 @@ async def send_oob_message(self, jid, url):
 #     for message in messages:
 #         self.send_message(
 #             mto=jid,
+#             mfrom=self.boundjid.bare,
 #             mbody=message,
 #             mtype=chat_type
 #             )
@@ -1099,11 +1111,12 @@ def greet(self, jid, chat_type="chat"):
         "My job is to bring you the latest "
         "news from sources you provide me with.\n"
         "You may always reach me via xmpp:{}?message").format(
-            self.nick,
+            self.alias,
             self.boundjid.bare
             )
     self.send_message(
         mto=jid,
+        mfrom=self.boundjid.bare,
         mbody=message,
         mtype=chat_type
         )

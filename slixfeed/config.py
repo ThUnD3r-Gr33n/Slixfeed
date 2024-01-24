@@ -17,6 +17,8 @@ TODO
 
 5) Merge get_value_default into get_value.
 
+6) Use TOML https://ruudvanasseldonk.com/2023/01/11/the-yaml-document-from-hell
+
 """
 
 import configparser

@@ -35,7 +35,7 @@ NOTE
     check_readiness
     <presence from="slixfeed@canchat.org/xAPgJLHtMMHF" xml:lang="en" id="ab35c07b63a444d0a7c0a9a0b272f301" to="slixfeed@canchat.org/xAPgJLHtMMHF"><status>📂 Send a URL from a blog or a news website.</status><x xmlns="vcard-temp:x:update"><photo /></x></presence>
     JID: self.boundjid.bare
-    MUC: self.nick
+    MUC: self.alias
 
 """
 
@@ -258,11 +258,21 @@ async def send_update(self, jid, num=None):
             if media and news_digest:
                 # Send textual message
                 xmpp.Slixfeed.send_message(
-                    self, mto=jid, mbody=news_digest, mtype=chat_type)
+                    self,
+                    mto=jid,
+                    mfrom=self.boundjid.bare,
+                    mbody=news_digest,
+                    mtype=chat_type
+                    )
                 news_digest = ''
                 # Send media
                 message = xmpp.Slixfeed.make_message(
-                    self, mto=jid, mbody=media, mtype=chat_type)
+                    self,
+                    mto=jid,
+                    mfrom=self.boundjid.bare,
+                    mbody=media,
+                    mtype=chat_type
+                    )
                 message['oob']['url'] = media
                 message.send()
                 media = None
@@ -274,7 +284,12 @@ async def send_update(self, jid, num=None):
             if chat_type in ("chat", "groupchat"):
                 # TODO Provide a choice (with or without images)
                 xmpp.Slixfeed.send_message(
-                    self, mto=jid, mbody=news_digest, mtype=chat_type)
+                    self,
+                    mto=jid,
+                    mfrom=self.boundjid.bare,
+                    mbody=news_digest,
+                    mtype=chat_type
+                    )
         # if media:
         #     # message = xmpp.Slixfeed.make_message(
         #     #     self, mto=jid, mbody=new, mtype=chat_type)
@@ -365,10 +380,10 @@ async def send_status(self, jid):
     # print(await current_time(), status_text, "for", jid)
     xmpp.Slixfeed.send_presence(
         self,
-        pshow=status_mode,
-        pstatus=status_text,
         pto=jid,
-        #pfrom=None
+        pfrom=self.boundjid.bare,
+        pshow=status_mode,
+        pstatus=status_text
         )
     # await asyncio.sleep(60 * 20)
     await refresh_task(
