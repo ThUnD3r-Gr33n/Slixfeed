@@ -85,13 +85,8 @@ loop = asyncio.get_event_loop()
 #     return current_time
 
 
-class Slixfeed(slixmpp.ComponentXMPP):
-    """
-    Slixmpp
-    -------
-    News bot that sends updates from RSS feeds.
-    """
-    def __init__(self, jid, secret, hostname, port, alias):
+class SlixfeedComponent(slixmpp.ComponentXMPP):
+    def __init__(self, jid, secret, hostname, port, alias=None):
         slixmpp.ComponentXMPP.__init__(self, jid, secret, hostname, port)
 
         # The session_start event will be triggered when

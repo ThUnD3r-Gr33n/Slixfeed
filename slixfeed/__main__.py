@@ -112,12 +112,12 @@ match xmpp_type:
     case "client":
         from slixfeed.xmpp.client import Slixfeed
     case "component":
-        from slixfeed.xmpp.component import Slixfeed
+        from slixfeed.xmpp.component import SlixfeedComponent
 
 
 class JabberComponent:
-    def __init__(self, jid, secret, hostname, port, alias):
-        xmpp = Slixfeed(jid, secret, hostname, port, alias)
+    def __init__(self, jid, secret, hostname, port, alias=None):
+        xmpp = SlixfeedComponent(jid, secret, hostname, port, alias)
         xmpp.register_plugin('xep_0004') # Data Forms
         xmpp.register_plugin('xep_0030') # Service Discovery
         xmpp.register_plugin('xep_0045') # Multi-User Chat
@@ -139,11 +139,8 @@ class JabberComponent:
 
 
 class JabberClient:
-    def __init__(self, jid, password, alias):
-        # Setup the Slixfeed and register plugins. Note that while plugins may
-        # have interdependencies, the order in which you register them does
-        # not matter.
-        xmpp = Slixfeed(jid, password, alias)
+    def __init__(self, jid, password, hostname=None, port=None, alias=None):
+        xmpp = Slixfeed(jid, password, hostname, port, alias)
         xmpp.register_plugin('xep_0004') # Data Forms
         xmpp.register_plugin('xep_0030') # Service Discovery
         xmpp.register_plugin('xep_0045') # Multi-User Chat
@@ -266,9 +263,9 @@ def main():
 
     match xmpp_type:
         case "client":
-            JabberClient(jid, password, alias)
+            JabberClient(jid, password, hostname=hostname, port=port, alias=alias)
         case "component":
-            JabberComponent(jid, password, hostname, port, alias)
+            JabberComponent(jid, password, hostname, port, alias=alias)
     sys.exit(0)
 
 if __name__ == "__main__":

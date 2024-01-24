@@ -16,7 +16,14 @@ TODO
 2) Assure message delivery before calling a new task.
     See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-marker_acknowledged
 
-3) XHTTML-IM
+3) Check the lesyt message sent by the bot.
+   This is essential in case bot restarts within an update interval.
+   Example:
+       Bot is set to send an update every 5 hours.
+       Bot was disconnected and reconnected after an hour.
+       Bot will send an update when it is connected, which is lesser than 5 hours as it should.
+
+4) XHTTML-IM
     case _ if message_lowercase.startswith("html"):
         message['html']="
 Parse me!
@@ -91,7 +98,7 @@ class Slixfeed(slixmpp.ClientXMPP):
     -------
     News bot that sends updates from RSS feeds.
     """
-    def __init__(self, jid, password, alias):
+    def __init__(self, jid, password, hostname=None, port=None, alias=None):
         slixmpp.ClientXMPP.__init__(self, jid, password)
 
         # NOTE

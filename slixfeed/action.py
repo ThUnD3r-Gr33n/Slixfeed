@@ -51,8 +51,14 @@ from slixfeed.url import (
 import slixfeed.xmpp.bookmark as bookmark
 from urllib import error
 from urllib.parse import parse_qs, urlsplit
-import xml2epub
 import xml.etree.ElementTree as ET
+
+try:
+    import xml2epub
+except:
+    logging.info(
+        "Package xml2epub was not found.\n"
+        "ePUB support is disabled.")
 
 try:
     import html2text
