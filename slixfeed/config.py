@@ -62,23 +62,23 @@ def get_value(filename, section, keys):
         if isinstance(keys, list):
             result = []
             for key in keys:
-                try:
+                if key in section_res:
                     value = section_res[key]
                     logging.debug(
                         "Found value {} for key {}".format(value, key)
                         )
-                except:
+                else:
                     value = ''
-                    logging.error("Missing key:", key)
+                    logging.debug("Missing key:", key)
                 result.extend([value])
         elif isinstance(keys, str):
             key = keys
-            try:
+            if key in section_res:
                 result = section_res[key]
                 logging.debug(
                     "Found value {} for key {}".format(result, key)
                     )
-            except:
+            else:
                 result = ''
                 # logging.error("Missing key:", key)
     if result == None:

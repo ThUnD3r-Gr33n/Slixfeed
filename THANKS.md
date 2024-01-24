@@ -20,4 +20,4 @@ Simone "roughnecks" Canaletti
 
 Strix from Loqi
 
-Slixmpp participants amf #python members who explicitly chose to remain anonymous or not to appear in this list.
+Slixmpp participants and #python members who explicitly chose to remain anonymous or not to appear in this list.
