@@ -92,6 +92,7 @@ async def message(self, message):
         #         return
 
         # FIXME Code repetition. See below.
+        # TODO Check alias by nickname associated with conference
         if message["type"] == "groupchat":
             if (message['muc']['nick'] == self.alias):
                 return
@@ -475,7 +476,9 @@ async def message(self, message):
                     await task.start_tasks_xmpp(
                         self, jid, ["status"])
                 else:
-                    response = "Unsupported filetype."
+                    response = (
+                        "Unsupported filetype. "
+                        "Try: html, md, opml, or xbel")
                     send_reply_message(self, message, response)
             case _ if (message_lowercase.startswith("gemini:") or
                         message_lowercase.startswith("gopher:")):
@@ -537,23 +540,27 @@ async def message(self, message):
                                     data, url, ext, filename)
                                 if error:
                                     response = (
+                                        "> {}\n"
                                         "Failed to export {}.  Reason: {}"
-                                        ).format(ext.upper(), error)
+                                        ).format(url, ext.upper(), error)
                                 else:
                                     url = await upload.start(self, jid, filename)
                                     await send_oob_message(self, jid, url)
                             else:
                                 response = (
-                                    "Failed to fetch {}  Reason: {}"
+                                    "> {}\n"
+                                    "Failed to fetch URL.  Reason: {}"
                                     ).format(url, code)
                         await task.start_tasks_xmpp(
                             self, jid, ["status"])
                     else:
                         response = "Missing entry index number."
                 else:
-                    response = "Unsupported filetype."
+                    response = (
+                        "Unsupported filetype. "
+                        "Try: epub, html, md (markdown), pdf, or text (txt)")
                 if response:
-                    print(response)
+                    logging.warning("Error for URL {}: {}".format(url, error))
                     send_reply_message(self, message, response)
             # case _ if (message_lowercase.startswith("http")) and(
             #     message_lowercase.endswith(".opml")):
@@ -741,10 +748,15 @@ async def message(self, message):
             # TODO Will you add support for number of messages?
             case "next":
                 # num = message_text[5:]
-                await task.clean_tasks_xmpp(
-                    jid, ["interval", "status"])
-                await task.start_tasks_xmpp(
-                    self, jid, ["interval", "status"])
+                # await task.send_update(self, jid, num)
+
+                await task.send_update(self, jid)
+
+                # await task.clean_tasks_xmpp(
+                #     jid, ["interval", "status"])
+                # await task.start_tasks_xmpp(
+                #     self, jid, ["interval", "status"])
+
                 # await refresh_task(
                 #     self,
                 #     jid,

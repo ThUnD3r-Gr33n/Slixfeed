@@ -42,8 +42,6 @@ NOTE
 import asyncio
 import logging
 import os
-import slixmpp
-
 import slixfeed.action as action
 from slixfeed.config import (
     get_pathname_to_database,
@@ -51,19 +49,23 @@ from slixfeed.config import (
     get_value)
 # from slixfeed.dt import current_time
 from slixfeed.sqlite import (
+    delete_archived_entry,
     get_feed_title,
     get_feeds_url,
-    get_number_of_items,
+    get_last_update_time,
     get_number_of_entries_unread,
+    get_number_of_items,
     get_settings_value,
     get_unread_entries,
     mark_as_read,
     mark_entry_as_read,
-    delete_archived_entry
+    set_last_update_time,
+    update_last_update_time
     )
 # from xmpp import Slixfeed
 import slixfeed.xmpp.client as xmpp
 import slixfeed.xmpp.utility as utility
+import time
 
 main_task = []
 jid_tasker = {}
@@ -101,6 +103,30 @@ async def start_tasks_xmpp(self, jid, tasks):
                 task_manager[jid]["status"] = asyncio.create_task(
                     send_status(self, jid))
             case "interval":
+                db_file = get_pathname_to_database(jid)
+                update_interval = (
+                    await get_settings_value(db_file, "interval") or
+                    get_value("settings", "Settings", "interval")
+                    )
+                update_interval = 60 * int(update_interval)
+                last_update_time = await get_last_update_time(db_file)
+                if last_update_time:
+                    last_update_time = float(last_update_time)
+                    diff = time.time() - last_update_time
+                    if diff < update_interval:
+                        next_update_time = update_interval - diff
+                        print("jid              :", jid, "\n"
+                              "time             :", time.time(), "\n"
+                              "last_update_time :", last_update_time, "\n"
+                              "difference       :", diff, "\n"
+                              "update interval  :", update_interval, "\n"
+                              "next_update_time :", next_update_time, "\n")
+                        await asyncio.sleep(next_update_time)
+                    # elif diff > val:
+                    #     next_update_time = val
+                    await update_last_update_time(db_file)
+                else:
+                    await set_last_update_time(db_file)
                 task_manager[jid]["interval"] = asyncio.create_task(
                     send_update(self, jid))
     # for task in task_manager[jid].values():
@@ -152,11 +178,8 @@ async def task_jid(self, jid):
     """
     db_file = get_pathname_to_database(jid)
     enabled = (
-        await get_settings_value(
-            db_file, "enabled")
-        ) or (
-        get_value(
-            "settings", "Settings", "enabled")
+        await get_settings_value(db_file, "enabled") or
+        get_value("settings", "Settings", "enabled")
         )
     if enabled:
         # NOTE Perhaps we want to utilize super with keyword
@@ -208,20 +231,14 @@ async def send_update(self, jid, num=None):
     logging.debug("Sending a news update to JID {}".format(jid))
     db_file = get_pathname_to_database(jid)
     enabled = (
-        await get_settings_value(
-            db_file, "enabled")
-        ) or (
-        get_value(
-            "settings", "Settings", "enabled")
+        await get_settings_value(db_file, "enabled") or
+        get_value("settings", "Settings", "enabled")
         )
     if enabled:
         if not num:
             num = (
-                await get_settings_value(
-                    db_file, "quantum")
-                ) or (
-                get_value(
-                    "settings", "Settings", "quantum")
+                await get_settings_value(db_file, "quantum") or
+                get_value("settings", "Settings", "quantum")
                 )
         else:
             num = int(num)
@@ -341,11 +358,8 @@ async def send_status(self, jid):
     status_text = "📜️ Slixfeed RSS News Bot"
     db_file = get_pathname_to_database(jid)
     enabled = (
-        await get_settings_value(
-            db_file, "enabled")
-        ) or (
-        get_value(
-            "settings", "Settings", "enabled")
+        await get_settings_value(db_file, "enabled") or
+        get_value("settings", "Settings", "enabled")
         )
     if not enabled:
         status_mode = "xa"
@@ -414,11 +428,8 @@ async def refresh_task(self, jid, callback, key, val=None):
     if not val:
         db_file = get_pathname_to_database(jid)
         val = (
-            await get_settings_value(
-                db_file, key)
-            ) or (
-            get_value(
-                "settings", "Settings", key)
+            await get_settings_value(db_file, key) or
+            get_value("settings", "Settings", key)
             )
     # if task_manager[jid][key]:
     if jid in task_manager:

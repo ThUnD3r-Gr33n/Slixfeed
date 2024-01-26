@@ -1029,7 +1029,12 @@ def generate_document(data, url, ext, filename):
             "Check that package readability is installed.")
     match ext:
         case "epub":
-            generate_epub(content, filename)
+            error = generate_epub(content, filename)
+            if error:
+                logging.error(error)
+                # logging.error(
+                #     "Check that packages xml2epub is installed, "
+                #     "or try again.")
         case "html":
             generate_html(content, filename)
         case "md":
@@ -1042,14 +1047,14 @@ def generate_document(data, url, ext, filename):
                 error = (
                     "Package html2text was not found.")
         case "pdf":
-            try:
-                generate_pdf(content, filename)
-            except:
-                logging.warning(
-                    "Check that packages pdfkit and wkhtmltopdf "
-                    "are installed, or try again.")
-                error = (
-                    "Package pdfkit or wkhtmltopdf was not found.")
+            error = generate_pdf(content, filename)
+            if error:
+                logging.error(error)
+                # logging.warning(
+                #     "Check that packages pdfkit and wkhtmltopdf "
+                #     "are installed, or try again.")
+                # error = (
+                #     "Package pdfkit or wkhtmltopdf was not found.")
         case "txt":
             generate_txt(content, filename)
     if error:
@@ -1126,14 +1131,18 @@ def generate_epub(text, pathname):
     # chapter1 = xml2epub.create_chapter_from_url("https://dev.to/devteam/top-7-featured-dev-posts-from-the-past-week-h6h")
     # chapter2 = xml2epub.create_chapter_from_url("https://dev.to/ks1912/getting-started-with-docker-34g6")
     ## add chapters to your eBook
-    book.add_chapter(chapter0)
-    # book.add_chapter(chapter1)
-    # book.add_chapter(chapter2)
-    ## generate epub file
-    filename_tmp = "slixfeedepub"
-    book.create_epub(directory, epub_name=filename_tmp)
-    pathname_tmp = os.path.join(directory, filename_tmp) + ".epub"
-    os.rename(pathname_tmp, pathname)
+    try:
+        book.add_chapter(chapter0)
+        # book.add_chapter(chapter1)
+        # book.add_chapter(chapter2)
+        ## generate epub file
+        filename_tmp = "slixfeedepub"
+        book.create_epub(directory, epub_name=filename_tmp)
+        pathname_tmp = os.path.join(directory, filename_tmp) + ".epub"
+        os.rename(pathname_tmp, pathname)
+    except ValueError as error:
+        return error
+        
 
 
 def generate_html(text, filename):
@@ -1150,7 +1159,12 @@ def generate_markdown(text, filename):
 
 
 def generate_pdf(text, filename):
-    pdfkit.from_string(text, filename)
+    try:
+        pdfkit.from_string(text, filename)
+    except IOError as error:
+        return error
+    except OSError as error:
+        return error
 
 
 def generate_txt(text, filename):

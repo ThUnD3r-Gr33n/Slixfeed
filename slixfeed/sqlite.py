@@ -13,16 +13,10 @@ TODO
 """
 
 from asyncio import Lock
-from datetime import date
 import logging
-import slixfeed.config as config
 # from slixfeed.data import join_url
-from slixfeed.dt import (
-    current_time,
-    rfc2822_to_iso8601
-    )
 from sqlite3 import connect, Error, IntegrityError
-from slixfeed.url import join_url
+import time
 
 # from eliot import start_action, to_file
 # # with start_action(action_type="list_feeds()", db=db_file):
@@ -82,9 +76,9 @@ def create_tables(db_file):
               );
             """
             )
-        properties_table_sql = (
+        feeds_properties_table_sql = (
             """
-            CREATE TABLE IF NOT EXISTS properties (
+            CREATE TABLE IF NOT EXISTS feeds_properties (
                 id INTEGER NOT NULL,
                 feed_id INTEGER NOT NULL UNIQUE,
                 type TEXT,
@@ -98,9 +92,9 @@ def create_tables(db_file):
               );
             """
             )
-        status_table_sql = (
+        feeds_state_table_sql = (
             """
-            CREATE TABLE IF NOT EXISTS status (
+            CREATE TABLE IF NOT EXISTS feeds_state (
                 id INTEGER NOT NULL,
                 feed_id INTEGER NOT NULL UNIQUE,
                 enabled INTEGER NOT NULL DEFAULT 1,
@@ -169,6 +163,16 @@ def create_tables(db_file):
         #       );
         #     """
         #     )
+        status_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS status (
+                id INTEGER NOT NULL,
+                key TEXT NOT NULL,
+                value INTEGER,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
         settings_table_sql = (
             """
             CREATE TABLE IF NOT EXISTS settings (
@@ -191,14 +195,15 @@ def create_tables(db_file):
             )
         cur = conn.cursor()
         # cur = get_cursor(db_file)
-        cur.execute(feeds_table_sql)
-        cur.execute(status_table_sql)
-        cur.execute(properties_table_sql)
-        cur.execute(entries_table_sql)
         cur.execute(archive_table_sql)
+        cur.execute(entries_table_sql)
+        cur.execute(feeds_table_sql)
+        cur.execute(feeds_state_table_sql)
+        cur.execute(feeds_properties_table_sql)
+        cur.execute(filters_table_sql)
         # cur.execute(statistics_table_sql)
         cur.execute(settings_table_sql)
-        cur.execute(filters_table_sql)
+        cur.execute(status_table_sql)
 
 
 def get_cursor(db_file):
@@ -298,7 +303,7 @@ def insert_feed_status(cur, feed_id):
     sql = (
         """
         INSERT
-        INTO status(
+        INTO feeds_state(
             feed_id)
         VALUES(
             ?)
@@ -309,7 +314,7 @@ def insert_feed_status(cur, feed_id):
         cur.execute(sql, par)
     except IntegrityError as e:
         logging.warning(
-            "Skipping feed_id {} for table status".format(feed_id))
+            "Skipping feed_id {} for table feeds_state".format(feed_id))
         logging.error(e)
 
 
@@ -325,7 +330,7 @@ def insert_feed_properties(cur, feed_id):
     sql = (
         """
         INSERT
-        INTO properties(
+        INTO feeds_properties(
             feed_id)
         VALUES(
             ?)
@@ -336,7 +341,7 @@ def insert_feed_properties(cur, feed_id):
         cur.execute(sql, par)
     except IntegrityError as e:
         logging.warning(
-            "Skipping feed_id {} for table properties".format(feed_id))
+            "Skipping feed_id {} for table feeds_properties".format(feed_id))
         logging.error(e)
 
 
@@ -395,7 +400,7 @@ async def insert_feed(
             sql = (
                 """
                 INSERT
-                INTO status(
+                INTO feeds_state(
                     feed_id, enabled, updated, status_code, valid)
                 VALUES(
                     ?, ?, ?, ?, ?)
@@ -408,7 +413,7 @@ async def insert_feed(
             sql = (
                 """
                 INSERT
-                INTO properties(
+                INTO feeds_properties(
                     feed_id, entries, type, encoding, language)
                 VALUES(
                     ?, ?, ?, ?, ?)
@@ -636,7 +641,7 @@ async def get_number_of_feeds_active(db_file):
         sql = (
             """
             SELECT count(id)
-            FROM status
+            FROM feeds_state
             WHERE enabled = 1
             """
             )
@@ -1036,7 +1041,7 @@ async def set_enabled_status(db_file, ix, status):
             cur = conn.cursor()
             sql = (
                 """
-                UPDATE status
+                UPDATE feeds_state
                 SET enabled = :status
                 WHERE feed_id = :id
                 """
@@ -1155,13 +1160,13 @@ async def add_entries_and_update_timestamp(db_file, feed_id, new_entries):
                 cur.execute(sql, par)
             sql = (
                 """
-                UPDATE status
-                SET renewed = :today
+                UPDATE feeds_state
+                SET renewed = :renewed
                 WHERE feed_id = :feed_id
                 """
                 )
             par = {
-                "today": date.today(),
+                "renewed": time.time(),
                 "feed_id": feed_id
                 }
             cur.execute(sql, par)
@@ -1183,13 +1188,13 @@ async def set_date(db_file, feed_id):
             cur = conn.cursor()
             sql = (
                 """
-                UPDATE status
-                SET renewed = :today
+                UPDATE feeds_state
+                SET renewed = :renewed
                 WHERE feed_id = :feed_id
                 """
                 )
             par = {
-                "today": date.today(),
+                "renewed": time.time(),
                 "feed_id": feed_id
                 }
             # cur = conn.cursor()
@@ -1214,14 +1219,14 @@ async def update_feed_status(db_file, feed_id, status_code):
             cur = conn.cursor()
             sql = (
                 """
-                UPDATE status
+                UPDATE feeds_state
                 SET status_code = :status_code, scanned = :scanned
                 WHERE feed_id = :feed_id
                 """
                 )
             par = {
                 "status_code": status_code,
-                "scanned": date.today(),
+                "scanned": time.time(),
                 "feed_id": feed_id
                 }
             cur.execute(sql, par)
@@ -1245,7 +1250,7 @@ async def update_feed_validity(db_file, feed_id, valid):
             cur = conn.cursor()
             sql = (
                 """
-                UPDATE status
+                UPDATE feeds_state
                 SET valid = :valid
                 WHERE feed_id = :feed_id
                 """
@@ -1277,7 +1282,7 @@ async def update_feed_properties(db_file, feed_id, entries, updated):
             cur = conn.cursor()
             sql = (
                 """
-                UPDATE properties
+                UPDATE feeds_properties
                 SET entries = :entries
                 WHERE feed_id = :feed_id
                 """
@@ -1643,8 +1648,8 @@ async def check_entry_exist(
                 result = cur.execute(sql, par).fetchone()
                 if result: exist = True
             except:
-                print(current_time(), "ERROR DATE: source =", feed_id)
-                print(current_time(), "ERROR DATE: date =", date)
+                logging.error("source =", feed_id)
+                logging.error("date =", date)
         else:
             sql = (
                 """
@@ -1900,3 +1905,95 @@ async def get_filters_value(db_file, key):
                 "No specific value set for key {}.".format(key)
                 )
     return value
+
+
+async def set_last_update_time(db_file):
+    """
+    Set value of last_update.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    None.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            INSERT
+            INTO status(
+                key, value)
+            VALUES(
+                :key, :value)
+            """
+            )
+        par = {
+            "key": "last_update",
+            "value": time.time()
+            }
+        cur.execute(sql, par)
+
+
+async def get_last_update_time(db_file):
+    """
+    Get value of last_update.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    val : str
+        Time.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        try:
+            sql = (
+                """
+                SELECT value
+                FROM status
+                WHERE key = "last_update"
+                """
+                )
+            value = cur.execute(sql).fetchone()[0]
+            value = str(value)
+        except:
+            value = None
+            logging.debug(
+                "No specific value set for key last_update.")
+    return value
+
+
+async def update_last_update_time(db_file):
+    """
+    Update value of last_update.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    None.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            UPDATE status
+            SET value = :value
+            WHERE key = "last_update"
+            """
+            )
+        par = {
+            "value": time.time()
+            }
+        cur.execute(sql, par)

@@ -65,6 +65,7 @@ import slixfeed.xmpp.muc as muc
 import slixfeed.xmpp.process as process
 import slixfeed.xmpp.profile as profile
 import slixfeed.xmpp.roster as roster
+import slixfeed.xmpp.service as service
 import slixfeed.xmpp.state as state
 import slixfeed.xmpp.status as status
 import slixfeed.xmpp.utility as utility
@@ -162,6 +163,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         await process.event_component(self, event)
         # await muc.autojoin(self)
         await profile.update(self)
+        service.identity(self, "service")
 
 
     async def on_session_resumed(self, event):

@@ -9,7 +9,6 @@ from datetime import datetime
 from dateutil.parser import parse
 from email.utils import parsedate, parsedate_to_datetime
 
-
 def now():
     """
     ISO 8601 Timestamp.

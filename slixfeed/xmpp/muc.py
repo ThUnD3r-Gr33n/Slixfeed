@@ -11,6 +11,8 @@ TODO
 
 3) If groupchat error is received, send that error message to inviter.
 
+4) Save name of groupchat instead of jid as name
+
 """
 import logging
 import slixfeed.xmpp.bookmark as bookmark

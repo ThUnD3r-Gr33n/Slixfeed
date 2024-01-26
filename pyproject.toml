@@ -51,6 +51,7 @@ dependencies = [
     "pdfkit",
     "pysocks",
     "readability-lxml",
+    "xml2epub",
 ]
 
 [project.urls]
@@ -60,7 +61,7 @@ Issues = "https://gitgud.io/sjehuda/slixfeed/issues"
 
 
 [project.optional-dependencies]
-file-export = ["html2text", "pdfkit"]
+file-export = ["html2text", "pdfkit", "xml2epub"]
 proxy = ["pysocks"]
 readability = ["readability-lxml"]
 

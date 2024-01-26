@@ -27,34 +27,33 @@ async def request(self, jid):
         breakpoint()
         self.send_raw(str(presence_probe))
         presence_probe.send()
-    else:
-        if not self.client_roster[jid]["to"]:
-            self.send_presence_subscription(
-                pto=jid,
-                pfrom=self.boundjid.bare,
-                ptype="subscribe",
-                pnick=self.alias
-                )
-            self.send_message(
-                mto=jid,
-                mfrom=self.boundjid.bare,
-                # mtype="headline",
-                msubject="RSS News Bot",
-                mbody=(
-                    "Share online status to receive updates."
-                    ),
-                mnick=self.alias
-                )
-            self.send_presence(
-                pto=jid,
-                pfrom=self.boundjid.bare,
-                # Accept symbol 🉑️ 👍️ ✍
-                pstatus=(
-                    "✒️ Share online status to receive updates."
-                    ),
-                # ptype="subscribe",
-                pnick=self.alias
-                )
+    elif not self.client_roster[jid]["to"]:
+        self.send_presence_subscription(
+            pto=jid,
+            pfrom=self.boundjid.bare,
+            ptype="subscribe",
+            pnick=self.alias
+            )
+        self.send_message(
+            mto=jid,
+            mfrom=self.boundjid.bare,
+            # mtype="headline",
+            msubject="RSS News Bot",
+            mbody=(
+                "Share online status to receive updates."
+                ),
+            mnick=self.alias
+            )
+        self.send_presence(
+            pto=jid,
+            pfrom=self.boundjid.bare,
+            # Accept symbol 🉑️ 👍️ ✍
+            pstatus=(
+                "✒️ Share online status to receive updates."
+                ),
+            # ptype="subscribe",
+            pnick=self.alias
+            )
 
 
 async def unsubscribed(self, presence):

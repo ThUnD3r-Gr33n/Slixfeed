@@ -100,7 +100,7 @@ import os
 #import slixfeed.irc
 #import slixfeed.matrix
 
-from slixfeed.config import get_value
+from slixfeed.config import get_default_config_directory, get_value
 
 import socks
 import socket
@@ -189,6 +189,10 @@ class JabberClient:
 
 
 def main():
+
+    config_dir = get_default_config_directory()
+    logging.info("Reading configuration from {}".format(config_dir))
+    print("Reading configuration from {}".format(config_dir))
 
     values = get_value(
         "accounts", "XMPP Proxy", ["socks5_host", "socks5_port"])
