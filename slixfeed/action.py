@@ -49,6 +49,7 @@ from slixfeed.url import (
     trim_url
     )
 import slixfeed.xmpp.bookmark as bookmark
+import tomllib
 from urllib import error
 from urllib.parse import parse_qs, urlsplit
 import xml.etree.ElementTree as ET
@@ -80,6 +81,27 @@ except:
     logging.info(
         "Package readability was not found.\n"
         "Arc90 Lab algorithm is disabled.")
+
+def commands(section=None, command=None):
+    config_dir = config.get_default_config_directory()
+    with open(config_dir + "/commands.toml", mode="rb") as commands:
+        cmds = tomllib.load(commands)
+    if command and section:
+        command_name = '`', cmds[section][command], '`\n'
+        command_info = cmds[section][command + '_info']
+        if isinstance(command_info, list):
+            command_info = '\n'.join(command_info)
+        cmd_list = [command_name, command_info]
+    elif section:
+        cmd_list = []
+        for cmd in cmds[section]:
+            if not '_info' in cmd:
+                cmd_list.extend([cmd])
+    else:
+        cmd_list = []
+        for cmd in cmds:
+            cmd_list.extend([cmd])
+    return cmd_list
 
 
 def log_to_markdown(timestamp, filename, jid, message):

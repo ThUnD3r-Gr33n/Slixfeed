@@ -212,6 +212,7 @@ async def message(self, message):
         logging.debug([str(message['from']), ':', message_text])
 
         # Support private message via groupchat
+        # Fail. See https://codeberg.org/poezio/slixmpp/issues/3506
         if message['type'] == 'chat' and message.get_plugin('muc', check=True):
             jid_bare = message['from'].bare
             jid_full = str(message['from'])
@@ -239,11 +240,31 @@ async def message(self, message):
             #             'Type: breakpoint.'
             #             )
             #         send_reply_message(self, message, response)
-            case 'commands':
-                response = manual.print_cmd()
-                send_reply_message(self, message, response)
             case 'help':
-                response = manual.print_help()
+                command_list = '`, `'.join(action.commands())
+                response = (
+                    'Available command topics:\n`', command_list,
+                    '`\nSend `help command_topic` for instructions.')
+                send_reply_message(self, message, response)
+            case _ if message_lowercase.startswith('help'):
+                command = message_text[5:]
+                command = command.split(' ')
+                if len(command) == 2:
+                    command_root = command[0]
+                    command_name = command[1]
+                    command_list = ''.join(action.commands(
+                        section=command_root, command=command_name))
+                    response = (command_list)
+                elif len(command) == 1:
+                    command = command[0]
+                    command_list = '`, `'.join(action.commands(command))
+                    response = (
+                        'Available commands:\n`', command_list,
+                        '`\nSend `help {} command_name` for instructions.'
+                        .format(command))
+                else:
+                    response = (
+                        'Invalid. Enter command topic or command topic and name')
                 send_reply_message(self, message, response)
             case 'info':
                 response = manual.print_info()
