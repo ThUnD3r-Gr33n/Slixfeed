@@ -150,7 +150,10 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
 
     async def on_session_end(self, event):
-        message = "Session has ended. Reason: {}".format(event)
+        if event:
+            message = "Session has ended. Reason: {}".format(event)
+        else:
+            message = "Session has ended."
         await connect.recover_connection(self, event, message)
 
 
@@ -173,10 +176,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
     # TODO Request for subscription
     async def on_message(self, message):
-        # print(message)
-        # breakpoint()
-        jid = message["from"].bare
-        # if "chat" == await utility.jid_type(self, jid):
+        # jid = message["from"].bare
+        # if "chat" == await utility.get_chat_type(self, jid):
         #     await roster.add(self, jid)
         #     await state.request(self, jid)
         # chat_type = message["type"]

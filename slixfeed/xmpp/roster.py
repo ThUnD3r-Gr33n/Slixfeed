@@ -44,7 +44,7 @@ async def add(self, jid):
     -------
     None.
     """
-    if await utility.jid_type(self, jid) == "groupchat":
+    if await utility.get_chat_type(self, jid) == "groupchat":
         # Check whether JID is in bookmarks; otherwise, add it.
         print(jid, "is muc")
         return

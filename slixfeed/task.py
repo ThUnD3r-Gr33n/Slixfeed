@@ -103,7 +103,8 @@ async def start_tasks_xmpp(self, jid, tasks):
                 task_manager[jid]["status"] = asyncio.create_task(
                     send_status(self, jid))
             case "interval":
-                db_file = get_pathname_to_database(jid)
+                jid_file = jid.replace('/', '_')
+                db_file = get_pathname_to_database(jid_file)
                 update_interval = (
                     await get_settings_value(db_file, "interval") or
                     get_value("settings", "Settings", "interval")
@@ -176,7 +177,8 @@ async def task_jid(self, jid):
     jid : str
         Jabber ID.
     """
-    db_file = get_pathname_to_database(jid)
+    jid_file = jid.replace('/', '_')
+    db_file = get_pathname_to_database(jid_file)
     enabled = (
         await get_settings_value(db_file, "enabled") or
         get_value("settings", "Settings", "enabled")
@@ -229,7 +231,8 @@ async def send_update(self, jid, num=None):
         Number. The default is None.
     """
     logging.debug("Sending a news update to JID {}".format(jid))
-    db_file = get_pathname_to_database(jid)
+    jid_file = jid.replace('/', '_')
+    db_file = get_pathname_to_database(jid_file)
     enabled = (
         await get_settings_value(db_file, "enabled") or
         get_value("settings", "Settings", "enabled")
@@ -246,7 +249,7 @@ async def send_update(self, jid, num=None):
         results = await get_unread_entries(db_file, num)
         news_digest = ''
         media = None
-        chat_type = await utility.jid_type(self, jid)
+        chat_type = await utility.get_chat_type(self, jid)
         for result in results:
             ix = result[0]
             title_e = result[1]
@@ -356,7 +359,8 @@ async def send_status(self, jid):
     logging.debug(
         "Sending a status message to JID {}".format(jid))
     status_text = "📜️ Slixfeed RSS News Bot"
-    db_file = get_pathname_to_database(jid)
+    jid_file = jid.replace('/', '_')
+    db_file = get_pathname_to_database(jid_file)
     enabled = (
         await get_settings_value(db_file, "enabled") or
         get_value("settings", "Settings", "enabled")
@@ -426,7 +430,8 @@ async def refresh_task(self, jid, callback, key, val=None):
         "Refreshing task {} for JID {}".format(callback, jid)
         )
     if not val:
-        db_file = get_pathname_to_database(jid)
+        jid_file = jid.replace('/', '_')
+        db_file = get_pathname_to_database(jid_file)
         val = (
             await get_settings_value(db_file, key) or
             get_value("settings", "Settings", key)
@@ -481,7 +486,8 @@ async def check_updates(jid):
         "Scanning for updates for JID {}".format(jid)
         )
     while True:
-        db_file = get_pathname_to_database(jid)
+        jid_file = jid.replace('/', '_')
+        db_file = get_pathname_to_database(jid_file)
         urls = await get_feeds_url(db_file)
         for url in urls:
             await action.scan(db_file, url)

@@ -252,14 +252,14 @@ def get_default_config_directory():
     return os.path.join(config_home, 'slixfeed')
 
 
-def get_pathname_to_database(jid):
+def get_pathname_to_database(jid_file):
     """
     Callback function to instantiate action on database.
 
     Parameters
     ----------
-    jid : str
-        Jabber ID.
+    jid_file : str
+        Filename.
     callback : ?
         Function name.
     message : str, optional
@@ -276,7 +276,7 @@ def get_pathname_to_database(jid):
         os.mkdir(db_dir)
     if not os.path.isdir(db_dir + "/sqlite"):
         os.mkdir(db_dir + "/sqlite")
-    db_file = os.path.join(db_dir, "sqlite", r"{}.db".format(jid))
+    db_file = os.path.join(db_dir, "sqlite", r"{}.db".format(jid_file))
     sqlite.create_tables(db_file)
     return db_file
     # await set_default_values(db_file)

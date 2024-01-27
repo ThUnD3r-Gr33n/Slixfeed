@@ -7,11 +7,11 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 
 async def add(self, muc_jid):
     result = await self.plugin['xep_0048'].get_bookmarks()
-    bookmarks = result["private"]["bookmarks"]
-    conferences = bookmarks["conferences"]
+    bookmarks = result['private']['bookmarks']
+    conferences = bookmarks['conferences']
     mucs = []
     for conference in conferences:
-        jid = conference["jid"]
+        jid = conference['jid']
         mucs.extend([jid])
     if muc_jid not in mucs:
         bookmarks = Bookmarks()
@@ -34,18 +34,18 @@ async def add(self, muc_jid):
 
 async def get(self):
     result = await self.plugin['xep_0048'].get_bookmarks()
-    bookmarks = result["private"]["bookmarks"]
-    conferences = bookmarks["conferences"]
+    bookmarks = result['private']['bookmarks']
+    conferences = bookmarks['conferences']
     return conferences
 
 
 async def remove(self, muc_jid):
     result = await self.plugin['xep_0048'].get_bookmarks()
-    bookmarks = result["private"]["bookmarks"]
-    conferences = bookmarks["conferences"]
+    bookmarks = result['private']['bookmarks']
+    conferences = bookmarks['conferences']
     mucs = []
     for conference in conferences:
-        jid = conference["jid"]
+        jid = conference['jid']
         mucs.extend([jid])
     if muc_jid in mucs:
         bookmarks = Bookmarks()
