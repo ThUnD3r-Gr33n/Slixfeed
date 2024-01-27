@@ -48,7 +48,7 @@ async def set_avatar(self):
     if not filename and os.path.isdir('/usr/share/slixfeed/'):
         # filename = '/usr/share/slixfeed/image.svg'
         filename = glob.glob("/usr/share/slixfeed/image.*")
-    else:
+    if not filename:
         config_dir = os.path.dirname(__file__)
         config_dir = config_dir.split("/")
         config_dir.pop()
