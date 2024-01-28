@@ -1,211 +1,204 @@
 [action]
-url = "<url>"
-url_info = "Add <url> to subscription list."
-add = "add <url> TITLE"
-add_info = "Add <url> to subscription list (without validity check)."
-next = "next N"
-next_info = "Send N next updates."
+url = """
+<url>
+Add given <url> to subscription list.
+"""
+add = """
+add <url> <title>
+Add given <url> to subscription list (no feed validity check). Parameter <title> is optional.
+"""
+next = """
+next <number>
+Send next <number> of updates.
+"""
 
 [backup]
-opml = "export opml"
-opml_info = "Send an OPML file with feeds."
-html = "backup news html"
-html_info = "Send an HTML formatted file of your news items."
-md = "backup news md"
-md_info = "Send a Markdown file of your news items."
-text = "backup news text"
-text_info = "Send a Plain Text file of your news items."
+opml = """
+export opml
+Send an OPML file with feeds.
+"""
+html = """
+backup news html
+Send an HTML formatted file of your news items.
+"""
+md = """
+backup news md
+Send a Markdown file of your news items.
+"""
+text = """
+backup news text
+Send a Plain Text file of your news items.
+"""
 
 [custom]
-new = "new"
-new_info = "Send only new items of newly added feeds."
-old = "old"
-old_info = "Send all items of newly added feeds."
+new = """
+new
+Send only new items of newly added feeds.
+"""
+old = """
+old
+Send all items of newly added feeds.
+"""
 
 [document]
-get = "get <id> <type>"
-get_info = [
-  "Send an article as file. Specify <id> and <type>.",
-  "Supported types are HTML, MD and PDF (default)."
-]
+get = """
+get <id> <type>
+Send an article as file. Specify <id> and <type>.
+Supported types are ePUB, HTML, MD and PDF (default).
+"""
 
 [filter]
-allow = "allow [+|-]"
-allow_info = [
-  "Keywords to allow",
-  "comma-separated keywords",
-  "'+' appends to, '-' removes from."
-]
-deny = "deny [+|-]"
-deny_info = [
-  "Keywords to block",
-  "comma-separated keywords",
-  "'+' appends to, '-' removes from."
-]
-clear_allow = "filter clear allow"
-clear_allow_info = "Reset allow list."
-clear_deny = "filter clear deny"
-clear_deny_info = "Reset deny list."
+allow = """
+allow [+|-] <keyword>
+Keywords to allow
+comma-separated keywords
+'+' appends to, '-' removes from.
+"""
+deny = """
+deny [+|-] <keyword>
+Keywords to block
+comma-separated keywords
+'+' appends to, '-' removes from.
+"""
+clear_allow = """
+filter clear allow
+Reset allow list.
+"""
+clear_deny = """
+filter clear deny
+Reset deny list.
+"""
 
 [groupchat]
-join = "join <muc>"
-join_info = "Join specified groupchat."
+join = """
+join <muc>
+Join groupchat by given <muc>.
+"""
 
-[help]
-commands = "commands"
-commands_info = "Print list of commands."
-help = "help"
-help_info = "Print this help manual."
-info = "info"
-info_info = "Print information page."
-support = "support"
-support_info = "Join xmpp:slixfeed@chat.woodpeckersnest.space?join"
-
-[info]
-about = [
-"Slixfeed aims to be an easy to use and fully-featured news",
-"aggregator bot for XMPP. It provides a convenient access to Blogs,",
-"Fediverse and News websites along with filtering functionality.",
-"\n",
-"Slixfeed is primarily designed for XMPP (aka Jabber).",
-"Visit https://xmpp.org/software/ for more information.",
-"\n",
-"XMPP is the Extensible Messaging and Presence Protocol, a set",
-"of open technologies for instant messaging, presence, multi-party",
-"chat, voice and video calls, collaboration, lightweight",
-"middleware, content syndication, and generalized routing of XML",
-"data.",
-"\n",
-"Visit https://xmpp.org/about/ for more information on the XMPP",
-"protocol.",
-]
-platforms = [
-"Supported prootcols are IRC, Matrix, Tox and XMPP.",
-"For the best experience, we recommend you to use XMPP."
-]
-filetypes = [
-"Supported filetypes: Atom, JSON, RDF, RSS and XML."
-]
-protocols = [
-"Supported protocols: Dat, FTP, Gemini, Gopher, HTTP and IPFS."
-]
-authors = [
-"Laura Lapina",
-"Schimon Zackary"
-]
-thanks = [
-# consultants and testers
-"Alixander Court (Utah)",
-"habnabit_ from #python on irc.libera.chat",
-"imattau (atomtopubsub)",
-"Jaussoin Timothée (Movim, France)",
-"magicfelix",
-"Simone \"roughnecks\" Canaletti (WoodpeckersNest.space, Italy)",
-"Strix from loqi.im",
-# gajim
-"Denis Fomin (Gajim, Russia)",
-"Emmanuel Gil Peyrot (Poezio, France)",
-"Yann Leboulanger (Gajim, France)",
-# intro
-"Christian Dersch (SalixOS)",
-"Cyrille Pontvieux (SalixOS, France)",
-"Dimitris Tzemos (SalixOS, Greece)",
-"George Vlahavas (SalixOS, Greece)",
-"Pierrick Le Brun (SalixOS, France)",
-"Raphael Groner (Fedora, Germany)",
-"Thorsten Mühlfelder (SalixOS, Germany)",
-# openfire
-"Guus der Kinderen from IgniteRealtime.org (Openfire, Netherlands)",
-# swift
-"Kevin Smith from Isode (Swift, Wales# xmpp)",
-"Remko Tronçon (Swift, Germany)",
-# xmpp
-"Florent Le Coz (Poezio, France)",
-"Maxime Buquet (slixmpp, France)",
-"Mathieu Pasquet (slixmpp, France)",
-]
-license = [
-"Slixfeed is free software; you can redistribute it and/or",
-"modify it under the terms of the MIT License.",
-"\n",
-"Slixfeed is distributed in the hope that it will be useful,",
-"but WITHOUT ANY WARRANTY; without even the implied warranty of",
-"MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the",
-"MIT License for more details.",
-]
-note = [
-"You can run Slixfeed on your own computer, server, and",
-"even on a Linux phone (i.e. Droidian, Kupfer, Mobian, NixOS,",
-"postmarketOS). You can also use Termux.",
-"\n",
-"All you need is one of the above and an XMPP account to",
-"connect Slixfeed to.",
-]
-resources = [
-"Slixfeed",
-"https://gitgud.io/sjehuda/slixfeed",
-"Slixmpp",
-"https://slixmpp.readthedocs.io/",
-"feedparser",
-"https://pythonhosted.org/feedparser",
-]
+[manual]
+help = """
+help
+Print list of command types.
+"""
+command = """
+help key command
+Print command usage and description.
+"""
+info = """
+info
+Print information page.
+"""
+key = """
+help <key>
+Print list of commands for selected command type.
+"""
+support = """
+support
+Join xmpp:slixfeed@chat.woodpeckersnest.space?join
+"""
 
 [mastership]
-demaster = "demaster NICKNAME"
-demaster_info = "Remove master privilege."
-mastership = "mastership NICKNAME"
-mastership_info = "Add master privilege."
-ownership = "ownership NICKNAME"
-ownership_info = "Set new owner."
+demaster = """
+demaster <nick>
+Remove master privilege from given <nick>.
+"""
+mastership = """
+mastership <nick>
+Add master privilege to given <nick>.
+"""
+ownership = """
+ownership <nick>
+Transfer ownership to given <nick>.
+"""
 
 [message]
-interval = "interval <num>"
-interval_info = "Set interval update to every <num> minutes."
-length = "length"
-length_info = "Set maximum length of news item description. (0 for no limit)"
-quantum = "quantum <num>"
-quantum_info = "Set <num> amount of updates per interval."
+interval = """
+interval <minutes>
+Set interval update to every given <minutes>.
+"""
+length = """
+length
+Set maximum length of news item description. (0 for no limit)
+"""
+quantum = """
+quantum <number>
+Set amount of updates per interval by given <number>.
+"""
 
 [modification]
-remove = "remove <id>"
-remove_info = "Remove feed of <id> from subscription list."
-disable = "disable <id>"
-disable_info = "Disable updates for feed of <id>."
-enable = "enable <id>"
-enable_info = "Enable updates for feed of <id>."
-reset = "reset"
-reset_info = "Mark all entries as read and remove all archived entries"
-reset_url = "reset <url>"
-reset_url_info = "Mark entries of <url> as read and remove all archived entries of <url>."
-start = "start"
-start_info = "Enable bot and send updates."
-stop = "stop"
-stop_info = "Disable bot and stop updates."
+remove = """
+remove <id>
+Remove feed of from subscription list by given <id>.
+"""
+disable = """
+disable <id>
+Disable updates for feed of given <id>.
+"""
+enable = """
+enable <id>
+Enable updates for feed of given <id>.
+"""
+reset = """
+reset
+Mark all entries as read and remove all archived entries
+"""
+reset_url = """
+reset <url>
+Mark entries of given <url> as read and remove all its archived entries.
+"""
+start = """
+start
+Enable bot and send updates.
+"""
+stop = """
+stop
+Disable bot and stop updates.
+"""
 
 [preview]
-read = "read <url>"
-read_info = "Display most recent 20 titles of given <url>."
-read_num = "read <url> <n>"
-read_num_info = "Display specified entry number from given <url>."
+read = """
+read <url>
+Display most recent 20 titles of given <url>.
+"""
+read_num = """
+read <url> <index>
+Display specified entry number from given <url> by given <index>.
+"""
 
 [search]
-feeds = "feeds"
-feeds_info = "List all subscriptions."
-feeds_keyword = "feeds <text>"
-feeds_keyword_info = "Search subscriptions by given <text>."
-search = "search <text>"
-search_info = "Search news items by given <text>."
-recent = "recent <num>"
-recent_info = "List recent <num> news items (up to 50 items)."
+feeds = """
+feeds
+List all subscriptions.
+"""
+feeds_keyword = """
+feeds <text>
+Search subscriptions by given <text>.
+"""
+search = """
+search <text>
+Search news items by given <text>.
+"""
+recent = """
+recent <number>
+List recent <number> news items (up to 50 items).
+"""
 
 [statistics]
-analyses = "analyses"
-analyses_info = "Show report and statistics of feeds."
-obsolete = "obsolete"
-obsolete_info = "List feeds that are not available."
-unread = "unread"
-unread_info = "Print number of unread news items."
+analyses = """
+analyses
+Show report and statistics of feeds.
+"""
+obsolete = """
+obsolete
+List feeds that are not available.
+"""
+unread = """
+unread
+Print number of unread news items.
+"""
 
 [token]
-activate = "activate CODE"
-activate_info = "Activate given token to command bot."
+activate = """
+activate <code>
+Activate given token to command bot by given <code>.
+"""

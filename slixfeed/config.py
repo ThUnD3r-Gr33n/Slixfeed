@@ -22,12 +22,12 @@ TODO
 """
 
 import configparser
-import slixfeed.sqlite as sqlite
+import logging
 import os
 # from random import randrange
+import slixfeed.sqlite as sqlite
 import sys
-import yaml
-import logging
+import tomllib
 
 
 def get_value(filename, section, keys):
@@ -127,7 +127,7 @@ def get_list(filename, key):
     Parameters
     ----------
     filename : str
-        Filename of yaml file.
+        Filename of toml file.
     key: str
         Key.
 
@@ -142,10 +142,10 @@ def get_list(filename, key):
     if not os.path.isdir(config_dir):
         config_dir = os.path.dirname(__file__) + "/assets"
     config_file = os.path.join(config_dir, filename)
-    with open(config_file) as defaults:
+    with open(config_file, mode="rb") as defaults:
         # default = yaml.safe_load(defaults)
         # result = default[key]
-        result = yaml.safe_load(defaults)
+        result = tomllib.load(defaults)
         result = result[key]
     return result
 
@@ -370,7 +370,7 @@ async def is_include_keyword(db_file, key, string):
 # async def is_blacklisted(db_file, string):
     keywords = (await sqlite.get_filters_value(db_file, key)) or ''
     keywords = keywords.split(",")
-    keywords = keywords + (get_list("lists.yaml", key))
+    keywords = keywords + (get_list("lists.toml", key))
     for keyword in keywords:
         if not keyword or len(keyword) < 2:
             continue

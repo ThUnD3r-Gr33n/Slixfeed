@@ -1,0 +1,108 @@
+about = """
+Slixfeed aims to be an easy to use and fully-featured news \
+aggregator bot for XMPP. It provides a convenient access to Blogs, \
+Fediverse and News websites along with filtering functionality.
+
+Slixfeed is primarily designed for XMPP (aka Jabber). \
+Visit https://xmpp.org/software/ for more information.
+"""
+
+authors = """
+Laura Lapina
+ Co-Author, Instructor and Mentor.
+Schimon Zackary
+ Author.
+"""
+
+filetypes = """
+Supported filetypes: Atom, JSON, RDF, RSS and XML.
+"""
+
+license = """
+Slixfeed is free software; you can redistribute it and/or \
+modify it under the terms of the MIT License.
+
+Slixfeed is distributed in the hope that it will be useful, \
+but WITHOUT ANY WARRANTY; without even the implied warranty of \
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the \
+MIT License for more details.
+"""
+
+note = """
+You can run Slixfeed as a client on your own computer, server, \
+and even on a Linux phone (i.e. Droidian, Kupfer, Mobian, NixOS, \
+postmarketOS). You can even use Termux.
+
+All you need is one of the above and an XMPP account to \
+connect Slixfeed to.
+"""
+
+operators = """
+No operator was specified for this instance.
+"""
+
+platforms = """
+Supported platforms: XMPP
+Platforms to be added in future: Briar, Email, IRC, Matrix, MQTT, Tox.
+For the best experience, we recommend to use XMPP.
+"""
+
+privacy = """
+All your data belongs to us!
+"""
+
+protocols = """
+Supported protocols: HTTP
+Protocols to be added in future: Dat, FTP, Gemini, Gopher, IPFS.
+"""
+# Supported protocols: Dat, FTP, Gemini, Gopher, HTTP and IPFS.
+
+resources = """
+Slixfeed
+https://gitgud.io/sjehuda/slixfeed
+Slixmpp
+https://slixmpp.readthedocs.io/
+feedparser
+https://pythonhosted.org/feedparser
+"""
+
+terms = """
+You may not abuse this service.
+"""
+
+thanks = """
+Alixander Court (Utah), \
+Christian Dersch (SalixOS), \
+Cyrille Pontvieux (SalixOS, France), \
+Denis Fomin (Gajim, Russia), \
+Dimitris Tzemos (SalixOS, Greece), \
+Emmanuel Gil Peyrot (Poezio, France), \
+Florent Le Coz (Poezio, France), \
+George Vlahavas (SalixOS, Greece), \
+Guus der Kinderen from IgniteRealtime.org (Openfire, Netherlands), \
+habnabit_ from #python on irc.libera.chat, \
+imattau (atomtopubsub), \
+Jaussoin Timothée (Movim, France), \
+Kevin Smith from Isode (Swift, Wales), \
+magicfelix, \
+Mathieu Pasquet (slixmpp, France), \
+Maxime Buquet (slixmpp, France), \
+Pierrick Le Brun (SalixOS, France), \
+Raphael Groner (Fedora, Germany), \
+Remko Tronçon (Swift, Germany), \
+Simone "roughnecks" Canaletti (woodpeckersnest.space, Italy), \
+Strix from Loqi, \
+Thorsten Mühlfelder (SalixOS, Germany), \
+Yann Leboulanger (Gajim, France).
+"""
+
+xmpp = """
+XMPP is the Extensible Messaging and Presence Protocol, a set \
+of open technologies for instant messaging, presence, multi-party \
+chat, voice and video calls, collaboration, lightweight \
+middleware, content syndication, and generalized routing of XML \
+data.
+
+Visit https://xmpp.org/about/ for more information on the XMPP \
+protocol.
+"""

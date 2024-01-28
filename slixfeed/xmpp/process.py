@@ -83,19 +83,9 @@ async def message(self, message):
         how it may be used.
     """
     if message['type'] in ('chat', 'groupchat', 'normal'):
-
         jid = message['from'].bare
         jid_file = jid
-
         message_text = ' '.join(message['body'].split())
-
-        print(
-            'Command : {}\n'
-            'JID     : {}\n'
-            'File    : {}\n'
-            .format(message_text, jid, jid_file)
-            )
-
         command_time_start = time.time()
 
         # if (message['type'] == 'groupchat' and
@@ -212,7 +202,7 @@ async def message(self, message):
         logging.debug([str(message['from']), ':', message_text])
 
         # Support private message via groupchat
-        # Fail. See https://codeberg.org/poezio/slixmpp/issues/3506
+        # See https://codeberg.org/poezio/slixmpp/issues/3506
         if message['type'] == 'chat' and message.get_plugin('muc', check=True):
             jid_bare = message['from'].bare
             jid_full = str(message['from'])
@@ -241,10 +231,11 @@ async def message(self, message):
             #             )
             #         send_reply_message(self, message, response)
             case 'help':
-                command_list = '`, `'.join(action.commands())
+                command_list = ' '.join(action.manual('commands.toml'))
                 response = (
-                    'Available command topics:\n`', command_list,
-                    '`\nSend `help command_topic` for instructions.')
+                    'Available command keys:\n',
+                    '```\n', command_list, '\n```\n'
+                    '> Info: `help key`')
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('help'):
                 command = message_text[5:]
@@ -252,22 +243,50 @@ async def message(self, message):
                 if len(command) == 2:
                     command_root = command[0]
                     command_name = command[1]
-                    command_list = ''.join(action.commands(
-                        section=command_root, command=command_name))
-                    response = (command_list)
+                    command_list = action.manual(
+                        'commands.toml',
+                        section=command_root,
+                        command=command_name)
+                    if command_list:
+                        command_list = ''.join(command_list)
+                        response = (command_list)
+                    else:
+                        response = (
+                            'KeyError for {} {}'.format(
+                                command_root, command_name))
                 elif len(command) == 1:
                     command = command[0]
-                    command_list = '`, `'.join(action.commands(command))
-                    response = (
-                        'Available commands:\n`', command_list,
-                        '`\nSend `help {} command_name` for instructions.'
-                        .format(command))
+                    command_list = action.manual('commands.toml', command)
+                    if command_list:
+                        command_list = ' '.join(command_list)
+                        response = (
+                            'Available commands:\n'
+                            '```\n', command_list, '\n```\n'
+                            '> Info: `help {} command`'
+                            .format(command))
+                    else:
+                        response = ('KeyError for {}'.format(command))
                 else:
                     response = (
-                        'Invalid. Enter command topic or command topic and name')
+                        'Invalid. Enter command key or command key & name')
                 send_reply_message(self, message, response)
             case 'info':
-                response = manual.print_info()
+                command_list = ' '.join(action.manual('information.toml'))
+                response = (
+                    'Available options:\n',
+                    '```\n', command_list, '\n```\n'
+                    '> Info: `info option`')
+                send_reply_message(self, message, response)
+            case _ if message_lowercase.startswith('info'):
+                command = message_text[5:]
+                command_list = action.manual(
+                    'information.toml', command)
+                if command_list:
+                    # command_list = '\n'.join(command_list)
+                    response = (command_list)
+                else:
+                    response = (
+                        'KeyError for {}'.format(command))
                 send_reply_message(self, message, response)
             case _ if message_lowercase in [
                 'greetings', 'hallo', 'hello', 'hey',
@@ -560,8 +579,16 @@ async def message(self, message):
                         except:
                             url = ix_url
                         if url:
+                            logging.info(
+                                'Original URL: {}'.format(url))
                             url = uri.remove_tracking_parameters(url)
+                            logging.info(
+                                'Processed URL (tracker removal): {}'
+                                .format(url))
                             url = (uri.replace_hostname(url, 'link')) or url
+                            logging.info(
+                                'Processed URL (replace hostname): {}'
+                                .format(url))
                             result = await fetch.http(url)
                             data = result[0]
                             code = result[1]
@@ -642,19 +669,19 @@ async def message(self, message):
                     url = uri.feed_to_http(url)
                 url = (uri.replace_hostname(url, 'feed')) or url
                 db_file = get_pathname_to_database(jid_file)
-                try:
-                    response = await action.add_feed(
-                        db_file, url)
-                    await task.clean_tasks_xmpp(
-                        jid, ['status'])
-                    await task.start_tasks_xmpp(
-                        self, jid, ['status'])
-                except:
-                    response = (
-                        '> {}\nNews source is in the process '
-                        'of being added to the subscription '
-                        'list.'.format(url)
-                        )
+                # try:
+                response = await action.add_feed(
+                    db_file, url)
+                await task.clean_tasks_xmpp(
+                    jid, ['status'])
+                await task.start_tasks_xmpp(
+                    self, jid, ['status'])
+                # except:
+                #     response = (
+                #         '> {}\nNews source is in the process '
+                #         'of being added to the subscription '
+                #         'list.'.format(url)
+                #         )
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('feeds'):
                 query = message_text[6:]
@@ -1088,6 +1115,13 @@ async def message(self, message):
         # NOTE This might not be a good idea if
         # commands are sent one close to the next
         # if response: message.reply(response).send()
+
+        print(
+            'Message : {}\n'
+            'JID     : {}\n'
+            'File    : {}\n'
+            .format(message_text, jid, jid_file)
+            )
 
         command_time_finish = time.time()
         command_time_total = command_time_finish - command_time_start

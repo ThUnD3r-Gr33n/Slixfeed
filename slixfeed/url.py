@@ -22,10 +22,15 @@ from urllib.parse import (
     )
 
 
-# NOTE hostname and protocol are listed as one in file
-# proxies.yaml. Perhaps a better practice would be to have
-# them separated. File proxies.yaml will remainas is in order
-# to be coordinated with the dataset of project LibRedirect.
+# NOTE
+# hostname and protocol are listed as one in file proxies.toml.
+# Perhaps a better practice would be to have them separated.
+
+# NOTE
+# File proxies.toml will remain as it is, in order to be
+# coordinated with the dataset of project LibRedirect, even
+# though rule-sets might be adopted (see )Privacy Redirect).
+
 def replace_hostname(url, url_type):
     """
     Replace hostname.
@@ -43,13 +48,13 @@ def replace_hostname(url, url_type):
         URL.
     """
     parted_url = urlsplit(url)
-    protocol = parted_url.scheme
+    # protocol = parted_url.scheme
     hostname = parted_url.netloc
     hostname = hostname.replace("www.","")
     pathname = parted_url.path
     queries = parted_url.query
     fragment = parted_url.fragment
-    proxies = config.get_list("proxies.yaml", "proxies")
+    proxies = config.get_list("proxies.toml", "proxies")
     for proxy in proxies:
         proxy = proxies[proxy]
         if hostname in proxy["hostname"] and url_type in proxy["type"]:
@@ -87,7 +92,7 @@ def remove_tracking_parameters(url):
     pathname = parted_url.path
     queries = parse_qs(parted_url.query)
     fragment = parted_url.fragment
-    trackers = config.get_list("queries.yaml", "trackers")
+    trackers = config.get_list("queries.toml", "trackers")
     for tracker in trackers:
         if tracker in queries: del queries[tracker]
     queries_new = urlencode(queries, doseq=True)

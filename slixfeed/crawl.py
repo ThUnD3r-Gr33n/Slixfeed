@@ -163,7 +163,7 @@ async def feed_mode_guess(url, tree):
     """
     urls = []
     parted_url = urlsplit(url)
-    paths = config.get_list("lists.yaml", "pathnames")
+    paths = config.get_list("lists.toml", "pathnames")
     # Check whether URL has path (i.e. not root)
     # Check parted_url.path to avoid error in case root wasn't given
     # TODO Make more tests
@@ -202,7 +202,7 @@ async def feed_mode_scan(url, tree):
         Message with URLs.
     """
     urls = []
-    paths = config.get_list("lists.yaml", "pathnames")
+    paths = config.get_list("lists.toml", "pathnames")
     for path in paths:
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
         # xpath_query = "//a[contains(@href,'{}')]".format(path)
