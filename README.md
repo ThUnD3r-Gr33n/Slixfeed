@@ -30,13 +30,13 @@ Filter using lists of allow and deny.
 
 Display audios pictures and videos inline.
 
+#### Privacy
+
+Redirect to alternative back-ends, such as Invidious, Librarian, Nitter, for increased privacy, productivity and security.
+
 #### Portable
 
 Export and import feeds with a standard OPML file.
-
-#### Proxy
-
-Redirect to alternative back-ends, such as Invidious, Librarian, Nitter, for increased privacy, productivity and security.
 
 #### Simultaneous
 
@@ -60,6 +60,14 @@ $ pip install git+https://gitgud.io/sjehuda/slixfeed
 
 ```
 $ pipx install git+https://gitgud.io/sjehuda/slixfeed
+```
+
+### Upgrade
+
+Upgrade using the following command.
+
+```
+$ pip install --upgrade
 ```
 
 ### Start
