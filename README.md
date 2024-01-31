@@ -67,7 +67,7 @@ $ pipx install git+https://gitgud.io/sjehuda/slixfeed
 Upgrade using the following command.
 
 ```
-$ pip install --upgrade
+$ pip install --upgrade slixfeed
 ```
 
 ### Start
