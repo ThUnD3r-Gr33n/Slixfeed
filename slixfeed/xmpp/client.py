@@ -196,26 +196,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         profile.set_identity(self, "client")
         await profile.update(self)
         task.ping_task(self)
-        
-        # await Service.capabilities(self)
-        # Service.commands(self)
-        # Service.reactions(self)
-        
-        self.service_commands()
-        self.service_reactions()
 
 
     async def on_session_resumed(self, event):
         await process.event(self)
         await muc.autojoin(self)
         profile.set_identity(self, "client")
-        
-        # await Service.capabilities(self)
-        # Service.commands(self)
-        # Service.reactions(self)
-        
-        self.service_commands()
-        self.service_reactions()
 
 
     # TODO Request for subscription
