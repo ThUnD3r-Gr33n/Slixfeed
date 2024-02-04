@@ -43,25 +43,9 @@ import asyncio
 import logging
 import os
 import slixfeed.action as action
-from slixfeed.config import (
-    get_pathname_to_database,
-    get_default_data_directory,
-    get_value)
+import slixfeed.config as config
 # from slixfeed.dt import current_time
-from slixfeed.sqlite import (
-    delete_archived_entry,
-    get_feed_title,
-    get_feeds_url,
-    get_last_update_time,
-    get_number_of_entries_unread,
-    get_number_of_items,
-    get_settings_value,
-    get_unread_entries,
-    mark_as_read,
-    mark_entry_as_read,
-    set_last_update_time,
-    update_last_update_time
-    )
+import slixfeed.sqlite as sqlite
 # from xmpp import Slixfeed
 import slixfeed.xmpp.client as xmpp
 import slixfeed.xmpp.connect as connect
@@ -137,18 +121,16 @@ async def start_tasks_xmpp(self, jid, tasks=None):
             case 'check':
                 task_manager[jid]['check'] = asyncio.create_task(
                     check_updates(jid))
-            case "status":
+            case 'status':
                 task_manager[jid]['status'] = asyncio.create_task(
                     send_status(self, jid))
             case 'interval':
                 jid_file = jid.replace('/', '_')
-                db_file = get_pathname_to_database(jid_file)
-                update_interval = (
-                    await get_settings_value(db_file, "interval") or
-                    get_value("settings", "Settings", "interval")
-                    )
+                db_file = config.get_pathname_to_database(jid_file)
+                update_interval = await config.get_setting_value(db_file,
+                                                                 'interval')
                 update_interval = 60 * int(update_interval)
-                last_update_time = await get_last_update_time(db_file)
+                last_update_time = await sqlite.get_last_update_time(db_file)
                 if last_update_time:
                     last_update_time = float(last_update_time)
                     diff = time.time() - last_update_time
@@ -166,10 +148,10 @@ async def start_tasks_xmpp(self, jid, tasks=None):
 
                     # elif diff > val:
                     #     next_update_time = val
-                    await update_last_update_time(db_file)
+                    await sqlite.update_last_update_time(db_file)
                 else:
-                    await set_last_update_time(db_file)
-                task_manager[jid]["interval"] = asyncio.create_task(
+                    await sqlite.set_last_update_time(db_file)
+                task_manager[jid]['interval'] = asyncio.create_task(
                     send_update(self, jid))
     # for task in task_manager[jid].values():
     #     print("task_manager[jid].values()")
@@ -208,21 +190,15 @@ async def send_update(self, jid, num=None):
     """
     logging.info('Sending a news update to JID {}'.format(jid))
     jid_file = jid.replace('/', '_')
-    db_file = get_pathname_to_database(jid_file)
-    enabled = (
-        await get_settings_value(db_file, "enabled") or
-        get_value("settings", "Settings", "enabled")
-        )
+    db_file = config.get_pathname_to_database(jid_file)
+    enabled = await config.get_setting_value(db_file, 'enabled')
     if enabled:
         if not num:
-            num = (
-                await get_settings_value(db_file, "quantum") or
-                get_value("settings", "Settings", "quantum")
-                )
+            num = await config.get_setting_value(db_file, 'quantum')
         else:
             num = int(num)
         news_digest = []
-        results = await get_unread_entries(db_file, num)
+        results = await sqlite.get_unread_entries(db_file, num)
         news_digest = ''
         media = None
         chat_type = await utility.get_chat_type(self, jid)
@@ -233,13 +209,13 @@ async def send_update(self, jid, num=None):
             enclosure = result[3]
             feed_id = result[4]
             date = result[5]
-            title_f = get_feed_title(db_file, feed_id)
+            title_f = sqlite.get_feed_title(db_file, feed_id)
             title_f = title_f[0]
             news_digest += action.list_unread_entries(result, title_f)
             # print(db_file)
             # print(result[0])
             # breakpoint()
-            await mark_as_read(db_file, ix)
+            await sqlite.mark_as_read(db_file, ix)
 
             # Find media
             # if url.startswith("magnet:"):
@@ -278,7 +254,7 @@ async def send_update(self, jid, num=None):
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
             # NOTE Do we need "if statement"? See NOTE at is_muc.
-            if chat_type in ("chat", "groupchat"):
+            if chat_type in ('chat', 'groupchat'):
                 # TODO Provide a choice (with or without images)
                 xmpp.Slixfeed.send_message(
                     self,
@@ -298,10 +274,10 @@ async def send_update(self, jid, num=None):
         # TODO Do not refresh task before
         # verifying that it was completed.
         await refresh_task(
-            self, jid, send_update, "interval")
+            self, jid, send_update, 'interval')
     # interval = await initdb(
     #     jid,
-    #     get_settings_value,
+    #     sqlite.get_settings_value,
     #     "interval"
     # )
     # task_manager[jid]["interval"] = loop.call_at(
@@ -336,22 +312,19 @@ async def send_status(self, jid):
     logging.info('Sending a status message to JID {}'.format(jid))
     status_text = '📜️ Slixfeed RSS News Bot'
     jid_file = jid.replace('/', '_')
-    db_file = get_pathname_to_database(jid_file)
-    enabled = (
-        await get_settings_value(db_file, "enabled") or
-        get_value("settings", "Settings", "enabled")
-        )
+    db_file = config.get_pathname_to_database(jid_file)
+    enabled = await config.get_setting_value(db_file, 'enabled')
     if not enabled:
         status_mode = 'xa'
         status_text = '📫️ Send "Start" to receive updates'
     else:
-        feeds = await get_number_of_items(db_file, 'feeds')
+        feeds = await sqlite.get_number_of_items(db_file, 'feeds')
         # print(await current_time(), jid, "has", feeds, "feeds")
         if not feeds:
             status_mode = 'available'
             status_text = '📪️ Send a URL from a blog or a news website'
         else:
-            unread = await get_number_of_entries_unread(db_file)
+            unread = await sqlite.get_number_of_entries_unread(db_file)
             if unread:
                 status_mode = 'chat'
                 status_text = '📬️ There are {} news items'.format(str(unread))
@@ -399,11 +372,8 @@ async def refresh_task(self, jid, callback, key, val=None):
     logging.info('Refreshing task {} for JID {}'.format(callback, jid))
     if not val:
         jid_file = jid.replace('/', '_')
-        db_file = get_pathname_to_database(jid_file)
-        val = (
-            await get_settings_value(db_file, key) or
-            get_value("settings", "Settings", key)
-            )
+        db_file = config.get_pathname_to_database(jid_file)
+        val = await config.get_setting_value(db_file, key)
     # if task_manager[jid][key]:
     if jid in task_manager:
         try:
@@ -452,12 +422,11 @@ async def check_updates(jid):
     logging.info('Scanning for updates for JID {}'.format(jid))
     while True:
         jid_file = jid.replace('/', '_')
-        db_file = get_pathname_to_database(jid_file)
-        urls = await get_feeds_url(db_file)
+        db_file = config.get_pathname_to_database(jid_file)
+        urls = await sqlite.get_feeds_url(db_file)
         for url in urls:
             await action.scan(db_file, url)
-        val = get_value(
-            "settings", "Settings", "check")
+        val = config.get_value('settings', 'Settings', 'check')
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes
         # loop.call_at(
@@ -478,7 +447,7 @@ async def select_file(self):
     Initiate actions by JID (Jabber ID).
     """
     while True:
-        db_dir = get_default_data_directory()
+        db_dir = config.get_default_data_directory()
         if not os.path.isdir(db_dir):
             msg = ('Slixfeed does not work without a database.\n'
                    'To create a database, follow these steps:\n'
@@ -498,8 +467,8 @@ async def select_file(self):
         #         await jid_tasker[jid]
         async with asyncio.TaskGroup() as tg:
             for file in files:
-                if (file.endswith(".db") and
-                    not file.endswith(".db-jour.db")):
+                if (file.endswith('.db') and
+                    not file.endswith('.db-jour.db')):
                     jid = file[:-3]
                     main_task.extend(
                         [tg.create_task(self.task_jid(jid))]

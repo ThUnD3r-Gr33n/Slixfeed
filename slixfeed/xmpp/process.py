@@ -306,7 +306,7 @@ async def message(self, message):
                     if not exist:
                         await sqlite.insert_feed(db_file, url, title)
                         await action.scan(db_file, url)
-                        old = await action.get_setting_value(db_file, "old")
+                        old = await config.get_setting_value(db_file, "old")
                         if old:
                             # await task.clean_tasks_xmpp(jid, ['status'])
                             # await send_status(jid)

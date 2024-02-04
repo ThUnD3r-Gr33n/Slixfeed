@@ -302,15 +302,6 @@ def list_feeds_by_query(query, results):
     return message
 
 
-async def get_setting_value(db_file, key):
-    value = (
-        await sqlite.get_settings_value(db_file, key) or
-        config.get_value("settings", "Settings", key)
-        )
-    value = int(value)
-    return value
-
-
 async def list_statistics(db_file):
     """
     Return table statistics.
@@ -331,10 +322,10 @@ async def list_statistics(db_file):
     entries_all = entries + archive
     feeds_active = await sqlite.get_number_of_feeds_active(db_file)
     feeds_all = await sqlite.get_number_of_items(db_file, 'feeds')
-    key_archive = await get_setting_value(db_file, "archive")
-    key_interval = await get_setting_value(db_file, "interval")
-    key_quantum = await get_setting_value(db_file, "quantum")
-    key_enabled = await get_setting_value(db_file, "enabled")
+    key_archive = await config.get_setting_value(db_file, 'archive')
+    key_interval = await config.get_setting_value(db_file, 'interval')
+    key_quantum = await config.get_setting_value(db_file, 'quantum')
+    key_enabled = await config.get_setting_value(db_file, 'enabled')
 
     # msg = """You have {} unread news items out of {} from {} news sources.
     #       """.format(unread_entries, entries, feeds)
@@ -533,7 +524,7 @@ async def add_feed(db_file, url):
                         updated=updated
                         )
                     await scan(db_file, url)
-                    old = await get_setting_value(db_file, "old")
+                    old = await config.get_setting_value(db_file, "old")
                     if not old:
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
@@ -580,7 +571,7 @@ async def add_feed(db_file, url):
                         )
                     await scan_json(
                         db_file, url)
-                    old = await get_setting_value(db_file, "old")
+                    old = await config.get_setting_value(db_file, "old")
                     if not old:
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
@@ -1334,7 +1325,7 @@ async def remove_nonexistent_entries(db_file, url, feed):
             else:
                 # print(">>> ARCHIVING:", entry_title)
                 await sqlite.archive_entry(db_file, ix)
-        limit = await get_setting_value(db_file, "archive")
+        limit = await config.get_setting_value(db_file, "archive")
         await sqlite.maintain_archive(db_file, limit)
 
 
@@ -1407,5 +1398,5 @@ async def remove_nonexistent_entries_json(db_file, url, feed):
                 await sqlite.delete_entry_by_id(db_file, ix)
             else:
                 await sqlite.archive_entry(db_file, ix)
-        limit = await get_setting_value(db_file, "archive")
+        limit = await config.get_setting_value(db_file, "archive")
         await sqlite.maintain_archive(db_file, limit)
