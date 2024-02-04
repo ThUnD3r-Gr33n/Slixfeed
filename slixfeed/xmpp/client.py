@@ -201,7 +201,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         # Service.commands(self)
         # Service.reactions(self)
         
-        await self.service_capabilities()
         self.service_commands()
         self.service_reactions()
 
@@ -215,7 +214,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         # Service.commands(self)
         # Service.reactions(self)
         
-        await self.service_capabilities()
         self.service_commands()
         self.service_reactions()
 
