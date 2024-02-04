@@ -961,7 +961,6 @@ async def message(self, message):
                     await sqlite.update_settings_value(db_file, [key, val])
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
-                # asyncio.create_task(task_jid(self, jid))
                 await task.start_tasks_xmpp(self, jid)
                 response = 'Updates are enabled.'
                 # print(current_time(), 'task_manager[jid]')

@@ -92,25 +92,26 @@ import os
 # import time
 
 # from eliot import start_action, to_file
-# # to_file(open("slixfeed.log", "w"))
-# # with start_action(action_type="set_date()", jid=jid):
-# # with start_action(action_type="message()", msg=msg):
+# # to_file(open('slixfeed.log', 'w'))
+# # with start_action(action_type='set_date()', jid=jid):
+# # with start_action(action_type='message()', msg=msg):
 
 #import slixfeed.smtp
 #import slixfeed.irc
 #import slixfeed.matrix
 
 import slixfeed.config as config
+from slixfeed.version import __version__
 
 import socks
 import socket
 
-xmpp_type = config.get_value("accounts", "XMPP", "type")
+xmpp_type = config.get_value('accounts', 'XMPP', 'type')
 
 match xmpp_type:
-    case "client":
+    case 'client':
         from slixfeed.xmpp.client import Slixfeed
-    case "component":
+    case 'component':
         from slixfeed.xmpp.component import SlixfeedComponent
 
 
@@ -163,15 +164,15 @@ class JabberClient:
         xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
         xmpp.register_plugin('xep_0444') # Message Reactions
 
-        # proxy_enabled = config.get_value("accounts", "XMPP", "proxy_enabled")
+        # proxy_enabled = config.get_value('accounts', 'XMPP', 'proxy_enabled')
         # if proxy_enabled == '1':
-        #     values = config.get_value("accounts", "XMPP", [
-        #         "proxy_host",
-        #         "proxy_port",
-        #         "proxy_username",
-        #         "proxy_password"
+        #     values = config.get_value('accounts', 'XMPP', [
+        #         'proxy_host',
+        #         'proxy_port',
+        #         'proxy_username',
+        #         'proxy_password'
         #         ])
-        #     print("Proxy is enabled: {}:{}".format(values[0], values[1]))
+        #     print('Proxy is enabled: {}:{}'.format(values[0], values[1]))
         #     xmpp.use_proxy = True
         #     xmpp.proxy_config = {
         #         'host': values[0],
@@ -184,8 +185,8 @@ class JabberClient:
 
         # Connect to the XMPP server and start processing XMPP stanzas.
 
-        address = config.get_value(
-            "accounts", "XMPP Client", ["hostname", "port"])
+        address = config.get_value('accounts', 'XMPP Client',
+                                   ['hostname', 'port'])
         if address[0] and address[1]:
             xmpp.connect(tuple(address))
         else:
@@ -196,11 +197,11 @@ class JabberClient:
 def main():
 
     config_dir = config.get_default_config_directory()
-    logging.info("Reading configuration from {}".format(config_dir))
-    print("Reading configuration from {}".format(config_dir))
+    logging.info('Reading configuration from {}'.format(config_dir))
+    print('Reading configuration from {}'.format(config_dir))
 
-    values = config.get_value(
-        "accounts", "XMPP Proxy", ["socks5_host", "socks5_port"])
+    values = config.get_value('accounts', 'XMPP Proxy',
+                              ['socks5_host', 'socks5_port'])
     if values[0] and values[1]:
         host = values[0]
         port = values[1]
@@ -212,21 +213,24 @@ def main():
     # Setup the command line arguments.
     parser = ArgumentParser(description=Slixfeed.__doc__)
 
+    parser.add_argument('-v', '--version', help='Print version',
+                        action='version', version=__version__)
+
     # Output verbosity options.
-    parser.add_argument("-q", "--quiet", help="set logging to ERROR",
-                        action="store_const", dest="loglevel",
+    parser.add_argument('-q', '--quiet', help='set logging to ERROR',
+                        action='store_const', dest='loglevel',
                         const=logging.ERROR, default=logging.INFO)
-    parser.add_argument("-d", "--debug", help="set logging to DEBUG",
-                        action="store_const", dest="loglevel",
+    parser.add_argument('-d', '--debug', help='set logging to DEBUG',
+                        action='store_const', dest='loglevel',
                         const=logging.DEBUG, default=logging.INFO)
 
     # JID and password options.
-    parser.add_argument("-j", "--jid", help="Jabber ID", dest="jid")
-    parser.add_argument("-p", "--password", help="Password of JID",
-                        dest="password")
-    parser.add_argument("-a", "--alias", help="Display name", dest="alias")
-    parser.add_argument("-n", "--hostname", help="Hostname", dest="hostname")
-    parser.add_argument("-o", "--port", help="Port number", dest="port")
+    parser.add_argument('-j', '--jid', help='Jabber ID', dest='jid')
+    parser.add_argument('-p', '--password', help='Password of JID',
+                        dest='password')
+    parser.add_argument('-a', '--alias', help='Display name', dest='alias')
+    parser.add_argument('-n', '--hostname', help='Hostname', dest='hostname')
+    parser.add_argument('-o', '--port', help='Port number', dest='port')
 
     args = parser.parse_args()
 
@@ -235,8 +239,8 @@ def main():
                         format='%(levelname)-8s %(message)s')
 
     # Try configuration file
-    values = config.get_value("accounts", "XMPP Client",
-                              ["alias", "jid", "password", "hostname", "port"])
+    values = config.get_value('accounts', 'XMPP Client',
+                              ['alias', 'jid', 'password', 'hostname', 'port'])
     alias = values[0]
     jid = values[1]
     password = values[2]
@@ -257,18 +261,18 @@ def main():
 
     # Prompt for credentials if none were given
     if not jid:
-        jid = input("JID: ")
+        jid = input('JID: ')
     if not password:
-        password = getpass("Password: ")
+        password = getpass('Password: ')
     if not alias:
-        alias = (input("Alias: ")) or "Slixfeed"
+        alias = (input('Alias: ')) or 'Slixfeed'
 
     match xmpp_type:
-        case "client":
+        case 'client':
             JabberClient(jid, password, hostname=hostname, port=port, alias=alias)
-        case "component":
+        case 'component':
             JabberComponent(jid, password, hostname, port, alias=alias)
     sys.exit(0)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

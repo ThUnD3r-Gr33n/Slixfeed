@@ -113,11 +113,10 @@ async def start_tasks_xmpp(self, jid, tasks=None):
         return
     try:
         task_manager[jid]
-        print('Old details for tasks of {}:\n'.format(jid), task_manager[jid].keys())
     except KeyError as e:
         task_manager[jid] = {}
-        logging.info('KeyError:', str(e))
-        logging.debug('Creating new task manager for JID {}'.format(jid))
+        logging.debug('KeyError:', str(e))
+        logging.info('Creating new task manager for JID {}'.format(jid))
     if not tasks:
         tasks = ['interval', 'status', 'check']
     logging.info('Stopping tasks {} for JID {}'.format(tasks, jid))
@@ -126,7 +125,7 @@ async def start_tasks_xmpp(self, jid, tasks=None):
         try:
             task_manager[jid][task].cancel()
         except:
-            logging.debug('No task {} for JID {} (start_tasks_xmpp)'
+            logging.info('No task {} for JID {} (start_tasks_xmpp)'
                           .format(task, jid))
     logging.info('Starting tasks {} for JID {}'.format(tasks, jid))
     for task in tasks:
@@ -181,7 +180,6 @@ async def start_tasks_xmpp(self, jid, tasks=None):
     #     print(jid)
     #     breakpoint()
     #     await task
-    print('New details for tasks of {}:\n'.format(jid), task_manager[jid])
 
 
 async def clean_tasks_xmpp(jid, tasks=None):
