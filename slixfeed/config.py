@@ -27,7 +27,86 @@ import os
 # from random import randrange
 import slixfeed.sqlite as sqlite
 import sys
+import tomli_w
 import tomllib
+
+# TODO Merge with backup_obsolete
+def update_proxies(file, proxy_name, proxy_type, proxy_url, action='remove'):
+    """
+    Add given URL to given list.
+
+    Parameters
+    ----------
+    file : str
+        Filename.
+    proxy_name : str
+        Proxy name.
+    proxy_type : str
+        Proxy title.
+    proxy_url : str
+        Proxy URL.
+    action : str
+        add or remove
+
+    Returns
+    -------
+    None.
+    """
+    data = open_config_file('proxies.toml')
+    proxy_list = data['proxies'][proxy_name][proxy_type]
+    proxy_index = proxy_list.index(proxy_url)
+    proxy_list.pop(proxy_index)
+    with open(file, 'w') as new_file:
+        content = tomli_w.dumps(data)
+        new_file.write(content)
+
+
+# TODO Merge with update_proxies
+def backup_obsolete(file, proxy_name, proxy_type, proxy_url, action='add'):
+    """
+    Add given URL to given list.
+
+    Parameters
+    ----------
+    file : str
+        Filename.
+    proxy_name : str
+        Proxy name.
+    proxy_type : str
+        Proxy title.
+    proxy_url : str
+        Proxy URL.
+    action : str
+        add or remove
+
+    Returns
+    -------
+    None.
+    """
+    data = open_config_file('proxies_obsolete.toml')
+    proxy_list = data['proxies'][proxy_name][proxy_type]
+    proxy_list.extend([proxy_url])
+    with open(file, 'w') as new_file:
+        content = tomli_w.dumps(data)
+        new_file.write(content)
+
+
+def create_skeleton(file):
+    with open(file, 'rb') as original_file:
+        data = tomllib.load(original_file)
+    data = clear_values(data)
+    with open('proxies_obsolete.toml', 'w') as new_file:
+        content = tomli_w.dumps(data)
+        new_file.write(content)
+
+
+def clear_values(input):
+    if isinstance(input, dict):
+        return {k: clear_values(v) for k, v in input.items()}
+    elif isinstance(input, list):
+        return ['']
+    else:
+        return ''
 
 
 def get_value(filename, section, keys):
@@ -120,7 +199,9 @@ def get_value_default(filename, section, key):
     return result
 
 
-def get_list(filename, key):
+# TODO DELETE THIS FUNCTION OR KEEP ONLY THE CODE BELOW NOTE
+# IF CODE BELOW NOTE IS KEPT, RENAME FUNCTION TO open_toml
+def open_config_file(filename):
     """
     Get settings default value.
 
@@ -128,8 +209,6 @@ def get_list(filename, key):
     ----------
     filename : str
         Filename of toml file.
-    key: str
-        Key.
 
     Returns
     -------
@@ -142,11 +221,11 @@ def get_list(filename, key):
     if not os.path.isdir(config_dir):
         config_dir = os.path.dirname(__file__) + "/assets"
     config_file = os.path.join(config_dir, filename)
+    # NOTE THIS IS THE IMPORTANT CODE
     with open(config_file, mode="rb") as defaults:
         # default = yaml.safe_load(defaults)
         # result = default[key]
         result = tomllib.load(defaults)
-        result = result[key]
     return result
 
 
@@ -221,6 +300,8 @@ def get_default_cache_directory():
     return os.path.join(data_home, 'slixfeed')
 
 
+# TODO Write a similar function for file.
+# NOTE the is a function of directory, noot file.
 def get_default_config_directory():
     """
     Determine the directory path where configuration will be stored.
@@ -370,7 +451,7 @@ async def is_include_keyword(db_file, key, string):
 # async def is_blacklisted(db_file, string):
     keywords = (await sqlite.get_filters_value(db_file, key)) or ''
     keywords = keywords.split(",")
-    keywords = keywords + (get_list("lists.toml", key))
+    keywords = keywords + (open_config_file("lists.toml")[key])
     for keyword in keywords:
         if not keyword or len(keyword) < 2:
             continue

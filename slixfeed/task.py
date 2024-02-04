@@ -64,6 +64,7 @@ from slixfeed.sqlite import (
     )
 # from xmpp import Slixfeed
 import slixfeed.xmpp.client as xmpp
+import slixfeed.xmpp.connect as connect
 import slixfeed.xmpp.utility as utility
 import time
 
@@ -71,6 +72,26 @@ main_task = []
 jid_tasker = {}
 task_manager = {}
 loop = asyncio.get_event_loop()
+
+
+# def init_tasks(self):
+#     global task_ping
+#     # if task_ping is None or task_ping.done():
+#     #     task_ping = asyncio.create_task(ping(self, jid=None))
+#     try:
+#         task_ping.cancel()
+#     except:
+#         logging.info('No ping task to cancel')
+#     task_ping = asyncio.create_task(ping(self, jid=None))
+
+
+def ping_task(self):
+    global ping_task
+    try:
+        ping_task.cancel()
+    except:
+        logging.info('No ping task to cancel.')
+    ping_task = asyncio.create_task(connect.ping(self))
 
 
 """
@@ -87,22 +108,40 @@ await taskhandler.start_tasks(
     )
 
 """
-async def start_tasks_xmpp(self, jid, tasks):
-    logging.debug("Starting tasks {} for JID {}".format(tasks, jid))
-    task_manager[jid] = {}
+async def start_tasks_xmpp(self, jid, tasks=None):
+    if jid == self.boundjid.bare:
+        return
+    try:
+        task_manager[jid]
+        print('Old details for tasks of {}:\n'.format(jid), task_manager[jid].keys())
+    except KeyError as e:
+        task_manager[jid] = {}
+        logging.info('KeyError:', str(e))
+        logging.debug('Creating new task manager for JID {}'.format(jid))
+    if not tasks:
+        tasks = ['interval', 'status', 'check']
+    logging.info('Stopping tasks {} for JID {}'.format(tasks, jid))
+    for task in tasks:
+        # if task_manager[jid][task]:
+        try:
+            task_manager[jid][task].cancel()
+        except:
+            logging.debug('No task {} for JID {} (start_tasks_xmpp)'
+                          .format(task, jid))
+    logging.info('Starting tasks {} for JID {}'.format(tasks, jid))
     for task in tasks:
         # print("task:", task)
         # print("tasks:")
         # print(tasks)
         # breakpoint()
         match task:
-            case "check":
-                task_manager[jid]["check"] = asyncio.create_task(
+            case 'check':
+                task_manager[jid]['check'] = asyncio.create_task(
                     check_updates(jid))
             case "status":
-                task_manager[jid]["status"] = asyncio.create_task(
+                task_manager[jid]['status'] = asyncio.create_task(
                     send_status(self, jid))
-            case "interval":
+            case 'interval':
                 jid_file = jid.replace('/', '_')
                 db_file = get_pathname_to_database(jid_file)
                 update_interval = (
@@ -116,13 +155,16 @@ async def start_tasks_xmpp(self, jid, tasks):
                     diff = time.time() - last_update_time
                     if diff < update_interval:
                         next_update_time = update_interval - diff
-                        print("jid              :", jid, "\n"
-                              "time             :", time.time(), "\n"
-                              "last_update_time :", last_update_time, "\n"
-                              "difference       :", diff, "\n"
-                              "update interval  :", update_interval, "\n"
-                              "next_update_time :", next_update_time, "\n")
                         await asyncio.sleep(next_update_time)
+
+                        # print("jid              :", jid, "\n"
+                        #       "time             :", time.time(), "\n"
+                        #       "last_update_time :", last_update_time, "\n"
+                        #       "difference       :", diff, "\n"
+                        #       "update interval  :", update_interval, "\n"
+                        #       "next_update_time :", next_update_time, "\n"
+                        #       )
+
                     # elif diff > val:
                     #     next_update_time = val
                     await update_last_update_time(db_file)
@@ -139,84 +181,20 @@ async def start_tasks_xmpp(self, jid, tasks):
     #     print(jid)
     #     breakpoint()
     #     await task
+    print('New details for tasks of {}:\n'.format(jid), task_manager[jid])
 
 
-async def clean_tasks_xmpp(jid, tasks):
-    logging.debug(
-        "Stopping tasks {} for JID {}".format(tasks, jid)
-        )
+async def clean_tasks_xmpp(jid, tasks=None):
+    if not tasks:
+        tasks = ['interval', 'status', 'check']
+    logging.info('Stopping tasks {} for JID {}'.format(tasks, jid))
     for task in tasks:
         # if task_manager[jid][task]:
         try:
             task_manager[jid][task].cancel()
         except:
-            logging.debug(
-                "No task {} for JID {} (clean_tasks)".format(task, jid)
-                )
-
-
-"""
-TODO
-
-Rename to "start_tasks"
-
-Pass a list (or dict) of tasks to start
-
-NOTE
-
-Consider callback e.g. Slixfeed.send_status.
-
-Or taskhandler for each protocol or specific taskhandler function.
-"""
-async def task_jid(self, jid):
-    """
-    JID (Jabber ID) task manager.
-
-    Parameters
-    ----------
-    jid : str
-        Jabber ID.
-    """
-    jid_file = jid.replace('/', '_')
-    db_file = get_pathname_to_database(jid_file)
-    enabled = (
-        await get_settings_value(db_file, "enabled") or
-        get_value("settings", "Settings", "enabled")
-        )
-    if enabled:
-        # NOTE Perhaps we want to utilize super with keyword
-        # arguments in order to know what tasks to initiate.
-        task_manager[jid] = {}
-        task_manager[jid]["check"] = asyncio.create_task(
-            check_updates(jid))
-        task_manager[jid]["status"] = asyncio.create_task(
-            send_status(self, jid))
-        task_manager[jid]["interval"] = asyncio.create_task(
-            send_update(self, jid))
-        await task_manager[jid]["check"]
-        await task_manager[jid]["status"]
-        await task_manager[jid]["interval"]
-        # tasks_dict = {
-        #     "check": check_updates,
-        #     "status": send_status,
-        #     "interval": send_update
-        #         }
-        # for task, function in tasks_dict.items():
-        #     task_manager[jid][task] = asyncio.create_task(
-        #         function(jid)
-        #         )
-        #     await function
-    else:
-        # FIXME
-        # The following error occurs only upon first attempt to stop.
-        # /usr/lib/python3.11/asyncio/events.py:73: RuntimeWarning: coroutine 'Slixfeed.send_update' was never awaited
-        # self._args = None
-        # RuntimeWarning: Enable tracemalloc to get the object allocation traceback
-        try:
-            task_manager[jid]["interval"].cancel()
-        except:
-            None
-        await send_status(self, jid)
+            logging.debug('No task {} for JID {} (clean_tasks_xmpp)'
+                          .format(task, jid))
 
 
 async def send_update(self, jid, num=None):
@@ -230,7 +208,7 @@ async def send_update(self, jid, num=None):
     num : str, optional
         Number. The default is None.
     """
-    logging.debug("Sending a news update to JID {}".format(jid))
+    logging.info('Sending a news update to JID {}'.format(jid))
     jid_file = jid.replace('/', '_')
     db_file = get_pathname_to_database(jid_file)
     enabled = (
@@ -258,6 +236,7 @@ async def send_update(self, jid, num=None):
             feed_id = result[4]
             date = result[5]
             title_f = get_feed_title(db_file, feed_id)
+            title_f = title_f[0]
             news_digest += action.list_unread_entries(result, title_f)
             # print(db_file)
             # print(result[0])
@@ -356,9 +335,8 @@ async def send_status(self, jid):
     jid : str
         Jabber ID.
     """
-    logging.debug(
-        "Sending a status message to JID {}".format(jid))
-    status_text = "📜️ Slixfeed RSS News Bot"
+    logging.info('Sending a status message to JID {}'.format(jid))
+    status_text = '📜️ Slixfeed RSS News Bot'
     jid_file = jid.replace('/', '_')
     db_file = get_pathname_to_database(jid_file)
     enabled = (
@@ -366,24 +344,19 @@ async def send_status(self, jid):
         get_value("settings", "Settings", "enabled")
         )
     if not enabled:
-        status_mode = "xa"
-        status_text = "📫️ Send \"Start\" to receive updates"
+        status_mode = 'xa'
+        status_text = '📫️ Send "Start" to receive updates'
     else:
-        feeds = await get_number_of_items(
-            db_file, "feeds")
+        feeds = await get_number_of_items(db_file, 'feeds')
         # print(await current_time(), jid, "has", feeds, "feeds")
         if not feeds:
-            status_mode = "available"
-            status_text = (
-                "📪️ Send a URL from a blog or a news website"
-                )
+            status_mode = 'available'
+            status_text = '📪️ Send a URL from a blog or a news website'
         else:
             unread = await get_number_of_entries_unread(db_file)
             if unread:
-                status_mode = "chat"
-                status_text = (
-                    "📬️ There are {} news items"
-                    ).format(str(unread))
+                status_mode = 'chat'
+                status_text = '📬️ There are {} news items'.format(str(unread))
                 # status_text = (
                 #     "📰 News items: {}"
                 #     ).format(str(unread))
@@ -391,8 +364,8 @@ async def send_status(self, jid):
                 #     "📰 You have {} news items"
                 #     ).format(str(unread))
             else:
-                status_mode = "available"
-                status_text = "📭️ No news"
+                status_mode = 'available'
+                status_text = '📭️ No news'
 
     # breakpoint()
     # print(await current_time(), status_text, "for", jid)
@@ -404,8 +377,7 @@ async def send_status(self, jid):
         pstatus=status_text
         )
     # await asyncio.sleep(60 * 20)
-    await refresh_task(
-        self, jid, send_status, "status", "20")
+    await refresh_task(self, jid, send_status, 'status', '90')
     # loop.call_at(
     #     loop.time() + 60 * 20,
     #     loop.create_task,
@@ -426,9 +398,7 @@ async def refresh_task(self, jid, callback, key, val=None):
     val : str, optional
         Value. The default is None.
     """
-    logging.debug(
-        "Refreshing task {} for JID {}".format(callback, jid)
-        )
+    logging.info('Refreshing task {} for JID {}'.format(callback, jid))
     if not val:
         jid_file = jid.replace('/', '_')
         db_file = get_pathname_to_database(jid_file)
@@ -441,9 +411,8 @@ async def refresh_task(self, jid, callback, key, val=None):
         try:
             task_manager[jid][key].cancel()
         except:
-            logging.debug(
-                "No task of type {} to cancel for "
-                "JID {} (clean_tasks)".format(key, jid)
+            logging.info('No task of type {} to cancel for '
+                         'JID {} (refresh_task)'.format(key, jid)
                 )
         # task_manager[jid][key] = loop.call_at(
         #     loop.time() + 60 * float(val),
@@ -482,9 +451,7 @@ async def check_updates(jid):
     jid : str
         Jabber ID.
     """
-    logging.debug(
-        "Scanning for updates for JID {}".format(jid)
-        )
+    logging.info('Scanning for updates for JID {}'.format(jid))
     while True:
         jid_file = jid.replace('/', '_')
         db_file = get_pathname_to_database(jid_file)
@@ -502,64 +469,6 @@ async def check_updates(jid):
         # )
 
 
-async def start_tasks(self, presence):
-    jid = presence["from"].bare
-    logging.debug(
-        "Beginning tasks for JID {}".format(jid)
-        )
-    if jid not in self.boundjid.bare:
-        await clean_tasks_xmpp(
-            jid, ["interval", "status", "check"]
-            )
-        await start_tasks_xmpp(
-            self, jid, ["interval", "status", "check"]
-            )
-        # await task_jid(self, jid)
-        # main_task.extend([asyncio.create_task(task_jid(jid))])
-        # print(main_task)
-
-
-async def stop_tasks(self, presence):
-    if not self.boundjid.bare:
-        jid = presence["from"].bare
-        logging.debug(
-            "Stopping tasks for JID {}".format(jid)
-            )
-        await clean_tasks_xmpp(
-            jid, ["interval", "status", "check"]
-            )
-
-
-async def check_readiness(self, presence):
-    """
-    Begin tasks if available, otherwise eliminate tasks.
-
-    Parameters
-    ----------
-    presence : str
-        XML stanza .
-
-    Returns
-    -------
-    None.
-    """
-    # print("def check_readiness", presence["from"].bare, presence["type"])
-    # # available unavailable away (chat) dnd xa
-    # print(">>> type", presence["type"], presence["from"].bare)
-    # # away chat dnd xa
-    # print(">>> show", presence["show"], presence["from"].bare)
-
-    jid = presence["from"].bare
-    if presence["show"] in ("away", "dnd", "xa"):
-        logging.debug(
-            "Stopping updates for JID {}".format(jid)
-            )
-        await clean_tasks_xmpp(
-            jid, ["interval"])
-        await start_tasks_xmpp(
-            self, jid, ["status", "check"])
-
-
 """
 NOTE
 This is an older system, utilizing local storage instead of XMPP presence.
@@ -573,13 +482,11 @@ async def select_file(self):
     while True:
         db_dir = get_default_data_directory()
         if not os.path.isdir(db_dir):
-            msg = (
-                "Slixfeed can not work without a database.\n"
-                "To create a database, follow these steps:\n"
-                "Add Slixfeed contact to your roster.\n"
-                "Send a feed to the bot by URL:\n"
-                "https://reclaimthenet.org/feed/"
-                )
+            msg = ('Slixfeed does not work without a database.\n'
+                   'To create a database, follow these steps:\n'
+                   'Add Slixfeed contact to your roster.\n'
+                   'Send a feed to the bot by URL:\n'
+                   'https://reclaimthenet.org/feed/')
             # print(await current_time(), msg)
             print(msg)
         else:

@@ -76,6 +76,21 @@ def create_tables(db_file):
               );
             """
             )
+        feeds_statistics_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS statistics (
+                id INTEGER NOT NULL,
+                feed_id INTEGER NOT NULL UNIQUE,
+                offline INTEGER,
+                entries INTEGER,
+                entries INTEGER,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
         feeds_properties_table_sql = (
             """
             CREATE TABLE IF NOT EXISTS feeds_properties (
@@ -153,16 +168,6 @@ def create_tables(db_file):
               );
             """
             )
-        # statistics_table_sql = (
-        #     """
-        #     CREATE TABLE IF NOT EXISTS statistics (
-        #         id INTEGER NOT NULL,
-        #         title TEXT NOT NULL,
-        #         number INTEGER,
-        #         PRIMARY KEY ("id")
-        #       );
-        #     """
-        #     )
         status_table_sql = (
             """
             CREATE TABLE IF NOT EXISTS status (
@@ -527,15 +532,6 @@ async def remove_feed_by_index(db_file, ix):
     with create_connection(db_file) as conn:
         async with DBLOCK:
             cur = conn.cursor()
-            sql = (
-                """
-                SELECT url
-                FROM feeds
-                WHERE id = ?
-                """
-                )
-            par = (ix,)
-            url = cur.execute(sql, par).fetchone()[0]
             # # NOTE Should we move DBLOCK to this line? 2022-12-23
             # sql = (
             #     "DELETE "
@@ -559,7 +555,6 @@ async def remove_feed_by_index(db_file, ix):
                 )
             par = (ix,)
             cur.execute(sql, par)
-            return url
 
 
 async def get_feed_id_and_name(db_file, url):
@@ -744,7 +739,7 @@ async def get_feed_id(db_file, url):
             """
             )
         par = (url,)
-        feed_id = cur.execute(sql, par).fetchone()[0]
+        feed_id = cur.execute(sql, par).fetchone()
         return feed_id
 
 
@@ -770,7 +765,7 @@ async def mark_entry_as_read(cur, ix):
     cur.execute(sql, par)
 
 
-async def mark_feed_as_read(db_file, url):
+async def mark_feed_as_read(db_file, feed_id):
     """
     Set read status of entries of given feed as read.
 
@@ -778,8 +773,8 @@ async def mark_feed_as_read(db_file, url):
     ----------
     db_file : str
         Path to database file.
-    url : str
-        URL.
+    feed_id : str
+        Feed Id.
     """
     async with DBLOCK:
         with create_connection(db_file) as conn:
@@ -791,7 +786,7 @@ async def mark_feed_as_read(db_file, url):
                 WHERE feed_id = ?
                 """
                 )
-            par = (url,)
+            par = (feed_id,)
             cur.execute(sql, par)
 
 
@@ -879,7 +874,7 @@ def get_feed_title(db_file, ix):
             """
             )
         par = (ix,)
-        title = cur.execute(sql, par).fetchone()[0]
+        title = cur.execute(sql, par).fetchone()
         return title
 
 
@@ -909,7 +904,7 @@ def get_feed_url(db_file, feed_id):
             """
             )
         par = (feed_id,)
-        url = cur.execute(sql, par).fetchone()[0]
+        url = cur.execute(sql, par).fetchone()
         return url
 
 

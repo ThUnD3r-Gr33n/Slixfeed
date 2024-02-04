@@ -16,14 +16,7 @@ TODO
 2) Assure message delivery before calling a new task.
     See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-marker_acknowledged
 
-3) Check the lesyt message sent by the bot.
-   This is essential in case bot restarts within an update interval.
-   Example:
-       Bot is set to send an update every 5 hours.
-       Bot was disconnected and reconnected after an hour.
-       Bot will send an update when it is connected, which is lesser than 5 hours as it should.
-
-4) XHTTML-IM
+3) XHTTML-IM
     case _ if message_lowercase.startswith("html"):
         message['html']="
 Parse me!
@@ -67,12 +60,13 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 # import xml.etree.ElementTree as ET
 # from lxml import etree
 
+import slixfeed.xmpp.bookmark as bookmark
 import slixfeed.xmpp.connect as connect
 import slixfeed.xmpp.muc as muc
 import slixfeed.xmpp.process as process
 import slixfeed.xmpp.profile as profile
 import slixfeed.xmpp.roster as roster
-import slixfeed.xmpp.service as service
+# import slixfeed.xmpp.service as service
 import slixfeed.xmpp.state as state
 import slixfeed.xmpp.status as status
 import slixfeed.xmpp.utility as utility
@@ -110,39 +104,54 @@ class Slixfeed(slixmpp.ClientXMPP):
         # and the XML streams are ready for use. We want to
         # listen for this event so that we we can initialize
         # our roster.
-        self.add_event_handler("session_start", self.on_session_start)
-        self.add_event_handler("session_resumed", self.on_session_resumed)
+        self.add_event_handler("session_start",
+                               self.on_session_start)
+        self.add_event_handler("session_resumed",
+                               self.on_session_resumed)
         self.add_event_handler("got_offline", print("got_offline"))
         # self.add_event_handler("got_online", self.check_readiness)
-        self.add_event_handler("changed_status", self.on_changed_status)
-        self.add_event_handler("presence_available", self.on_presence_available)
-        self.add_event_handler("presence_unavailable", self.on_presence_unavailable)
-
-        self.add_event_handler("changed_subscription", self.on_changed_subscription)
-
-        self.add_event_handler("chatstate_active", self.on_chatstate_active)
-        self.add_event_handler("chatstate_gone", self.on_chatstate_gone)
-        self.add_event_handler("chatstate_composing", self.check_chatstate_composing)
-        self.add_event_handler("chatstate_paused", self.check_chatstate_paused)
+        self.add_event_handler("changed_status",
+                               self.on_changed_status)
+        self.add_event_handler("presence_available",
+                               self.on_presence_available)
+        self.add_event_handler("presence_unavailable",
+                               self.on_presence_unavailable)
+        self.add_event_handler("chatstate_active",
+                               self.on_chatstate_active)
+        self.add_event_handler("chatstate_composing",
+                               self.on_chatstate_composing)
+        self.add_event_handler("chatstate_gone",
+                               self.on_chatstate_gone)
+        self.add_event_handler("chatstate_inactive",
+                               self.on_chatstate_inactive)
+        self.add_event_handler("chatstate_paused",
+                               self.on_chatstate_paused)
 
         # The message event is triggered whenever a message
         # stanza is received. Be aware that that includes
         # MUC messages and error messages.
-        self.add_event_handler("message", self.on_message)
+        self.add_event_handler("message",
+                               self.on_message)
 
-        self.add_event_handler("groupchat_invite", self.on_groupchat_invite) # XEP_0045
-        self.add_event_handler("groupchat_direct_invite", self.on_groupchat_direct_invite) # XEP_0249
+        self.add_event_handler("groupchat_invite",
+                               self.on_groupchat_invite) # XEP_0045
+        self.add_event_handler("groupchat_direct_invite",
+                               self.on_groupchat_direct_invite) # XEP_0249
         # self.add_event_handler("groupchat_message", self.message)
 
         # self.add_event_handler("disconnected", self.reconnect)
         # self.add_event_handler("disconnected", self.inspect_connection)
 
-        self.add_event_handler("reactions", self.on_reactions)
-        self.add_event_handler("presence_error", self.on_presence_error)
-        self.add_event_handler("presence_subscribe", self.on_presence_subscribe)
-        self.add_event_handler("presence_subscribed", self.on_presence_subscribed)
-        self.add_event_handler("presence_unsubscribe", self.on_presence_unsubscribe)
-        self.add_event_handler("presence_unsubscribed", self.on_presence_unsubscribed)
+        self.add_event_handler("reactions",
+                               self.on_reactions)
+        self.add_event_handler("presence_error",
+                               self.on_presence_error)
+        self.add_event_handler("presence_subscribe",
+                               self.on_presence_subscribe)
+        self.add_event_handler("presence_subscribed",
+                               self.on_presence_subscribed)
+        self.add_event_handler("presence_unsubscribed",
+                               self.on_presence_unsubscribed)
 
         # Initialize event loop
         # self.loop = asyncio.get_event_loop()
@@ -154,39 +163,61 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.add_event_handler("session_end", self.on_session_end)
 
 
+    # TODO Test
     async def on_groupchat_invite(self, message):
-        print("on_groupchat_invite")
-        await muc.accept_invitation(self, message)
+        logging.warning("on_groupchat_invite")
+        inviter = message["from"].bare
+        muc_jid = message['groupchat_invite']['jid']
+        await muc.join(self, inviter, muc_jid)
+        await bookmark.add(self, muc_jid)
 
 
+    # NOTE Tested with Gajim and Psi
     async def on_groupchat_direct_invite(self, message):
-        print("on_groupchat_direct_invite")
-        await muc.accept_invitation(self, message)
+        inviter = message["from"].bare
+        muc_jid = message['groupchat_invite']['jid']
+        await muc.join(self, inviter, muc_jid)
+        await bookmark.add(self, muc_jid)
 
 
     async def on_session_end(self, event):
-        if event:
-            message = "Session has ended. Reason: {}".format(event)
-        else:
-            message = "Session has ended."
-        await connect.recover_connection(self, event, message)
+        message = "Session has ended."
+        await connect.recover_connection(self, message)
 
 
     async def on_connection_failed(self, event):
-        message = "Connection has failed. Reason: {}".format(event)
-        await connect.recover_connection(self, event, message)
+        message = "Connection has failed.  Reason: {}".format(event)
+        await connect.recover_connection(self, message)
 
 
     async def on_session_start(self, event):
-        await process.event(self, event)
+        await process.event(self)
         await muc.autojoin(self)
+        profile.set_identity(self, "client")
         await profile.update(self)
-        service.identity(self, "client")
+        task.ping_task(self)
+        
+        # await Service.capabilities(self)
+        # Service.commands(self)
+        # Service.reactions(self)
+        
+        await self.service_capabilities()
+        self.service_commands()
+        self.service_reactions()
 
 
     async def on_session_resumed(self, event):
-        await process.event(self, event)
+        await process.event(self)
         await muc.autojoin(self)
+        profile.set_identity(self, "client")
+        
+        # await Service.capabilities(self)
+        # Service.commands(self)
+        # Service.reactions(self)
+        
+        await self.service_capabilities()
+        self.service_commands()
+        self.service_reactions()
 
 
     # TODO Request for subscription
@@ -195,20 +226,21 @@ class Slixfeed(slixmpp.ClientXMPP):
         if "chat" == await utility.get_chat_type(self, jid):
             await roster.add(self, jid)
             await state.request(self, jid)
+        await process.message(self, message)
         # chat_type = message["type"]
         # message_body = message["body"]
         # message_reply = message.reply
-        await process.message(self, message)
 
 
     async def on_changed_status(self, presence):
-        await task.check_readiness(self, presence)
+        # await task.check_readiness(self, presence)
+        jid = presence['from'].bare
+        if presence['show'] in ('away', 'dnd', 'xa'):
+            await task.clean_tasks_xmpp(jid, ['interval'])
+            await task.start_tasks_xmpp(self, jid, ['status', 'check'])
 
 
-    # TODO Request for subscription
     async def on_presence_subscribe(self, presence):
-        print("on_presence_subscribe")
-        print(presence)
         jid = presence["from"].bare
         await state.request(self, jid)
 
@@ -220,7 +252,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def on_presence_available(self, presence):
         # TODO Add function to check whether task is already running or not
-        await task.start_tasks(self, presence)
+        # await task.start_tasks(self, presence)
+        # NOTE Already done inside the start-task function
+        jid = presence["from"].bare
+        await task.start_tasks_xmpp(self, jid)
 
 
     async def on_presence_unsubscribed(self, presence):
@@ -230,64 +265,59 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_presence_unavailable(self, presence):
-        await task.stop_tasks(self, presence)
-
-
-    async def on_changed_subscription(self, presence):
-        print("on_changed_subscription")
-        print(presence)
         jid = presence["from"].bare
-        # breakpoint()
+        # await task.stop_tasks(self, jid)
+        await task.clean_tasks_xmpp(jid)
 
 
-    async def on_presence_unsubscribe(self, presence):
-        print("on_presence_unsubscribe")
-        print(presence)
-
-
+    # TODO
+    # Send message that database will be deleted within 30 days
+    # Check whether JID is in bookmarks or roster
+    # If roster, remove contact JID into file 
+    # If bookmarks, remove groupchat JID into file 
     async def on_presence_error(self, presence):
         print("on_presence_error")
         print(presence)
+        jid = presence["from"].bare
+        await task.clean_tasks_xmpp(jid)
 
 
     async def on_reactions(self, message):
-        print("on_reactions")
-        print(message)
+        print(message['from'])
+        print(message['reactions']['values'])
 
 
     async def on_chatstate_active(self, message):
-        print("on_chatstate_active")
-        print(message)
+        if message['type'] in ('chat', 'normal'):
+            jid = message['from'].bare
+            # await task.clean_tasks_xmpp(jid, ['status'])
+            await task.start_tasks_xmpp(self, jid, ['status'])
+
+
+    async def on_chatstate_composing(self, message):
+        if message['type'] in ('chat', 'normal'):
+            jid = message['from'].bare
+            # await task.clean_tasks_xmpp(jid, ['status'])
+            status_text='Press "help" for manual, or "info" for information.'
+            status.send(self, jid, status_text)
 
 
     async def on_chatstate_gone(self, message):
-        print("on_chatstate_gone")
-        print(message)
+        if message['type'] in ('chat', 'normal'):
+            jid = message['from'].bare
+            # await task.clean_tasks_xmpp(jid, ['status'])
+            await task.start_tasks_xmpp(self, jid, ['status'])
 
 
-    async def check_chatstate_composing(self, message):
-        print("def check_chatstate_composing")
-        print(message)
-        if message["type"] in ("chat", "normal"):
-            jid = message["from"].bare
-        status_text="Press \"help\" for manual."
-        self.send_presence(
-            # pshow=status_mode,
-            pstatus=status_text,
-            pto=jid,
-            )
+    async def on_chatstate_inactive(self, message):
+        if message['type'] in ('chat', 'normal'):
+            jid = message['from'].bare
+            # await task.clean_tasks_xmpp(jid, ['status'])
+            await task.start_tasks_xmpp(self, jid, ['status'])
 
 
-    async def check_chatstate_paused(self, message):
-        print("def check_chatstate_paused")
-        print(message)
-        if message["type"] in ("chat", "normal"):
-            jid = message["from"].bare
-        await task.refresh_task(
-            self,
-            jid,
-            task.send_status,
-            "status",
-            20
-            )
-
+    async def on_chatstate_paused(self, message):
+        if message['type'] in ('chat', 'normal'):
+            jid = message['from'].bare
+            # await task.clean_tasks_xmpp(jid, ['status'])
+            await task.start_tasks_xmpp(self, jid, ['status'])

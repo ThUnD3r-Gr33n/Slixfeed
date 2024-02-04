@@ -62,6 +62,29 @@ async def set_avatar(self):
         await self.plugin["xep_0153"].set_avatar(avatar=avatar)
 
 
+def set_identity(self, category):
+    """
+    Identify for Service Descovery.
+
+    Parameters
+    ----------
+    category : str
+        "client" or "service".
+
+    Returns
+    -------
+    None.
+
+    """
+    self['xep_0030'].add_identity(
+        category=category,
+        itype='news',
+        name='slixfeed',
+        node=None,
+        jid=self.boundjid.full,
+    )
+
+
 async def set_vcard(self):
     vcard = self.plugin["xep_0054"].make_vcard()
     fields = {

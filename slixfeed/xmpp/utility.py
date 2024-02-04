@@ -39,7 +39,8 @@ async def get_chat_type(self, jid):
         # NOTE Is it needed? We do not interact with gateways or services
         else:
             chat_type = "chat"
-        print('JID {} chat type is {}'.format(jid, chat_type))
+        logging.info('Jabber ID: {}\n'
+                     'Chat Type: {}'.format(jid, chat_type))
         return chat_type
     # TODO Test whether this exception is realized
     except IqTimeout as e:

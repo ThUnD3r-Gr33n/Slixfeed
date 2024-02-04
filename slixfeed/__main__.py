@@ -100,13 +100,12 @@ import os
 #import slixfeed.irc
 #import slixfeed.matrix
 
-from slixfeed.config import get_default_config_directory, get_value
+import slixfeed.config as config
 
 import socks
 import socket
 
-xmpp_type = get_value(
-            "accounts", "XMPP", "type")
+xmpp_type = config.get_value("accounts", "XMPP", "type")
 
 match xmpp_type:
     case "client":
@@ -122,18 +121,21 @@ class JabberComponent:
         xmpp.register_plugin('xep_0030') # Service Discovery
         xmpp.register_plugin('xep_0045') # Multi-User Chat
         # xmpp.register_plugin('xep_0048') # Bookmarks
+        xmpp.register_plugin('xep_0050') # Ad-Hoc Commands
         xmpp.register_plugin('xep_0054') # vcard-temp
         xmpp.register_plugin('xep_0060') # Publish-Subscribe
         # xmpp.register_plugin('xep_0065') # SOCKS5 Bytestreams
         xmpp.register_plugin('xep_0066') # Out of Band Data
         xmpp.register_plugin('xep_0071') # XHTML-IM
         xmpp.register_plugin('xep_0084') # User Avatar
-        # xmpp.register_plugin('xep_0085') # Chat State Notifications
+        xmpp.register_plugin('xep_0085') # Chat State Notifications
+        xmpp.register_plugin('xep_0115') # Entity Capabilities
         xmpp.register_plugin('xep_0153') # vCard-Based Avatars
         xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
-        xmpp.register_plugin('xep_0249') # Multi-User Chat
+        xmpp.register_plugin('xep_0249') # Direct MUC Invitations
         xmpp.register_plugin('xep_0363') # HTTP File Upload
         xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
+        xmpp.register_plugin('xep_0444') # Message Reactions
         xmpp.connect()
         xmpp.process()
 
@@ -145,22 +147,25 @@ class JabberClient:
         xmpp.register_plugin('xep_0030') # Service Discovery
         xmpp.register_plugin('xep_0045') # Multi-User Chat
         xmpp.register_plugin('xep_0048') # Bookmarks
+        xmpp.register_plugin('xep_0050') # Ad-Hoc Commands
         xmpp.register_plugin('xep_0054') # vcard-temp
         xmpp.register_plugin('xep_0060') # Publish-Subscribe
         # xmpp.register_plugin('xep_0065') # SOCKS5 Bytestreams
         xmpp.register_plugin('xep_0066') # Out of Band Data
         xmpp.register_plugin('xep_0071') # XHTML-IM
         xmpp.register_plugin('xep_0084') # User Avatar
-        # xmpp.register_plugin('xep_0085') # Chat State Notifications
+        xmpp.register_plugin('xep_0085') # Chat State Notifications
+        xmpp.register_plugin('xep_0115') # Entity Capabilities
         xmpp.register_plugin('xep_0153') # vCard-Based Avatars
         xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
-        xmpp.register_plugin('xep_0249') # Multi-User Chat
+        xmpp.register_plugin('xep_0249') # Direct MUC Invitations
         xmpp.register_plugin('xep_0363') # HTTP File Upload
         xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
+        xmpp.register_plugin('xep_0444') # Message Reactions
 
-        # proxy_enabled = get_value("accounts", "XMPP", "proxy_enabled")
+        # proxy_enabled = config.get_value("accounts", "XMPP", "proxy_enabled")
         # if proxy_enabled == '1':
-        #     values = get_value("accounts", "XMPP", [
+        #     values = config.get_value("accounts", "XMPP", [
         #         "proxy_host",
         #         "proxy_port",
         #         "proxy_username",
@@ -179,7 +184,7 @@ class JabberClient:
 
         # Connect to the XMPP server and start processing XMPP stanzas.
 
-        address = get_value(
+        address = config.get_value(
             "accounts", "XMPP Client", ["hostname", "port"])
         if address[0] and address[1]:
             xmpp.connect(tuple(address))
@@ -190,11 +195,11 @@ class JabberClient:
 
 def main():
 
-    config_dir = get_default_config_directory()
+    config_dir = config.get_default_config_directory()
     logging.info("Reading configuration from {}".format(config_dir))
     print("Reading configuration from {}".format(config_dir))
 
-    values = get_value(
+    values = config.get_value(
         "accounts", "XMPP Proxy", ["socks5_host", "socks5_port"])
     if values[0] and values[1]:
         host = values[0]
@@ -208,37 +213,30 @@ def main():
     parser = ArgumentParser(description=Slixfeed.__doc__)
 
     # Output verbosity options.
-    parser.add_argument(
-        "-q", "--quiet", help="set logging to ERROR",
-        action="store_const", dest="loglevel",
-        const=logging.ERROR, default=logging.INFO)
-    parser.add_argument(
-        "-d", "--debug", help="set logging to DEBUG",
-        action="store_const", dest="loglevel",
-        const=logging.DEBUG, default=logging.INFO)
+    parser.add_argument("-q", "--quiet", help="set logging to ERROR",
+                        action="store_const", dest="loglevel",
+                        const=logging.ERROR, default=logging.INFO)
+    parser.add_argument("-d", "--debug", help="set logging to DEBUG",
+                        action="store_const", dest="loglevel",
+                        const=logging.DEBUG, default=logging.INFO)
 
     # JID and password options.
-    parser.add_argument(
-        "-j", "--jid", dest="jid", help="Jabber ID")
-    parser.add_argument(
-        "-p", "--password", dest="password", help="Password of JID")
-    parser.add_argument(
-        "-a", "--alias", dest="alias", help="Display name")
-    parser.add_argument(
-        "-n", "--hostname", dest="hostname", help="Hostname")
-    parser.add_argument(
-        "-o", "--port", dest="port", help="Port number")
+    parser.add_argument("-j", "--jid", help="Jabber ID", dest="jid")
+    parser.add_argument("-p", "--password", help="Password of JID",
+                        dest="password")
+    parser.add_argument("-a", "--alias", help="Display name", dest="alias")
+    parser.add_argument("-n", "--hostname", help="Hostname", dest="hostname")
+    parser.add_argument("-o", "--port", help="Port number", dest="port")
 
     args = parser.parse_args()
 
     # Setup logging.
-    logging.basicConfig(
-        level=args.loglevel, format='%(levelname)-8s %(message)s')
+    logging.basicConfig(level=args.loglevel,
+                        format='%(levelname)-8s %(message)s')
 
     # Try configuration file
-    values = get_value(
-        "accounts", "XMPP Client", [
-            "alias", "jid", "password", "hostname", "port"])
+    values = config.get_value("accounts", "XMPP Client",
+                              ["alias", "jid", "password", "hostname", "port"])
     alias = values[0]
     jid = values[1]
     password = values[2]

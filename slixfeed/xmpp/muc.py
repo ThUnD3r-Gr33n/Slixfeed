@@ -11,7 +11,9 @@ TODO
 
 3) If groupchat error is received, send that error message to inviter.
 
-4) Save name of groupchat instead of jid as name
+FIXME
+
+1) Save name of groupchat instead of jid as name
 
 """
 import logging
@@ -40,10 +42,16 @@ async def autojoin(self):
     for conference in conferences:
         if conference["autojoin"]:
             muc_jid = conference["jid"]
-            logging.debug(
-                "Autojoin {} ({})".format(conference["name"], muc_jid))
-            print(
-                "Autojoin {} ({})".format(conference["name"], muc_jid))
+            logging.info(
+                'Autojoin groupchat\n'
+                'Name  : {}\n'
+                'JID   : {}\n'
+                'Alias : {}\n'
+                .format(
+                    conference["name"],
+                    muc_jid,
+                    conference["nick"]
+                    ))
             self.plugin['xep_0045'].join_muc(
                 muc_jid,
                 conference["nick"],
@@ -71,15 +79,20 @@ async def join(self, inviter, muc_jid):
     #             "Send activation token {} to groupchat xmpp:{}?join."
     #             ).format(token, muc_jid)
     #         )
-    print("muc_jid")
-    print(muc_jid)
+    logging.info(
+        'Joining groupchat\n'
+        'JID     : {}\n'
+        'Inviter : {}\n'
+        .format(
+            muc_jid,
+            inviter
+            ))
     self.plugin['xep_0045'].join_muc(
         muc_jid,
         self.alias,
         # If a room password is needed, use:
         # password=the_room_password,
         )
-    await bookmark.add(self, muc_jid)
     process.greet(self, muc_jid, chat_type="groupchat")
 
 
@@ -97,7 +110,6 @@ async def leave(self, muc_jid):
             mbody=message,
             mtype="groupchat"
             )
-    await bookmark.remove(self, muc_jid)
     self.plugin['xep_0045'].leave_muc(
         muc_jid,
         self.alias,

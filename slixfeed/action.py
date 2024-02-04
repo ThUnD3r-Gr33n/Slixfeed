@@ -89,14 +89,16 @@ def manual(filename, section=None, command=None):
     if command and section:
         try:
             cmd_list = cmds[section][command]
-        except KeyError:
+        except KeyError as e:
+            logging.error(str(e))
             cmd_list = None
     elif section:
         try:
             cmd_list = []
             for cmd in cmds[section]:
                 cmd_list.extend([cmd])
-        except KeyError:
+        except KeyError as e:
+            logging.error('KeyError:' + str(e))
             cmd_list = None
     else:
         cmd_list = []
@@ -305,6 +307,7 @@ async def get_setting_value(db_file, key):
         await sqlite.get_settings_value(db_file, key) or
         config.get_value("settings", "Settings", key)
         )
+    value = int(value)
     return value
 
 
@@ -529,16 +532,15 @@ async def add_feed(db_file, url):
                         status_code=status_code,
                         updated=updated
                         )
-                    await scan(
-                        db_file, url)
+                    await scan(db_file, url)
                     old = await get_setting_value(db_file, "old")
                     if not old:
-                        await sqlite.mark_feed_as_read(
-                            db_file, url)
-                    response = (
-                        "> {}\nNews source \"{}\" has been "
-                        "added to subscription list."
-                        ).format(url, title)
+                        feed_id = await sqlite.get_feed_id(db_file, url)
+                        feed_id = feed_id[0]
+                        await sqlite.mark_feed_as_read(db_file, feed_id)
+                    response = ('> {}\nNews source "{}" has been '
+                                'added to subscription list.'
+                                .format(url, title))
                     break
                 # NOTE This elif statement be unnecessary
                 # when feedparser be supporting json feed.
@@ -580,12 +582,12 @@ async def add_feed(db_file, url):
                         db_file, url)
                     old = await get_setting_value(db_file, "old")
                     if not old:
-                        await sqlite.mark_feed_as_read(
-                            db_file, url)
-                    response = (
-                        "> {}\nNews source \"{}\" has been "
-                        "added to subscription list."
-                        ).format(url, title)
+                        feed_id = await sqlite.get_feed_id(db_file, url)
+                        feed_id = feed_id[0]
+                        await sqlite.mark_feed_as_read(db_file, feed_id)
+                    response = ('> {}\nNews source "{}" has been '
+                                'added to subscription list.'
+                                .format(url, title))
                     break
                 else:
                     result = await crawl.probe_page(
@@ -596,18 +598,15 @@ async def add_feed(db_file, url):
                     else:
                         url = result[0]
             else:
-                response = (
-                    "> {}\nFailed to load URL.  Reason: {}"
-                    ).format(url, status_code)
+                response = ('> {}\nFailed to load URL.  Reason: {}'
+                            .format(url, status_code))
                 break
         else:
             ix = exist[0]
             name = exist[1]
-            response = (
-                "> {}\nNews source \"{}\" is already "
-                "listed in the subscription list at "
-                "index {}".format(url, name, ix)
-                )
+            response = ('> {}\nNews source "{}" is already '
+                        'listed in the subscription list at '
+                        'index {}'.format(url, name, ix))
             break
     return response
 
@@ -638,6 +637,7 @@ async def scan_json(db_file, url):
             db_file, url, feed)
         try:
             feed_id = await sqlite.get_feed_id(db_file, url)
+            feed_id = feed_id[0]
             # await sqlite.update_feed_validity(
             #     db_file, feed_id, valid)
             if "date_published" in feed.keys():
@@ -649,6 +649,7 @@ async def scan_json(db_file, url):
             else:
                 updated = ''
             feed_id = await sqlite.get_feed_id(db_file, url)
+            feed_id = feed_id[0]
             await sqlite.update_feed_properties(
                 db_file, feed_id, len(feed["items"]), updated)
             # await update_feed_status
@@ -680,15 +681,20 @@ async def scan_json(db_file, url):
             title = entry["title"] if "title" in entry.keys() else date
             entry_id = entry["id"] if "id" in entry.keys() else link
             feed_id = await sqlite.get_feed_id(db_file, url)
+            feed_id = feed_id[0]
             exist = await sqlite.check_entry_exist(
                 db_file, feed_id, entry_id=entry_id,
                 title=title, link=link, date=date)
             if not exist:
                 summary = entry["summary"] if "summary" in entry.keys() else ''
                 if not summary:
-                    summary = entry["content_html"] if "content_html" in entry.keys() else ''
+                    summary = (entry["content_html"]
+                               if "content_html" in entry.keys()
+                               else '')
                 if not summary:
-                    summary = entry["content_text"] if "content_text" in entry.keys() else ''
+                    summary = (entry["content_text"]
+                               if "content_text" in entry.keys()
+                               else '')
                 read_status = 0
                 pathname = urlsplit(link).path
                 string = (
@@ -725,12 +731,12 @@ async def scan_json(db_file, url):
                                 media_link = trim_url(media_link)
                                 break
                         except:
-                            logging.error(
-                                "KeyError: 'url'\n"
-                                "Missing 'url' attribute for {}".format(url))
-                            logging.info(
-                                "Continue scanning for next potential "
-                                "enclosure of {}".format(link))
+                            logging.error('KeyError: "url"\n'
+                                          'Missing "url" attribute for {}'
+                                          .format(url))
+                            logging.info('Continue scanning for next '
+                                         'potential enclosure of {}'
+                                         .format(link))
                 entry = {
                     "title": title,
                     "link": link,
@@ -746,6 +752,7 @@ async def scan_json(db_file, url):
                 # await sqlite.set_date(db_file, url)
     if len(new_entries):
         feed_id = await sqlite.get_feed_id(db_file, url)
+        feed_id = feed_id[0]
         await sqlite.add_entries_and_update_timestamp(
             db_file, feed_id, new_entries)
 
@@ -808,9 +815,8 @@ async def view_feed(url):
                 else:
                     url = result[0]
         else:
-            response = (
-                "> {}\nFailed to load URL.  Reason: {}"
-                ).format(url, status)
+            response = ('> {}\nFailed to load URL.  Reason: {}'
+                        .format(url, status))
             break
     return response
 
@@ -877,9 +883,8 @@ async def view_entry(url, num):
                 else:
                     url = result[0]
         else:
-            response = (
-                "> {}\nFailed to load URL.  Reason: {}"
-                ).format(url, status)
+            response = ('> {}\nFailed to load URL.  Reason: {}'
+                        .format(url, status))
             break
     return response
 
@@ -921,6 +926,7 @@ async def scan(db_file, url):
             else:
                 valid = 1
             feed_id = await sqlite.get_feed_id(db_file, url)
+            feed_id = feed_id[0]
             await sqlite.update_feed_validity(
                 db_file, feed_id, valid)
             if "updated_parsed" in feed["feed"].keys():
@@ -932,6 +938,7 @@ async def scan(db_file, url):
             else:
                 updated = ''
             feed_id = await sqlite.get_feed_id(db_file, url)
+            feed_id = feed_id[0]
             await sqlite.update_feed_properties(
                 db_file, feed_id, len(feed["entries"]), updated)
             # await update_feed_status
@@ -963,6 +970,7 @@ async def scan(db_file, url):
             title = entry.title if entry.has_key("title") else date
             entry_id = entry.id if entry.has_key("id") else link
             feed_id = await sqlite.get_feed_id(db_file, url)
+            feed_id = feed_id[0]
             exist = await sqlite.check_entry_exist(
                 db_file, feed_id, entry_id=entry_id,
                 title=title, link=link, date=date)
@@ -986,8 +994,8 @@ async def scan(db_file, url):
                             "Keyword  : {}".format(
                                 link, reject_list))
                 if isinstance(date, int):
-                    logging.error(
-                        "Variable 'date' is int: {}".format(date))
+                    logging.error('Variable "date" is int: {}'
+                                  .format(date))
                 media_link = ''
                 if entry.has_key("links"):
                     for e_link in entry.links:
@@ -1006,12 +1014,12 @@ async def scan(db_file, url):
                                     media_link = trim_url(media_link)
                                     break
                         except:
-                            logging.error(
-                                "KeyError: 'href'\n"
-                                "Missing 'href' attribute for {}".format(url))
-                            logging.info(
-                                "Continue scanning for next potential "
-                                "enclosure of {}".format(link))
+                            logging.error('KeyError: "href"\n'
+                                          'Missing "href" attribute for {}'
+                                          .format(url))
+                            logging.info('Continue scanning for next '
+                                         'potential enclosure of {}'
+                                         .format(link))
                 entry = {
                     "title": title,
                     "link": link,
@@ -1027,6 +1035,7 @@ async def scan(db_file, url):
                 # await sqlite.set_date(db_file, url)
     if len(new_entries):
         feed_id = await sqlite.get_feed_id(db_file, url)
+        feed_id = feed_id[0]
         await sqlite.add_entries_and_update_timestamp(
             db_file, feed_id, new_entries)
 
@@ -1048,8 +1057,7 @@ def generate_document(data, url, ext, filename):
         content = document.summary()
     except:
         content = data
-        logging.warning(
-            "Check that package readability is installed.")
+        logging.warning('Check that package readability is installed.')
     match ext:
         case "epub":
             error = generate_epub(content, filename)
@@ -1064,11 +1072,9 @@ def generate_document(data, url, ext, filename):
             try:
                 generate_markdown(content, filename)
             except:
-                logging.warning(
-                    "Check that package html2text is installed, "
-                    "or try again.")
-                error = (
-                    "Package html2text was not found.")
+                logging.warning('Check that package html2text '
+                                'is installed, or try again.')
+                error = 'Package html2text was not found.'
         case "pdf":
             error = generate_pdf(content, filename)
             if error:
@@ -1093,6 +1099,7 @@ def generate_document(data, url, ext, filename):
 
 async def extract_image_from_feed(db_file, feed_id, url):
     feed_url = sqlite.get_feed_url(db_file, feed_id)
+    feed_url = feed_url[0]
     result = await fetch.http(feed_url)
     document = result[0]
     if document:
@@ -1107,8 +1114,7 @@ async def extract_image_from_feed(db_file, feed_id, url):
                             return image_url
             except:
                 logging.error(url)
-                logging.error(
-                    "AttributeError: object has no attribute 'link'")
+                logging.error('AttributeError: object has no attribute "link"')
 
 
 async def extract_image_from_html(url):
@@ -1120,8 +1126,7 @@ async def extract_image_from_html(url):
             content = document.summary()
         except:
             content = data
-            logging.warning(
-                "Check that package readability is installed.")
+            logging.warning('Check that package readability is installed.')
         tree = html.fromstring(content)
         # TODO Exclude banners, class="share" links etc.
         images = tree.xpath(
@@ -1209,9 +1214,8 @@ async def get_magnet(link):
         filename = queries["dn"][0]
         checksum = query_xt[len("urn:btih:"):]
         torrent = await fetch.magnet(link)
-        logging.debug(
-            "Attempting to retrieve {} ({})".format(
-                filename, checksum))
+        logging.debug('Attempting to retrieve {} ({})'
+                      .format(filename, checksum))
         if not torrent:
             logging.debug(
                 "Attempting to retrieve {} from HTTP caching service".format(
@@ -1245,6 +1249,7 @@ async def remove_nonexistent_entries(db_file, url, feed):
         Parsed feed document.
     """
     feed_id = await sqlite.get_feed_id(db_file, url)
+    feed_id = feed_id[0]
     items = await sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed.entries
     for item in items:
@@ -1350,6 +1355,7 @@ async def remove_nonexistent_entries_json(db_file, url, feed):
         Parsed feed document.
     """
     feed_id = await sqlite.get_feed_id(db_file, url)
+    feed_id = feed_id[0]
     items = await sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed["items"]
     for item in items:

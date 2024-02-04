@@ -34,29 +34,17 @@ import slixfeed.sqlite as sqlite
 import slixfeed.task as task
 import slixfeed.url as uri
 import slixfeed.xmpp.bookmark as bookmark
-import slixfeed.xmpp.manual as manual
 import slixfeed.xmpp.muc as groupchat
+import slixfeed.xmpp.status as status
 import slixfeed.xmpp.upload as upload
 from slixfeed.xmpp.utility import get_chat_type
 import time
 
-async def event_component(self, event):
+async def event_component(self):
     self.send_presence()
 
 
-async def event(self, event):
-    """
-    Process the session_start event.
-
-    Typical actions for the session_start event are
-    requesting the roster and broadcasting an initial
-    presence stanza.
-
-    Arguments:
-        event -- An empty dictionary. The session_start
-                 event does not provide any additional
-                 data.
-    """
+async def event(self):
     self.send_presence()
     await self.get_roster()
 
@@ -99,9 +87,7 @@ async def message(self, message):
                 return
             jid_full = str(message['from'])
             role = self.plugin['xep_0045'].get_jid_property(
-                jid,
-                jid_full[jid_full.index('/')+1:],
-                'role')
+                jid, jid_full[jid_full.index('/')+1:], 'role')
             if role != 'moderator':
                 return
 
@@ -112,28 +98,19 @@ async def message(self, message):
         if (message_text.lower().startswith('http') and
             message_text.lower().endswith('.opml')):
             url = message_text
-            await task.clean_tasks_xmpp(
-                jid, ['status'])
+            await task.clean_tasks_xmpp(jid, ['status'])
             status_type = 'dnd'
-            status_message = (
-                '📥️ Procesing request to import feeds...'
-                )
-            send_status_message(
-                self, jid, status_type, status_message)
+            status_message = '📥️ Procesing request to import feeds...'
+            status.send(
+                self, jid, status_message, status_type)
             db_file = get_pathname_to_database(jid_file)
             count = await action.import_opml(db_file, url)
             if count:
-                response = (
-                    'Successfully imported {} feeds.'
-                    ).format(count)
+                response = 'Successfully imported {} feeds.'.format(count)
             else:
-                response = (
-                    'OPML file was not imported.'
-                    )
-            await task.clean_tasks_xmpp(
-                jid, ['status'])
-            await task.start_tasks_xmpp(
-                self, jid, ['status'])
+                response = 'OPML file was not imported.'
+            # await task.clean_tasks_xmpp(jid, ['status'])
+            await task.start_tasks_xmpp(self, jid, ['status'])
             send_reply_message(self, message, response)
             return
 
@@ -162,9 +139,7 @@ async def message(self, message):
             # approved = False
             jid_full = str(message['from'])
             role = self.plugin['xep_0045'].get_jid_property(
-                jid,
-                jid_full[jid_full.index('/')+1:],
-                'role')
+                jid, jid_full[jid_full.index('/')+1:], 'role')
             if role != 'moderator':
                 return
             # if role == 'moderator':
@@ -232,10 +207,11 @@ async def message(self, message):
             #         send_reply_message(self, message, response)
             case 'help':
                 command_list = ' '.join(action.manual('commands.toml'))
-                response = (
-                    'Available command keys:\n',
-                    '```\n', command_list, '\n```\n'
-                    '> Info: `help key`')
+                response = ('Available command keys:\n'
+                            '```\n{}\n```\n'
+                            'Usage: `help <key>`'
+                            .format(command_list))
+                print(response)
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('help'):
                 command = message_text[5:]
@@ -243,59 +219,54 @@ async def message(self, message):
                 if len(command) == 2:
                     command_root = command[0]
                     command_name = command[1]
-                    command_list = action.manual(
-                        'commands.toml',
-                        section=command_root,
-                        command=command_name)
+                    command_list = action.manual('commands.toml',
+                                                 section=command_root,
+                                                 command=command_name)
                     if command_list:
                         command_list = ''.join(command_list)
                         response = (command_list)
                     else:
-                        response = (
-                            'KeyError for {} {}'.format(
-                                command_root, command_name))
+                        response = ('KeyError for {} {}'
+                                    .format(command_root, command_name))
                 elif len(command) == 1:
                     command = command[0]
                     command_list = action.manual('commands.toml', command)
                     if command_list:
                         command_list = ' '.join(command_list)
-                        response = (
-                            'Available commands:\n'
-                            '```\n', command_list, '\n```\n'
-                            '> Info: `help {} command`'
-                            .format(command))
+                        response = ('Available command `{}` keys:\n'
+                                    '```\n{}\n```\n'
+                                    'Usage: `help {} <command>`'
+                                    .format(command, command_list, command))
                     else:
-                        response = ('KeyError for {}'.format(command))
+                        response = 'KeyError for {}'.format(command)
                 else:
-                    response = (
-                        'Invalid. Enter command key or command key & name')
+                    response = ('Invalid. Enter command key '
+                                'or command key & name')
                 send_reply_message(self, message, response)
             case 'info':
                 command_list = ' '.join(action.manual('information.toml'))
-                response = (
-                    'Available options:\n',
-                    '```\n', command_list, '\n```\n'
-                    '> Info: `info option`')
+                response = ('Available command options:\n'
+                            '```\n{}\n```\n'
+                            'Usage: `info <option>`'
+                            .format(command_list))
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('info'):
                 command = message_text[5:]
-                command_list = action.manual(
-                    'information.toml', command)
+                command_list = action.manual('information.toml', command)
                 if command_list:
                     # command_list = '\n'.join(command_list)
                     response = (command_list)
                 else:
-                    response = (
-                        'KeyError for {}'.format(command))
+                    response = ('KeyError for {}'
+                                .format(command))
                 send_reply_message(self, message, response)
-            case _ if message_lowercase in [
-                'greetings', 'hallo', 'hello', 'hey',
-                'hi', 'hola', 'holla', 'hollo']:
-                response = (
-                    'Greeting! My name is {}, and I am an RSS News Bot.\n'
-                    'Send "help" for further instructions.\n'
-                    .format(self.alias)
-                    )
+            case _ if message_lowercase in ['greetings', 'hallo', 'hello',
+                                            'hey', 'hi', 'hola', 'holla',
+                                            'hollo']:
+                response = ('Greeting! My name is {}.\n'
+                            'I am an RSS News Bot.\n'
+                            'Send "help" for further instructions.\n'
+                            .format(self.alias))
                 send_reply_message(self, message, response)
     
             # case _ if message_lowercase.startswith('activate'):
@@ -327,39 +298,35 @@ async def message(self, message):
                 message_text = message_text[4:]
                 url = message_text.split(' ')[0]
                 title = ' '.join(message_text.split(' ')[1:])
+                if not title:
+                    title = uri.get_hostname(url)
                 if url.startswith('http'):
                     db_file = get_pathname_to_database(jid_file)
-                    exist = await sqlite.get_feed_id_and_name(
-                        db_file, url)
+                    exist = await sqlite.get_feed_id_and_name(db_file, url)
                     if not exist:
-                        await sqlite.insert_feed(
-                            db_file, url, title)
+                        await sqlite.insert_feed(db_file, url, title)
                         await action.scan(db_file, url)
-                        old = (
-                            await sqlite.get_settings_value(db_file, 'old') or
-                            get_value('settings', 'Settings', 'old')
-                            )
+                        old = await action.get_setting_value(db_file, "old")
                         if old:
-                            await task.clean_tasks_xmpp(
-                                jid, ['status'])
+                            # await task.clean_tasks_xmpp(jid, ['status'])
                             # await send_status(jid)
-                            await task.start_tasks_xmpp(
-                                self, jid, ['status'])
+                            await task.start_tasks_xmpp(self, jid, ['status'])
                         else:
-                            await sqlite.mark_feed_as_read(
-                                db_file, url)
-                        response = (
-                            '> {}\nNews source has been '
-                            'added to subscription list.'
-                            ).format(url)
+                            feed_id = await sqlite.get_feed_id(db_file, url)
+                            feed_id = feed_id[0]
+                            await sqlite.mark_feed_as_read(db_file, feed_id)
+                        response = ('> {}\n'
+                                    'News source has been '
+                                    'added to subscription list.'
+                                    .format(url))
                     else:
                         ix = exist[0]
                         name = exist[1]
-                        response = (
-                            '> {}\nNews source "{}" is already '
-                            'listed in the subscription list at '
-                            'index {}'
-                            ).format(url, name, ix)
+                        response = ('> {}\n'
+                                    'News source "{}" is already '
+                                    'listed in the subscription list at '
+                                    'index {}'
+                                    .format(url, name, ix))
                 else:
                     response = 'Missing URL.'
                 send_reply_message(self, message, response)
@@ -368,19 +335,16 @@ async def message(self, message):
                     val = message_text[7:]
                     if val:
                         db_file = get_pathname_to_database(jid_file)
-                        keywords = await sqlite.get_filters_value(
-                            db_file, key)
-                        val = await add_to_list(
-                            val, keywords)
+                        keywords = await sqlite.get_filters_value(db_file, key)
+                        val = await add_to_list(val, keywords)
                         if await sqlite.get_filters_value(db_file, key):
-                            await sqlite.update_filters_value(
-                                db_file, [key, val])
+                            await sqlite.update_filters_value(db_file,
+                                                              [key, val])
                         else:
                             await sqlite.set_filters_value(db_file, [key, val])
-                        response = (
-                            'Approved keywords\n'
-                            '```\n{}\n```'
-                            ).format(val)
+                        response = ('Approved keywords\n'
+                                    '```\n{}\n```'
+                                    .format(val))
                     else:
                         response = 'Missing keywords.'
                     send_reply_message(self, message, response)
@@ -389,19 +353,16 @@ async def message(self, message):
                     val = message_text[7:]
                     if val:
                         db_file = get_pathname_to_database(jid_file)
-                        keywords = await sqlite.get_filters_value(
-                            db_file, key)
-                        val = await remove_from_list(
-                            val, keywords)
+                        keywords = await sqlite.get_filters_value(db_file, key)
+                        val = await remove_from_list(val, keywords)
                         if await sqlite.get_filters_value(db_file, key):
-                            await sqlite.update_filters_value(
-                                db_file, [key, val])
+                            await sqlite.update_filters_value(db_file,
+                                                              [key, val])
                         else:
                             await sqlite.set_filters_value(db_file, [key, val])
-                        response = (
-                            'Approved keywords\n'
-                            '```\n{}\n```'
-                            ).format(val)
+                        response = ('Approved keywords\n'
+                                    '```\n{}\n```'
+                                    .format(val))
                     else:
                         response = 'Missing keywords.'
                     send_reply_message(self, message, response)
@@ -414,63 +375,54 @@ async def message(self, message):
                             response = 'Value may not be greater than 500.'
                         else:
                             db_file = get_pathname_to_database(jid_file)
-                            if await sqlite.get_settings_value(
-                                    db_file, [key, val]):
-                                await sqlite.update_settings_value(
-                                    db_file, [key, val])
+                            if await sqlite.get_settings_value(db_file,
+                                                               [key, val]):
+                                await sqlite.update_settings_value(db_file,
+                                                                   [key, val])
                             else:
-                                await sqlite.set_settings_value(
-                                    db_file, [key, val])
-                            response = (
-                                'Maximum archived items has been set to {}.'
-                                ).format(val)
+                                await sqlite.set_settings_value(db_file,
+                                                                [key, val])
+                            response = ('Maximum archived items has '
+                                        'been set to {}.'
+                                        .format(val))
                     except:
                         response = 'Enter a numeric value only.'
                 else:
                     response = 'Missing value.'
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('bookmark -'):
-                if jid == get_value(
-                        'accounts', 'XMPP', 'operator'):
+                if jid == get_value('accounts', 'XMPP', 'operator'):
                     muc_jid = message_text[11:]
                     await bookmark.remove(self, muc_jid)
-                    response = (
-                        'Groupchat {} has been removed from bookmarks.'
-                        ).format(muc_jid)
+                    response = ('Groupchat {} has been removed '
+                                'from bookmarks.'
+                                .format(muc_jid))
                 else:
-                    response = (
-                        'This action is restricted. '
-                        'Type: removing bookmarks.'
-                        )
+                    response = ('This action is restricted. '
+                                'Type: removing bookmarks.')
                 send_reply_message(self, message, response)
             case 'bookmarks':
-                if jid == get_value(
-                        'accounts', 'XMPP', 'operator'):
+                if jid == get_value('accounts', 'XMPP', 'operator'):
                     response = await action.list_bookmarks(self)
                 else:
-                    response = (
-                        'This action is restricted. '
-                        'Type: viewing bookmarks.'
-                        )
+                    response = ('This action is restricted. '
+                                'Type: viewing bookmarks.')
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('deny +'):
                     key = 'filter-' + message_text[:4]
                     val = message_text[6:]
                     if val:
                         db_file = get_pathname_to_database(jid_file)
-                        keywords = await sqlite.get_filters_value(
-                            db_file, key)
-                        val = await add_to_list(
-                            val, keywords)
+                        keywords = await sqlite.get_filters_value(db_file, key)
+                        val = await add_to_list(val, keywords)
                         if await sqlite.get_filters_value(db_file, key):
-                            await sqlite.update_filters_value(
-                                db_file, [key, val])
+                            await sqlite.update_filters_value(db_file,
+                                                              [key, val])
                         else:
                             await sqlite.set_filters_value(db_file, [key, val])
-                        response = (
-                            'Rejected keywords\n'
-                            '```\n{}\n```'
-                            ).format(val)
+                        response = ('Rejected keywords\n'
+                                    '```\n{}\n```'
+                                    .format(val))
                     else:
                         response = 'Missing keywords.'
                     send_reply_message(self, message, response)
@@ -479,19 +431,16 @@ async def message(self, message):
                     val = message_text[6:]
                     if val:
                         db_file = get_pathname_to_database(jid_file)
-                        keywords = await sqlite.get_filters_value(
-                            db_file, key)
-                        val = await remove_from_list(
-                            val, keywords)
+                        keywords = await sqlite.get_filters_value(db_file, key)
+                        val = await remove_from_list(val, keywords)
                         if await sqlite.get_filters_value(db_file, key):
-                            await sqlite.update_filters_value(
-                                db_file, [key, val])
+                            await sqlite.update_filters_value(db_file,
+                                                              [key, val])
                         else:
                             await sqlite.set_filters_value(db_file, [key, val])
-                        response = (
-                            'Rejected keywords\n'
-                            '```\n{}\n```'
-                            ).format(val)
+                        response = ('Rejected keywords\n'
+                                    '```\n{}\n```'
+                                    .format(val))
                     else:
                         response = 'Missing keywords.'
                     send_reply_message(self, message, response)
@@ -499,11 +448,11 @@ async def message(self, message):
                 ex = message_text[7:]
                 if ex in ('opml', 'html', 'md', 'xbel'):
                     status_type = 'dnd'
-                    status_message = (
-                        '📤️ Procesing request to export feeds into {}...'
-                        ).format(ex)
-                    send_status_message(
-                        self, jid, status_type, status_message)
+                    status_message = ('📤️ Procesing request to '
+                                      'export feeds into {}...'
+                                      .format(ex))
+                    status.send(
+                        self, jid, status_message, status_type)
                     cache_dir = get_default_cache_directory()
                     if not os.path.isdir(cache_dir):
                         os.mkdir(cache_dir)
@@ -517,11 +466,9 @@ async def message(self, message):
                         case 'html':
                             response = 'Not yet implemented.'
                         case 'md':
-                            action.export_to_markdown(
-                                jid, filename, results)
+                            action.export_to_markdown(jid, filename, results)
                         case 'opml':
-                            action.export_to_opml(
-                                jid, filename, results)
+                            action.export_to_opml(jid, filename, results)
                         case 'xbel':
                             response = 'Not yet implemented.'
                     url = await upload.start(self, jid, filename)
@@ -529,17 +476,14 @@ async def message(self, message):
                     #     'Feeds exported successfully to {}.\n{}'
                     #     ).format(ex, url)
                     # send_oob_reply_message(message, url, response)
-                    await send_oob_message(
-                        self, jid, url)
-                    await task.start_tasks_xmpp(
-                        self, jid, ['status'])
+                    await send_oob_message(self, jid, url)
+                    await task.start_tasks_xmpp(self, jid, ['status'])
                 else:
-                    response = (
-                        'Unsupported filetype. '
-                        'Try: html, md, opml, or xbel')
+                    response = ('Unsupported filetype.\n'
+                                'Try: html, md, opml, or xbel')
                     send_reply_message(self, message, response)
             case _ if (message_lowercase.startswith('gemini:') or
-                        message_lowercase.startswith('gopher:')):
+                       message_lowercase.startswith('gopher:')):
                 response = 'Gemini and Gopher are not supported yet.'
                 send_reply_message(self, message, response)
             # TODO xHTML, HTMLZ, Markdown, MHTML, PDF, TXT
@@ -550,19 +494,18 @@ async def message(self, message):
                 ext = ext if ext else 'pdf'
                 url = None
                 error = None
-                if ext in (
-                        'epub', 'html', 'markdown', 'md', 'pdf', 'text', 'txt'):
+                if ext in ('epub', 'html', 'markdown',
+                           'md', 'pdf', 'text', 'txt'):
                     match ext:
                         case 'markdown':
                             ext = 'md'
                         case 'text':
                             ext = 'txt'
                     status_type = 'dnd'
-                    status_message = (
-                        '📃️ Procesing request to produce {} document...'
-                        ).format(ext.upper())
-                    send_status_message(
-                        self, jid, status_type, status_message)
+                    status_message = ('📃️ Procesing request to '
+                                      'produce {} document...'
+                                      .format(ext.upper()))
+                    status.send(self, jid, status_message, status_type)
                     db_file = get_pathname_to_database(jid_file)
                     cache_dir = get_default_cache_directory()
                     if ix_url:
@@ -579,16 +522,14 @@ async def message(self, message):
                         except:
                             url = ix_url
                         if url:
-                            logging.info(
-                                'Original URL: {}'.format(url))
+                            logging.info('Original URL: {}'
+                                         .format(url))
                             url = uri.remove_tracking_parameters(url)
-                            logging.info(
-                                'Processed URL (tracker removal): {}'
-                                .format(url))
+                            logging.info('Processed URL (tracker removal): {}'
+                                         .format(url))
                             url = (uri.replace_hostname(url, 'link')) or url
-                            logging.info(
-                                'Processed URL (replace hostname): {}'
-                                .format(url))
+                            logging.info('Processed URL (replace hostname): {}'
+                                         .format(url))
                             result = await fetch.http(url)
                             data = result[0]
                             code = result[1]
@@ -602,29 +543,29 @@ async def message(self, message):
                                 filename = os.path.join(
                                     cache_dir, 'readability',
                                     title + '_' + timestamp() + '.' + ext)
-                                error = action.generate_document(
-                                    data, url, ext, filename)
+                                error = action.generate_document(data, url,
+                                                                 ext, filename)
                                 if error:
-                                    response = (
-                                        '> {}\n'
-                                        'Failed to export {}.  Reason: {}'
-                                        ).format(url, ext.upper(), error)
+                                    response = ('> {}\n'
+                                                'Failed to export {}.  '
+                                                'Reason: {}'
+                                                .format(url, ext.upper(),
+                                                        error))
                                 else:
-                                    url = await upload.start(self, jid, filename)
+                                    url = await upload.start(self, jid,
+                                                             filename)
                                     await send_oob_message(self, jid, url)
                             else:
-                                response = (
-                                    '> {}\n'
-                                    'Failed to fetch URL.  Reason: {}'
-                                    ).format(url, code)
-                        await task.start_tasks_xmpp(
-                            self, jid, ['status'])
+                                response = ('> {}\n'
+                                            'Failed to fetch URL.  Reason: {}'
+                                            .format(url, code))
+                        await task.start_tasks_xmpp(self, jid, ['status'])
                     else:
                         response = 'Missing entry index number.'
                 else:
-                    response = (
-                        'Unsupported filetype. '
-                        'Try: epub, html, md (markdown), pdf, or txt (text)')
+                    response = ('Unsupported filetype.\n'
+                                'Try: epub, html, md (markdown), '
+                                'pdf, or txt (text)')
                 if response:
                     logging.warning('Error for URL {}: {}'.format(url, error))
                     send_reply_message(self, message, response)
@@ -637,8 +578,8 @@ async def message(self, message):
             #     status_message = (
             #         '📥️ Procesing request to import feeds...'
             #         )
-            #     send_status_message(
-            #         self, jid, status_type, status_message)
+            #     status.send(
+            #         self, jid, status_message, status_type)
             #     db_file = get_pathname_to_database(jid_file)
             #     count = await action.import_opml(db_file, url)
             #     if count:
@@ -655,27 +596,22 @@ async def message(self, message):
             #         self, jid, ['status'])
             #     send_reply_message(self, message, response)
             case _ if (message_lowercase.startswith('http') or
-                        message_lowercase.startswith('feed:')):
+                       message_lowercase.startswith('feed:')):
                 url = message_text
-                await task.clean_tasks_xmpp(
-                    jid, ['status'])
+                # await task.clean_tasks_xmpp(jid, ['status'])
                 status_type = 'dnd'
-                status_message = (
-                    '📫️ Processing request to fetch data from {}'
-                    ).format(url)
-                send_status_message(
-                    self, jid, status_type, status_message)
+                status_message = ('📫️ Processing request '
+                                  'to fetch data from {}'
+                                  .format(url))
+                status.send(self, jid, status_message, status_type)
                 if url.startswith('feed:'):
                     url = uri.feed_to_http(url)
                 url = (uri.replace_hostname(url, 'feed')) or url
                 db_file = get_pathname_to_database(jid_file)
                 # try:
-                response = await action.add_feed(
-                    db_file, url)
-                await task.clean_tasks_xmpp(
-                    jid, ['status'])
-                await task.start_tasks_xmpp(
-                    self, jid, ['status'])
+                response = await action.add_feed(db_file, url)
+                # await task.clean_tasks_xmpp(jid, ['status'])
+                await task.start_tasks_xmpp(self, jid, ['status'])
                 # except:
                 #     response = (
                 #         '> {}\nNews source is in the process '
@@ -688,14 +624,10 @@ async def message(self, message):
                 if query:
                     if len(query) > 3:
                         db_file = get_pathname_to_database(jid_file)
-                        result = await sqlite.search_feeds(
-                            db_file, query)
-                        response = action.list_feeds_by_query(
-                            query, result)
+                        result = await sqlite.search_feeds(db_file, query)
+                        response = action.list_feeds_by_query(query, result)
                     else:
-                        response = (
-                            'Enter at least 4 characters to search'
-                            )
+                        response = 'Enter at least 4 characters to search'
                 else:
                     db_file = get_pathname_to_database(jid_file)
                     result = await sqlite.get_feeds(db_file)
@@ -704,8 +636,9 @@ async def message(self, message):
             case 'goodbye':
                 if message['type'] == 'groupchat':
                     await groupchat.leave(self, jid)
+                    await bookmark.remove(self, muc_jid)
                 else:
-                    response = 'This command is valid for groupchat only.'
+                    response = 'This command is valid in groupchat only.'
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('interval'):
             # FIXME
@@ -726,11 +659,10 @@ async def message(self, message):
                         await sqlite.set_settings_value(db_file, [key, val])
                     # NOTE Perhaps this should be replaced
                     # by functions clean and start
-                    await task.refresh_task(
-                        self, jid, task.send_update, key, val)
-                    response = (
-                        'Updates will be sent every {} minutes.'
-                        ).format(val)
+                    await task.refresh_task(self, jid, task.send_update,
+                                            key, val)
+                    response = ('Updates will be sent every {} minutes.'
+                                .format(val))
                 else:
                     response = 'Missing value.'
                 send_reply_message(self, message, response)
@@ -739,13 +671,12 @@ async def message(self, message):
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
                     await groupchat.join(self, jid, muc_jid)
-                    response = (
-                        'Joined groupchat {}'
-                        ).format(message_text)
+                    response = ('Joined groupchat {}'
+                                .format(message_text))
                 else:
-                    response = (
-                        '> {}\nXMPP URI is not valid.'
-                        ).format(message_text)
+                    response = ('> {}\n'
+                                'XMPP URI is not valid.'
+                                .format(message_text))
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('length'):
                     key = message_text[:6]
@@ -754,22 +685,19 @@ async def message(self, message):
                         try:
                             val = int(val)
                             db_file = get_pathname_to_database(jid_file)
-                            if await sqlite.get_settings_value(
-                                    db_file, [key, val]):
-                                await sqlite.update_settings_value(
-                                    db_file, [key, val])
+                            if await sqlite.get_settings_value(db_file,
+                                                               [key, val]):
+                                await sqlite.update_settings_value(db_file,
+                                                                   [key, val])
                             else:
-                                await sqlite.set_settings_value(
-                                    db_file, [key, val])
+                                await sqlite.set_settings_value(db_file,
+                                                                [key, val])
                             if val == 0: # if not val:
-                                response = (
-                                    'Summary length limit is disabled.'
-                                    )
+                                response = 'Summary length limit is disabled.'
                             else:
-                                response = (
-                                    'Summary maximum length '
-                                    'is set to {} characters.'
-                                    ).format(val)
+                                response = ('Summary maximum length '
+                                            'is set to {} characters.'
+                                            .format(val))
                         except:
                             response = 'Enter a numeric value only.'
                     else:
@@ -807,9 +735,7 @@ async def message(self, message):
                     await sqlite.update_settings_value(db_file, [key, val])
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
-                response = (
-                    'Only new items of newly added feeds will be sent.'
-                    )
+                response = 'Only new items of newly added feeds will be sent.'
                 send_reply_message(self, message, response)
             # TODO Will you add support for number of messages?
             case 'next':
@@ -846,9 +772,7 @@ async def message(self, message):
                     await sqlite.update_settings_value(db_file, [key, val])
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
-                response = (
-                    'All items of newly added feeds will be sent.'
-                    )
+                response = 'All items of newly added feeds will be sent.'
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('quantum'):
                 key = message_text[:7]
@@ -860,16 +784,12 @@ async def message(self, message):
                         #     'Every update will contain {} news items.'
                         #     ).format(response)
                         db_file = get_pathname_to_database(jid_file)
-                        if await sqlite.get_settings_value(
-                                db_file, key):
-                            await sqlite.update_settings_value(
-                                db_file, [key, val])
+                        if await sqlite.get_settings_value(db_file, key):
+                            await sqlite.update_settings_value(db_file, [key, val])
                         else:
-                            await sqlite.set_settings_value(
-                                db_file, [key, val])
-                        response = (
-                            'Next update will contain {} news items.'
-                            ).format(val)
+                            await sqlite.set_settings_value(db_file, [key, val])
+                        response = ('Next update will contain {} news items.'
+                                    .format(val))
                     except:
                         response = 'Enter a numeric value only.'
                 else:
@@ -884,14 +804,12 @@ async def message(self, message):
                 data = message_text[5:]
                 data = data.split()
                 url = data[0]
-                await task.clean_tasks_xmpp(
-                    jid, ['status'])
+                await task.clean_tasks_xmpp(jid, ['status'])
                 status_type = 'dnd'
-                status_message = (
-                    '📫️ Processing request to fetch data from {}'
-                    ).format(url)
-                send_status_message(
-                    self, jid, status_type, status_message)
+                status_message = ('📫️ Processing request to fetch data from {}'
+                                  .format(url))
+                status.send(
+                    self, jid, status_message, status_type)
                 if url.startswith('feed:'):
                     url = uri.feed_to_http(url)
                 url = (uri.replace_hostname(url, 'feed')) or url
@@ -908,14 +826,11 @@ async def message(self, message):
                         else:
                             response = 'Missing URL.'
                     case _:
-                        response = (
-                            'Enter command as follows:\n'
-                            '`read <url>` or `read <url> <number>`\n'
-                            'URL must not contain white space.'
-                            )
+                        response = ('Enter command as follows:\n'
+                                    '`read <url>` or `read <url> <number>`\n'
+                                    'URL must not contain white space.')
                 send_reply_message(self, message, response)
-                await task.start_tasks_xmpp(
-                    self, jid, ['status'])
+                await task.start_tasks_xmpp(self, jid, ['status'])
             case _ if message_lowercase.startswith('recent'):
                 num = message_text[7:]
                 if num:
@@ -938,24 +853,34 @@ async def message(self, message):
                     db_file = get_pathname_to_database(jid_file)
                     try:
                         ix = int(ix_url)
-                        try:
-                            url = await sqlite.remove_feed_by_index(
-                                db_file, ix)
-                            response = (
-                                '> {}\nNews source "{}" has been '
-                                'removed from subscription list.'
-                                ).format(url, ix)
-                        except:
-                            response = (
-                                'No news source with index {}.'
-                                ).format(ix)
+                        url = sqlite.get_feed_url(db_file, ix)
+                        if url:
+                            url = url[0]
+                            name = sqlite.get_feed_title(db_file, ix)
+                            name = name[0]
+                            await sqlite.remove_feed_by_index(db_file, ix)
+                            response = ('> {}\n'
+                                        'News source "{}" has been '
+                                        'removed from subscription list.'
+                                        .format(url, name))
+                        else:
+                            response = ('No news source with index {}.'
+                                        .format(ix))
                     except:
                         url = ix_url
-                        await sqlite.remove_feed_by_url(db_file, url)
-                        response = (
-                            '> {}\nNews source has been removed '
-                            'from subscription list.'
-                            ).format(url)
+                        feed_id = await sqlite.get_feed_id(db_file, url)
+                        if feed_id:
+                            feed_id = feed_id[0]
+                            await sqlite.remove_feed_by_url(db_file, url)
+                            response = ('> {}\n'
+                                        'News source has been removed '
+                                        'from subscription list.'
+                                        .format(url))
+                        else:
+                            response = ('> {}\n'
+                                        'News source does not exist. '
+                                        'No action has been made.'
+                                        .format(url))
                     # await refresh_task(
                     #     self,
                     #     jid,
@@ -963,46 +888,67 @@ async def message(self, message):
                     #     'status',
                     #     20
                     #     )
-                    await task.clean_tasks_xmpp(jid, ['status'])
+                    # await task.clean_tasks_xmpp(jid, ['status'])
                     await task.start_tasks_xmpp(self, jid, ['status'])
                 else:
-                    response = 'Missing feed index number.'
+                    response = 'Missing feed URL or index number.'
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('reset'):
-                url = message_text[6:]
+                # TODO Reset also by ID
+                ix_url = message_text[6:]
                 await task.clean_tasks_xmpp(jid, ['status'])
                 status_type = 'dnd'
                 status_message = '📫️ Marking entries as read...'
-                send_status_message(
-                    self, jid, status_type, status_message)
-                if url:
+                status.send(self, jid, status_message, status_type)
+                db_file = get_pathname_to_database(jid_file)
+                if ix_url:
                     db_file = get_pathname_to_database(jid_file)
-                    await sqlite.mark_feed_as_read(
-                        db_file, url)
-                    response = (
-                        'All entries of {} have been '
-                        'marked as read.'.format(url)
-                        )
+                    try:
+                        ix = int(ix_url)
+                        url = sqlite.get_feed_url(db_file, ix)
+                        if url:
+                            url = url[0]
+                            name = sqlite.get_feed_title(db_file, ix)
+                            name = name[0]
+                            await sqlite.mark_feed_as_read(db_file, ix)
+                            response = ('> {}\n'
+                                        'All entries of source "{}" have been '
+                                        'marked as read.'
+                                        .format(url, name))
+                        else:
+                            response = ('No news source with index {}.'
+                                        .format(ix))
+                    except:
+                        url = ix_url
+                        feed_id = await sqlite.get_feed_id(db_file, url)
+                        if feed_id:
+                            feed_id = feed_id[0]
+                            name = sqlite.get_feed_title(db_file, feed_id)
+                            name = name[0]
+                            await sqlite.mark_feed_as_read(db_file, feed_id)
+                            response = ('> {}\n'
+                                        'All entries of source "{}" have been '
+                                        'marked as read.'
+                                        .format(url, name))
+                        else:
+                            response = ('> {}\n'
+                                        'News source does not exist. '
+                                        'No action has been made.'
+                                        .format(url))
                 else:
-                    db_file = get_pathname_to_database(jid_file)
                     await sqlite.mark_all_as_read(db_file)
                     response = 'All entries have been marked as read.'
                 send_reply_message(self, message, response)
-                await task.start_tasks_xmpp(
-                    self, jid, ['status'])
+                await task.start_tasks_xmpp(self, jid, ['status'])
             case _ if message_lowercase.startswith('search'):
                 query = message_text[7:]
                 if query:
                     if len(query) > 1:
                         db_file = get_pathname_to_database(jid_file)
-                        results = await sqlite.search_entries(
-                            db_file, query)
-                        response = action.list_search_results(
-                            query, results)
+                        results = await sqlite.search_entries(db_file, query)
+                        response = action.list_search_results(query, results)
                     else:
-                        response = (
-                            'Enter at least 2 characters to search'
-                            )
+                        response = 'Enter at least 2 characters to search'
                 else:
                     response = 'Missing search query.'
                 send_reply_message(self, message, response)
@@ -1016,8 +962,7 @@ async def message(self, message):
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
                 # asyncio.create_task(task_jid(self, jid))
-                await task.start_tasks_xmpp(
-                    self, jid, ['interval', 'status', 'check'])
+                await task.start_tasks_xmpp(self, jid)
                 response = 'Updates are enabled.'
                 # print(current_time(), 'task_manager[jid]')
                 # print(task_manager[jid])
@@ -1031,9 +976,8 @@ async def message(self, message):
                 db_file = get_pathname_to_database(jid_file)
                 try:
                     await sqlite.set_enabled_status(db_file, ix, 0)
-                    response = (
-                        'Updates are now disabled for news source {}.'
-                        ).format(ix)
+                    response = ('Updates are now disabled for news source {}.'
+                                .format(ix))
                 except:
                     response = 'No news source with index {}.'.format(ix)
                 send_reply_message(self, message, response)
@@ -1042,9 +986,8 @@ async def message(self, message):
                 db_file = get_pathname_to_database(jid_file)
                 try:
                     await sqlite.set_enabled_status(db_file, ix, 1)
-                    response = (
-                        'Updates are now enabled for news source {}.'
-                        ).format(ix)
+                    response = ('Updates are now enabled for news source {}.'
+                                .format(ix))
                 except:
                     response = 'No news source with index {}.'.format(ix)
                 send_reply_message(self, message, response)
@@ -1077,56 +1020,42 @@ async def message(self, message):
                     await sqlite.update_settings_value(db_file, [key, val])
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
-                await task.clean_tasks_xmpp(
-                    jid, ['interval', 'status'])
+                await task.clean_tasks_xmpp(jid, ['interval', 'status'])
                 response = 'Updates are disabled.'
                 send_reply_message(self, message, response)
                 status_type = 'xa'
-                status_message = (
-                    '💡️ Send "Start" to receive Jabber updates')
-                send_status_message(
-                    self, jid, status_type, status_message)
+                status_message = '💡️ Send "Start" to receive Jabber updates'
+                status.send(self, jid, status_message, status_type)
             case 'support':
                 # TODO Send an invitation.
-                response = (
-                    'Join xmpp:slixfeed@chat.woodpeckersnest.space?join'
-                    )
+                response = 'Join xmpp:slixfeed@chat.woodpeckersnest.space?join'
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('xmpp:'):
                 muc_jid = uri.check_xmpp_uri(message_text)
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
                     await groupchat.join(self, jid, muc_jid)
-                    response = (
-                        'Joined groupchat {}'
-                        ).format(message_text)
+                    response = ('Joined groupchat {}'
+                                .format(message_text))
                 else:
-                    response = (
-                        '> {}\nXMPP URI is not valid.'
-                        ).format(message_text)
+                    response = ('> {}\n'
+                                'XMPP URI is not valid.'
+                                .format(message_text))
                 send_reply_message(self, message, response)
             case _:
-                response = (
-                    'Unknown command. '
-                    'Press "help" for list of commands'
-                    )
+                response = ('Unknown command. '
+                            'Press "help" for list of commands')
                 send_reply_message(self, message, response)
         # TODO Use message correction here
         # NOTE This might not be a good idea if
         # commands are sent one close to the next
         # if response: message.reply(response).send()
 
-        print(
-            'Message : {}\n'
-            'JID     : {}\n'
-            'File    : {}\n'
-            .format(message_text, jid, jid_file)
-            )
-
         command_time_finish = time.time()
         command_time_total = command_time_finish - command_time_start
-        print('Finished. Total time: {}s'.format(round(command_time_total, 3)))
-        logging.info('Finished. Total time: {}s'.format(command_time_total))
+        command_time_total = round(command_time_total, 3)
+        response = 'Finished. Total time: {}s'.format(command_time_total)
+        send_reply_message(self, message, response)
 
         if not response: response = 'EMPTY MESSAGE - ACTION ONLY'
         data_dir = get_default_data_directory()
@@ -1141,12 +1070,13 @@ async def message(self, message):
             current_time(), os.path.join(data_dir, 'logs', jid_file),
             self.boundjid.bare, response)
 
-
-def send_status_message(self, jid, status_type, status_message):
-    self.send_presence(
-        pshow=status_type,
-        pstatus=status_message,
-        pto=jid)
+        print(
+            'Message : {}\n'
+            'JID     : {}\n'
+            'File    : {}\n'
+            '{}\n'
+            .format(message_text, jid, jid_file, response)
+            )
 
 
 def send_reply_message(self, message, response):

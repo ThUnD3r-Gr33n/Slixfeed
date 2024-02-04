@@ -13,13 +13,47 @@ TODO
 
 """
 
+import asyncio
 from slixfeed.config import get_value
 from slixfeed.dt import current_time
+from slixmpp.exceptions import IqTimeout, IqError
 from time import sleep
 import logging
 
 
-async def recover_connection(self, event, message):
+async def ping(self, jid=None):
+    """
+    Check for ping and disconnect if no ping has been received.
+
+    Parameters
+    ----------
+    jid : str, optional
+        Jabber ID. The default is None.
+
+    Returns
+    -------
+    None.
+
+    """
+    if not jid:
+        jid = self.boundjid.bare
+    while True:
+        rtt = None
+        try:
+            rtt = await self['xep_0199'].ping(jid, timeout=10)
+            logging.info("Success! RTT: %s", rtt)
+        except IqError as e:
+            logging.info("Error pinging %s: %s",
+                         jid,
+                         e.iq['error']['condition'])
+        except IqTimeout:
+            logging.info("No response from %s", jid)
+        if not rtt:
+            self.disconnect()
+        await asyncio.sleep(60 * 1)
+
+
+async def recover_connection(self, message):
     logging.warning(message)
     print(current_time(), message, "Attempting to reconnect.")
     self.connection_attempts += 1

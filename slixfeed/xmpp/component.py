@@ -60,12 +60,14 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 # import xml.etree.ElementTree as ET
 # from lxml import etree
 
+# import slixfeed.xmpp.bookmark as bookmark
 import slixfeed.xmpp.connect as connect
-import slixfeed.xmpp.muc as muc
+# NOTE MUC is possible for component
+# import slixfeed.xmpp.muc as muc
 import slixfeed.xmpp.process as process
 import slixfeed.xmpp.profile as profile
-import slixfeed.xmpp.roster as roster
-import slixfeed.xmpp.service as service
+# import slixfeed.xmpp.roster as roster
+# import slixfeed.xmpp.service as service
 import slixfeed.xmpp.state as state
 import slixfeed.xmpp.status as status
 import slixfeed.xmpp.utility as utility
@@ -102,9 +104,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         self.add_event_handler("changed_status", self.on_changed_status)
         self.add_event_handler("presence_available", self.on_presence_available)
         self.add_event_handler("presence_unavailable", self.on_presence_unavailable)
-
-        self.add_event_handler("changed_subscription", self.on_changed_subscription)
-
         self.add_event_handler("chatstate_active", self.on_chatstate_active)
         self.add_event_handler("chatstate_gone", self.on_chatstate_gone)
         self.add_event_handler("chatstate_composing", self.check_chatstate_composing)
@@ -126,7 +125,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         self.add_event_handler("presence_error", self.on_presence_error)
         self.add_event_handler("presence_subscribe", self.on_presence_subscribe)
         self.add_event_handler("presence_subscribed", self.on_presence_subscribed)
-        self.add_event_handler("presence_unsubscribe", self.on_presence_unsubscribe)
         self.add_event_handler("presence_unsubscribed", self.on_presence_unsubscribed)
 
         # Initialize event loop
@@ -139,39 +137,61 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         self.add_event_handler("session_end", self.on_session_end)
 
 
-    async def on_groupchat_invite(self, message):
-        print("on_groupchat_invite")
-        await muc.accept_invitation(self, message)
+    # async def on_groupchat_invite(self, message):
+    #     logging.warning("on_groupchat_invite")
+    #     inviter = message["from"].bare
+    #     muc_jid = message['groupchat_invite']['jid']
+    #     await muc.join(self, inviter, muc_jid)
+    #     await bookmark.add(self, muc_jid)
 
 
-    async def on_groupchat_direct_invite(self, message):
-        print("on_groupchat_direct_invite")
-        await muc.accept_invitation(self, message)
+    # NOTE Tested with Gajim and Psi
+    # async def on_groupchat_direct_invite(self, message):
+    #     inviter = message["from"].bare
+    #     muc_jid = message['groupchat_invite']['jid']
+    #     await muc.join(self, inviter, muc_jid)
+    #     await bookmark.add(self, muc_jid)
 
 
     async def on_session_end(self, event):
-        if event:
-            message = "Session has ended. Reason: {}".format(event)
-        else:
-            message = "Session has ended."
-        await connect.recover_connection(self, event, message)
+        message = "Session has ended."
+        await connect.recover_connection(self, message)
 
 
     async def on_connection_failed(self, event):
         message = "Connection has failed. Reason: {}".format(event)
-        await connect.recover_connection(self, event, message)
+        await connect.recover_connection(self, message)
 
 
     async def on_session_start(self, event):
-        await process.event_component(self, event)
+        self.send_presence()
+        await process.event_component(self)
         # await muc.autojoin(self)
+        profile.set_identity(self, "service")
         await profile.update(self)
-        service.identity(self, "service")
+        connect.ping_task(self)
+        
+        # await Service.capabilities(self)
+        # Service.commands(self)
+        # Service.reactions(self)
+        
+        await self.service_capabilities()
+        self.service_commands()
+        self.service_reactions()
 
 
     async def on_session_resumed(self, event):
-        await process.event_component(self, event)
+        await process.event_component(self)
         # await muc.autojoin(self)
+        profile.set_identity(self, "service")
+        
+        # await Service.capabilities(self)
+        # Service.commands(self)
+        # Service.reactions(self)
+        
+        await self.service_capabilities()
+        self.service_commands()
+        self.service_reactions()
 
 
     # TODO Request for subscription
@@ -180,20 +200,17 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # if "chat" == await utility.get_chat_type(self, jid):
         #     await roster.add(self, jid)
         #     await state.request(self, jid)
+        await process.message(self, message)
         # chat_type = message["type"]
         # message_body = message["body"]
         # message_reply = message.reply
-        await process.message(self, message)
 
 
     async def on_changed_status(self, presence):
         await task.check_readiness(self, presence)
 
 
-    # TODO Request for subscription
     async def on_presence_subscribe(self, presence):
-        print("on_presence_subscribe")
-        print(presence)
         jid = presence["from"].bare
         # await state.request(self, jid)
         self.send_presence_subscription(
@@ -219,19 +236,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
 
     async def on_presence_unavailable(self, presence):
-        await task.stop_tasks(self, presence)
-
-
-    async def on_changed_subscription(self, presence):
-        print("on_changed_subscription")
-        print(presence)
         jid = presence["from"].bare
-        # breakpoint()
-
-
-    async def on_presence_unsubscribe(self, presence):
-        print("on_presence_unsubscribe")
-        print(presence)
+        await task.stop_tasks(self, jid)
 
 
     async def on_presence_error(self, presence):
@@ -240,43 +246,35 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
 
     async def on_reactions(self, message):
-        print("on_reactions")
-        print(message)
+        print(message['from'])
+        print(message['reactions']['values'])
 
 
     async def on_chatstate_active(self, message):
-        print("on_chatstate_active")
-        print(message)
+        if message['type'] in ('chat', 'normal'):
+            jid = message['from'].bare
+            await task.clean_tasks_xmpp(jid, ['status'])
+            await task.start_tasks_xmpp(self, jid, ['status'])
 
 
     async def on_chatstate_gone(self, message):
-        print("on_chatstate_gone")
-        print(message)
+        if message['type'] in ('chat', 'normal'):
+            jid = message['from'].bare
+            await task.clean_tasks_xmpp(jid, ['status'])
+            await task.start_tasks_xmpp(self, jid, ['status'])
 
 
     async def check_chatstate_composing(self, message):
-        print("def check_chatstate_composing")
-        print(message)
-        if message["type"] in ("chat", "normal"):
-            jid = message["from"].bare
-        status_text="Press \"help\" for manual."
-        self.send_presence(
-            # pshow=status_mode,
-            pstatus=status_text,
-            pto=jid,
-            )
+        if message['type'] in ('chat', 'normal'):
+            jid = message['from'].bare
+            await task.clean_tasks_xmpp(jid, ['status'])
+            status_text='Press "help" for manual, or "info" for information.'
+            status.send(self, jid, status_text)
 
 
     async def check_chatstate_paused(self, message):
-        print("def check_chatstate_paused")
-        print(message)
-        if message["type"] in ("chat", "normal"):
-            jid = message["from"].bare
-        await task.refresh_task(
-            self,
-            jid,
-            task.send_status,
-            "status",
-            20
-            )
+        if message['type'] in ('chat', 'normal'):
+            jid = message['from'].bare
+            await task.clean_tasks_xmpp(jid, ['status'])
+            await task.start_tasks_xmpp(self, jid, ['status'])
 

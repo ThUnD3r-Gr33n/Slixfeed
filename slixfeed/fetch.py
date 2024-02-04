@@ -10,6 +10,8 @@ FIXME
 
 TODO
 
+0) Improve function http to return sensible value (the list is not good enough)
+
 1) Support Gemini and Gopher.
 
 2) Check also for HTML, not only feed.bozo.
@@ -29,6 +31,7 @@ from asyncio import TimeoutError
 import logging
 # from lxml import html
 # from xml.etree.ElementTree import ElementTree, ParseError
+import requests
 import slixfeed.config as config
 try:
     from magnet2torrent import Magnet2Torrent, FailedToFetchException
@@ -49,6 +52,44 @@ except:
 # async def http():
 
 # async def ipfs():
+
+def http_response(url):
+    """
+    Download response headers.
+
+    Parameters
+    ----------
+    url : str
+        URL.
+
+    Returns
+    -------
+    response: requests.models.Response
+        HTTP Header Response.
+
+    Result would contain these:
+        response.encoding
+        response.headers
+        response.history
+        response.reason
+        response.status_code
+        response.url
+    """
+    user_agent = (
+        config.get_value(
+            "settings", "Network", "user-agent")
+        ) or 'Slixfeed/0.1'
+    headers = {
+        "User-Agent": user_agent
+    }
+    try:
+        # Don't use HEAD request because quite a few websites may deny it
+        # response = requests.head(url, headers=headers, allow_redirects=True)
+        response = requests.get(url, headers=headers, allow_redirects=True)
+    except Exception as e:
+        logging.error(str(e))
+        response = None
+    return response
 
 async def http(url):
     """

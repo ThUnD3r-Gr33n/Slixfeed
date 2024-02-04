@@ -5,15 +5,16 @@
 
 TODO
 
-1.1) Do not compose messages.
-     Only return results.
-     See: # TODO return feeds
+1.1) Attempt to scan more paths: /blog/, /news/ etc., including root / 
+   Attempt to scan sub domains
+   https://esmailelbob.xyz/en/
+   https://blog.esmailelbob.xyz/feed/
 
-1.2) Return URLs, nothing else other (e.g. processed messages).
-
-1.3) NOTE: Correction of URLs is aceptable.
+1.2) Consider utilizing fetch.http_response
 
 2) Consider merging with module fetch.py
+
+FEEDS CRAWLER PROJECT
 
 3) Mark redirects for manual check
 
@@ -163,7 +164,7 @@ async def feed_mode_guess(url, tree):
     """
     urls = []
     parted_url = urlsplit(url)
-    paths = config.get_list("lists.toml", "pathnames")
+    paths = config.open_config_file("lists.toml")["pathnames"]
     # Check whether URL has path (i.e. not root)
     # Check parted_url.path to avoid error in case root wasn't given
     # TODO Make more tests
@@ -202,7 +203,7 @@ async def feed_mode_scan(url, tree):
         Message with URLs.
     """
     urls = []
-    paths = config.get_list("lists.toml", "pathnames")
+    paths = config.open_config_file("lists.toml")["pathnames"]
     for path in paths:
         # xpath_query = "//*[@*[contains(.,'{}')]]".format(path)
         # xpath_query = "//a[contains(@href,'{}')]".format(path)

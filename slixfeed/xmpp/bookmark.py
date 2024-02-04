@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+
+TODO
+
+1) Save groupchat name instead of jid in field name.
+
+"""
 
 from slixmpp.plugins.xep_0048.stanza import Bookmarks
+
+
+async def get(self):
+    result = await self.plugin['xep_0048'].get_bookmarks()
+    bookmarks = result['private']['bookmarks']
+    conferences = bookmarks['conferences']
+    return conferences
 
 
 async def add(self, muc_jid):
@@ -30,13 +44,6 @@ async def add(self, muc_jid):
     # bm = BookmarkStorage()
     # bm.conferences.append(Conference(muc_jid, autojoin=True, nick=self.alias))
     # await self['xep_0402'].publish(bm)
-
-
-async def get(self):
-    result = await self.plugin['xep_0048'].get_bookmarks()
-    bookmarks = result['private']['bookmarks']
-    conferences = bookmarks['conferences']
-    return conferences
 
 
 async def remove(self, muc_jid):
