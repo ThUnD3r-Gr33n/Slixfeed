@@ -43,6 +43,7 @@ dependencies = [
     "bs4",
     "feedparser",
     "lxml",
+    "tomli_w",
     "slixmpp",
 
     # Optional dependencies
@@ -80,4 +81,4 @@ slixfeed = "slixfeed.__main__:main"
 [tool.setuptools]
 platforms = ["any"]
 [tool.setuptools.package-data]
-"*" = ["*.ini", "*.csv", "*.toml", "*.svg", "*.yaml"]
+"*" = ["*.ini", "*.csv", "*.toml", "*.svg"]
