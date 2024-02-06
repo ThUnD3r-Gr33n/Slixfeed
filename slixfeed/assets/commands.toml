@@ -1,7 +1,7 @@
 [action]
 url = """
 <url>
-Add given <url> to subscription list.
+Add given <url> to subscription list (prefix http. Default).
 """
 add = """
 add <url> <title>
@@ -28,6 +28,17 @@ Send a Markdown file of your news items.
 text = """
 backup news text
 Send a Plain Text file of your news items.
+"""
+
+[bookmarks]
+bookmark = """
+bookmark [+|-] <muc>
+Groupchat to add or remove.
+'+' appends to, '-' removes from.
+"""
+bookmarks = """
+bookmarks
+List bookmarked groupchats.
 """
 
 [custom]
@@ -70,9 +81,17 @@ Reset deny list.
 """
 
 [groupchat]
+uri = """
+<muc>
+Join groupchat by given <muc> (prefix xmpp).
+"""
 join = """
 join <muc>
 Join groupchat by given <muc>.
+"""
+leave = """
+goodbye
+Leave groupchat and delete it from bookmarks.
 """
 
 [manual]
@@ -122,10 +141,18 @@ Set maximum length of news item description. (0 for no limit)
 """
 quantum = """
 quantum <number>
-Set amount of updates per interval by given <number>.
+Set amount of updates per message by given <number>.
+"""
+random = """
+random
+Send messages by random order instead of date.
 """
 
 [modification]
+archive = """
+archive <number>
+Number of news items to archive (maximum value 500).
+"""
 remove = """
 remove <id>
 Remove feed of from subscription list by given <id>.
@@ -158,7 +185,7 @@ Disable bot and stop updates.
 [preview]
 read = """
 read <url>
-Display most recent 20 titles of given <url>.
+Display most recent 5 titles of given <url>.
 """
 read_num = """
 read <url> <index>
@@ -180,10 +207,14 @@ Search news items by given <text>.
 """
 recent = """
 recent <number>
-List recent <number> news items (up to 50 items).
+List recent <number> news items (max. 50).
 """
 
 [statistics]
+stats = """
+stats
+Show general statistics.
+"""
 analyses = """
 analyses
 Show report and statistics of feeds.

@@ -17,7 +17,6 @@ FIXME
 
 """
 import logging
-import slixfeed.xmpp.bookmark as bookmark
 import slixfeed.xmpp.process as process
 from slixfeed.dt import current_time
 

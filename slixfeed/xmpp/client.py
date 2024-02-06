@@ -60,7 +60,9 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 # import xml.etree.ElementTree as ET
 # from lxml import etree
 
-import slixfeed.xmpp.bookmark as bookmark
+import slixfeed.config as config
+import slixfeed.sqlite as sqlite
+from slixfeed.xmpp.bookmark import XmppBookmark
 import slixfeed.xmpp.connect as connect
 import slixfeed.xmpp.muc as muc
 import slixfeed.xmpp.process as process
@@ -169,7 +171,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         inviter = message["from"].bare
         muc_jid = message['groupchat_invite']['jid']
         await muc.join(self, inviter, muc_jid)
-        await bookmark.add(self, muc_jid)
+        await XmppBookmark.add(self, muc_jid)
 
 
     # NOTE Tested with Gajim and Psi
@@ -177,7 +179,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         inviter = message["from"].bare
         muc_jid = message['groupchat_invite']['jid']
         await muc.join(self, inviter, muc_jid)
-        await bookmark.add(self, muc_jid)
+        await XmppBookmark.add(self, muc_jid)
 
 
     async def on_session_end(self, event):
@@ -191,17 +193,32 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_session_start(self, event):
-        await process.event(self)
+        self.send_presence()
+        await self["xep_0115"].update_caps()
+        await self.get_roster()
         await muc.autojoin(self)
         profile.set_identity(self, "client")
         await profile.update(self)
         task.ping_task(self)
+        
+        # Service.commands(self)
+        # Service.reactions(self)
+        
+        self.service_commands()
+        self.service_reactions()
 
 
     async def on_session_resumed(self, event):
-        await process.event(self)
+        self.send_presence()
+        self["xep_0115"].update_caps()
         await muc.autojoin(self)
         profile.set_identity(self, "client")
+        
+        # Service.commands(self)
+        # Service.reactions(self)
+        
+        self.service_commands()
+        self.service_reactions()
 
 
     # TODO Request for subscription
@@ -305,3 +322,301 @@ class Slixfeed(slixmpp.ClientXMPP):
             jid = message['from'].bare
             # await task.clean_tasks_xmpp(jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
+
+
+# TODO Move class Service to a separate file
+# class Service(Slixfeed):
+#     def __init__(self):
+#         super().__init__()
+
+# TODO https://xmpp.org/extensions/xep-0115.html
+# https://xmpp.org/extensions/xep-0444.html#disco
+
+
+    # TODO https://xmpp.org/extensions/xep-0444.html#disco-restricted
+    def service_reactions(self):
+        """
+        Publish allow list of reactions.
+    
+        Parameters
+        ----------
+        None.
+    
+        Returns
+        -------
+        None.
+    
+        """
+        form = self['xep_0004'].make_form(
+            'form', 'Reactions Information'
+            )
+
+
+# TODO Move class Command to a separate file
+# class Command(Slixfeed):
+#     def __init__(self):
+#         super().__init__()
+
+
+    def service_commands(self):
+        # self["xep_0050"].add_command(
+        #     node="updates_enable",
+        #     name="Enable/Disable News Updates",
+        #     handler=option_enable_updates,
+        #     )
+
+        # if jid == config.get_value('accounts', 'XMPP', 'operator'):
+        #     self['xep_0050'].add_command(node='bookmarks',
+        #                                  name='Bookmarks',
+        #                                  handler=self._handle_bookmarks)
+        #     self['xep_0050'].add_command(node='roster',
+        #                                  name='Roster',
+        #                                  handler=self._handle_roster)
+        self['xep_0050'].add_command(node='settings',
+                                     name='Settings',
+                                     handler=self._handle_settings)
+        self['xep_0050'].add_command(node='subscriptions',
+                                     name='Subscriptions',
+                                     handler=self._handle_subscriptions)
+        # self['xep_0050'].add_command(node='search',
+        #                              name='Search',
+        #                              handler=self._handle_search)
+        # self['xep_0050'].add_command(node='filters',
+        #                              name='Filters',
+        #                              handler=self._handle_filters)
+
+
+    async def _handle_subscriptions(self, iq, session):
+        form = self['xep_0004'].make_form('form', 'Subscriptions')
+        form['instructions'] = '📰️ Manage subscriptions.'
+        # form.addField(var='interval',
+        #               ftype='text-single',
+        #               label='Interval period')
+        options = form.add_field(var='subscriptions',
+                                 ftype='list-multi',
+                                 label='Select subscriptions',
+                                 desc='Select subscription(s) to edit.')
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        subscriptions = await sqlite.get_feeds(db_file)
+        for subscription in subscriptions:
+            title = subscription[0]
+            url = subscription[1]
+            options.addOption(title, url)
+        session['payload'] = form
+        session['next'] = self._handle_subscription_editor
+        session['has_next'] = True
+        # Other useful session values:
+        # session['to']                    -- The JID that received the
+        #                                     command request.
+        # session['from']                  -- The JID that sent the
+        #                                     command request.
+        # session['has_next'] = True       -- There are more steps to complete
+        # session['allow_complete'] = True -- Allow user to finish immediately
+        #                                     and possibly skip steps
+        # session['cancel'] = handler      -- Assign a handler for if the user
+        #                                     cancels the command.
+        # session['notes'] = [             -- Add informative notes about the
+        #   ('info', 'Info message'),         command's results.
+        #   ('warning', 'Warning message'),
+        #   ('error', 'Error message')]
+        return session
+
+
+    # TODO Make form for a single subscription and several subscriptions
+    # single: Delete, Disable, Reset and Rename
+    # several: Delete, Disable, Reset
+    async def _handle_subscription_editor(self, iq, session):
+        form = self['xep_0004'].make_form('form', 'Subscriptions')
+        form['instructions'] = '🗞️ Edit subscriptions.'
+        options = form.add_field(var='enable',
+                                 ftype='boolean',
+                                 label='Enable',
+                                 value=True)
+        options = form.add_field(var='action',
+                                 ftype='list-single',
+                                 label='Action',
+                                 value='reset')
+        options.addOption('Delete', 'delete')
+        options.addOption('Reset', 'reset')
+        session['payload'] = form
+        session['next'] = None
+        session['has_next'] = False
+        return session
+
+
+    async def _handle_bookmarks(self, iq, session):
+        form = self['xep_0004'].make_form('form', 'Bookmarks')
+        form['instructions'] = '📑️ Organize bookmarks.'
+        options = form.add_field(var='bookmarks',
+                                 # ftype='list-multi'
+                                 ftype='list-single',
+                                 label='Select a bookmark',
+                                 desc='Select a bookmark to edit.')
+        conferences = await XmppBookmark.get(self)
+        for conference in conferences:
+            options.addOption(conference['jid'], conference['jid'])
+        session['payload'] = form
+        session['next'] = self._handle_command_complete
+        session['has_next'] = False
+        return session
+
+
+    async def _handle_bookmarks_editor(self, iq, session):
+        form = self['xep_0004'].make_form('form', 'Bookmarks')
+        form['instructions'] = '📝️ Edit bookmarks.'
+        form.addField(var='name',
+                      ftype='text-single',
+                      label='Name')
+        form.addField(var='host',
+                      ftype='text-single',
+                      label='Host',
+                      required=True)
+        form.addField(var='room',
+                      ftype='text-single',
+                      label='Room',
+                      required=True)
+        form.addField(var='alias',
+                      ftype='text-single',
+                      label='Alias')
+        form.addField(var='password',
+                      ftype='text-private',
+                      label='Password')
+        form.add_field(var='autojoin',
+                       ftype='boolean',
+                       label='Auto-join',
+                       value=True)
+        options = form.add_field(var='action',
+                       ftype='list-single',
+                       label='Action',
+                       value='join')
+        options.addOption('Add', 'add')
+        options.addOption('Join', 'join')
+        options.addOption('Remove', 'remove')
+        session['payload'] = form
+        session['next'] = None
+        session['has_next'] = False
+        return session
+
+
+    async def _handle_settings(self, iq, session):
+        """
+        Respond to the initial request for a command.
+    
+        Arguments:
+            iq      -- The iq stanza containing the command request.
+            session -- A dictionary of data relevant to the command
+                       session. Additional, custom data may be saved
+                       here to persist across handler callbacks.
+        """
+        form = self['xep_0004'].make_form('form', 'Settings')
+        form['instructions'] = ('📮️ Customize news updates.')
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        value = await config.get_setting_value(db_file, 'enabled')
+        value = int(value)
+        if value:
+            value = True
+        else:
+            value = False
+        form.add_field(var='enabled',
+                       ftype='boolean',
+                       label='Enable',
+                       desc='Enable news updates.',
+                       value=value)
+        value = await config.get_setting_value(db_file, 'old')
+        value = int(value)
+        if value:
+            value = False
+        else:
+            value = True
+        form.add_field(var='old',
+                       ftype='boolean',
+                       desc='Mark items of newly added subscriptions as read.',
+                       # label='Send only new items',
+                       label='Include old news',
+                       value=value)
+        value = await config.get_setting_value(db_file, 'interval')
+        value = str(int(value/60))
+        options = form.add_field(var='interval',
+                                 ftype='list-single',
+                                 label='Interval',
+                                 desc='Set interval update (in hours).',
+                                 value=value)
+        i = 60
+        while i <= 2880:
+            var = str(i)
+            lab = str(int(i/60))
+            options.addOption(lab, var)
+            i += 60
+        value = await config.get_setting_value(db_file, 'archive')
+        value = str(value)
+        options = form.add_field(var='archive',
+                                 ftype='list-single',
+                                 label='Archive',
+                                 desc='Number of news items to archive.',
+                                 value=value)
+        i = 0
+        while i <= 500:
+            x = str(i)
+            options.addOption(x, x)
+            i += 1
+        value = await config.get_setting_value(db_file, 'quantum')
+        value = str(value)
+        options = form.add_field(var='quantum',
+                                 ftype='list-single',
+                                 label='Amount',
+                                 desc='Set amount of updates per update.',
+                                 value='3')
+        i = 1
+        while i <= 10:
+            x = str(i)
+            options.addOption(x, x)
+            i += 1
+        session['payload'] = form
+        session['next'] = self._handle_settings_complete
+        session['has_next'] = False
+        return session
+
+
+    async def _handle_settings_complete(self, payload, session):
+        """
+        Process a command result from the user.
+
+        Arguments:
+            payload -- Either a single item, such as a form, or a list
+                       of items or forms if more than one form was
+                       provided to the user. The payload may be any
+                       stanza, such as jabber:x:oob for out of band
+                       data, or jabber:x:data for typical data forms.
+            session -- A dictionary of data relevant to the command
+                       session. Additional, custom data may be saved
+                       here to persist across handler callbacks.
+        """
+
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        # In this case (as is typical), the payload is a form
+        form = payload
+        values = form['values']
+        for value in values:
+            key = value
+            val = values[value]
+            if await sqlite.get_settings_value(db_file, key):
+                await sqlite.update_settings_value(db_file, [key, val])
+            else:
+                await sqlite.set_settings_value(db_file, [key, val])
+            match value:
+                case 'enabled':
+                    pass
+                case 'interval':
+                    pass
+        # Having no return statement is the same as unsetting the 'payload'
+        # and 'next' session values and returning the session.
+        # Unless it is the final step, always return the session dictionary.
+        session['payload'] = None
+        session['next'] = None
+        return session

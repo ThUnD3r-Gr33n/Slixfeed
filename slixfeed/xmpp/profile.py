@@ -31,6 +31,7 @@ from slixfeed.config import get_value, get_default_config_directory
 # import logging
 import os
 
+# class XmppProfile:
 
 async def update(self):
     """

@@ -21,32 +21,19 @@ TODO
 import logging
 import os
 import slixfeed.action as action
-from slixfeed.config import (
-    add_to_list,
-    get_default_cache_directory,
-    get_default_data_directory,
-    get_value,
-    get_pathname_to_database,
-    remove_from_list)
+import slixfeed.config as config
 from slixfeed.dt import current_time, timestamp
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
 import slixfeed.task as task
 import slixfeed.url as uri
-import slixfeed.xmpp.bookmark as bookmark
+from slixfeed.xmpp.bookmark import XmppBookmark
 import slixfeed.xmpp.muc as groupchat
-import slixfeed.xmpp.status as status
+from slixfeed.xmpp.status import XmppStatus
 import slixfeed.xmpp.upload as upload
 from slixfeed.xmpp.utility import get_chat_type
 import time
 
-async def event_component(self):
-    self.send_presence()
-
-
-async def event(self):
-    self.send_presence()
-    await self.get_roster()
 
     # for task in main_task:
     #     task.cancel()
@@ -101,9 +88,8 @@ async def message(self, message):
             await task.clean_tasks_xmpp(jid, ['status'])
             status_type = 'dnd'
             status_message = '📥️ Procesing request to import feeds...'
-            status.send(
-                self, jid, status_message, status_type)
-            db_file = get_pathname_to_database(jid_file)
+            await XmppStatus.send(self, jid, status_message, status_type)
+            db_file = config.get_pathname_to_database(jid_file)
             count = await action.import_opml(db_file, url)
             if count:
                 response = 'Successfully imported {} feeds.'.format(count)
@@ -163,7 +149,7 @@ async def message(self, message):
 
         # # Begin processing new JID
         # # Deprecated in favour of event 'presence_available'
-        # db_dir = get_default_data_directory()
+        # db_dir = config.get_default_data_directory()
         # os.chdir(db_dir)
         # if jid + '.db' not in os.listdir():
         #     await task_jid(jid)
@@ -301,7 +287,7 @@ async def message(self, message):
                 if not title:
                     title = uri.get_hostname(url)
                 if url.startswith('http'):
-                    db_file = get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_file)
                     exist = await sqlite.get_feed_id_and_name(db_file, url)
                     if not exist:
                         await sqlite.insert_feed(db_file, url, title)
@@ -334,9 +320,9 @@ async def message(self, message):
                     key = 'filter-' + message_text[:5]
                     val = message_text[7:]
                     if val:
-                        db_file = get_pathname_to_database(jid_file)
+                        db_file = config.get_pathname_to_database(jid_file)
                         keywords = await sqlite.get_filters_value(db_file, key)
-                        val = await add_to_list(val, keywords)
+                        val = await config.add_to_list(val, keywords)
                         if await sqlite.get_filters_value(db_file, key):
                             await sqlite.update_filters_value(db_file,
                                                               [key, val])
@@ -352,9 +338,9 @@ async def message(self, message):
                     key = 'filter-' + message_text[:5]
                     val = message_text[7:]
                     if val:
-                        db_file = get_pathname_to_database(jid_file)
+                        db_file = config.get_pathname_to_database(jid_file)
                         keywords = await sqlite.get_filters_value(db_file, key)
-                        val = await remove_from_list(val, keywords)
+                        val = await config.remove_from_list(val, keywords)
                         if await sqlite.get_filters_value(db_file, key):
                             await sqlite.update_filters_value(db_file,
                                                               [key, val])
@@ -374,7 +360,7 @@ async def message(self, message):
                         if int(val) > 500:
                             response = 'Value may not be greater than 500.'
                         else:
-                            db_file = get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_file)
                             if await sqlite.get_settings_value(db_file,
                                                                [key, val]):
                                 await sqlite.update_settings_value(db_file,
@@ -391,9 +377,9 @@ async def message(self, message):
                     response = 'Missing value.'
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('bookmark -'):
-                if jid == get_value('accounts', 'XMPP', 'operator'):
+                if jid == config.get_value('accounts', 'XMPP', 'operator'):
                     muc_jid = message_text[11:]
-                    await bookmark.remove(self, muc_jid)
+                    await XmppBookmark.remove(self, muc_jid)
                     response = ('Groupchat {} has been removed '
                                 'from bookmarks.'
                                 .format(muc_jid))
@@ -402,7 +388,7 @@ async def message(self, message):
                                 'Type: removing bookmarks.')
                 send_reply_message(self, message, response)
             case 'bookmarks':
-                if jid == get_value('accounts', 'XMPP', 'operator'):
+                if jid == config.get_value('accounts', 'XMPP', 'operator'):
                     response = await action.list_bookmarks(self)
                 else:
                     response = ('This action is restricted. '
@@ -412,9 +398,9 @@ async def message(self, message):
                     key = 'filter-' + message_text[:4]
                     val = message_text[6:]
                     if val:
-                        db_file = get_pathname_to_database(jid_file)
+                        db_file = config.get_pathname_to_database(jid_file)
                         keywords = await sqlite.get_filters_value(db_file, key)
-                        val = await add_to_list(val, keywords)
+                        val = await config.add_to_list(val, keywords)
                         if await sqlite.get_filters_value(db_file, key):
                             await sqlite.update_filters_value(db_file,
                                                               [key, val])
@@ -430,9 +416,9 @@ async def message(self, message):
                     key = 'filter-' + message_text[:4]
                     val = message_text[6:]
                     if val:
-                        db_file = get_pathname_to_database(jid_file)
+                        db_file = config.get_pathname_to_database(jid_file)
                         keywords = await sqlite.get_filters_value(db_file, key)
-                        val = await remove_from_list(val, keywords)
+                        val = await config.remove_from_list(val, keywords)
                         if await sqlite.get_filters_value(db_file, key):
                             await sqlite.update_filters_value(db_file,
                                                               [key, val])
@@ -451,16 +437,16 @@ async def message(self, message):
                     status_message = ('📤️ Procesing request to '
                                       'export feeds into {}...'
                                       .format(ex))
-                    status.send(
-                        self, jid, status_message, status_type)
-                    cache_dir = get_default_cache_directory()
+                    await XmppStatus.send(self, jid, status_message,
+                                          status_type)
+                    cache_dir = config.get_default_cache_directory()
                     if not os.path.isdir(cache_dir):
                         os.mkdir(cache_dir)
                     if not os.path.isdir(cache_dir + '/' + ex):
                         os.mkdir(cache_dir + '/' + ex)
                     filename = os.path.join(
                         cache_dir, ex, 'slixfeed_' + timestamp() + '.' + ex)
-                    db_file = get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_file)
                     results = await sqlite.get_feeds(db_file)
                     match ex:
                         case 'html':
@@ -505,9 +491,10 @@ async def message(self, message):
                     status_message = ('📃️ Procesing request to '
                                       'produce {} document...'
                                       .format(ext.upper()))
-                    status.send(self, jid, status_message, status_type)
-                    db_file = get_pathname_to_database(jid_file)
-                    cache_dir = get_default_cache_directory()
+                    await XmppStatus.send(self, jid, status_message,
+                                          status_type)
+                    db_file = config.get_pathname_to_database(jid_file)
+                    cache_dir = config.get_default_cache_directory()
                     if ix_url:
                         if not os.path.isdir(cache_dir):
                             os.mkdir(cache_dir)
@@ -578,9 +565,9 @@ async def message(self, message):
             #     status_message = (
             #         '📥️ Procesing request to import feeds...'
             #         )
-            #     status.send(
+            #     await XmppStatus.send(
             #         self, jid, status_message, status_type)
-            #     db_file = get_pathname_to_database(jid_file)
+            #     db_file = config.get_pathname_to_database(jid_file)
             #     count = await action.import_opml(db_file, url)
             #     if count:
             #         response = (
@@ -603,11 +590,11 @@ async def message(self, message):
                 status_message = ('📫️ Processing request '
                                   'to fetch data from {}'
                                   .format(url))
-                status.send(self, jid, status_message, status_type)
+                await XmppStatus.send(self, jid, status_message, status_type)
                 if url.startswith('feed:'):
                     url = uri.feed_to_http(url)
                 url = (uri.replace_hostname(url, 'feed')) or url
-                db_file = get_pathname_to_database(jid_file)
+                db_file = config.get_pathname_to_database(jid_file)
                 # try:
                 response = await action.add_feed(db_file, url)
                 # await task.clean_tasks_xmpp(jid, ['status'])
@@ -623,49 +610,28 @@ async def message(self, message):
                 query = message_text[6:]
                 if query:
                     if len(query) > 3:
-                        db_file = get_pathname_to_database(jid_file)
+                        db_file = config.get_pathname_to_database(jid_file)
                         result = await sqlite.search_feeds(db_file, query)
                         response = action.list_feeds_by_query(query, result)
                     else:
                         response = 'Enter at least 4 characters to search'
                 else:
-                    db_file = get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_file)
                     result = await sqlite.get_feeds(db_file)
                     response = action.list_feeds(result)
                 send_reply_message(self, message, response)
             case 'goodbye':
                 if message['type'] == 'groupchat':
                     await groupchat.leave(self, jid)
-                    await bookmark.remove(self, muc_jid)
+                    await XmppBookmark.remove(self, muc_jid)
                 else:
                     response = 'This command is valid in groupchat only.'
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('interval'):
-            # FIXME
-            # The following error occurs only upon first attempt to set interval.
-            # /usr/lib/python3.11/asyncio/events.py:73: RuntimeWarning: coroutine 'Slixfeed.send_update' was never awaited
-            # self._args = None
-            # RuntimeWarning: Enable tracemalloc to get the object allocation traceback
                 key = message_text[:8]
                 val = message_text[9:]
-                if val:
-                    # response = (
-                    #     'Updates will be sent every {} minutes.'
-                    #     ).format(response)
-                    db_file = get_pathname_to_database(jid_file)
-                    if await sqlite.get_settings_value(db_file, key):
-                        await sqlite.update_settings_value(db_file, [key, val])
-                    else:
-                        await sqlite.set_settings_value(db_file, [key, val])
-                    # NOTE Perhaps this should be replaced
-                    # by functions clean and start
-                    await task.refresh_task(self, jid, task.send_update,
-                                            key, val)
-                    response = ('Updates will be sent every {} minutes.'
-                                .format(val))
-                else:
-                    response = 'Missing value.'
-                send_reply_message(self, message, response)
+                await action.xmpp_change_interval(
+                    self, key, val, jid, jid_file, message=message)
             case _ if message_lowercase.startswith('join'):
                 muc_jid = uri.check_xmpp_uri(message_text[5:])
                 if muc_jid:
@@ -684,7 +650,7 @@ async def message(self, message):
                     if val:
                         try:
                             val = int(val)
-                            db_file = get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_file)
                             if await sqlite.get_settings_value(db_file,
                                                                [key, val]):
                                 await sqlite.update_settings_value(db_file,
@@ -711,7 +677,7 @@ async def message(self, message):
             #                 get_settings_value,
             #                 key
             #                 )
-            #             val = await add_to_list(
+            #             val = await config.add_to_list(
             #                 val,
             #                 names
             #                 )
@@ -728,7 +694,7 @@ async def message(self, message):
             #             response = 'Missing value.'
                     send_reply_message(self, message, response)
             case 'new':
-                db_file = get_pathname_to_database(jid_file)
+                db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 0
                 if await sqlite.get_settings_value(db_file, key):
@@ -765,7 +731,7 @@ async def message(self, message):
                 #     )
                 # await refresh_task(jid, key, val)
             case 'old':
-                db_file = get_pathname_to_database(jid_file)
+                db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 1
                 if await sqlite.get_settings_value(db_file, key):
@@ -783,11 +749,13 @@ async def message(self, message):
                         # response = (
                         #     'Every update will contain {} news items.'
                         #     ).format(response)
-                        db_file = get_pathname_to_database(jid_file)
+                        db_file = config.get_pathname_to_database(jid_file)
                         if await sqlite.get_settings_value(db_file, key):
-                            await sqlite.update_settings_value(db_file, [key, val])
+                            await sqlite.update_settings_value(db_file,
+                                                               [key, val])
                         else:
-                            await sqlite.set_settings_value(db_file, [key, val])
+                            await sqlite.set_settings_value(db_file,
+                                                            [key, val])
                         response = ('Next update will contain {} news items.'
                                     .format(val))
                     except:
@@ -808,8 +776,7 @@ async def message(self, message):
                 status_type = 'dnd'
                 status_message = ('📫️ Processing request to fetch data from {}'
                                   .format(url))
-                status.send(
-                    self, jid, status_message, status_type)
+                await XmppStatus.send(self, jid, status_message, status_type)
                 if url.startswith('feed:'):
                     url = uri.feed_to_http(url)
                 url = (uri.replace_hostname(url, 'feed')) or url
@@ -839,7 +806,7 @@ async def message(self, message):
                         if num < 1 or num > 50:
                             response = 'Value must be ranged from 1 to 50.'
                         else:
-                            db_file = get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_file)
                             result = await sqlite.last_entries(db_file, num)
                             response = action.list_last_entries(result, num)
                     except:
@@ -850,7 +817,7 @@ async def message(self, message):
             case _ if message_lowercase.startswith('remove'):
                 ix_url = message_text[7:]
                 if ix_url:
-                    db_file = get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_file)
                     try:
                         ix = int(ix_url)
                         url = sqlite.get_feed_url(db_file, ix)
@@ -899,10 +866,10 @@ async def message(self, message):
                 await task.clean_tasks_xmpp(jid, ['status'])
                 status_type = 'dnd'
                 status_message = '📫️ Marking entries as read...'
-                status.send(self, jid, status_message, status_type)
-                db_file = get_pathname_to_database(jid_file)
+                await XmppStatus.send(self, jid, status_message, status_type)
+                db_file = config.get_pathname_to_database(jid_file)
                 if ix_url:
-                    db_file = get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_file)
                     try:
                         ix = int(ix_url)
                         url = sqlite.get_feed_url(db_file, ix)
@@ -944,7 +911,7 @@ async def message(self, message):
                 query = message_text[7:]
                 if query:
                     if len(query) > 1:
-                        db_file = get_pathname_to_database(jid_file)
+                        db_file = config.get_pathname_to_database(jid_file)
                         results = await sqlite.search_entries(db_file, query)
                         response = action.list_search_results(query, results)
                     else:
@@ -956,7 +923,7 @@ async def message(self, message):
                 # response = 'Updates are enabled.'
                 key = 'enabled'
                 val = 1
-                db_file = get_pathname_to_database(jid_file)
+                db_file = config.get_pathname_to_database(jid_file)
                 if await sqlite.get_settings_value(db_file, key):
                     await sqlite.update_settings_value(db_file, [key, val])
                 else:
@@ -967,12 +934,12 @@ async def message(self, message):
                 # print(task_manager[jid])
                 send_reply_message(self, message, response)
             case 'stats':
-                db_file = get_pathname_to_database(jid_file)
+                db_file = config.get_pathname_to_database(jid_file)
                 response = await action.list_statistics(db_file)
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('disable '):
                 ix = message_text[8:]
-                db_file = get_pathname_to_database(jid_file)
+                db_file = config.get_pathname_to_database(jid_file)
                 try:
                     await sqlite.set_enabled_status(db_file, ix, 0)
                     response = ('Updates are now disabled for news source {}.'
@@ -982,7 +949,7 @@ async def message(self, message):
                 send_reply_message(self, message, response)
             case _ if message_lowercase.startswith('enable'):
                 ix = message_text[7:]
-                db_file = get_pathname_to_database(jid_file)
+                db_file = config.get_pathname_to_database(jid_file)
                 try:
                     await sqlite.set_enabled_status(db_file, ix, 1)
                     response = ('Updates are now enabled for news source {}.'
@@ -991,40 +958,7 @@ async def message(self, message):
                     response = 'No news source with index {}.'.format(ix)
                 send_reply_message(self, message, response)
             case 'stop':
-            # FIXME
-            # The following error occurs only upon first attempt to stop.
-            # /usr/lib/python3.11/asyncio/events.py:73: RuntimeWarning: coroutine 'Slixfeed.send_update' was never awaited
-            # self._args = None
-            # RuntimeWarning: Enable tracemalloc to get the object allocation traceback
-            # response = 'Updates are disabled.'
-                # try:
-                #     # task_manager[jid]['check'].cancel()
-                #     # task_manager[jid]['status'].cancel()
-                #     task_manager[jid]['interval'].cancel()
-                #     key = 'enabled'
-                #     val = 0
-                #     response = await initdb(
-                #         jid,
-                #         update_settings_value,
-                #         [key, val]
-                #         )
-                # except:
-                #     response = 'Updates are already disabled.'
-                #     # print('Updates are already disabled. Nothing to do.')
-                # # await send_status(jid)
-                key = 'enabled'
-                val = 0
-                db_file = get_pathname_to_database(jid_file)
-                if await sqlite.get_settings_value(db_file, key):
-                    await sqlite.update_settings_value(db_file, [key, val])
-                else:
-                    await sqlite.set_settings_value(db_file, [key, val])
-                await task.clean_tasks_xmpp(jid, ['interval', 'status'])
-                response = 'Updates are disabled.'
-                send_reply_message(self, message, response)
-                status_type = 'xa'
-                status_message = '💡️ Send "Start" to receive Jabber updates'
-                status.send(self, jid, status_message, status_type)
+                await action.xmpp_stop_updates(self, message, jid, jid_file)
             case 'support':
                 # TODO Send an invitation.
                 response = 'Join xmpp:slixfeed@chat.woodpeckersnest.space?join'
@@ -1057,7 +991,7 @@ async def message(self, message):
         send_reply_message(self, message, response)
 
         if not response: response = 'EMPTY MESSAGE - ACTION ONLY'
-        data_dir = get_default_data_directory()
+        data_dir = config.get_default_data_directory()
         if not os.path.isdir(data_dir):
             os.mkdir(data_dir)
         if not os.path.isdir(data_dir + '/logs/'):

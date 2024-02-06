@@ -48,7 +48,10 @@ from slixfeed.url import (
     replace_hostname,
     trim_url
     )
-import slixfeed.xmpp.bookmark as bookmark
+import slixfeed.task as task
+from slixfeed.xmpp.bookmark import XmppBookmark
+from slixfeed.xmpp.message import XmppMessage
+from slixfeed.xmpp.status import XmppStatus
 import tomllib
 from urllib import error
 from urllib.parse import parse_qs, urlsplit
@@ -56,28 +59,28 @@ import xml.etree.ElementTree as ET
 
 try:
     import xml2epub
-except:
+except ImportError:
     logging.info(
         "Package xml2epub was not found.\n"
         "ePUB support is disabled.")
 
 try:
     import html2text
-except:
+except ImportError:
     logging.info(
         "Package html2text was not found.\n"
         "Markdown support is disabled.")
 
 try:
     import pdfkit
-except:
+except ImportError:
     logging.info(
         "Package pdfkit was not found.\n"
         "PDF support is disabled.")
 
 try:
     from readability import Document
-except:
+except ImportError:
     logging.info(
         "Package readability was not found.\n"
         "Arc90 Lab algorithm is disabled.")
@@ -106,6 +109,45 @@ def manual(filename, section=None, command=None):
             cmd_list.extend([cmd])
     return cmd_list
 
+
+async def xmpp_change_interval(self, key, val, jid, jid_file, message=None, session=None):
+    if val:
+        # response = (
+        #     'Updates will be sent every {} minutes.'
+        #     ).format(response)
+        db_file = config.get_pathname_to_database(jid_file)
+        if await sqlite.get_settings_value(db_file, key):
+            await sqlite.update_settings_value(db_file, [key, val])
+        else:
+            await sqlite.set_settings_value(db_file, [key, val])
+        # NOTE Perhaps this should be replaced
+        # by functions clean and start
+        await task.refresh_task(self, jid, task.send_update,
+                                key, val)
+        response = ('Updates will be sent every {} minutes.'
+                    .format(val))
+    else:
+        response = 'Missing value.'
+    if message:
+        XmppMessage.send_reply(self, message, response)
+    if session:
+        await XmppMessage.send(self, jid, response, chat_type='chat')
+
+
+async def xmpp_stop_updates(self, message, jid, jid_file):
+    key = 'enabled'
+    val = 0
+    db_file = config.get_pathname_to_database(jid_file)
+    if await sqlite.get_settings_value(db_file, key):
+        await sqlite.update_settings_value(db_file, [key, val])
+    else:
+        await sqlite.set_settings_value(db_file, [key, val])
+    await task.clean_tasks_xmpp(jid, ['interval', 'status'])
+    response = 'Updates are disabled.'
+    XmppMessage.send_reply(self, message, response)
+    status_type = 'xa'
+    status_message = '💡️ Send "Start" to receive Jabber updates'
+    await XmppStatus.send(self, jid, status_message, status_type)
 
 def log_to_markdown(timestamp, filename, jid, message):
     """
@@ -404,7 +446,7 @@ def list_feeds(results):
 
 
 async def list_bookmarks(self):
-    conferences = await bookmark.get(self)
+    conferences = await XmppBookmark.get(self)
     message = "\nList of groupchats:\n\n```\n"
     for conference in conferences:
         message += (

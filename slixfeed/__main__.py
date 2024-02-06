@@ -129,7 +129,7 @@ class JabberComponent:
         xmpp.register_plugin('xep_0066') # Out of Band Data
         xmpp.register_plugin('xep_0071') # XHTML-IM
         xmpp.register_plugin('xep_0084') # User Avatar
-        xmpp.register_plugin('xep_0085') # Chat State Notifications
+        # xmpp.register_plugin('xep_0085') # Chat State Notifications
         xmpp.register_plugin('xep_0115') # Entity Capabilities
         xmpp.register_plugin('xep_0153') # vCard-Based Avatars
         xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
@@ -155,7 +155,7 @@ class JabberClient:
         xmpp.register_plugin('xep_0066') # Out of Band Data
         xmpp.register_plugin('xep_0071') # XHTML-IM
         xmpp.register_plugin('xep_0084') # User Avatar
-        xmpp.register_plugin('xep_0085') # Chat State Notifications
+        # xmpp.register_plugin('xep_0085') # Chat State Notifications
         xmpp.register_plugin('xep_0115') # Entity Capabilities
         xmpp.register_plugin('xep_0153') # vCard-Based Avatars
         xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
