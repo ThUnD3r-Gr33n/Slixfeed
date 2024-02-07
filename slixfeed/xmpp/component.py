@@ -255,7 +255,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # status_message = '🖋️ Subscribe to receive updates'
         # status_message = None
         XmppMessage.send(self, jid, message_body, 'chat')
-        XmppPresence.subscription(self, jid, 'unsubscribe')
+        XmppPresence.subscription(self, jid, 'unsubscribed')
         # XmppPresence.send(self, jid, status_message,
         #                   presence_type='unsubscribed')
 

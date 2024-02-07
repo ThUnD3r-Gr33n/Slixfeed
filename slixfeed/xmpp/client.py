@@ -245,7 +245,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = message["from"].bare
         if (await get_chat_type(self, jid) == 'chat' and
             not self.client_roster[jid]['to']):
-            XmppPresence.subscribe(self, jid)
+            XmppPresence.subscription(self, jid, 'subscribe')
             await XmppRoster.add(self, jid)
             status_message = '✒️ Share online status to receive updates'
             XmppPresence.send(self, jid, status_message)
@@ -270,7 +270,7 @@ class Slixfeed(slixmpp.ClientXMPP):
     async def on_presence_subscribe(self, presence):
         jid = presence['from'].bare
         if not self.client_roster[jid]['to']:
-            XmppPresence.subscription(self, jid, 'subscribe')
+            XmppPresence.subscription(self, jid, 'subscribed')
             await XmppRoster.add(self, jid)
             status_message = '✒️ Share online status to receive updates'
             XmppPresence.send(self, jid, status_message)
@@ -309,7 +309,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         # status_message = '🖋️ Subscribe to receive updates'
         # status_message = None
         XmppMessage.send(self, jid, message_body, 'chat')
-        XmppPresence.subscription(self, jid, 'unsubscribe')
+        XmppPresence.subscription(self, jid, 'unsubscribed')
         # XmppPresence.send(self, jid, status_message,
         #                   presence_type='unsubscribed')
         await XmppRoster.remove(self, jid)
