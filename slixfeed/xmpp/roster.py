@@ -10,65 +10,40 @@ TODO
 
 """
 
-import slixfeed.xmpp.utility as utility
+class XmppRoster:
 
-async def remove(self, jid):
-    """
-    Remove JID to roster.
+    async def remove(self, jid):
+        """
+        Remove JID to roster.
 
-    Parameters
-    ----------
-    jid : str
-        Jabber ID.
+        Parameters
+        ----------
+        jid : str
+            Jabber ID.
 
-    Returns
-    -------
-    None.
-    """
-    self.update_roster(
-        jid,
-        subscription="remove"
-        )
+        Returns
+        -------
+        None.
+        """
+        self.update_roster(jid, subscription="remove")
 
 
-async def add(self, jid):
-    """
-    Add JID to roster.
+    async def add(self, jid):
+        """
+        Add JID to roster.
 
-    Parameters
-    ----------
-    jid : str
-        Jabber ID.
+        Add JID to roster if it is not already in roster.
 
-    Returns
-    -------
-    None.
-    """
-    if await utility.get_chat_type(self, jid) == "groupchat":
-        # Check whether JID is in bookmarks; otherwise, add it.
-        print(jid, "is muc")
-        return
-    else:
+        Parameters
+        ----------
+        jid : str
+            Jabber ID.
+
+        Returns
+        -------
+        None.
+        """
         await self.get_roster()
-        # Check whether JID is in roster; otherwise, add it.
         if jid not in self.client_roster.keys():
-            self.send_presence_subscription(
-                pto=jid,
-                pfrom=self.boundjid.bare,
-                ptype="subscribe",
-                pnick=self.alias
-                )
-            self.update_roster(
-                jid,
-                subscription="both"
-                )
+            self.update_roster(jid, subscription="both")
 
-
-def remove_subscription(self):
-    """
-    Remove subscription from contacts that don't share their presence.
-
-    Returns
-    -------
-    None.
-    """

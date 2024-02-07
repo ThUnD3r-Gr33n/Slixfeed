@@ -63,15 +63,15 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 import slixfeed.config as config
 import slixfeed.sqlite as sqlite
 from slixfeed.xmpp.bookmark import XmppBookmark
-import slixfeed.xmpp.connect as connect
-import slixfeed.xmpp.muc as muc
+from slixfeed.xmpp.connect import XmppConnect
+from slixfeed.xmpp.message import XmppMessage
+from slixfeed.xmpp.muc import XmppGroupchat
 import slixfeed.xmpp.process as process
 import slixfeed.xmpp.profile as profile
-import slixfeed.xmpp.roster as roster
+from slixfeed.xmpp.roster import XmppRoster
 # import slixfeed.xmpp.service as service
-import slixfeed.xmpp.state as state
-import slixfeed.xmpp.status as status
-import slixfeed.xmpp.utility as utility
+from slixfeed.xmpp.presence import XmppPresence
+from slixfeed.xmpp.utility import get_chat_type
 
 main_task = []
 jid_tasker = {}
@@ -146,8 +146,8 @@ class Slixfeed(slixmpp.ClientXMPP):
 
         self.add_event_handler("reactions",
                                self.on_reactions)
-        self.add_event_handler("presence_error",
-                               self.on_presence_error)
+        # self.add_event_handler("presence_error",
+        #                        self.on_presence_error)
         self.add_event_handler("presence_subscribe",
                                self.on_presence_subscribe)
         self.add_event_handler("presence_subscribed",
@@ -161,43 +161,59 @@ class Slixfeed(slixmpp.ClientXMPP):
         # handlers for connection events
         self.connection_attempts = 0
         self.max_connection_attempts = 10
-        self.add_event_handler("connection_failed", self.on_connection_failed)
-        self.add_event_handler("session_end", self.on_session_end)
+        self.add_event_handler('connection_failed',
+                               self.on_connection_failed)
+        self.add_event_handler('session_end',
+                               self.on_session_end)
 
 
     # TODO Test
     async def on_groupchat_invite(self, message):
         logging.warning("on_groupchat_invite")
-        inviter = message["from"].bare
+        inviter = message['from'].bare
         muc_jid = message['groupchat_invite']['jid']
-        await muc.join(self, inviter, muc_jid)
         await XmppBookmark.add(self, muc_jid)
+        await XmppGroupchat.join(self, inviter, muc_jid)
+        message_body = ('Greetings!\n'
+                        'I am {}, the news anchor.\n'
+                        'My job is to bring you the latest '
+                        'news from sources you provide me with.\n'
+                        'You may always reach me via xmpp:{}?message'
+                        .format(self.alias, self.boundjid.bare))
+        XmppMessage.send(self, muc_jid, message_body, 'groupchat')
 
 
     # NOTE Tested with Gajim and Psi
     async def on_groupchat_direct_invite(self, message):
-        inviter = message["from"].bare
+        inviter = message['from'].bare
         muc_jid = message['groupchat_invite']['jid']
-        await muc.join(self, inviter, muc_jid)
         await XmppBookmark.add(self, muc_jid)
+        await XmppGroupchat.join(self, inviter, muc_jid)
+        message_body = ('Greetings!\n'
+                        'I am {}, the news anchor.\n'
+                        'My job is to bring you the latest '
+                        'news from sources you provide me with.\n'
+                        'You may always reach me via xmpp:{}?message'
+                        .format(self.alias, self.boundjid.bare))
+        XmppMessage.send(self, muc_jid, message_body, 'groupchat')
 
 
     async def on_session_end(self, event):
-        message = "Session has ended."
-        await connect.recover_connection(self, message)
+        message = 'Session has ended.'
+        await XmppConnect.recover(self, message)
 
 
     async def on_connection_failed(self, event):
-        message = "Connection has failed.  Reason: {}".format(event)
-        await connect.recover_connection(self, message)
+        message = 'Connection has failed.  Reason: {}'.format(event)
+        await XmppConnect.recover(self, message)
 
 
     async def on_session_start(self, event):
         self.send_presence()
-        await self["xep_0115"].update_caps()
+        await self['xep_0115'].update_caps()
         await self.get_roster()
-        await muc.autojoin(self)
-        profile.set_identity(self, "client")
+        await XmppGroupchat.autojoin(self)
+        profile.set_identity(self, 'client')
         await profile.update(self)
         task.ping_task(self)
         
@@ -210,9 +226,9 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def on_session_resumed(self, event):
         self.send_presence()
-        self["xep_0115"].update_caps()
-        await muc.autojoin(self)
-        profile.set_identity(self, "client")
+        self['xep_0115'].update_caps()
+        await XmppGroupchat.autojoin(self)
+        profile.set_identity(self, 'client')
         
         # Service.commands(self)
         # Service.reactions(self)
@@ -224,9 +240,16 @@ class Slixfeed(slixmpp.ClientXMPP):
     # TODO Request for subscription
     async def on_message(self, message):
         jid = message["from"].bare
-        if "chat" == await utility.get_chat_type(self, jid):
-            await roster.add(self, jid)
-            await state.request(self, jid)
+        if (await get_chat_type(self, jid) == 'chat' and
+            not self.client_roster[jid]['to']):
+            XmppPresence.subscribe(self, jid)
+            await XmppRoster.add(self, jid)
+            status_message = '✒️ Share online status to receive updates'
+            XmppPresence.send(self, jid, status_message)
+            message_subject = 'RSS News Bot'
+            message_body = 'Share online status to receive updates.'
+            XmppMessage.send_headline(self, jid, message_subject, message_body,
+                                      'chat')
         await process.message(self, message)
         # chat_type = message["type"]
         # message_body = message["body"]
@@ -242,31 +265,54 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_presence_subscribe(self, presence):
-        jid = presence["from"].bare
-        await state.request(self, jid)
+        jid = presence['from'].bare
+        if not self.client_roster[jid]['to']:
+            XmppPresence.subscribe(self, jid)
+            await XmppRoster.add(self, jid)
+            status_message = '✒️ Share online status to receive updates'
+            XmppPresence.send(self, jid, status_message)
+            message_subject = 'RSS News Bot'
+            message_body = 'Share online status to receive updates.'
+            XmppMessage.send_headline(self, jid, message_subject, message_body,
+                                      'chat')
 
 
     async def on_presence_subscribed(self, presence):
-        jid = presence["from"].bare
-        process.greet(self, jid)
+        jid = presence['from'].bare
+        message_subject = 'RSS News Bot'
+        message_body = ('Greetings!\n'
+                        'I am {}, the news anchor.\n'
+                        'My job is to bring you the latest '
+                        'news from sources you provide me with.\n'
+                        'You may always reach me via xmpp:{}?message'
+                        .format(self.alias, self.boundjid.bare))
+        XmppMessage.send_headline(self, jid, message_subject, message_body,
+                                  'chat')
 
 
     async def on_presence_available(self, presence):
         # TODO Add function to check whether task is already running or not
         # await task.start_tasks(self, presence)
         # NOTE Already done inside the start-task function
-        jid = presence["from"].bare
+        jid = presence['from'].bare
+        # FIXME TODO Find out what is the source responsible for a couple presences with empty message
+        # NOTE This is a temporary solution
+        await asyncio.sleep(10)
         await task.start_tasks_xmpp(self, jid)
 
 
     async def on_presence_unsubscribed(self, presence):
-        await state.unsubscribed(self, presence)
-        jid = presence["from"].bare
-        await roster.remove(self, jid)
+        jid = presence['from'].bare
+        message_body = 'You have been unsubscribed.'
+        status_message = '🖋️ Subscribe to receive updates'
+        XmppMessage.send(self, jid, message_body, 'chat')
+        XmppPresence.send(self, jid, status_message,
+                          presence_type='unsubscribed')
+        await XmppRoster.remove(self, jid)
 
 
     async def on_presence_unavailable(self, presence):
-        jid = presence["from"].bare
+        jid = presence['from'].bare
         # await task.stop_tasks(self, jid)
         await task.clean_tasks_xmpp(jid)
 
@@ -299,8 +345,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         if message['type'] in ('chat', 'normal'):
             jid = message['from'].bare
             # await task.clean_tasks_xmpp(jid, ['status'])
-            status_text='Press "help" for manual, or "info" for information.'
-            status.send(self, jid, status_text)
+            status_message='Press "help" for manual, or "info" for information.'
+            XmppPresence.send(self, jid, status_message)
 
 
     async def on_chatstate_gone(self, message):
@@ -322,6 +368,25 @@ class Slixfeed(slixmpp.ClientXMPP):
             jid = message['from'].bare
             # await task.clean_tasks_xmpp(jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
+
+
+
+    # NOTE Failed attempt
+    # Need to use Super or Inheritance or both
+    #     self['xep_0050'].add_command(node='settings',
+    #                                  name='Settings',
+    #                                  handler=self._handle_settings)
+    #     self['xep_0050'].add_command(node='subscriptions',
+    #                                  name='Subscriptions',
+    #                                  handler=self._handle_subscriptions)
+
+
+    # async def _handle_settings(self, iq, session):
+    #     await XmppCommand._handle_settings(self, iq, session)
+
+
+    # async def _handle_subscriptions(self, iq, session):
+    #     await XmppCommand._handle_subscriptions(self, iq, session)
 
 
 # TODO Move class Service to a separate file
@@ -534,7 +599,8 @@ class Slixfeed(slixmpp.ClientXMPP):
             value = True
         form.add_field(var='old',
                        ftype='boolean',
-                       desc='Mark items of newly added subscriptions as read.',
+                       desc='Do not mark items of newly added subscriptions '
+                            'as read.',
                        # label='Send only new items',
                        label='Include old news',
                        value=value)

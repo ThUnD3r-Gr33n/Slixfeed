@@ -77,13 +77,8 @@ def replace_hostname(url, url_type):
                     parted_proxy_url = urlsplit(proxy_url)
                     protocol_new = parted_proxy_url.scheme
                     hostname_new = parted_proxy_url.netloc
-                    url_new = urlunsplit([
-                        protocol_new,
-                        hostname_new,
-                        pathname,
-                        queries,
-                        fragment
-                        ])
+                    url_new = urlunsplit([protocol_new, hostname_new,
+                                          pathname, queries, fragment])
                     response = fetch.http_response(url_new)
                     if (response and
                         response.status_code == 200 and
@@ -96,8 +91,11 @@ def replace_hostname(url, url_type):
                         proxies_file = config_dir + '/proxies.toml'
                         if not os.path.isfile(proxies_obsolete_file):
                             config.create_skeleton(proxies_file)
-                        config.backup_obsolete(proxies_obsolete_file, proxy_name, proxy_type, proxy_url)
-                        config.update_proxies(proxies_file, proxy_name, proxy_type, proxy_url)
+                        config.backup_obsolete(proxies_obsolete_file,
+                                               proxy_name, proxy_type,
+                                               proxy_url)
+                        config.update_proxies(proxies_file, proxy_name,
+                                              proxy_type, proxy_url)
                         url_new = None
                 else:
                     logging.warning(
@@ -132,13 +130,7 @@ def remove_tracking_parameters(url):
     for tracker in trackers:
         if tracker in queries: del queries[tracker]
     queries_new = urlencode(queries, doseq=True)
-    url = urlunsplit([
-        protocol,
-        hostname,
-        pathname,
-        queries_new,
-        fragment
-        ])
+    url = urlunsplit([protocol, hostname, pathname, queries_new, fragment])
     return url
 
 
@@ -157,13 +149,8 @@ def feed_to_http(url):
         URL.
     """
     par_url = urlsplit(url)
-    new_url = urlunsplit([
-        'http',
-        par_url.netloc,
-        par_url.path,
-        par_url.query,
-        par_url.fragment
-        ])
+    new_url = urlunsplit(['http', par_url.netloc, par_url.path, par_url.query,
+                          par_url.fragment])
     return new_url
 
 
@@ -215,21 +202,13 @@ def complete_url(source, link):
         return link
     if link.startswith('//'):
         if parted_link.netloc and parted_link.path:
-            new_link = urlunsplit([
-                parted_feed.scheme,
-                parted_link.netloc,
-                parted_link.path,
-                parted_link.query,
-                parted_link.fragment
-                ])
+            new_link = urlunsplit([parted_feed.scheme, parted_link.netloc,
+                                   parted_link.path, parted_link.query,
+                                   parted_link.fragment])
     elif link.startswith('/'):
-        new_link = urlunsplit([
-            parted_feed.scheme,
-            parted_feed.netloc,
-            parted_link.path,
-            parted_link.query,
-            parted_link.fragment
-            ])
+        new_link = urlunsplit([parted_feed.scheme, parted_feed.netloc,
+                               parted_link.path, parted_link.query,
+                               parted_link.fragment])
     elif link.startswith('../'):
         pathlink = parted_link.path.split('/')
         pathfeed = parted_feed.path.split('/')
@@ -246,13 +225,9 @@ def complete_url(source, link):
                 break
         pathlink = '/'.join(pathlink)
         pathfeed.extend([pathlink])
-        new_link = urlunsplit([
-            parted_feed.scheme,
-            parted_feed.netloc,
-            '/'.join(pathfeed),
-            parted_link.query,
-            parted_link.fragment
-            ])
+        new_link = urlunsplit([parted_feed.scheme, parted_feed.netloc,
+                               '/'.join(pathfeed), parted_link.query,
+                               parted_link.fragment])
     else:
         pathlink = parted_link.path.split('/')
         pathfeed = parted_feed.path.split('/')
@@ -262,13 +237,9 @@ def complete_url(source, link):
             pathfeed.pop()
         pathlink = '/'.join(pathlink)
         pathfeed.extend([pathlink])
-        new_link = urlunsplit([
-            parted_feed.scheme,
-            parted_feed.netloc,
-            '/'.join(pathfeed),
-            parted_link.query,
-            parted_link.fragment
-            ])
+        new_link = urlunsplit([parted_feed.scheme, parted_feed.netloc,
+                               '/'.join(pathfeed), parted_link.query,
+                               parted_link.fragment])
     return new_link
 
 
@@ -333,13 +304,7 @@ def trim_url(url):
     fragment = parted_url.fragment
     while '//' in pathname:
         pathname = pathname.replace('//', '/')
-    url = urlunsplit([
-        protocol,
-        hostname,
-        pathname,
-        queries,
-        fragment
-        ])
+    url = urlunsplit([protocol, hostname, pathname, queries, fragment])
     return url
 
 

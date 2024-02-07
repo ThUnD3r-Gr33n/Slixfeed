@@ -47,9 +47,10 @@ import slixfeed.config as config
 # from slixfeed.dt import current_time
 import slixfeed.sqlite as sqlite
 # from xmpp import Slixfeed
-import slixfeed.xmpp.client as xmpp
-import slixfeed.xmpp.connect as connect
-import slixfeed.xmpp.utility as utility
+from slixfeed.xmpp.presence import XmppPresence
+from slixfeed.xmpp.message import XmppMessage
+from slixfeed.xmpp.connect import XmppConnect
+from slixfeed.xmpp.utility import get_chat_type
 import time
 
 main_task = []
@@ -70,12 +71,12 @@ loop = asyncio.get_event_loop()
 
 
 def ping_task(self):
-    global ping_task
+    global ping_task_instance
     try:
-        ping_task.cancel()
+        ping_task_instance.cancel()
     except:
         logging.info('No ping task to cancel.')
-    ping_task = asyncio.create_task(connect.ping(self))
+    ping_task_instance = asyncio.create_task(XmppConnect.ping(self))
 
 
 """
@@ -102,7 +103,7 @@ async def start_tasks_xmpp(self, jid, tasks=None):
         logging.debug('KeyError:', str(e))
         logging.info('Creating new task manager for JID {}'.format(jid))
     if not tasks:
-        tasks = ['interval', 'status', 'check']
+        tasks = ['status', 'check', 'interval']
     logging.info('Stopping tasks {} for JID {}'.format(tasks, jid))
     for task in tasks:
         # if task_manager[jid][task]:
@@ -201,7 +202,7 @@ async def send_update(self, jid, num=None):
         results = await sqlite.get_unread_entries(db_file, num)
         news_digest = ''
         media = None
-        chat_type = await utility.get_chat_type(self, jid)
+        chat_type = await get_chat_type(self, jid)
         for result in results:
             ix = result[0]
             title_e = result[1]
@@ -230,24 +231,10 @@ async def send_update(self, jid, num=None):
             
             if media and news_digest:
                 # Send textual message
-                xmpp.Slixfeed.send_message(
-                    self,
-                    mto=jid,
-                    mfrom=self.boundjid.bare,
-                    mbody=news_digest,
-                    mtype=chat_type
-                    )
+                XmppMessage.send(self, jid, news_digest, chat_type)
                 news_digest = ''
                 # Send media
-                message = xmpp.Slixfeed.make_message(
-                    self,
-                    mto=jid,
-                    mfrom=self.boundjid.bare,
-                    mbody=media,
-                    mtype=chat_type
-                    )
-                message['oob']['url'] = media
-                message.send()
+                XmppMessage.send_oob(self, jid, media, chat_type)
                 media = None
                 
         if news_digest:
@@ -256,13 +243,8 @@ async def send_update(self, jid, num=None):
             # NOTE Do we need "if statement"? See NOTE at is_muc.
             if chat_type in ('chat', 'groupchat'):
                 # TODO Provide a choice (with or without images)
-                xmpp.Slixfeed.send_message(
-                    self,
-                    mto=jid,
-                    mfrom=self.boundjid.bare,
-                    mbody=news_digest,
-                    mtype=chat_type
-                    )
+                XmppMessage.send(self, jid, news_digest, chat_type)
+        # See XEP-0367
         # if media:
         #     # message = xmpp.Slixfeed.make_message(
         #     #     self, mto=jid, mbody=new, mtype=chat_type)
@@ -340,13 +322,7 @@ async def send_status(self, jid):
 
     # breakpoint()
     # print(await current_time(), status_text, "for", jid)
-    xmpp.Slixfeed.send_presence(
-        self,
-        pto=jid,
-        pfrom=self.boundjid.bare,
-        pshow=status_mode,
-        pstatus=status_text
-        )
+    XmppPresence.send(self, jid, status_text, status_type=status_mode)
     # await asyncio.sleep(60 * 20)
     await refresh_task(self, jid, send_status, 'status', '90')
     # loop.call_at(

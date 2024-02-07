@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from slixmpp.exceptions import IqTimeout
+from slixmpp.exceptions import IqError, IqTimeout
 import logging
 
+# class XmppChat
+# class XmppUtility:
 
 async def get_chat_type(self, jid):
     """
@@ -43,11 +45,15 @@ async def get_chat_type(self, jid):
                      'Chat Type: {}'.format(jid, chat_type))
         return chat_type
     # TODO Test whether this exception is realized
+    except IqError as e:
+        message = ('IQ Error\n'
+                   'IQ Stanza: {}'
+                   'Jabber ID: {}'
+                   .format(e, jid))
+        logging.error(message)
     except IqTimeout as e:
-        messages = [
-            ("Timeout IQ"),
-            ("IQ Stanza:", e),
-            ("Jabber ID:", jid)
-            ]
-        for message in messages:
-            logging.error(message)
+        message = ('IQ Timeout\n'
+                   'IQ Stanza: {}'
+                   'Jabber ID: {}'
+                   .format(e, jid))
+        logging.error(message)

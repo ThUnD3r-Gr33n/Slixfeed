@@ -9,7 +9,7 @@ TODO
    Slixfeed: Do you still want to add this URL to subscription list?
    See: case _ if message_lowercase.startswith("add"):
 
-2) If subscription is inadequate (see state.request), send a message that says so.
+2) If subscription is inadequate (see XmppPresence.request), send a message that says so.
 
     elif not self.client_roster[jid]["to"]:
         breakpoint()
@@ -28,9 +28,10 @@ import slixfeed.sqlite as sqlite
 import slixfeed.task as task
 import slixfeed.url as uri
 from slixfeed.xmpp.bookmark import XmppBookmark
-import slixfeed.xmpp.muc as groupchat
-from slixfeed.xmpp.status import XmppStatus
-import slixfeed.xmpp.upload as upload
+from slixfeed.xmpp.muc import XmppGroupchat
+from slixfeed.xmpp.message import XmppMessage
+from slixfeed.xmpp.presence import XmppPresence
+from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utility import get_chat_type
 import time
 
@@ -88,7 +89,8 @@ async def message(self, message):
             await task.clean_tasks_xmpp(jid, ['status'])
             status_type = 'dnd'
             status_message = '📥️ Procesing request to import feeds...'
-            await XmppStatus.send(self, jid, status_message, status_type)
+            XmppPresence.send(self, jid, status_message,
+                              status_type=status_type)
             db_file = config.get_pathname_to_database(jid_file)
             count = await action.import_opml(db_file, url)
             if count:
@@ -97,7 +99,7 @@ async def message(self, message):
                 response = 'OPML file was not imported.'
             # await task.clean_tasks_xmpp(jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
-            send_reply_message(self, message, response)
+            XmppMessage.send_reply(self, message, response)
             return
 
 
@@ -190,7 +192,7 @@ async def message(self, message):
             #             'This action is restricted. '
             #             'Type: breakpoint.'
             #             )
-            #         send_reply_message(self, message, response)
+            #         XmppMessage.send_reply(self, message, response)
             case 'help':
                 command_list = ' '.join(action.manual('commands.toml'))
                 response = ('Available command keys:\n'
@@ -198,7 +200,7 @@ async def message(self, message):
                             'Usage: `help <key>`'
                             .format(command_list))
                 print(response)
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('help'):
                 command = message_text[5:]
                 command = command.split(' ')
@@ -228,14 +230,14 @@ async def message(self, message):
                 else:
                     response = ('Invalid. Enter command key '
                                 'or command key & name')
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case 'info':
                 command_list = ' '.join(action.manual('information.toml'))
                 response = ('Available command options:\n'
                             '```\n{}\n```\n'
                             'Usage: `info <option>`'
                             .format(command_list))
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('info'):
                 command = message_text[5:]
                 command_list = action.manual('information.toml', command)
@@ -245,7 +247,7 @@ async def message(self, message):
                 else:
                     response = ('KeyError for {}'
                                 .format(command))
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase in ['greetings', 'hallo', 'hello',
                                             'hey', 'hi', 'hola', 'holla',
                                             'hollo']:
@@ -253,7 +255,7 @@ async def message(self, message):
                             'I am an RSS News Bot.\n'
                             'Send "help" for further instructions.\n'
                             .format(self.alias))
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
     
             # case _ if message_lowercase.startswith('activate'):
             #     if message['type'] == 'groupchat':
@@ -315,7 +317,7 @@ async def message(self, message):
                                     .format(url, name, ix))
                 else:
                     response = 'Missing URL.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('allow +'):
                     key = 'filter-' + message_text[:5]
                     val = message_text[7:]
@@ -333,7 +335,7 @@ async def message(self, message):
                                     .format(val))
                     else:
                         response = 'Missing keywords.'
-                    send_reply_message(self, message, response)
+                    XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('allow -'):
                     key = 'filter-' + message_text[:5]
                     val = message_text[7:]
@@ -351,7 +353,7 @@ async def message(self, message):
                                     .format(val))
                     else:
                         response = 'Missing keywords.'
-                    send_reply_message(self, message, response)
+                    XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('archive'):
                 key = message_text[:7]
                 val = message_text[8:]
@@ -375,7 +377,7 @@ async def message(self, message):
                         response = 'Enter a numeric value only.'
                 else:
                     response = 'Missing value.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('bookmark -'):
                 if jid == config.get_value('accounts', 'XMPP', 'operator'):
                     muc_jid = message_text[11:]
@@ -386,14 +388,14 @@ async def message(self, message):
                 else:
                     response = ('This action is restricted. '
                                 'Type: removing bookmarks.')
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case 'bookmarks':
                 if jid == config.get_value('accounts', 'XMPP', 'operator'):
                     response = await action.list_bookmarks(self)
                 else:
                     response = ('This action is restricted. '
                                 'Type: viewing bookmarks.')
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('deny +'):
                     key = 'filter-' + message_text[:4]
                     val = message_text[6:]
@@ -411,7 +413,7 @@ async def message(self, message):
                                     .format(val))
                     else:
                         response = 'Missing keywords.'
-                    send_reply_message(self, message, response)
+                    XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('deny -'):
                     key = 'filter-' + message_text[:4]
                     val = message_text[6:]
@@ -429,7 +431,7 @@ async def message(self, message):
                                     .format(val))
                     else:
                         response = 'Missing keywords.'
-                    send_reply_message(self, message, response)
+                    XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('export'):
                 ex = message_text[7:]
                 if ex in ('opml', 'html', 'md', 'xbel'):
@@ -437,8 +439,8 @@ async def message(self, message):
                     status_message = ('📤️ Procesing request to '
                                       'export feeds into {}...'
                                       .format(ex))
-                    await XmppStatus.send(self, jid, status_message,
-                                          status_type)
+                    XmppPresence.send(self, jid, status_message,
+                                      status_type=status_type)
                     cache_dir = config.get_default_cache_directory()
                     if not os.path.isdir(cache_dir):
                         os.mkdir(cache_dir)
@@ -457,105 +459,33 @@ async def message(self, message):
                             action.export_to_opml(jid, filename, results)
                         case 'xbel':
                             response = 'Not yet implemented.'
-                    url = await upload.start(self, jid, filename)
+                    url = await XmppUpload.start(self, jid, filename)
                     # response = (
                     #     'Feeds exported successfully to {}.\n{}'
                     #     ).format(ex, url)
-                    # send_oob_reply_message(message, url, response)
-                    await send_oob_message(self, jid, url)
+                    # XmppMessage.send_oob_reply_message(message, url, response)
+                    chat_type = await get_chat_type(self, jid)
+                    XmppMessage.send_oob(self, jid, url, chat_type)
                     await task.start_tasks_xmpp(self, jid, ['status'])
                 else:
                     response = ('Unsupported filetype.\n'
                                 'Try: html, md, opml, or xbel')
-                    send_reply_message(self, message, response)
+                    XmppMessage.send_reply(self, message, response)
             case _ if (message_lowercase.startswith('gemini:') or
                        message_lowercase.startswith('gopher:')):
                 response = 'Gemini and Gopher are not supported yet.'
-                send_reply_message(self, message, response)
-            # TODO xHTML, HTMLZ, Markdown, MHTML, PDF, TXT
-            case _ if (message_lowercase.startswith('get')):
-                message_text = message_text[4:]
+                XmppMessage.send_reply(self, message, response)
+            # TODO xHTML, HTMLZ, MHTML
+            case _ if (message_lowercase.startswith('page')):
+                message_text = message_text[5:]
                 ix_url = message_text.split(' ')[0]
-                ext = ' '.join(message_text.split(' ')[1:])
-                ext = ext if ext else 'pdf'
-                url = None
-                error = None
-                if ext in ('epub', 'html', 'markdown',
-                           'md', 'pdf', 'text', 'txt'):
-                    match ext:
-                        case 'markdown':
-                            ext = 'md'
-                        case 'text':
-                            ext = 'txt'
-                    status_type = 'dnd'
-                    status_message = ('📃️ Procesing request to '
-                                      'produce {} document...'
-                                      .format(ext.upper()))
-                    await XmppStatus.send(self, jid, status_message,
-                                          status_type)
-                    db_file = config.get_pathname_to_database(jid_file)
-                    cache_dir = config.get_default_cache_directory()
-                    if ix_url:
-                        if not os.path.isdir(cache_dir):
-                            os.mkdir(cache_dir)
-                        if not os.path.isdir(cache_dir + '/readability'):
-                            os.mkdir(cache_dir + '/readability')
-                        try:
-                            ix = int(ix_url)
-                            try:
-                                url = sqlite.get_entry_url(db_file, ix)
-                            except:
-                                response = 'No entry with index {}'.format(ix)
-                        except:
-                            url = ix_url
-                        if url:
-                            logging.info('Original URL: {}'
-                                         .format(url))
-                            url = uri.remove_tracking_parameters(url)
-                            logging.info('Processed URL (tracker removal): {}'
-                                         .format(url))
-                            url = (uri.replace_hostname(url, 'link')) or url
-                            logging.info('Processed URL (replace hostname): {}'
-                                         .format(url))
-                            result = await fetch.http(url)
-                            data = result[0]
-                            code = result[1]
-                            if data:
-                                title = action.get_document_title(data)
-                                title = title.strip().lower()
-                                for i in (' ', '-'):
-                                    title = title.replace(i, '_')
-                                for i in ('?', '"', '\'', '!'):
-                                    title = title.replace(i, '')
-                                filename = os.path.join(
-                                    cache_dir, 'readability',
-                                    title + '_' + timestamp() + '.' + ext)
-                                error = action.generate_document(data, url,
-                                                                 ext, filename)
-                                if error:
-                                    response = ('> {}\n'
-                                                'Failed to export {}.  '
-                                                'Reason: {}'
-                                                .format(url, ext.upper(),
-                                                        error))
-                                else:
-                                    url = await upload.start(self, jid,
-                                                             filename)
-                                    await send_oob_message(self, jid, url)
-                            else:
-                                response = ('> {}\n'
-                                            'Failed to fetch URL.  Reason: {}'
-                                            .format(url, code))
-                        await task.start_tasks_xmpp(self, jid, ['status'])
-                    else:
-                        response = 'Missing entry index number.'
-                else:
-                    response = ('Unsupported filetype.\n'
-                                'Try: epub, html, md (markdown), '
-                                'pdf, or txt (text)')
-                if response:
-                    logging.warning('Error for URL {}: {}'.format(url, error))
-                    send_reply_message(self, message, response)
+                await action.download_document(self, message, jid, jid_file,
+                                          message_text, ix_url, False)
+            case _ if (message_lowercase.startswith('content')):
+                message_text = message_text[8:]
+                ix_url = message_text.split(' ')[0]
+                await action.download_document(self, message, jid, jid_file,
+                                          message_text, ix_url, True)
             # case _ if (message_lowercase.startswith('http')) and(
             #     message_lowercase.endswith('.opml')):
             #     url = message_text
@@ -565,8 +495,8 @@ async def message(self, message):
             #     status_message = (
             #         '📥️ Procesing request to import feeds...'
             #         )
-            #     await XmppStatus.send(
-            #         self, jid, status_message, status_type)
+            #     XmppPresence.send(
+            #         self, jid, status_message, status_type=status_type)
             #     db_file = config.get_pathname_to_database(jid_file)
             #     count = await action.import_opml(db_file, url)
             #     if count:
@@ -581,7 +511,7 @@ async def message(self, message):
             #         jid, ['status'])
             #     await task.start_tasks_xmpp(
             #         self, jid, ['status'])
-            #     send_reply_message(self, message, response)
+            #     XmppMessage.send_reply(self, message, response)
             case _ if (message_lowercase.startswith('http') or
                        message_lowercase.startswith('feed:')):
                 url = message_text
@@ -590,7 +520,8 @@ async def message(self, message):
                 status_message = ('📫️ Processing request '
                                   'to fetch data from {}'
                                   .format(url))
-                await XmppStatus.send(self, jid, status_message, status_type)
+                XmppPresence.send(self, jid, status_message,
+                                  status_type=status_type)
                 if url.startswith('feed:'):
                     url = uri.feed_to_http(url)
                 url = (uri.replace_hostname(url, 'feed')) or url
@@ -605,7 +536,7 @@ async def message(self, message):
                 #         'of being added to the subscription '
                 #         'list.'.format(url)
                 #         )
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('feeds'):
                 query = message_text[6:]
                 if query:
@@ -619,14 +550,14 @@ async def message(self, message):
                     db_file = config.get_pathname_to_database(jid_file)
                     result = await sqlite.get_feeds(db_file)
                     response = action.list_feeds(result)
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case 'goodbye':
                 if message['type'] == 'groupchat':
-                    await groupchat.leave(self, jid)
+                    await XmppGroupchat.leave(self, jid)
                     await XmppBookmark.remove(self, muc_jid)
                 else:
                     response = 'This command is valid in groupchat only.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('interval'):
                 key = message_text[:8]
                 val = message_text[9:]
@@ -636,14 +567,14 @@ async def message(self, message):
                 muc_jid = uri.check_xmpp_uri(message_text[5:])
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
-                    await groupchat.join(self, jid, muc_jid)
+                    await XmppGroupchat.join(self, jid, muc_jid)
                     response = ('Joined groupchat {}'
                                 .format(message_text))
                 else:
                     response = ('> {}\n'
                                 'XMPP URI is not valid.'
                                 .format(message_text))
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('length'):
                     key = message_text[:6]
                     val = message_text[7:]
@@ -692,7 +623,7 @@ async def message(self, message):
             #                 ).format(val)
             #         else:
             #             response = 'Missing value.'
-                    send_reply_message(self, message, response)
+                    XmppMessage.send_reply(self, message, response)
             case 'new':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
@@ -702,7 +633,7 @@ async def message(self, message):
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
                 response = 'Only new items of newly added feeds will be sent.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             # TODO Will you add support for number of messages?
             case 'next':
                 # num = message_text[5:]
@@ -739,7 +670,7 @@ async def message(self, message):
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
                 response = 'All items of newly added feeds will be sent.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('quantum'):
                 key = message_text[:7]
                 val = message_text[8:]
@@ -762,12 +693,12 @@ async def message(self, message):
                         response = 'Enter a numeric value only.'
                 else:
                     response = 'Missing value.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case 'random':
                 # TODO /questions/2279706/select-random-row-from-a-sqlite-table
                 # NOTE sqlitehandler.get_entry_unread
                 response = 'Updates will be sent by random order.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('read'):
                 data = message_text[5:]
                 data = data.split()
@@ -776,7 +707,8 @@ async def message(self, message):
                 status_type = 'dnd'
                 status_message = ('📫️ Processing request to fetch data from {}'
                                   .format(url))
-                await XmppStatus.send(self, jid, status_message, status_type)
+                XmppPresence.send(self, jid, status_message,
+                                  status_type=status_type)
                 if url.startswith('feed:'):
                     url = uri.feed_to_http(url)
                 url = (uri.replace_hostname(url, 'feed')) or url
@@ -796,7 +728,7 @@ async def message(self, message):
                         response = ('Enter command as follows:\n'
                                     '`read <url>` or `read <url> <number>`\n'
                                     'URL must not contain white space.')
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
                 await task.start_tasks_xmpp(self, jid, ['status'])
             case _ if message_lowercase.startswith('recent'):
                 num = message_text[7:]
@@ -813,7 +745,7 @@ async def message(self, message):
                         response = 'Enter a numeric value only.'
                 else:
                     response = 'Missing value.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('remove'):
                 ix_url = message_text[7:]
                 if ix_url:
@@ -859,14 +791,15 @@ async def message(self, message):
                     await task.start_tasks_xmpp(self, jid, ['status'])
                 else:
                     response = 'Missing feed URL or index number.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('reset'):
                 # TODO Reset also by ID
                 ix_url = message_text[6:]
                 await task.clean_tasks_xmpp(jid, ['status'])
                 status_type = 'dnd'
                 status_message = '📫️ Marking entries as read...'
-                await XmppStatus.send(self, jid, status_message, status_type)
+                XmppPresence.send(self, jid, status_message,
+                                  status_type=status_type)
                 db_file = config.get_pathname_to_database(jid_file)
                 if ix_url:
                     db_file = config.get_pathname_to_database(jid_file)
@@ -905,7 +838,7 @@ async def message(self, message):
                 else:
                     await sqlite.mark_all_as_read(db_file)
                     response = 'All entries have been marked as read.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
                 await task.start_tasks_xmpp(self, jid, ['status'])
             case _ if message_lowercase.startswith('search'):
                 query = message_text[7:]
@@ -918,25 +851,13 @@ async def message(self, message):
                         response = 'Enter at least 2 characters to search'
                 else:
                     response = 'Missing search query.'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case 'start':
-                # response = 'Updates are enabled.'
-                key = 'enabled'
-                val = 1
-                db_file = config.get_pathname_to_database(jid_file)
-                if await sqlite.get_settings_value(db_file, key):
-                    await sqlite.update_settings_value(db_file, [key, val])
-                else:
-                    await sqlite.set_settings_value(db_file, [key, val])
-                await task.start_tasks_xmpp(self, jid)
-                response = 'Updates are enabled.'
-                # print(current_time(), 'task_manager[jid]')
-                # print(task_manager[jid])
-                send_reply_message(self, message, response)
+                await action.xmpp_start_updates(self, message, jid, jid_file)
             case 'stats':
                 db_file = config.get_pathname_to_database(jid_file)
                 response = await action.list_statistics(db_file)
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('disable '):
                 ix = message_text[8:]
                 db_file = config.get_pathname_to_database(jid_file)
@@ -946,7 +867,7 @@ async def message(self, message):
                                 .format(ix))
                 except:
                     response = 'No news source with index {}.'.format(ix)
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('enable'):
                 ix = message_text[7:]
                 db_file = config.get_pathname_to_database(jid_file)
@@ -956,29 +877,29 @@ async def message(self, message):
                                 .format(ix))
                 except:
                     response = 'No news source with index {}.'.format(ix)
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case 'stop':
                 await action.xmpp_stop_updates(self, message, jid, jid_file)
             case 'support':
                 # TODO Send an invitation.
                 response = 'Join xmpp:slixfeed@chat.woodpeckersnest.space?join'
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('xmpp:'):
                 muc_jid = uri.check_xmpp_uri(message_text)
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
-                    await groupchat.join(self, jid, muc_jid)
+                    await XmppGroupchat.join(self, jid, muc_jid)
                     response = ('Joined groupchat {}'
                                 .format(message_text))
                 else:
                     response = ('> {}\n'
                                 'XMPP URI is not valid.'
                                 .format(message_text))
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
             case _:
                 response = ('Unknown command. '
                             'Press "help" for list of commands')
-                send_reply_message(self, message, response)
+                XmppMessage.send_reply(self, message, response)
         # TODO Use message correction here
         # NOTE This might not be a good idea if
         # commands are sent one close to the next
@@ -988,7 +909,7 @@ async def message(self, message):
         command_time_total = command_time_finish - command_time_start
         command_time_total = round(command_time_total, 3)
         response = 'Finished. Total time: {}s'.format(command_time_total)
-        send_reply_message(self, message, response)
+        XmppMessage.send_reply(self, message, response)
 
         if not response: response = 'EMPTY MESSAGE - ACTION ONLY'
         data_dir = config.get_default_data_directory()
@@ -1010,67 +931,3 @@ async def message(self, message):
             '{}\n'
             .format(message_text, jid, jid_file, response)
             )
-
-
-def send_reply_message(self, message, response):
-    message.reply(response).send()
-
-
-# TODO Solve this function
-def send_oob_reply_message(message, url, response):
-    reply = message.reply(response)
-    reply['oob']['url'] = url
-    reply.send()
-
-
-async def send_oob_message(self, jid, url):
-    chat_type = await get_chat_type(self, jid)
-    html = (
-        f'<body xmlns="http://www.w3.org/1999/xhtml">'
-        f'<a href="{url}">{url}</a></body>')
-    message = self.make_message(
-        mto=jid,
-        mfrom=self.boundjid.bare,
-        mbody=url,
-        mhtml=html,
-        mtype=chat_type
-        )
-    message['oob']['url'] = url
-    message.send()
-
-
-# def greet(self, jid, chat_type='chat'):
-#     messages = [
-#         'Greetings!',
-#         'I'm {}, the news anchor.'.format(self.nick),
-#         'My job is to bring you the latest news '
-#         'from sources you provide me with.',
-#         'You may always reach me via '
-#         'xmpp:{}?message'.format(self.boundjid.bare)
-#         ]
-#     for message in messages:
-#         self.send_message(
-#             mto=jid,
-#             mfrom=self.boundjid.bare,
-#             mbody=message,
-#             mtype=chat_type
-#             )
-
-
-def greet(self, jid, chat_type='chat'):
-    message = (
-        'Greetings!\n'
-        'I am {}, the news anchor.\n'
-        'My job is to bring you the latest '
-        'news from sources you provide me with.\n'
-        'You may always reach me via xmpp:{}?message').format(
-            self.alias,
-            self.boundjid.bare
-            )
-    self.send_message(
-        mto=jid,
-        mfrom=self.boundjid.bare,
-        mbody=message,
-        mtype=chat_type
-        )
-

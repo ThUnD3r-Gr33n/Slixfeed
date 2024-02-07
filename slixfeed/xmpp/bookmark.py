@@ -34,11 +34,9 @@ class XmppBookmark:
             bookmarks = Bookmarks()
             mucs.extend([muc_jid])
             for muc in mucs:
-                bookmarks.add_conference(
-                    muc,
-                    self.alias,
-                    autojoin=True
-                    )
+                bookmarks.add_conference(muc,
+                                         self.alias,
+                                         autojoin=True)
             await self.plugin['xep_0048'].set_bookmarks(bookmarks)
         # bookmarks = Bookmarks()
         # await self.plugin['xep_0048'].set_bookmarks(bookmarks)
@@ -61,9 +59,7 @@ class XmppBookmark:
             bookmarks = Bookmarks()
             mucs.remove(muc_jid)
             for muc in mucs:
-                bookmarks.add_conference(
-                    muc,
-                    self.alias,
-                    autojoin=True
-                    )
+                bookmarks.add_conference(muc,
+                                         self.alias,
+                                         autojoin=True)
             await self.plugin['xep_0048'].set_bookmarks(bookmarks)

@@ -24,6 +24,7 @@ TODO
 
 """
 
+import asyncio
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
 from feedparser import parse
@@ -34,13 +35,11 @@ from lxml import html
 import os
 import slixfeed.config as config
 import slixfeed.crawl as crawl
-from slixfeed.dt import (
-    current_date, current_time, now,
-    convert_struct_time_to_iso8601,
-    rfc2822_to_iso8601
-    )
+
+import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
+import slixfeed.url as uri
 from slixfeed.url import (
     complete_url,
     join_url,
@@ -51,7 +50,9 @@ from slixfeed.url import (
 import slixfeed.task as task
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.message import XmppMessage
-from slixfeed.xmpp.status import XmppStatus
+from slixfeed.xmpp.presence import XmppPresence
+from slixfeed.xmpp.upload import XmppUpload
+from slixfeed.xmpp.utility import get_chat_type
 import tomllib
 from urllib import error
 from urllib.parse import parse_qs, urlsplit
@@ -122,8 +123,7 @@ async def xmpp_change_interval(self, key, val, jid, jid_file, message=None, sess
             await sqlite.set_settings_value(db_file, [key, val])
         # NOTE Perhaps this should be replaced
         # by functions clean and start
-        await task.refresh_task(self, jid, task.send_update,
-                                key, val)
+        await task.refresh_task(self, jid, task.send_update, key, val)
         response = ('Updates will be sent every {} minutes.'
                     .format(val))
     else:
@@ -131,7 +131,24 @@ async def xmpp_change_interval(self, key, val, jid, jid_file, message=None, sess
     if message:
         XmppMessage.send_reply(self, message, response)
     if session:
-        await XmppMessage.send(self, jid, response, chat_type='chat')
+        XmppMessage.send(self, jid, response, chat_type='chat')
+
+
+async def xmpp_start_updates(self, message, jid, jid_file):
+    key = 'enabled'
+    val = 1
+    db_file = config.get_pathname_to_database(jid_file)
+    if await sqlite.get_settings_value(db_file, key):
+        await sqlite.update_settings_value(db_file, [key, val])
+    else:
+        await sqlite.set_settings_value(db_file, [key, val])
+    status_type = 'available'
+    status_message = '💡️ Welcome back!'
+    XmppPresence.send(self, jid, status_message, status_type=status_type)
+    message_body = 'Updates are enabled.'
+    XmppMessage.send_reply(self, message, message_body)
+    await asyncio.sleep(5)
+    await task.start_tasks_xmpp(self, jid, ['check', 'status', 'interval'])
 
 
 async def xmpp_stop_updates(self, message, jid, jid_file):
@@ -143,11 +160,12 @@ async def xmpp_stop_updates(self, message, jid, jid_file):
     else:
         await sqlite.set_settings_value(db_file, [key, val])
     await task.clean_tasks_xmpp(jid, ['interval', 'status'])
-    response = 'Updates are disabled.'
-    XmppMessage.send_reply(self, message, response)
+    message_body = 'Updates are disabled.'
+    XmppMessage.send_reply(self, message, message_body)
     status_type = 'xa'
     status_message = '💡️ Send "Start" to receive Jabber updates'
-    await XmppStatus.send(self, jid, status_message, status_type)
+    XmppPresence.send(self, jid, status_message, status_type=status_type)
+
 
 def log_to_markdown(timestamp, filename, jid, message):
     """
@@ -473,7 +491,7 @@ def export_to_markdown(jid, filename, results):
         file.write(
             '\n\n* * *\n\nThis list was saved on {} from xmpp:{} using '
             '[Slixfeed](https://gitgud.io/sjehuda/slixfeed)\n'.format(
-                current_date(), jid))
+                dt.current_date(), jid))
 
 
 # TODO Consider adding element jid as a pointer of import
@@ -487,7 +505,7 @@ def export_to_opml(jid, filename, results):
     ET.SubElement(head, "generator").text = "Slixfeed"
     ET.SubElement(head, "urlPublic").text = (
         "https://gitgud.io/sjehuda/slixfeed")
-    time_stamp = current_time()
+    time_stamp = dt.current_time()
     ET.SubElement(head, "dateCreated").text = time_stamp
     ET.SubElement(head, "dateModified").text = time_stamp
     body = ET.SubElement(root, "body")
@@ -548,7 +566,7 @@ async def add_feed(db_file, url):
                     if "updated_parsed" in feed["feed"].keys():
                         updated = feed["feed"]["updated_parsed"]
                         try:
-                            updated = convert_struct_time_to_iso8601(updated)
+                            updated = dt.convert_struct_time_to_iso8601(updated)
                         except:
                             updated = ''
                     else:
@@ -594,7 +612,7 @@ async def add_feed(db_file, url):
                     if "date_published" in feed.keys():
                         updated = feed["date_published"]
                         try:
-                            updated = convert_struct_time_to_iso8601(updated)
+                            updated = dt.convert_struct_time_to_iso8601(updated)
                         except:
                             updated = ''
                     else:
@@ -676,7 +694,7 @@ async def scan_json(db_file, url):
             if "date_published" in feed.keys():
                 updated = feed["date_published"]
                 try:
-                    updated = convert_struct_time_to_iso8601(updated)
+                    updated = dt.convert_struct_time_to_iso8601(updated)
                 except:
                     updated = ''
             else:
@@ -697,12 +715,12 @@ async def scan_json(db_file, url):
         for entry in entries:
             if "date_published" in entry.keys():
                 date = entry["date_published"]
-                date = rfc2822_to_iso8601(date)
+                date = dt.rfc2822_to_iso8601(date)
             elif "date_modified" in entry.keys():
                 date = entry["date_modified"]
-                date = rfc2822_to_iso8601(date)
+                date = dt.rfc2822_to_iso8601(date)
             else:
-                date = now()
+                date = dt.now()
             if "url" in entry.keys():
                 # link = complete_url(source, entry.link)
                 link = join_url(url, entry["url"])
@@ -820,10 +838,10 @@ async def view_feed(url):
                         link = "*** No link ***"
                     if entry.has_key("published"):
                         date = entry.published
-                        date = rfc2822_to_iso8601(date)
+                        date = dt.rfc2822_to_iso8601(date)
                     elif entry.has_key("updated"):
                         date = entry.updated
-                        date = rfc2822_to_iso8601(date)
+                        date = dt.rfc2822_to_iso8601(date)
                     else:
                         date = "*** No date ***"
                     response += (
@@ -877,10 +895,10 @@ async def view_entry(url, num):
                     title = "*** No title ***"
                 if entry.has_key("published"):
                     date = entry.published
-                    date = rfc2822_to_iso8601(date)
+                    date = dt.rfc2822_to_iso8601(date)
                 elif entry.has_key("updated"):
                     date = entry.updated
-                    date = rfc2822_to_iso8601(date)
+                    date = dt.rfc2822_to_iso8601(date)
                 else:
                     date = "*** No date ***"
                 if entry.has_key("summary"):
@@ -965,7 +983,7 @@ async def scan(db_file, url):
             if "updated_parsed" in feed["feed"].keys():
                 updated = feed["feed"]["updated_parsed"]
                 try:
-                    updated = convert_struct_time_to_iso8601(updated)
+                    updated = dt.convert_struct_time_to_iso8601(updated)
                 except:
                     updated = ''
             else:
@@ -986,12 +1004,12 @@ async def scan(db_file, url):
         for entry in entries:
             if entry.has_key("published"):
                 date = entry.published
-                date = rfc2822_to_iso8601(date)
+                date = dt.rfc2822_to_iso8601(date)
             elif entry.has_key("updated"):
                 date = entry.updated
-                date = rfc2822_to_iso8601(date)
+                date = dt.rfc2822_to_iso8601(date)
             else:
-                date = now()
+                date = dt.now()
             if entry.has_key("link"):
                 # link = complete_url(source, entry.link)
                 link = join_url(url, entry.link)
@@ -1073,6 +1091,89 @@ async def scan(db_file, url):
             db_file, feed_id, new_entries)
 
 
+async def download_document(self, message, jid, jid_file, message_text, ix_url,
+                            readability):
+    ext = ' '.join(message_text.split(' ')[1:])
+    ext = ext if ext else 'pdf'
+    url = None
+    error = None
+    response = None
+    if ext in ('epub', 'html', 'markdown',
+               'md', 'pdf', 'text', 'txt'):
+        match ext:
+            case 'markdown':
+                ext = 'md'
+            case 'text':
+                ext = 'txt'
+        status_type = 'dnd'
+        status_message = ('📃️ Procesing request to produce {} document...'
+                          .format(ext.upper()))
+        XmppPresence.send(self, jid, status_message,
+                               status_type=status_type)
+        db_file = config.get_pathname_to_database(jid_file)
+        cache_dir = config.get_default_cache_directory()
+        if ix_url:
+            if not os.path.isdir(cache_dir):
+                os.mkdir(cache_dir)
+            if not os.path.isdir(cache_dir + '/readability'):
+                os.mkdir(cache_dir + '/readability')
+            try:
+                ix = int(ix_url)
+                try:
+                    url = sqlite.get_entry_url(db_file, ix)
+                except:
+                    response = 'No entry with index {}'.format(ix)
+            except:
+                url = ix_url
+            if url:
+                logging.info('Original URL: {}'
+                             .format(url))
+                url = uri.remove_tracking_parameters(url)
+                logging.info('Processed URL (tracker removal): {}'
+                             .format(url))
+                url = (uri.replace_hostname(url, 'link')) or url
+                logging.info('Processed URL (replace hostname): {}'
+                             .format(url))
+                result = await fetch.http(url)
+                data = result[0]
+                code = result[1]
+                if data:
+                    title = get_document_title(data)
+                    title = title.strip().lower()
+                    for i in (' ', '-'):
+                        title = title.replace(i, '_')
+                    for i in ('?', '"', '\'', '!'):
+                        title = title.replace(i, '')
+                    filename = os.path.join(
+                        cache_dir, 'readability',
+                        title + '_' + dt.timestamp() + '.' + ext)
+                    error = generate_document(data, url, ext, filename,
+                                              readability)
+                    if error:
+                        response = ('> {}\n'
+                                    'Failed to export {}.  Reason: {}'
+                                    .format(url, ext.upper(), error))
+                    else:
+                        url = await XmppUpload.start(self, jid,
+                                                 filename)
+                        chat_type = await get_chat_type(self, jid)
+                        XmppMessage.send_oob(self, jid, url, chat_type)
+                else:
+                    response = ('> {}\n'
+                                'Failed to fetch URL.  Reason: {}'
+                                .format(url, code))
+            await task.start_tasks_xmpp(self, jid, ['status'])
+        else:
+            response = 'Missing entry index number.'
+    else:
+        response = ('Unsupported filetype.\n'
+                    'Try: epub, html, md (markdown), '
+                    'pdf, or txt (text)')
+    if response:
+        logging.warning('Error for URL {}: {}'.format(url, error))
+        XmppMessage.send_reply(self, message, response)
+
+
 def get_document_title(data):
     try:
         document = Document(data)
@@ -1083,14 +1184,17 @@ def get_document_title(data):
     return title
 
 
-def generate_document(data, url, ext, filename):
+def generate_document(data, url, ext, filename, readability=False):
     error = None
-    try:
-        document = Document(data)
-        content = document.summary()
-    except:
+    if readability:
+        try:
+            document = Document(data)
+            content = document.summary()
+        except:
+            content = data
+            logging.warning('Check that package readability is installed.')
+    else:
         content = data
-        logging.warning('Check that package readability is installed.')
     match ext:
         case "epub":
             error = generate_epub(content, filename)
@@ -1319,7 +1423,7 @@ async def remove_nonexistent_entries(db_file, url, feed):
                     # print("compare11:", title, link, time)
                     # print("compare22:", entry_title, entry_link, timestamp)
                     # print("============")
-                    time = rfc2822_to_iso8601(entry.published)
+                    time = dt.rfc2822_to_iso8601(entry.published)
                     if (entry_title == title and
                         entry_link == link and
                         timestamp == time):
@@ -1423,7 +1527,7 @@ async def remove_nonexistent_entries_json(db_file, url, feed):
                     link = url
                 # "date_published" "date_modified"
                 if entry.has_key("date_published") and timestamp:
-                    time = rfc2822_to_iso8601(entry["date_published"])
+                    time = dt.rfc2822_to_iso8601(entry["date_published"])
                     if (entry_title == title and
                         entry_link == link and
                         timestamp == time):
