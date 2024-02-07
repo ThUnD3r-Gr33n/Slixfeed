@@ -3,44 +3,10 @@
 
 """
 
-FIXME
-
-1) Function check_readiness or event "changed_status" is causing for
-   triple status messages and also false ones that indicate of lack
-   of feeds.
-
 TODO
 
-1) Use loop (with gather) instead of TaskGroup.
-
-2) Assure message delivery before calling a new task.
-    See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-marker_acknowledged
-
-3) XHTTML-IM
-    case _ if message_lowercase.startswith("html"):
-        message['html']="
-Parse me!
-"
-        self.send_message(
-            mto=jid,
-            mfrom=self.boundjid.bare,
-            mhtml=message
-            )
-
-NOTE
-
-1) Self presence
-    Apparently, it is possible to view self presence.
-    This means that there is no need to store presences in order to switch or restore presence.
-    check_readiness
-    📂 Send a URL from a blog or a news website.
-    JID: self.boundjid.bare
-    MUC: self.alias
-
-2) Extracting attribute using xmltodict.
-    import xmltodict
-    message = xmltodict.parse(str(message))
-    jid = message["message"]["x"]["@jid"]
+1) Look into self.set_jid in order to be able to join to groupchats
+   https://slixmpp.readthedocs.io/en/latest/api/basexmpp.html#slixmpp.basexmpp.BaseXMPP.set_jid
 
 """
 
@@ -97,11 +63,23 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
     def __init__(self, jid, secret, hostname, port, alias=None):
         slixmpp.ComponentXMPP.__init__(self, jid, secret, hostname, port)
 
-        # The session_start event will be triggered when
-        # the bot establishes its connection with the server
-        # and the XML streams are ready for use. We want to
-        # listen for this event so that we we can initialize
-        # our roster.
+        # NOTE
+        # The bot works fine when the nickname is hardcoded; or
+        # The bot won't join some MUCs when its nickname has brackets
+
+        # Handler for nickname
+        self.alias = alias
+
+        # Handlers for tasks
+        self.task_manager = {}
+
+        # Handlers for ping
+        self.ping_task_instance = {}
+
+        # Handlers for connection events
+        self.connection_attempts = 0
+        self.max_connection_attempts = 10
+
         self.add_event_handler("session_start",
                                self.on_session_start)
         self.add_event_handler("session_resumed",
@@ -154,9 +132,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # Initialize event loop
         # self.loop = asyncio.get_event_loop()
 
-        # handlers for connection events
-        self.connection_attempts = 0
-        self.max_connection_attempts = 10
         self.add_event_handler('connection_failed',
                                self.on_connection_failed)
         self.add_event_handler('session_end',
@@ -241,21 +216,20 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # await task.check_readiness(self, presence)
         jid = presence['from'].bare
         if presence['show'] in ('away', 'dnd', 'xa'):
-            await task.clean_tasks_xmpp(jid, ['interval'])
+            task.clean_tasks_xmpp(self, jid, ['interval'])
             await task.start_tasks_xmpp(self, jid, ['status', 'check'])
 
 
     async def on_presence_subscribe(self, presence):
         jid = presence['from'].bare
         # XmppPresence.request(self, jid)
-        XmppPresence.subscribe(self, jid)
+        XmppPresence.subscription(self, jid, 'subscribe')
 
 
     async def on_presence_subscribed(self, presence):
         jid = presence['from'].bare
         message_subject = 'RSS News Bot'
-        message_body = ('Greetings!\n'
-                        'I am {}, the news anchor.\n'
+        message_body = ('Greetings! I am {}, the news anchor.\n'
                         'My job is to bring you the latest '
                         'news from sources you provide me with.\n'
                         'You may always reach me via xmpp:{}?message'
@@ -278,16 +252,18 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
     async def on_presence_unsubscribed(self, presence):
         jid = presence['from'].bare
         message_body = 'You have been unsubscribed.'
-        status_message = '🖋️ Subscribe to receive updates'
+        # status_message = '🖋️ Subscribe to receive updates'
+        # status_message = None
         XmppMessage.send(self, jid, message_body, 'chat')
-        XmppPresence.send(self, jid, status_message,
-                          presence_type='unsubscribed')
+        XmppPresence.subscription(self, jid, 'unsubscribe')
+        # XmppPresence.send(self, jid, status_message,
+        #                   presence_type='unsubscribed')
 
 
     async def on_presence_unavailable(self, presence):
         jid = presence['from'].bare
         # await task.stop_tasks(self, jid)
-        await task.clean_tasks_xmpp(jid)
+        task.clean_tasks_xmpp(self, jid)
 
 
     # TODO
@@ -299,7 +275,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         print("on_presence_error")
         print(presence)
         jid = presence["from"].bare
-        await task.clean_tasks_xmpp(jid)
+        task.clean_tasks_xmpp(self, jid)
 
 
     async def on_reactions(self, message):
@@ -310,36 +286,36 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
     async def on_chatstate_active(self, message):
         if message['type'] in ('chat', 'normal'):
             jid = message['from'].bare
-            # await task.clean_tasks_xmpp(jid, ['status'])
+            # task.clean_tasks_xmpp(self, jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
 
 
     async def on_chatstate_composing(self, message):
         if message['type'] in ('chat', 'normal'):
             jid = message['from'].bare
-            # await task.clean_tasks_xmpp(jid, ['status'])
-            status_message='Press "help" for manual, or "info" for information.'
+            # task.clean_tasks_xmpp(self, jid, ['status'])
+            status_message='💡 Press "help" for manual, or "info" for information.'
             XmppPresence.send(self, jid, status_message)
 
 
     async def on_chatstate_gone(self, message):
         if message['type'] in ('chat', 'normal'):
             jid = message['from'].bare
-            # await task.clean_tasks_xmpp(jid, ['status'])
+            # task.clean_tasks_xmpp(self, jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
 
 
     async def on_chatstate_inactive(self, message):
         if message['type'] in ('chat', 'normal'):
             jid = message['from'].bare
-            # await task.clean_tasks_xmpp(jid, ['status'])
+            # task.clean_tasks_xmpp(self, jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
 
 
     async def on_chatstate_paused(self, message):
         if message['type'] in ('chat', 'normal'):
             jid = message['from'].bare
-            # await task.clean_tasks_xmpp(jid, ['status'])
+            # task.clean_tasks_xmpp(self, jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
 
 

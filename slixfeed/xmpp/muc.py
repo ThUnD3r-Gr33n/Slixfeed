@@ -17,8 +17,6 @@ FIXME
 
 """
 import logging
-from slixfeed.dt import current_time
-from slixfeed.xmpp.message import XmppMessage
 
 class XmppGroupchat:
 

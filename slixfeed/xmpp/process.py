@@ -86,7 +86,7 @@ async def message(self, message):
         if (message_text.lower().startswith('http') and
             message_text.lower().endswith('.opml')):
             url = message_text
-            await task.clean_tasks_xmpp(jid, ['status'])
+            task.clean_tasks_xmpp(self, jid, ['status'])
             status_type = 'dnd'
             status_message = '📥️ Procesing request to import feeds...'
             XmppPresence.send(self, jid, status_message,
@@ -97,7 +97,7 @@ async def message(self, message):
                 response = 'Successfully imported {} feeds.'.format(count)
             else:
                 response = 'OPML file was not imported.'
-            # await task.clean_tasks_xmpp(jid, ['status'])
+            # task.clean_tasks_xmpp(self, jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
             XmppMessage.send_reply(self, message, response)
             return
@@ -296,7 +296,7 @@ async def message(self, message):
                         await action.scan(db_file, url)
                         old = await config.get_setting_value(db_file, "old")
                         if old:
-                            # await task.clean_tasks_xmpp(jid, ['status'])
+                            # task.clean_tasks_xmpp(self, jid, ['status'])
                             # await send_status(jid)
                             await task.start_tasks_xmpp(self, jid, ['status'])
                         else:
@@ -489,33 +489,25 @@ async def message(self, message):
             # case _ if (message_lowercase.startswith('http')) and(
             #     message_lowercase.endswith('.opml')):
             #     url = message_text
-            #     await task.clean_tasks_xmpp(
-            #         jid, ['status'])
+            #     task.clean_tasks_xmpp(self, jid, ['status'])
             #     status_type = 'dnd'
-            #     status_message = (
-            #         '📥️ Procesing request to import feeds...'
-            #         )
-            #     XmppPresence.send(
-            #         self, jid, status_message, status_type=status_type)
+            #     status_message = '📥️ Procesing request to import feeds...'
+            #     XmppPresence.send(self, jid, status_message,
+            #                       status_type=status_type)
             #     db_file = config.get_pathname_to_database(jid_file)
             #     count = await action.import_opml(db_file, url)
             #     if count:
-            #         response = (
-            #             'Successfully imported {} feeds.'
-            #             ).format(count)
+            #         response = ('Successfully imported {} feeds.'
+            #                     .format(count))
             #     else:
-            #         response = (
-            #             'OPML file was not imported.'
-            #             )
-            #     await task.clean_tasks_xmpp(
-            #         jid, ['status'])
-            #     await task.start_tasks_xmpp(
-            #         self, jid, ['status'])
+            #         response = 'OPML file was not imported.'
+            #     task.clean_tasks_xmpp(self, jid, ['status'])
+            #     await task.start_tasks_xmpp(self, jid, ['status'])
             #     XmppMessage.send_reply(self, message, response)
             case _ if (message_lowercase.startswith('http') or
                        message_lowercase.startswith('feed:')):
                 url = message_text
-                # await task.clean_tasks_xmpp(jid, ['status'])
+                # task.clean_tasks_xmpp(self, jid, ['status'])
                 status_type = 'dnd'
                 status_message = ('📫️ Processing request '
                                   'to fetch data from {}'
@@ -528,7 +520,7 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 # try:
                 response = await action.add_feed(db_file, url)
-                # await task.clean_tasks_xmpp(jid, ['status'])
+                # task.clean_tasks_xmpp(self, jid, ['status'])
                 await task.start_tasks_xmpp(self, jid, ['status'])
                 # except:
                 #     response = (
@@ -641,25 +633,11 @@ async def message(self, message):
 
                 await task.send_update(self, jid)
 
-                # await task.clean_tasks_xmpp(
-                #     jid, ['interval', 'status'])
-                # await task.start_tasks_xmpp(
-                #     self, jid, ['interval', 'status'])
+                # task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
+                # await task.start_tasks_xmpp(self, jid, ['status', 'interval'])
 
-                # await refresh_task(
-                #     self,
-                #     jid,
-                #     send_update,
-                #     'interval',
-                #     num
-                #     )
-                # await refresh_task(
-                #     self,
-                #     jid,
-                #     send_status,
-                #     'status',
-                #     20
-                #     )
+                # await refresh_task(self, jid, send_update, 'interval', num)
+                # await refresh_task(self, jid, send_status, 'status', 20)
                 # await refresh_task(jid, key, val)
             case 'old':
                 db_file = config.get_pathname_to_database(jid_file)
@@ -703,7 +681,7 @@ async def message(self, message):
                 data = message_text[5:]
                 data = data.split()
                 url = data[0]
-                await task.clean_tasks_xmpp(jid, ['status'])
+                task.clean_tasks_xmpp(self, jid, ['status'])
                 status_type = 'dnd'
                 status_message = ('📫️ Processing request to fetch data from {}'
                                   .format(url))
@@ -787,7 +765,7 @@ async def message(self, message):
                     #     'status',
                     #     20
                     #     )
-                    # await task.clean_tasks_xmpp(jid, ['status'])
+                    # task.clean_tasks_xmpp(self, jid, ['status'])
                     await task.start_tasks_xmpp(self, jid, ['status'])
                 else:
                     response = 'Missing feed URL or index number.'
@@ -795,7 +773,7 @@ async def message(self, message):
             case _ if message_lowercase.startswith('reset'):
                 # TODO Reset also by ID
                 ix_url = message_text[6:]
-                await task.clean_tasks_xmpp(jid, ['status'])
+                task.clean_tasks_xmpp(self, jid, ['status'])
                 status_type = 'dnd'
                 status_message = '📫️ Marking entries as read...'
                 XmppPresence.send(self, jid, status_message,
@@ -859,22 +837,24 @@ async def message(self, message):
                 response = await action.list_statistics(db_file)
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('disable '):
-                ix = message_text[8:]
+                feed_id = message_text[8:]
                 db_file = config.get_pathname_to_database(jid_file)
                 try:
-                    await sqlite.set_enabled_status(db_file, ix, 0)
+                    await sqlite.set_enabled_status(db_file, feed_id, 0)
+                    await sqlite.mark_feed_as_read(db_file, feed_id)
                     response = ('Updates are now disabled for news source {}.'
-                                .format(ix))
+                                .format(feed_id))
                 except:
-                    response = 'No news source with index {}.'.format(ix)
+                    response = 'No news source with index {}.'.format(feed_id)
                 XmppMessage.send_reply(self, message, response)
+                await task.start_tasks_xmpp(self, jid, ['status'])
             case _ if message_lowercase.startswith('enable'):
-                ix = message_text[7:]
+                feed_id = message_text[7:]
                 db_file = config.get_pathname_to_database(jid_file)
                 try:
-                    await sqlite.set_enabled_status(db_file, ix, 1)
+                    await sqlite.set_enabled_status(db_file, feed_id, 1)
                     response = ('Updates are now enabled for news source {}.'
-                                .format(ix))
+                                .format(feed_id))
                 except:
                     response = 'No news source with index {}.'.format(ix)
                 XmppMessage.send_reply(self, message, response)

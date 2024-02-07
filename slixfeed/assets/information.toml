@@ -61,7 +61,7 @@ No operator was specified for this instance.
 
 platforms = """
 Supported platforms: XMPP
-Platforms to be added in future: Briar, Email, IRC, Matrix, MQTT, Nostr, Tox.
+Platforms to be added in future: ActivityPub, Briar, Email, IRC, LXMF, Matrix, MQTT, Nostr, Tox.
 For ideal experience, we recommend using XMPP.
 """
 

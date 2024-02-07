@@ -53,9 +53,9 @@ from slixfeed.xmpp.connect import XmppConnect
 from slixfeed.xmpp.utility import get_chat_type
 import time
 
-main_task = []
-jid_tasker = {}
-task_manager = {}
+# main_task = []
+# jid_tasker = {}
+# task_manager = {}
 loop = asyncio.get_event_loop()
 
 
@@ -71,12 +71,12 @@ loop = asyncio.get_event_loop()
 
 
 def ping_task(self):
-    global ping_task_instance
+    # global ping_task_instance
     try:
-        ping_task_instance.cancel()
+        self.ping_task_instance.cancel()
     except:
         logging.info('No ping task to cancel.')
-    ping_task_instance = asyncio.create_task(XmppConnect.ping(self))
+    self.ping_task_instance = asyncio.create_task(XmppConnect.ping(self))
 
 
 """
@@ -94,21 +94,28 @@ await taskhandler.start_tasks(
 
 """
 async def start_tasks_xmpp(self, jid, tasks=None):
+    """
+    NOTE
+    
+    For proper activation of tasks involving task 'interval', it is essential
+    to place task 'interval' as the last to start due to await asyncio.sleep()
+    which otherwise would postpone tasks that would be set after task 'interval'
+    """
     if jid == self.boundjid.bare:
         return
     try:
-        task_manager[jid]
+        self.task_manager[jid]
     except KeyError as e:
-        task_manager[jid] = {}
+        self.task_manager[jid] = {}
         logging.debug('KeyError:', str(e))
         logging.info('Creating new task manager for JID {}'.format(jid))
     if not tasks:
         tasks = ['status', 'check', 'interval']
     logging.info('Stopping tasks {} for JID {}'.format(tasks, jid))
     for task in tasks:
-        # if task_manager[jid][task]:
+        # if self.task_manager[jid][task]:
         try:
-            task_manager[jid][task].cancel()
+            self.task_manager[jid][task].cancel()
         except:
             logging.info('No task {} for JID {} (start_tasks_xmpp)'
                           .format(task, jid))
@@ -120,10 +127,10 @@ async def start_tasks_xmpp(self, jid, tasks=None):
         # breakpoint()
         match task:
             case 'check':
-                task_manager[jid]['check'] = asyncio.create_task(
+                self.task_manager[jid]['check'] = asyncio.create_task(
                     check_updates(jid))
             case 'status':
-                task_manager[jid]['status'] = asyncio.create_task(
+                self.task_manager[jid]['status'] = asyncio.create_task(
                     send_status(self, jid))
             case 'interval':
                 jid_file = jid.replace('/', '_')
@@ -152,11 +159,11 @@ async def start_tasks_xmpp(self, jid, tasks=None):
                     await sqlite.update_last_update_time(db_file)
                 else:
                     await sqlite.set_last_update_time(db_file)
-                task_manager[jid]['interval'] = asyncio.create_task(
+                self.task_manager[jid]['interval'] = asyncio.create_task(
                     send_update(self, jid))
-    # for task in task_manager[jid].values():
+    # for task in self.task_manager[jid].values():
     #     print("task_manager[jid].values()")
-    #     print(task_manager[jid].values())
+    #     print(self.task_manager[jid].values())
     #     print("task")
     #     print(task)
     #     print("jid")
@@ -165,14 +172,14 @@ async def start_tasks_xmpp(self, jid, tasks=None):
     #     await task
 
 
-async def clean_tasks_xmpp(jid, tasks=None):
+def clean_tasks_xmpp(self, jid, tasks=None):
     if not tasks:
         tasks = ['interval', 'status', 'check']
     logging.info('Stopping tasks {} for JID {}'.format(tasks, jid))
     for task in tasks:
-        # if task_manager[jid][task]:
+        # if self.task_manager[jid][task]:
         try:
-            task_manager[jid][task].cancel()
+            self.task_manager[jid][task].cancel()
         except:
             logging.debug('No task {} for JID {} (clean_tasks_xmpp)'
                           .format(task, jid))
@@ -230,6 +237,8 @@ async def send_update(self, jid, num=None):
                 media = await action.extract_image_from_html(url)
             
             if media and news_digest:
+                print('SENDING MESSAGE (if media and news_digest)')
+                print(news_digest)
                 # Send textual message
                 XmppMessage.send(self, jid, news_digest, chat_type)
                 news_digest = ''
@@ -238,6 +247,8 @@ async def send_update(self, jid, num=None):
                 media = None
                 
         if news_digest:
+            print('SENDING MESSAGE (if news_digest)')
+            print(news_digest)
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
             # NOTE Do we need "if statement"? See NOTE at is_muc.
@@ -255,14 +266,13 @@ async def send_update(self, jid, num=None):
                 
         # TODO Do not refresh task before
         # verifying that it was completed.
-        await refresh_task(
-            self, jid, send_update, 'interval')
+        await refresh_task(self, jid, send_update, 'interval')
     # interval = await initdb(
     #     jid,
     #     sqlite.get_settings_value,
     #     "interval"
     # )
-    # task_manager[jid]["interval"] = loop.call_at(
+    # self.task_manager[jid]["interval"] = loop.call_at(
     #     loop.time() + 60 * interval,
     #     loop.create_task,
     #     send_update(jid)
@@ -298,7 +308,7 @@ async def send_status(self, jid):
     enabled = await config.get_setting_value(db_file, 'enabled')
     if not enabled:
         status_mode = 'xa'
-        status_text = '📫️ Send "Start" to receive updates'
+        status_text = '📪️ Send "Start" to receive updates'
     else:
         feeds = await sqlite.get_number_of_items(db_file, 'feeds')
         # print(await current_time(), jid, "has", feeds, "feeds")
@@ -350,29 +360,29 @@ async def refresh_task(self, jid, callback, key, val=None):
         jid_file = jid.replace('/', '_')
         db_file = config.get_pathname_to_database(jid_file)
         val = await config.get_setting_value(db_file, key)
-    # if task_manager[jid][key]:
-    if jid in task_manager:
+    # if self.task_manager[jid][key]:
+    if jid in self.task_manager:
         try:
-            task_manager[jid][key].cancel()
+            self.task_manager[jid][key].cancel()
         except:
             logging.info('No task of type {} to cancel for '
                          'JID {} (refresh_task)'.format(key, jid)
                 )
-        # task_manager[jid][key] = loop.call_at(
+        # self.task_manager[jid][key] = loop.call_at(
         #     loop.time() + 60 * float(val),
         #     loop.create_task,
         #     (callback(self, jid))
         #     # send_update(jid)
         # )
-        task_manager[jid][key] = loop.create_task(
+        self.task_manager[jid][key] = loop.create_task(
             wait_and_run(self, callback, jid, val)
         )
-        # task_manager[jid][key] = loop.call_later(
+        # self.task_manager[jid][key] = loop.call_later(
         #     60 * float(val),
         #     loop.create_task,
         #     send_update(jid)
         # )
-        # task_manager[jid][key] = send_update.loop.call_at(
+        # self.task_manager[jid][key] = send_update.loop.call_at(
         #     send_update.loop.time() + 60 * val,
         #     send_update.loop.create_task,
         #     send_update(jid)
@@ -399,7 +409,7 @@ async def check_updates(jid):
     while True:
         jid_file = jid.replace('/', '_')
         db_file = config.get_pathname_to_database(jid_file)
-        urls = await sqlite.get_feeds_url(db_file)
+        urls = await sqlite.get_active_feeds_url(db_file)
         for url in urls:
             await action.scan(db_file, url)
         val = config.get_value('settings', 'Settings', 'check')
@@ -416,7 +426,7 @@ async def check_updates(jid):
 NOTE
 This is an older system, utilizing local storage instead of XMPP presence.
 This function is good for use with protocols that might not have presence.
-ActivityPub, IRC, LXMF, Matrix, SMTP, Tox.
+ActivityPub, IRC, LXMF, Matrix, Nostr, SMTP, Tox.
 """
 async def select_file(self):
     """
@@ -446,10 +456,8 @@ async def select_file(self):
                 if (file.endswith('.db') and
                     not file.endswith('.db-jour.db')):
                     jid = file[:-3]
-                    main_task.extend(
-                        [tg.create_task(self.task_jid(jid))]
-                        )
+                    main_task.extend([tg.create_task(self.task_jid(jid))])
                     # main_task = [tg.create_task(self.task_jid(jid))]
-                    # task_manager.update({jid: tg})
+                    # self.task_manager.update({jid: tg})
 
 

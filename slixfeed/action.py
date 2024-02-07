@@ -143,7 +143,7 @@ async def xmpp_start_updates(self, message, jid, jid_file):
     else:
         await sqlite.set_settings_value(db_file, [key, val])
     status_type = 'available'
-    status_message = '💡️ Welcome back!'
+    status_message = '📫️ Welcome back!'
     XmppPresence.send(self, jid, status_message, status_type=status_type)
     message_body = 'Updates are enabled.'
     XmppMessage.send_reply(self, message, message_body)
@@ -159,11 +159,11 @@ async def xmpp_stop_updates(self, message, jid, jid_file):
         await sqlite.update_settings_value(db_file, [key, val])
     else:
         await sqlite.set_settings_value(db_file, [key, val])
-    await task.clean_tasks_xmpp(jid, ['interval', 'status'])
+    task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
     message_body = 'Updates are disabled.'
     XmppMessage.send_reply(self, message, message_body)
     status_type = 'xa'
-    status_message = '💡️ Send "Start" to receive Jabber updates'
+    status_message = '📪️ Send "Start" to receive Jabber updates'
     XmppPresence.send(self, jid, status_message, status_type=status_type)
 
 
@@ -1098,8 +1098,7 @@ async def download_document(self, message, jid, jid_file, message_text, ix_url,
     url = None
     error = None
     response = None
-    if ext in ('epub', 'html', 'markdown',
-               'md', 'pdf', 'text', 'txt'):
+    if ext in ('epub', 'html', 'markdown', 'md', 'pdf', 'text', 'txt'):
         match ext:
             case 'markdown':
                 ext = 'md'

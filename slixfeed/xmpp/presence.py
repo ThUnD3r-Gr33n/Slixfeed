@@ -7,6 +7,10 @@ NOTE
 
 Accept symbols 🉑️ 👍️ ✍
 
+TODO
+
+Remove subscription from JID that do not (stopped) share presence.
+
 """
 
 class XmppPresence:
@@ -20,18 +24,8 @@ class XmppPresence:
                            ptype=presence_type)
 
 
-    def subscribe(self, jid):
+    def subscription(self, jid, presence_type):
         self.send_presence_subscription(pto=jid,
                                         pfrom=self.boundjid.bare,
-                                        ptype='subscribe',
+                                        ptype=presence_type,
                                         pnick=self.alias)
-
-
-    def remove(self):
-        """
-        Remove subscription from JID that do not (stopped) share presence.
-
-        Returns
-        -------
-        None.
-        """

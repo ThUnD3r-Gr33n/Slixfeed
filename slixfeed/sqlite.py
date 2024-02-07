@@ -628,7 +628,7 @@ async def get_number_of_feeds_active(db_file):
 
     Returns
     -------
-    count : ?
+    count : str
         Number of rows.
     """
     with create_connection(db_file) as conn:
@@ -1018,7 +1018,7 @@ async def update_statistics(cur):
             cur.execute(sql, par)
 
 
-async def set_enabled_status(db_file, ix, status):
+async def set_enabled_status(db_file, feed_id, status):
     """
     Set status of feed to enabled or not enabled (i.e. disabled).
 
@@ -1026,8 +1026,8 @@ async def set_enabled_status(db_file, ix, status):
     ----------
     db_file : str
         Path to database file.
-    ix : str
-        Index of entry.
+    feed_id : str
+        Index of feed.
     status : int
         0 or 1.
     """
@@ -1038,12 +1038,12 @@ async def set_enabled_status(db_file, ix, status):
                 """
                 UPDATE feeds_state
                 SET enabled = :status
-                WHERE feed_id = :id
+                WHERE feed_id = :feed_id
                 """
                 )
             par = {
                 "status": status,
-                "id": ix
+                "feed_id": feed_id
                 }
             cur.execute(sql, par)
 
@@ -1395,7 +1395,7 @@ async def get_entries_of_feed(db_file, feed_id):
 # "feed" urls that are enabled in table "status"
 async def get_feeds_url(db_file):
     """
-    Query active feeds for URLs.
+    Query table feeds for URLs.
 
     Parameters
     ----------
@@ -1413,6 +1413,34 @@ async def get_feeds_url(db_file):
             """
             SELECT url
             FROM feeds
+            """
+            )
+        result = cur.execute(sql).fetchall()
+        return result
+
+
+async def get_active_feeds_url(db_file):
+    """
+    Query table feeds for active URLs.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    result : list
+        URLs of active feeds.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT feeds.url
+            FROM feeds
+            INNER JOIN feeds_state ON feeds.id = feeds_state.feed_id
+            WHERE feeds_state.enabled = 1
             """
             )
         result = cur.execute(sql).fetchall()
