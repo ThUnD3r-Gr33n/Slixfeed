@@ -63,16 +63,16 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 import slixfeed.config as config
 import slixfeed.sqlite as sqlite
 from slixfeed.xmpp.bookmark import XmppBookmark
-import slixfeed.xmpp.connect as connect
+from slixfeed.xmpp.connect import XmppConnect
 # NOTE MUC is possible for component
-# import slixfeed.xmpp.muc as muc
+from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.message import XmppMessage
 import slixfeed.xmpp.process as process
 import slixfeed.xmpp.profile as profile
-# import slixfeed.xmpp.roster as roster
+from slixfeed.xmpp.roster import XmppRoster
 # import slixfeed.xmpp.service as service
 from slixfeed.xmpp.presence import XmppPresence
-from slixfeed.xmpp.utility import XmppUtility
+from slixfeed.xmpp.utility import get_chat_type
 from slixmpp.xmlstream import ET
 # from slixmpp.xmlstream.handler import Callback
 # from slixmpp.xmlstream.matcher import MatchXPath
@@ -181,18 +181,18 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
     async def on_session_end(self, event):
         message = 'Session has ended.'
-        await connect.recover_connection(self, message)
+        await XmppConnect.recover(self, message)
 
 
     async def on_connection_failed(self, event):
         message = 'Connection has failed.  Reason: {}'.format(event)
-        await connect.recover_connection(self, message)
+        await XmppConnect.recover(self, message)
 
 
     async def on_session_start(self, event):
         self.send_presence()
         await self['xep_0115'].update_caps()
-        # await muc.autojoin(self)
+        # await XmppGroupchat.autojoin(self)
         profile.set_identity(self, 'service')
         await profile.update(self)
         task.ping_task(self)
@@ -207,7 +207,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
     async def on_session_resumed(self, event):
         self.send_presence()
         self['xep_0115'].update_caps()
-        # await muc.autojoin(self)
+        # await XmppGroupchat.autojoin(self)
         profile.set_identity(self, 'service')
         
         # Service.commands(self)
@@ -232,8 +232,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
         await process.message(self, message)
 
-        # chat_type = message['type']
-        # message_body = message['body']
+        # chat_type = message["type"]
+        # message_body = message["body"]
         # message_reply = message.reply
 
 
@@ -253,16 +253,15 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
     async def on_presence_subscribed(self, presence):
         jid = presence['from'].bare
-        if await XmppUtility.get_chat_type(self, jid) == 'chat':
-            message_subject = 'RSS News Bot'
-            message_body = ('Greetings!\n'
-                            'I am {}, the news anchor.\n'
-                            'My job is to bring you the latest '
-                            'news from sources you provide me with.\n'
-                            'You may always reach me via xmpp:{}?message'
-                            .format(self.alias, self.boundjid.bare))
-            XmppMessage.send_headline(self, jid, message_subject, message_body,
-                                      'chat')
+        message_subject = 'RSS News Bot'
+        message_body = ('Greetings!\n'
+                        'I am {}, the news anchor.\n'
+                        'My job is to bring you the latest '
+                        'news from sources you provide me with.\n'
+                        'You may always reach me via xmpp:{}?message'
+                        .format(self.alias, self.boundjid.bare))
+        XmppMessage.send_headline(self, jid, message_subject, message_body,
+                                  'chat')
 
 
     async def on_presence_available(self, presence):
@@ -270,20 +269,23 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # await task.start_tasks(self, presence)
         # NOTE Already done inside the start-task function
         jid = presence['from'].bare
+        # FIXME TODO Find out what is the source responsible for a couple presences with empty message
+        # NOTE This is a temporary solution
+        await asyncio.sleep(10)
         await task.start_tasks_xmpp(self, jid)
 
 
     async def on_presence_unsubscribed(self, presence):
         jid = presence['from'].bare
-        message = 'You have been unsubscribed.'
+        message_body = 'You have been unsubscribed.'
         status_message = '🖋️ Subscribe to receive updates'
-        chat_type = await XmppUtility.get_chat_type(self, jid)
-        XmppMessage.send(self, jid, message, chat_type)
-        XmppPresence.send(self, jid, status_message, chat_type)
+        XmppMessage.send(self, jid, message_body, 'chat')
+        XmppPresence.send(self, jid, status_message,
+                          presence_type='unsubscribed')
 
 
     async def on_presence_unavailable(self, presence):
-        jid = presence["from"].bare
+        jid = presence['from'].bare
         # await task.stop_tasks(self, jid)
         await task.clean_tasks_xmpp(jid)
 
@@ -317,8 +319,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             jid = message['from'].bare
             # await task.clean_tasks_xmpp(jid, ['status'])
             status_message='Press "help" for manual, or "info" for information.'
-            chat_type = await XmppUtility.get_chat_type(self, jid)
-            XmppPresence.send(self, jid, status_message, chat_type)
+            XmppPresence.send(self, jid, status_message)
 
 
     async def on_chatstate_gone(self, message):
@@ -340,6 +341,25 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             jid = message['from'].bare
             # await task.clean_tasks_xmpp(jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
+
+
+
+    # NOTE Failed attempt
+    # Need to use Super or Inheritance or both
+    #     self['xep_0050'].add_command(node='settings',
+    #                                  name='Settings',
+    #                                  handler=self._handle_settings)
+    #     self['xep_0050'].add_command(node='subscriptions',
+    #                                  name='Subscriptions',
+    #                                  handler=self._handle_subscriptions)
+
+
+    # async def _handle_settings(self, iq, session):
+    #     await XmppCommand._handle_settings(self, iq, session)
+
+
+    # async def _handle_subscriptions(self, iq, session):
+    #     await XmppCommand._handle_subscriptions(self, iq, session)
 
 
 # TODO Move class Service to a separate file
@@ -552,7 +572,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             value = True
         form.add_field(var='old',
                        ftype='boolean',
-                       desc='Mark items of newly added subscriptions as read.',
+                       desc='Do not mark items of newly added subscriptions '
+                            'as read.',
                        # label='Send only new items',
                        label='Include old news',
                        value=value)

@@ -64,8 +64,8 @@ import slixfeed.config as config
 import slixfeed.sqlite as sqlite
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.connect import XmppConnect
-from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.muc import XmppGroupchat
+from slixfeed.xmpp.message import XmppMessage
 import slixfeed.xmpp.process as process
 import slixfeed.xmpp.profile as profile
 from slixfeed.xmpp.roster import XmppRoster
@@ -146,8 +146,8 @@ class Slixfeed(slixmpp.ClientXMPP):
 
         self.add_event_handler("reactions",
                                self.on_reactions)
-        # self.add_event_handler("presence_error",
-        #                        self.on_presence_error)
+        self.add_event_handler("presence_error",
+                               self.on_presence_error)
         self.add_event_handler("presence_subscribe",
                                self.on_presence_subscribe)
         self.add_event_handler("presence_subscribed",
