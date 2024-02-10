@@ -21,6 +21,14 @@ TODO
 4) Replace sqlite.remove_nonexistent_entries by sqlite.check_entry_exist
    Same check, just reverse.
 
+5) Support protocol Gopher
+   See project /michael-lazar/pygopherd
+   See project /gopherball/gb
+
+6) Support ActivityPub @person@domain (see Tip Of The Day).
+    
+7) See project /offpunk/offblocklist.py
+
 """
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
@@ -41,17 +49,24 @@ except:
         "BitTorrent is disabled.")
 
 
+# class FetchDat:
 # async def dat():
 
+# class FetchFtp:
 # async def ftp():
-    
+
+# class FetchGemini:
 # async def gemini():
 
+# class FetchGopher:
 # async def gopher():
 
+# class FetchHttp:
 # async def http():
 
+# class FetchIpfs:
 # async def ipfs():
+
 
 def http_response(url):
     """

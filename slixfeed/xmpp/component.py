@@ -13,7 +13,7 @@ TODO
 import asyncio
 import logging
 # import os
-from random import randrange
+# from random import randrange
 import slixmpp
 import slixfeed.task as task
 from time import sleep
@@ -31,11 +31,11 @@ import slixfeed.sqlite as sqlite
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.connect import XmppConnect
 # NOTE MUC is possible for component
-from slixfeed.xmpp.muc import XmppGroupchat
+# from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.message import XmppMessage
 import slixfeed.xmpp.process as process
 import slixfeed.xmpp.profile as profile
-from slixfeed.xmpp.roster import XmppRoster
+# from slixfeed.xmpp.roster import XmppRoster
 # import slixfeed.xmpp.service as service
 from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.utility import get_chat_type
@@ -74,7 +74,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         self.task_manager = {}
 
         # Handlers for ping
-        self.ping_task_instance = {}
+        self.task_ping_instance = {}
 
         # Handlers for connection events
         self.connection_attempts = 0
@@ -170,7 +170,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # await XmppGroupchat.autojoin(self)
         profile.set_identity(self, 'service')
         await profile.update(self)
-        task.ping_task(self)
+        task.task_ping(self)
         
         # Service.commands(self)
         # Service.reactions(self)
@@ -179,7 +179,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         self.service_reactions()
 
 
-    async def on_session_resumed(self, event):
+    def on_session_resumed(self, event):
         self.send_presence()
         self['xep_0115'].update_caps()
         # await XmppGroupchat.autojoin(self)
@@ -220,13 +220,13 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             await task.start_tasks_xmpp(self, jid, ['status', 'check'])
 
 
-    async def on_presence_subscribe(self, presence):
+    def on_presence_subscribe(self, presence):
         jid = presence['from'].bare
         # XmppPresence.request(self, jid)
         XmppPresence.subscription(self, jid, 'subscribe')
 
 
-    async def on_presence_subscribed(self, presence):
+    def on_presence_subscribed(self, presence):
         jid = presence['from'].bare
         message_subject = 'RSS News Bot'
         message_body = ('Greetings! I am {}, the news anchor.\n'
@@ -249,7 +249,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         await task.start_tasks_xmpp(self, jid)
 
 
-    async def on_presence_unsubscribed(self, presence):
+    def on_presence_unsubscribed(self, presence):
         jid = presence['from'].bare
         message_body = 'You have been unsubscribed.'
         # status_message = '🖋️ Subscribe to receive updates'
@@ -260,7 +260,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         #                   presence_type='unsubscribed')
 
 
-    async def on_presence_unavailable(self, presence):
+    def on_presence_unavailable(self, presence):
         jid = presence['from'].bare
         # await task.stop_tasks(self, jid)
         task.clean_tasks_xmpp(self, jid)
@@ -271,14 +271,14 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
     # Check whether JID is in bookmarks or roster
     # If roster, remove contact JID into file 
     # If bookmarks, remove groupchat JID into file 
-    async def on_presence_error(self, presence):
+    def on_presence_error(self, presence):
         print("on_presence_error")
         print(presence)
         jid = presence["from"].bare
         task.clean_tasks_xmpp(self, jid)
 
 
-    async def on_reactions(self, message):
+    def on_reactions(self, message):
         print(message['from'])
         print(message['reactions']['values'])
 
@@ -290,11 +290,12 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             await task.start_tasks_xmpp(self, jid, ['status'])
 
 
-    async def on_chatstate_composing(self, message):
+    def on_chatstate_composing(self, message):
         if message['type'] in ('chat', 'normal'):
             jid = message['from'].bare
             # task.clean_tasks_xmpp(self, jid, ['status'])
-            status_message='💡 Press "help" for manual, or "info" for information.'
+            status_message = ('💡 Send "help" for manual, or "info" for '
+                              'information.')
             XmppPresence.send(self, jid, status_message)
 
 

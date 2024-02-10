@@ -86,6 +86,7 @@ except ImportError:
         "Package readability was not found.\n"
         "Arc90 Lab algorithm is disabled.")
 
+
 def manual(filename, section=None, command=None):
     config_dir = config.get_default_config_directory()
     with open(config_dir + '/' + filename, mode="rb") as commands:
@@ -111,7 +112,8 @@ def manual(filename, section=None, command=None):
     return cmd_list
 
 
-async def xmpp_change_interval(self, key, val, jid, jid_file, message=None, session=None):
+async def xmpp_change_interval(self, key, val, jid, jid_file, message=None,
+                               session=None):
     if val:
         # response = (
         #     'Updates will be sent every {} minutes.'
@@ -123,7 +125,7 @@ async def xmpp_change_interval(self, key, val, jid, jid_file, message=None, sess
             await sqlite.set_settings_value(db_file, [key, val])
         # NOTE Perhaps this should be replaced
         # by functions clean and start
-        await task.refresh_task(self, jid, task.send_update, key, val)
+        await task.refresh_task(self, jid, task.task_send, key, val)
         response = ('Updates will be sent every {} minutes.'
                     .format(val))
     else:
@@ -344,17 +346,17 @@ def list_search_results(query, results):
     return message
 
 
-def list_feeds_by_query(query, results):
+def list_feeds_by_query(db_file, query):
+    results = sqlite.search_feeds(db_file, query)
     message = (
-        "Feeds containing '{}':\n\n```"
-        ).format(query)
+        'Feeds containing "{}":\n\n```'
+        .format(query))
     for result in results:
         message += (
-            "\nName : {} [{}]"
-            "\nURL  : {}"
-            "\n"
-            ).format(
-                str(result[0]), str(result[1]), str(result[2]))
+            '\nName : {} [{}]'
+            '\nURL  : {}'
+            '\n'
+            .format(str(result[0]), str(result[1]), str(result[2])))
     if len(results):
         message += "\n```\nTotal of {} feeds".format(len(results))
     else:

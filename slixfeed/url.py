@@ -3,6 +3,13 @@
 
 """
 
+FIXME
+
+1) Do not handle base64
+   https://www.lilithsaintcrow.com/2024/02/love-anonymous/
+   data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABaAAAAeAAQAAAAAQ6M16AAAAAnRSTlMAAHaTzTgAAAFmSURBVBgZ7cEBAQAAAIKg/q92SMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgWE3LAAGyZmPPAAAAAElFTkSuQmCC
+   https://www.lilithsaintcrow.com/2024/02/love-anonymous//image/png;base64,iVBORw0KGgoAAAANSUhEUgAABaAAAAeAAQAAAAAQ6M16AAAAAnRSTlMAAHaTzTgAAAFmSURBVBgZ7cEBAQAAAIKg/q92SMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgWE3LAAGyZmPPAAAAAElFTkSuQmCC
+
 TODO
 
 1) ActivityPub URL revealer activitypub_to_http.
@@ -39,6 +46,7 @@ from urllib.parse import (
 def get_hostname(url):
     parted_url = urlsplit(url)
     return parted_url.netloc
+
 
 def replace_hostname(url, url_type):
     """
@@ -120,6 +128,8 @@ def remove_tracking_parameters(url):
     url : str
         URL.
     """
+    if url.startswith('data:') and ';base64,' in url:
+        return url
     parted_url = urlsplit(url)
     protocol = parted_url.scheme
     hostname = parted_url.netloc
@@ -192,6 +202,8 @@ def complete_url(source, link):
     str
         URL.
     """
+    if link.startswith('data:') and ';base64,' in link:
+        return link
     if link.startswith('www.'):
         return 'http://' + link
     parted_link = urlsplit(link)
@@ -270,6 +282,8 @@ def join_url(source, link):
     str
         URL.
     """
+    if link.startswith('data:') and ';base64,' in link:
+        return link
     if link.startswith('www.'):
         new_link = 'http://' + link
     elif link.startswith('%20') and link.endswith('%20'):
@@ -296,6 +310,8 @@ def trim_url(url):
     url : str
         URL.
     """
+    if url.startswith('data:') and ';base64,' in url:
+        return url
     parted_url = urlsplit(url)
     protocol = parted_url.scheme
     hostname = parted_url.netloc

@@ -3,6 +3,14 @@
 
 """
 
+FIXME
+
+1) https://wiki.pine64.org
+     File "/slixfeed/crawl.py", line 178, in feed_mode_guess
+       address = join_url(url, parted_url.path.split('/')[1] + path)
+                               ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+   IndexError: list index out of range
+
 TODO
 
 1.1) Attempt to scan more paths: /blog/, /news/ etc., including root / 

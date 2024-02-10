@@ -5,11 +5,17 @@
 
 FIXME
 
+0) URGENT!!! Place "await asyncio.sleep(next_update_time)" ***inside*** the
+   task, and not outside as it is now!
+
+
 1) Function check_readiness or event "changed_status" is causing for
    triple status messages and also false ones that indicate of lack
    of feeds.
 
 TODO
+
+0) Move functions send_status and send_update to module action
 
 1) Deprecate "add" (see above) and make it interactive.
    Slixfeed: Do you still want to add this URL to subscription list?
@@ -70,13 +76,13 @@ loop = asyncio.get_event_loop()
 #     task_ping = asyncio.create_task(ping(self, jid=None))
 
 
-def ping_task(self):
-    # global ping_task_instance
+def task_ping(self):
+    # global task_ping_instance
     try:
-        self.ping_task_instance.cancel()
+        self.task_ping_instance.cancel()
     except:
         logging.info('No ping task to cancel.')
-    self.ping_task_instance = asyncio.create_task(XmppConnect.ping(self))
+    self.task_ping_instance = asyncio.create_task(XmppConnect.ping(self))
 
 
 """
@@ -118,7 +124,7 @@ async def start_tasks_xmpp(self, jid, tasks=None):
             self.task_manager[jid][task].cancel()
         except:
             logging.info('No task {} for JID {} (start_tasks_xmpp)'
-                          .format(task, jid))
+                         .format(task, jid))
     logging.info('Starting tasks {} for JID {}'.format(tasks, jid))
     for task in tasks:
         # print("task:", task)
@@ -133,34 +139,8 @@ async def start_tasks_xmpp(self, jid, tasks=None):
                 self.task_manager[jid]['status'] = asyncio.create_task(
                     send_status(self, jid))
             case 'interval':
-                jid_file = jid.replace('/', '_')
-                db_file = config.get_pathname_to_database(jid_file)
-                update_interval = await config.get_setting_value(db_file,
-                                                                 'interval')
-                update_interval = 60 * int(update_interval)
-                last_update_time = await sqlite.get_last_update_time(db_file)
-                if last_update_time:
-                    last_update_time = float(last_update_time)
-                    diff = time.time() - last_update_time
-                    if diff < update_interval:
-                        next_update_time = update_interval - diff
-                        await asyncio.sleep(next_update_time)
-
-                        # print("jid              :", jid, "\n"
-                        #       "time             :", time.time(), "\n"
-                        #       "last_update_time :", last_update_time, "\n"
-                        #       "difference       :", diff, "\n"
-                        #       "update interval  :", update_interval, "\n"
-                        #       "next_update_time :", next_update_time, "\n"
-                        #       )
-
-                    # elif diff > val:
-                    #     next_update_time = val
-                    await sqlite.update_last_update_time(db_file)
-                else:
-                    await sqlite.set_last_update_time(db_file)
                 self.task_manager[jid]['interval'] = asyncio.create_task(
-                    send_update(self, jid))
+                    task_send(self, jid))
     # for task in self.task_manager[jid].values():
     #     print("task_manager[jid].values()")
     #     print(self.task_manager[jid].values())
@@ -172,20 +152,57 @@ async def start_tasks_xmpp(self, jid, tasks=None):
     #     await task
 
 
-def clean_tasks_xmpp(self, jid, tasks=None):
-    if not tasks:
-        tasks = ['interval', 'status', 'check']
-    logging.info('Stopping tasks {} for JID {}'.format(tasks, jid))
-    for task in tasks:
-        # if self.task_manager[jid][task]:
-        try:
-            self.task_manager[jid][task].cancel()
-        except:
-            logging.debug('No task {} for JID {} (clean_tasks_xmpp)'
-                          .format(task, jid))
+async def task_send(self, jid):
+    print("task_send for", jid)
+    try:
+        self.task_manager[jid]['interval'].cancel()
+    except:
+        logging.info('No task interval for JID {} (start_tasks_xmpp)'
+                     .format(jid))
+    jid_file = jid.replace('/', '_')
+    print(jid_file)
+    db_file = config.get_pathname_to_database(jid_file)
+    print(db_file)
+    update_interval = await config.get_setting_value(db_file, 'interval')
+    print(update_interval)
+    update_interval = 60 * int(update_interval)
+    print(update_interval)
+    last_update_time = await sqlite.get_last_update_time(db_file)
+    print(last_update_time)
+    if last_update_time:
+        print('if')
+        last_update_time = float(last_update_time)
+        diff = time.time() - last_update_time
+        if diff < update_interval:
+            next_update_time = update_interval - diff
+            print('next_update_time')
+            print(next_update_time)
+            print(next_update_time/60/60)
+            await asyncio.sleep(next_update_time) # FIXME!
+            print('after await sleep')
+
+            # print("jid              :", jid, "\n"
+            #       "time             :", time.time(), "\n"
+            #       "last_update_time :", last_update_time, "\n"
+            #       "difference       :", diff, "\n"
+            #       "update interval  :", update_interval, "\n"
+            #       "next_update_time :", next_update_time, "\n"
+            #       )
+
+        # elif diff > val:
+        #     next_update_time = val
+        print('await (if)')
+        await sqlite.update_last_update_time(db_file)
+    else:
+        print('await (else)')
+        await sqlite.set_last_update_time(db_file)
+    print("await is done for", jid)
+    await xmpp_send_update(self, jid)
+    await start_tasks_xmpp(self, jid, ['status'])
+    await refresh_task(self, jid, task_send, 'interval')
 
 
-async def send_update(self, jid, num=None):
+async def xmpp_send_update(self, jid, num=None):
     """
     Send news items as messages.
 
@@ -196,21 +213,28 @@ async def send_update(self, jid, num=None):
     num : str, optional
         Number. The default is None.
     """
-    logging.info('Sending a news update to JID {}'.format(jid))
+    print('Sending a news update to JID {}'.format(jid))
     jid_file = jid.replace('/', '_')
+    print(jid_file)
     db_file = config.get_pathname_to_database(jid_file)
+    print(db_file)
     enabled = await config.get_setting_value(db_file, 'enabled')
+    print(enabled)
     if enabled:
+        print('enabled')
         if not num:
             num = await config.get_setting_value(db_file, 'quantum')
         else:
             num = int(num)
-        news_digest = []
+        print(num)
         results = await sqlite.get_unread_entries(db_file, num)
+        print(results)
         news_digest = ''
         media = None
         chat_type = await get_chat_type(self, jid)
+        print(jid, num, chat_type)
         for result in results:
+            print(result)
             ix = result[0]
             title_e = result[1]
             url = result[2]
@@ -239,6 +263,7 @@ async def send_update(self, jid, num=None):
             if media and news_digest:
                 print('SENDING MESSAGE (if media and news_digest)')
                 print(news_digest)
+                print(media)
                 # Send textual message
                 XmppMessage.send(self, jid, news_digest, chat_type)
                 news_digest = ''
@@ -249,12 +274,13 @@ async def send_update(self, jid, num=None):
         if news_digest:
             print('SENDING MESSAGE (if news_digest)')
             print(news_digest)
+            XmppMessage.send(self, jid, news_digest, chat_type)
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
             # NOTE Do we need "if statement"? See NOTE at is_muc.
-            if chat_type in ('chat', 'groupchat'):
-                # TODO Provide a choice (with or without images)
-                XmppMessage.send(self, jid, news_digest, chat_type)
+            # if chat_type in ('chat', 'groupchat'):
+            #     # TODO Provide a choice (with or without images)
+            #     XmppMessage.send(self, jid, news_digest, chat_type)
         # See XEP-0367
         # if media:
         #     # message = xmpp.Slixfeed.make_message(
@@ -266,7 +292,10 @@ async def send_update(self, jid, num=None):
                 
         # TODO Do not refresh task before
         # verifying that it was completed.
-        await refresh_task(self, jid, send_update, 'interval')
+
+        # await start_tasks_xmpp(self, jid, ['status'])
+        # await refresh_task(self, jid, send_update, 'interval')
+
     # interval = await initdb(
     #     jid,
     #     sqlite.get_settings_value,
@@ -290,6 +319,19 @@ async def send_update(self, jid, num=None):
 
     # print
     # await handle_event()
+
+
+def clean_tasks_xmpp(self, jid, tasks=None):
+    if not tasks:
+        tasks = ['interval', 'status', 'check']
+    logging.info('Stopping tasks {} for JID {}'.format(tasks, jid))
+    for task in tasks:
+        # if self.task_manager[jid][task]:
+        try:
+            self.task_manager[jid][task].cancel()
+        except:
+            logging.debug('No task {} for JID {} (clean_tasks_xmpp)'
+                          .format(task, jid))
 
 
 async def send_status(self, jid):

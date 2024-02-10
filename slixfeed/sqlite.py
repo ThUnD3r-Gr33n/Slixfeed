@@ -10,6 +10,11 @@ TODO
    All other functions to receive cursor.
 
 2) Merge function add_metadata into function import_feeds.
+
+3) SQL prepared statements.
+
+4) Support categories;
+
 """
 
 from asyncio import Lock
@@ -66,6 +71,51 @@ def create_tables(db_file):
         Path to database file.
     """
     with create_connection(db_file) as conn:
+        archive_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS archive (
+                id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                link TEXT NOT NULL,
+                enclosure TEXT,
+                entry_id TEXT NOT NULL,
+                feed_id INTEGER NOT NULL,
+                timestamp TEXT,
+                read INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
+        categories_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER NOT NULL,
+                name TEXT,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
+        entries_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS entries (
+                id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                link TEXT NOT NULL,
+                enclosure TEXT,
+                entry_id TEXT NOT NULL,
+                feed_id INTEGER NOT NULL,
+                timestamp TEXT,
+                read INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
         feeds_table_sql = (
             """
             CREATE TABLE IF NOT EXISTS feeds (
@@ -76,18 +126,19 @@ def create_tables(db_file):
               );
             """
             )
-        feeds_statistics_table_sql = (
+        # TODO Rethink!
+        # Albeit, probably, more expensive, we might want to have feed_id
+        # as foreign key, as it is with feeds_properties and feeds_state
+        feeds_categories_table_sql = (
             """
-            CREATE TABLE IF NOT EXISTS statistics (
+            CREATE TABLE IF NOT EXISTS feeds_categories (
                 id INTEGER NOT NULL,
-                feed_id INTEGER NOT NULL UNIQUE,
-                offline INTEGER,
-                entries INTEGER,
-                entries INTEGER,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                category_id INTEGER NOT NULL UNIQUE,
+                feed_id INTEGER,
+                FOREIGN KEY ("category_id") REFERENCES "categories" ("id")
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,
-                PRIMARY KEY ("id")
+                PRIMARY KEY (id)
               );
             """
             )
@@ -127,53 +178,32 @@ def create_tables(db_file):
               );
             """
             )
+        feeds_statistics_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS statistics (
+                id INTEGER NOT NULL,
+                feed_id INTEGER NOT NULL UNIQUE,
+                offline INTEGER,
+                entries INTEGER,
+                entries INTEGER,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
         # TODO
         # Consider parameter unique:
         # entry_id TEXT NOT NULL UNIQUE,
         # Will eliminate function:
         # check_entry_exist
-        entries_table_sql = (
+        filters_table_sql = (
             """
-            CREATE TABLE IF NOT EXISTS entries (
-                id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                link TEXT NOT NULL,
-                enclosure TEXT,
-                entry_id TEXT NOT NULL,
-                feed_id INTEGER NOT NULL,
-                timestamp TEXT,
-                read INTEGER NOT NULL DEFAULT 0,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
-                  ON UPDATE CASCADE
-                  ON DELETE CASCADE,
-                PRIMARY KEY ("id")
-              );
-            """
-            )
-        archive_table_sql = (
-            """
-            CREATE TABLE IF NOT EXISTS archive (
-                id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                link TEXT NOT NULL,
-                enclosure TEXT,
-                entry_id TEXT NOT NULL,
-                feed_id INTEGER NOT NULL,
-                timestamp TEXT,
-                read INTEGER NOT NULL DEFAULT 0,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
-                  ON UPDATE CASCADE
-                  ON DELETE CASCADE,
-                PRIMARY KEY ("id")
-              );
-            """
-            )
-        status_table_sql = (
-            """
-            CREATE TABLE IF NOT EXISTS status (
+            CREATE TABLE IF NOT EXISTS filters (
                 id INTEGER NOT NULL,
                 key TEXT NOT NULL,
-                value INTEGER,
+                value TEXT,
                 PRIMARY KEY ("id")
               );
             """
@@ -188,12 +218,12 @@ def create_tables(db_file):
               );
             """
             )
-        filters_table_sql = (
+        status_table_sql = (
             """
-            CREATE TABLE IF NOT EXISTS filters (
+            CREATE TABLE IF NOT EXISTS status (
                 id INTEGER NOT NULL,
                 key TEXT NOT NULL,
-                value TEXT,
+                value INTEGER,
                 PRIMARY KEY ("id")
               );
             """
@@ -863,17 +893,17 @@ async def archive_entry(db_file, ix):
                     )
 
 
-def get_feed_title(db_file, ix):
+def get_feed_title(db_file, feed_id):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
             """
             SELECT name
             FROM feeds
-            WHERE id = :ix
+            WHERE id = :feed_id
             """
             )
-        par = (ix,)
+        par = (feed_id,)
         title = cur.execute(sql, par).fetchone()
         return title
 
@@ -1520,7 +1550,7 @@ async def last_entries(db_file, num):
         return results
 
 
-async def search_feeds(db_file, query):
+def search_feeds(db_file, query):
     """
     Query feeds.
 

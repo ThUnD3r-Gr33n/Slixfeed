@@ -19,6 +19,10 @@ TODO
 
 6) Use TOML https://ruudvanasseldonk.com/2023/01/11/the-yaml-document-from-hell
 
+7) Make the program portable (directly use the directory assets) -- Thorsten
+
+7.1) Read missing files from base directories or either set error message.
+
 """
 
 import configparser

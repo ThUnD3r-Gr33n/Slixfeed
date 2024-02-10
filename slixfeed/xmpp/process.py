@@ -534,8 +534,7 @@ async def message(self, message):
                 if query:
                     if len(query) > 3:
                         db_file = config.get_pathname_to_database(jid_file)
-                        result = await sqlite.search_feeds(db_file, query)
-                        response = action.list_feeds_by_query(query, result)
+                        response = action.list_feeds_by_query(db_file, query)
                     else:
                         response = 'Enter at least 4 characters to search'
                 else:
@@ -546,7 +545,7 @@ async def message(self, message):
             case 'goodbye':
                 if message['type'] == 'groupchat':
                     await XmppGroupchat.leave(self, jid)
-                    await XmppBookmark.remove(self, muc_jid)
+                    await XmppBookmark.remove(self, jid)
                 else:
                     response = 'This command is valid in groupchat only.'
                 XmppMessage.send_reply(self, message, response)
@@ -631,7 +630,7 @@ async def message(self, message):
                 # num = message_text[5:]
                 # await task.send_update(self, jid, num)
 
-                await task.send_update(self, jid)
+                await task.xmpp_send_update(self, jid)
 
                 # task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
                 # await task.start_tasks_xmpp(self, jid, ['status', 'interval'])
@@ -842,8 +841,11 @@ async def message(self, message):
                 try:
                     await sqlite.set_enabled_status(db_file, feed_id, 0)
                     await sqlite.mark_feed_as_read(db_file, feed_id)
-                    response = ('Updates are now disabled for news source {}.'
-                                .format(feed_id))
+                    name = sqlite.get_feed_title(db_file, feed_id)[0]
+                    addr = sqlite.get_feed_url(db_file, feed_id)[0]
+                    response = ('> {}\n'
+                                'Updates are now disabled for news source "{}"'
+                                .format(addr, name))
                 except:
                     response = 'No news source with index {}.'.format(feed_id)
                 XmppMessage.send_reply(self, message, response)
@@ -853,8 +855,11 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 try:
                     await sqlite.set_enabled_status(db_file, feed_id, 1)
-                    response = ('Updates are now enabled for news source {}.'
-                                .format(feed_id))
+                    name = sqlite.get_feed_title(db_file, feed_id)[0]
+                    addr = sqlite.get_feed_url(db_file, feed_id)[0]
+                    response = ('> {}\n'
+                                'Updates are now enabled for news source "{}"'
+                                .format(addr, name))
                 except:
                     response = 'No news source with index {}.'.format(ix)
                 XmppMessage.send_reply(self, message, response)

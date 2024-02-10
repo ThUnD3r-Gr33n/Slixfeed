@@ -3,10 +3,10 @@ Slixfeed
 
 A Syndication bot for the XMPP communication network.
 
-Slixfeed aims to be an easy to use and fully-featured news \
-aggregator bot for XMPP.  It provides a convenient access to Blogs, \
-News websites and even Fediverse instances, along with filtering \
-functionality.
+Slixfeed is a news broker which aims to be an easy to use and fully-\
+featured news aggregator bot.  It provides a convenient access to \
+Blogs, News websites and even Fediverse instances, along with \
+filtering functionality.
 
 Slixfeed is primarily designed for XMPP (aka Jabber). \
 Visit https://xmpp.org/software/ for more information.
@@ -61,7 +61,7 @@ No operator was specified for this instance.
 
 platforms = """
 Supported platforms: XMPP
-Platforms to be added in future: ActivityPub, Briar, Email, IRC, LXMF, Matrix, MQTT, Nostr, Tox.
+Platforms to be added in future: ActivityPub, Briar, Email, IRC, LXMF, Matrix, MQTT, Nostr, Session, Tox.
 For ideal experience, we recommend using XMPP.
 """
 
@@ -78,10 +78,15 @@ Protocols to be added in future: Dat, FTP, Gemini, Gopher, IPFS.
 resources = """
 Slixfeed
 https://gitgud.io/sjehuda/slixfeed
+
 Slixmpp
 https://slixmpp.readthedocs.io/
+
 feedparser
 https://pythonhosted.org/feedparser
+
+XMPP
+https://xmpp.org/about/
 """
 
 terms = """
@@ -113,13 +118,14 @@ imattau (atomtopubsub), \
 Jaussoin Timothée <mov.im> (Movim, France), \
 Justin Karneges <jblog.andbit.net> (Psi, California), \
 Kevin Smith <isode.com> (Swift IM, Wales), \
+Lars Windolf (Liferea, Germany), \
 Luis Henrique Mello (SalixOS, Brazil), \
 magicfelix, \
 Markus Muttilainen (SalixOS), \
 Martin <debacle@debian.org> (Debian, Germany), \
 Mathieu Pasquet (slixmpp, France), \
 Maxime Buquet (slixmpp, France), \
-Phillip Watkins (United Kingdom, SalixOS), \
+Phillip Watkins (SalixOS, United Kingdom), \
 Pierrick Le Brun (SalixOS, France), \
 Raphael Groner (Fedora, Germany), \
 Remko Tronçon <mko.re> (Psi , Belgium), \

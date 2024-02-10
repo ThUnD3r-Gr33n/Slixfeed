@@ -8,9 +8,9 @@ FIXME
     Consequently, it might result in database lock error upon
     feed removal attempt
 
-TODO
+2) Communicate to messages of new contacts (not subscribed and not in roster)
 
-1) SQL prepared statements;
+TODO
 
 2) Machine Learning for scrapping Title, Link, Summary and Timstamp;
    Scrape element </article> (example: Liferea)
@@ -22,15 +22,9 @@ TODO
    Perhaps not, as it would require to check every feed for this setting.
    Maybe a separate bot;
 
-4) Support categories;
+5) OMEMO;
 
-5) XMPP commands;
-
-6) Bot as service;
-
-7) OMEMO;
-
-8) Logging;
+6) Logging;
    https://docs.python.org/3/howto/logging.html
 
 9) Readability
@@ -43,12 +37,6 @@ TODO
     Store 5 upcoming summaries.
     This would help making the database files smaller.
 
-11) Support protocol Gopher
-    See project /michael-lazar/pygopherd
-    See project /gopherball/gb
-
-12) Support ActivityPub @person@domain (see Tip Of The Day).
-
 13) Tip Of The Day.
     Did you know that you can follow you favorite Mastodon feeds by just
     sending the URL address?
@@ -57,20 +45,14 @@ TODO
         Mastodon, Misskey, Pixelfed, Pleroma, Socialhome, Soapbox.
 
 14) Brand: News Broker, Newsman, Newsdealer, Laura Harbinger
-    
-15) See project /offpunk/offblocklist.py
 
 16) Search messages of government regulated publishers, and promote other sources.
     Dear reader, we couldn't get news from XYZ as they don't provide RSS feeds.
     However, you might want to get news from (1) (2) and (3) instead!
 
-17) Make the program portable (directly use the directory assets) -- Thorsten
-
-18) The operator account will be given reports from the bot about its
+17) The operator account will be given reports from the bot about its
     activities every X minutes.
     When a suspicious activity is detected, it will be reported immediately.
-
-19) Communicate to messages of new contacts (not subscribed and not in roster)
 
 """
 

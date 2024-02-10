@@ -141,15 +141,19 @@ interval <minutes>
 Set interval update to every given <minutes>.
 """
 length = """
-length
+length <number>
 Set maximum length of news item description. (0 for no limit)
+"""
+media = """
+media [off|on]
+Attach media (i.e. audio, image, video) to messages when available.
 """
 quantum = """
 quantum <number>
 Set amount of updates per message by given <number>.
 """
 random = """
-random
+random [off|on]
 Send messages by random order instead of date.
 """
 
@@ -190,7 +194,7 @@ Disable bot and stop updates.
 [preview]
 read = """
 read <url>
-Display most recent 5 titles of given <url>.
+Display recent 5 titles of given <url>.
 """
 read_num = """
 read <url> <index>

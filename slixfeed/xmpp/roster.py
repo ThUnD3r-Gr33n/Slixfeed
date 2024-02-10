@@ -12,22 +12,6 @@ TODO
 
 class XmppRoster:
 
-    async def remove(self, jid):
-        """
-        Remove JID to roster.
-
-        Parameters
-        ----------
-        jid : str
-            Jabber ID.
-
-        Returns
-        -------
-        None.
-        """
-        self.update_roster(jid, subscription="remove")
-
-
     async def add(self, jid):
         """
         Add JID to roster.
@@ -45,5 +29,20 @@ class XmppRoster:
         """
         await self.get_roster()
         if jid not in self.client_roster.keys():
-            self.update_roster(jid, subscription="both")
+            self.update_roster(jid, subscription='both')
 
+
+    def remove(self, jid):
+        """
+        Remove JID from roster.
+
+        Parameters
+        ----------
+        jid : str
+            Jabber ID.
+
+        Returns
+        -------
+        None.
+        """
+        self.update_roster(jid, subscription='remove')
