@@ -57,7 +57,7 @@ async def get_chat_type(self, jid):
                    'Jabber ID: {}'
                    .format(e, jid))
         logging.error(message)
-    except BaseException as e:
-        logging.error('BaseException', str(e))
-    finally:
-        logging.info('Chat type is:', chat_type)
+    # except BaseException as e:
+    #     logging.error('BaseException', str(e))
+    # finally:
+    #     logging.info('Chat type is:', chat_type)

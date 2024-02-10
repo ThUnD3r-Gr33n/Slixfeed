@@ -198,6 +198,7 @@ async def xmpp_send_update(self, jid, num=None):
     db_file = config.get_pathname_to_database(jid_file)
     enabled = await config.get_setting_value(db_file, 'enabled')
     if enabled:
+        show_media = await config.get_setting_value(db_file, 'media')
         if not num:
             num = await config.get_setting_value(db_file, 'quantum')
         else:
@@ -227,10 +228,11 @@ async def xmpp_send_update(self, jid, num=None):
             # elif enclosure.startswith("magnet:"):
             #     media = action.get_magnet(enclosure)
             # elif enclosure:
-            if enclosure:
-                media = enclosure
-            else:
-                media = await action.extract_image_from_html(url)
+            if show_media:
+                if enclosure:
+                    media = enclosure
+                else:
+                    media = await action.extract_image_from_html(url)
             
             if media and news_digest:
                 # Send textual message

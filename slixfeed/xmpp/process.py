@@ -615,6 +615,26 @@ async def message(self, message):
             #         else:
             #             response = 'Missing value.'
                     XmppMessage.send_reply(self, message, response)
+            case 'media off':
+                db_file = config.get_pathname_to_database(jid_file)
+                key = 'media'
+                val = 0
+                if await sqlite.get_settings_value(db_file, key):
+                    await sqlite.update_settings_value(db_file, [key, val])
+                else:
+                    await sqlite.set_settings_value(db_file, [key, val])
+                response = 'Media is disabled.'
+                XmppMessage.send_reply(self, message, response)
+            case 'media on':
+                db_file = config.get_pathname_to_database(jid_file)
+                key = 'media'
+                val = 1
+                if await sqlite.get_settings_value(db_file, key):
+                    await sqlite.update_settings_value(db_file, [key, val])
+                else:
+                    await sqlite.set_settings_value(db_file, [key, val])
+                response = 'Media is enabled.'
+                XmppMessage.send_reply(self, message, response)
             case 'new':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
