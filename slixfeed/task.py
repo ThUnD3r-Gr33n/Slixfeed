@@ -153,33 +153,17 @@ async def start_tasks_xmpp(self, jid, tasks=None):
 
 
 async def task_send(self, jid):
-    print("task_send for", jid)
-    try:
-        self.task_manager[jid]['interval'].cancel()
-    except:
-        logging.info('No task interval for JID {} (start_tasks_xmpp)'
-                     .format(jid))
     jid_file = jid.replace('/', '_')
-    print(jid_file)
     db_file = config.get_pathname_to_database(jid_file)
-    print(db_file)
     update_interval = await config.get_setting_value(db_file, 'interval')
-    print(update_interval)
     update_interval = 60 * int(update_interval)
-    print(update_interval)
     last_update_time = await sqlite.get_last_update_time(db_file)
-    print(last_update_time)
     if last_update_time:
-        print('if')
         last_update_time = float(last_update_time)
         diff = time.time() - last_update_time
         if diff < update_interval:
             next_update_time = update_interval - diff
-            print('next_update_time')
-            print(next_update_time)
-            print(next_update_time/60/60)
             await asyncio.sleep(next_update_time) # FIXME!
-            print('after await sleep')
 
             # print("jid              :", jid, "\n"
             #       "time             :", time.time(), "\n"
@@ -191,15 +175,12 @@ async def task_send(self, jid):
 
         # elif diff > val:
         #     next_update_time = val
-        print('await (if)')
         await sqlite.update_last_update_time(db_file)
     else:
-        print('await (else)')
         await sqlite.set_last_update_time(db_file)
-    print("await is done for", jid)
     await xmpp_send_update(self, jid)
-    await start_tasks_xmpp(self, jid, ['status'])
     await refresh_task(self, jid, task_send, 'interval')
+    await start_tasks_xmpp(self, jid, ['status'])
 
 
 async def xmpp_send_update(self, jid, num=None):
@@ -213,28 +194,19 @@ async def xmpp_send_update(self, jid, num=None):
     num : str, optional
         Number. The default is None.
     """
-    print('Sending a news update to JID {}'.format(jid))
     jid_file = jid.replace('/', '_')
-    print(jid_file)
     db_file = config.get_pathname_to_database(jid_file)
-    print(db_file)
     enabled = await config.get_setting_value(db_file, 'enabled')
-    print(enabled)
     if enabled:
-        print('enabled')
         if not num:
             num = await config.get_setting_value(db_file, 'quantum')
         else:
             num = int(num)
-        print(num)
         results = await sqlite.get_unread_entries(db_file, num)
-        print(results)
         news_digest = ''
         media = None
         chat_type = await get_chat_type(self, jid)
-        print(jid, num, chat_type)
         for result in results:
-            print(result)
             ix = result[0]
             title_e = result[1]
             url = result[2]
@@ -261,9 +233,6 @@ async def xmpp_send_update(self, jid, num=None):
                 media = await action.extract_image_from_html(url)
             
             if media and news_digest:
-                print('SENDING MESSAGE (if media and news_digest)')
-                print(news_digest)
-                print(media)
                 # Send textual message
                 XmppMessage.send(self, jid, news_digest, chat_type)
                 news_digest = ''
@@ -272,8 +241,6 @@ async def xmpp_send_update(self, jid, num=None):
                 media = None
                 
         if news_digest:
-            print('SENDING MESSAGE (if news_digest)')
-            print(news_digest)
             XmppMessage.send(self, jid, news_digest, chat_type)
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
@@ -501,5 +468,3 @@ async def select_file(self):
                     main_task.extend([tg.create_task(self.task_jid(jid))])
                     # main_task = [tg.create_task(self.task_jid(jid))]
                     # self.task_manager.update({jid: tg})
-
-
