@@ -3,16 +3,6 @@
 
 """
 
-FIXME
-
-0) URGENT!!! Place "await asyncio.sleep(next_update_time)" ***inside*** the
-   task, and not outside as it is now!
-
-
-1) Function check_readiness or event "changed_status" is causing for
-   triple status messages and also false ones that indicate of lack
-   of feeds.
-
 TODO
 
 0) Move functions send_status and send_update to module action
@@ -42,6 +32,29 @@ NOTE
     <presence from="slixfeed@canchat.org/xAPgJLHtMMHF" xml:lang="en" id="ab35c07b63a444d0a7c0a9a0b272f301" to="slixfeed@canchat.org/xAPgJLHtMMHF"><status>📂 Send a URL from a blog or a news website.</status><x xmlns="vcard-temp:x:update"><photo /></x></presence>
     JID: self.boundjid.bare
     MUC: self.alias
+
+"""
+
+"""
+
+TIMEOUT
+
+import signal
+
+def handler(signum, frame):
+    print("Timeout!")
+    raise Exception("end of time")
+
+# This line will set the alarm for 5 seconds
+
+signal.signal(signal.SIGALRM, handler)
+signal.alarm(5)
+
+try:
+    # Your command here
+    pass 
+except Exception as exc:
+    print(exc)
 
 """
 
@@ -137,7 +150,7 @@ async def start_tasks_xmpp(self, jid, tasks=None):
                     check_updates(jid))
             case 'status':
                 self.task_manager[jid]['status'] = asyncio.create_task(
-                    send_status(self, jid))
+                    task_status(self, jid))
             case 'interval':
                 self.task_manager[jid]['interval'] = asyncio.create_task(
                     task_send(self, jid))
@@ -150,6 +163,11 @@ async def start_tasks_xmpp(self, jid, tasks=None):
     #     print(jid)
     #     breakpoint()
     #     await task
+
+
+async def task_status(self, jid):
+    await action.xmpp_send_status(self, jid)
+    await refresh_task(self, jid, task_status, 'status', '90')
 
 
 async def task_send(self, jid):
@@ -178,116 +196,9 @@ async def task_send(self, jid):
         await sqlite.update_last_update_time(db_file)
     else:
         await sqlite.set_last_update_time(db_file)
-    await xmpp_send_update(self, jid)
+    await action.xmpp_send_update(self, jid)
     await refresh_task(self, jid, task_send, 'interval')
     await start_tasks_xmpp(self, jid, ['status'])
-
-
-async def xmpp_send_update(self, jid, num=None):
-    """
-    Send news items as messages.
-
-    Parameters
-    ----------
-    jid : str
-        Jabber ID.
-    num : str, optional
-        Number. The default is None.
-    """
-    jid_file = jid.replace('/', '_')
-    db_file = config.get_pathname_to_database(jid_file)
-    enabled = await config.get_setting_value(db_file, 'enabled')
-    if enabled:
-        show_media = await config.get_setting_value(db_file, 'media')
-        if not num:
-            num = await config.get_setting_value(db_file, 'quantum')
-        else:
-            num = int(num)
-        results = await sqlite.get_unread_entries(db_file, num)
-        news_digest = ''
-        media = None
-        chat_type = await get_chat_type(self, jid)
-        for result in results:
-            ix = result[0]
-            title_e = result[1]
-            url = result[2]
-            enclosure = result[3]
-            feed_id = result[4]
-            date = result[5]
-            title_f = sqlite.get_feed_title(db_file, feed_id)
-            title_f = title_f[0]
-            news_digest += action.list_unread_entries(result, title_f)
-            # print(db_file)
-            # print(result[0])
-            # breakpoint()
-            await sqlite.mark_as_read(db_file, ix)
-
-            # Find media
-            # if url.startswith("magnet:"):
-            #     media = action.get_magnet(url)
-            # elif enclosure.startswith("magnet:"):
-            #     media = action.get_magnet(enclosure)
-            # elif enclosure:
-            if show_media:
-                if enclosure:
-                    media = enclosure
-                else:
-                    media = await action.extract_image_from_html(url)
-            
-            if media and news_digest:
-                # Send textual message
-                XmppMessage.send(self, jid, news_digest, chat_type)
-                news_digest = ''
-                # Send media
-                XmppMessage.send_oob(self, jid, media, chat_type)
-                media = None
-                
-        if news_digest:
-            XmppMessage.send(self, jid, news_digest, chat_type)
-            # TODO Add while loop to assure delivery.
-            # print(await current_time(), ">>> ACT send_message",jid)
-            # NOTE Do we need "if statement"? See NOTE at is_muc.
-            # if chat_type in ('chat', 'groupchat'):
-            #     # TODO Provide a choice (with or without images)
-            #     XmppMessage.send(self, jid, news_digest, chat_type)
-        # See XEP-0367
-        # if media:
-        #     # message = xmpp.Slixfeed.make_message(
-        #     #     self, mto=jid, mbody=new, mtype=chat_type)
-        #     message = xmpp.Slixfeed.make_message(
-        #         self, mto=jid, mbody=media, mtype=chat_type)
-        #     message['oob']['url'] = media
-        #     message.send()
-                
-        # TODO Do not refresh task before
-        # verifying that it was completed.
-
-        # await start_tasks_xmpp(self, jid, ['status'])
-        # await refresh_task(self, jid, send_update, 'interval')
-
-    # interval = await initdb(
-    #     jid,
-    #     sqlite.get_settings_value,
-    #     "interval"
-    # )
-    # self.task_manager[jid]["interval"] = loop.call_at(
-    #     loop.time() + 60 * interval,
-    #     loop.create_task,
-    #     send_update(jid)
-    # )
-
-    # print(await current_time(), "asyncio.get_event_loop().time()")
-    # print(await current_time(), asyncio.get_event_loop().time())
-    # await asyncio.sleep(60 * interval)
-
-    # loop.call_later(
-    #     60 * interval,
-    #     loop.create_task,
-    #     send_update(jid)
-    # )
-
-    # print
-    # await handle_event()
 
 
 def clean_tasks_xmpp(self, jid, tasks=None):
@@ -301,56 +212,6 @@ def clean_tasks_xmpp(self, jid, tasks=None):
         except:
             logging.debug('No task {} for JID {} (clean_tasks_xmpp)'
                           .format(task, jid))
-
-
-async def send_status(self, jid):
-    """
-    Send status message.
-
-    Parameters
-    ----------
-    jid : str
-        Jabber ID.
-    """
-    logging.info('Sending a status message to JID {}'.format(jid))
-    status_text = '📜️ Slixfeed RSS News Bot'
-    jid_file = jid.replace('/', '_')
-    db_file = config.get_pathname_to_database(jid_file)
-    enabled = await config.get_setting_value(db_file, 'enabled')
-    if not enabled:
-        status_mode = 'xa'
-        status_text = '📪️ Send "Start" to receive updates'
-    else:
-        feeds = await sqlite.get_number_of_items(db_file, 'feeds')
-        # print(await current_time(), jid, "has", feeds, "feeds")
-        if not feeds:
-            status_mode = 'available'
-            status_text = '📪️ Send a URL from a blog or a news website'
-        else:
-            unread = await sqlite.get_number_of_entries_unread(db_file)
-            if unread:
-                status_mode = 'chat'
-                status_text = '📬️ There are {} news items'.format(str(unread))
-                # status_text = (
-                #     "📰 News items: {}"
-                #     ).format(str(unread))
-                # status_text = (
-                #     "📰 You have {} news items"
-                #     ).format(str(unread))
-            else:
-                status_mode = 'available'
-                status_text = '📭️ No news'
-
-    # breakpoint()
-    # print(await current_time(), status_text, "for", jid)
-    XmppPresence.send(self, jid, status_text, status_type=status_mode)
-    # await asyncio.sleep(60 * 20)
-    await refresh_task(self, jid, send_status, 'status', '90')
-    # loop.call_at(
-    #     loop.time() + 60 * 20,
-    #     loop.create_task,
-    #     send_status(jid)
-    # )
 
 
 async def refresh_task(self, jid, callback, key, val=None):

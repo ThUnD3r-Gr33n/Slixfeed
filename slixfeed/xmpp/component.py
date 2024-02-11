@@ -621,7 +621,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         for value in values:
             key = value
             val = values[value]
-            if await sqlite.get_settings_value(db_file, key):
+            if sqlite.get_settings_value(db_file, key):
                 await sqlite.update_settings_value(db_file, [key, val])
             else:
                 await sqlite.set_settings_value(db_file, [key, val])

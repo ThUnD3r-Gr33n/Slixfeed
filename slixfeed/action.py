@@ -87,6 +87,163 @@ except ImportError:
         "Arc90 Lab algorithm is disabled.")
 
 
+async def xmpp_send_status(self, jid):
+    """
+    Send status message.
+
+    Parameters
+    ----------
+    jid : str
+        Jabber ID.
+    """
+    logging.info('Sending a status message to JID {}'.format(jid))
+    status_text = '📜️ Slixfeed RSS News Bot'
+    jid_file = jid.replace('/', '_')
+    db_file = config.get_pathname_to_database(jid_file)
+    enabled = await config.get_setting_value(db_file, 'enabled')
+    if not enabled:
+        status_mode = 'xa'
+        status_text = '📪️ Send "Start" to receive updates'
+    else:
+        feeds = await sqlite.get_number_of_items(db_file, 'feeds')
+        # print(await current_time(), jid, "has", feeds, "feeds")
+        if not feeds:
+            status_mode = 'available'
+            status_text = '📪️ Send a URL from a blog or a news website'
+        else:
+            unread = await sqlite.get_number_of_entries_unread(db_file)
+            if unread:
+                status_mode = 'chat'
+                status_text = '📬️ There are {} news items'.format(str(unread))
+                # status_text = (
+                #     "📰 News items: {}"
+                #     ).format(str(unread))
+                # status_text = (
+                #     "📰 You have {} news items"
+                #     ).format(str(unread))
+            else:
+                status_mode = 'available'
+                status_text = '📭️ No news'
+
+    # breakpoint()
+    # print(await current_time(), status_text, "for", jid)
+    XmppPresence.send(self, jid, status_text, status_type=status_mode)
+    # await asyncio.sleep(60 * 20)
+    # await refresh_task(self, jid, send_status, 'status', '90')
+    # loop.call_at(
+    #     loop.time() + 60 * 20,
+    #     loop.create_task,
+    #     send_status(jid)
+    # )
+
+
+async def xmpp_send_update(self, jid, num=None):
+    """
+    Send news items as messages.
+
+    Parameters
+    ----------
+    jid : str
+        Jabber ID.
+    num : str, optional
+        Number. The default is None.
+    """
+    jid_file = jid.replace('/', '_')
+    db_file = config.get_pathname_to_database(jid_file)
+    enabled = await config.get_setting_value(db_file, 'enabled')
+    if enabled:
+        show_media = await config.get_setting_value(db_file, 'media')
+        if not num:
+            num = await config.get_setting_value(db_file, 'quantum')
+        else:
+            num = int(num)
+        results = await sqlite.get_unread_entries(db_file, num)
+        news_digest = ''
+        media = None
+        chat_type = await get_chat_type(self, jid)
+        for result in results:
+            ix = result[0]
+            title_e = result[1]
+            url = result[2]
+            enclosure = result[3]
+            feed_id = result[4]
+            date = result[5]
+            title_f = sqlite.get_feed_title(db_file, feed_id)
+            title_f = title_f[0]
+            news_digest += list_unread_entries(result, title_f)
+            # print(db_file)
+            # print(result[0])
+            # breakpoint()
+            await sqlite.mark_as_read(db_file, ix)
+
+            # Find media
+            # if url.startswith("magnet:"):
+            #     media = action.get_magnet(url)
+            # elif enclosure.startswith("magnet:"):
+            #     media = action.get_magnet(enclosure)
+            # elif enclosure:
+            if show_media:
+                if enclosure:
+                    media = enclosure
+                else:
+                    media = await extract_image_from_html(url)
+            
+            if media and news_digest:
+                # Send textual message
+                XmppMessage.send(self, jid, news_digest, chat_type)
+                news_digest = ''
+                # Send media
+                XmppMessage.send_oob(self, jid, media, chat_type)
+                media = None
+                
+        if news_digest:
+            XmppMessage.send(self, jid, news_digest, chat_type)
+            # TODO Add while loop to assure delivery.
+            # print(await current_time(), ">>> ACT send_message",jid)
+            # NOTE Do we need "if statement"? See NOTE at is_muc.
+            # if chat_type in ('chat', 'groupchat'):
+            #     # TODO Provide a choice (with or without images)
+            #     XmppMessage.send(self, jid, news_digest, chat_type)
+        # See XEP-0367
+        # if media:
+        #     # message = xmpp.Slixfeed.make_message(
+        #     #     self, mto=jid, mbody=new, mtype=chat_type)
+        #     message = xmpp.Slixfeed.make_message(
+        #         self, mto=jid, mbody=media, mtype=chat_type)
+        #     message['oob']['url'] = media
+        #     message.send()
+                
+        # TODO Do not refresh task before
+        # verifying that it was completed.
+
+        # await start_tasks_xmpp(self, jid, ['status'])
+        # await refresh_task(self, jid, send_update, 'interval')
+
+    # interval = await initdb(
+    #     jid,
+    #     sqlite.get_settings_value,
+    #     "interval"
+    # )
+    # self.task_manager[jid]["interval"] = loop.call_at(
+    #     loop.time() + 60 * interval,
+    #     loop.create_task,
+    #     send_update(jid)
+    # )
+
+    # print(await current_time(), "asyncio.get_event_loop().time()")
+    # print(await current_time(), asyncio.get_event_loop().time())
+    # await asyncio.sleep(60 * interval)
+
+    # loop.call_later(
+    #     60 * interval,
+    #     loop.create_task,
+    #     send_update(jid)
+    # )
+
+    # print
+    # await handle_event()
+
+
 def manual(filename, section=None, command=None):
     config_dir = config.get_default_config_directory()
     with open(config_dir + '/' + filename, mode="rb") as commands:
@@ -119,7 +276,7 @@ async def xmpp_change_interval(self, key, val, jid, jid_file, message=None,
         #     'Updates will be sent every {} minutes.'
         #     ).format(response)
         db_file = config.get_pathname_to_database(jid_file)
-        if await sqlite.get_settings_value(db_file, key):
+        if sqlite.get_settings_value(db_file, key):
             await sqlite.update_settings_value(db_file, [key, val])
         else:
             await sqlite.set_settings_value(db_file, [key, val])
@@ -140,7 +297,7 @@ async def xmpp_start_updates(self, message, jid, jid_file):
     key = 'enabled'
     val = 1
     db_file = config.get_pathname_to_database(jid_file)
-    if await sqlite.get_settings_value(db_file, key):
+    if sqlite.get_settings_value(db_file, key):
         await sqlite.update_settings_value(db_file, [key, val])
     else:
         await sqlite.set_settings_value(db_file, [key, val])
@@ -157,7 +314,7 @@ async def xmpp_stop_updates(self, message, jid, jid_file):
     key = 'enabled'
     val = 0
     db_file = config.get_pathname_to_database(jid_file)
-    if await sqlite.get_settings_value(db_file, key):
+    if sqlite.get_settings_value(db_file, key):
         await sqlite.update_settings_value(db_file, [key, val])
     else:
         await sqlite.set_settings_value(db_file, [key, val])
@@ -399,27 +556,23 @@ async def list_statistics(db_file):
     #     value = "Default"
     # values.extend([value])
 
-    message = (
-        "```"
-        "\nSTATISTICS\n"
-        "News items   : {}/{}\n"
-        "News sources : {}/{}\n"
-        "\nOPTIONS\n"
-        "Items to archive : {}\n"
-        "Update interval  : {}\n"
-        "Items per update : {}\n"
-        "Operation status : {}\n"
-        "```"
-        ).format(
-            entries_unread,
-            entries_all,
-            feeds_active,
-            feeds_all,
-            key_archive,
-            key_interval,
-            key_quantum,
-            key_enabled
-            )
+    message = ("```"
+               "\nSTATISTICS\n"
+               "News items   : {}/{}\n"
+               "News sources : {}/{}\n"
+               "\nOPTIONS\n"
+               "Items to archive : {}\n"
+               "Update interval  : {}\n"
+               "Items per update : {}\n"
+               "Operation status : {}\n"
+               "```").format(entries_unread,
+                             entries_all,
+                             feeds_active,
+                             feeds_all,
+                             key_archive,
+                             key_interval,
+                             key_quantum,
+                             key_enabled)
     return message
 
 
@@ -427,10 +580,8 @@ async def list_statistics(db_file):
 def list_last_entries(results, num):
     message = "Recent {} titles:\n\n```".format(num)
     for result in results:
-        message += (
-            "\n{}\n{}\n"
-            ).format(
-                str(result[0]), str(result[1]))
+        message += ("\n{}\n{}\n"
+                    .format(str(result[0]), str(result[1])))
     if len(results):
         message += "```\n"
     else:
@@ -441,59 +592,45 @@ def list_last_entries(results, num):
 def list_feeds(results):
     message = "\nList of subscriptions:\n\n```\n"
     for result in results:
-        message += (
-            "Name : {}\n"
-            "URL  : {}\n"
-            # "Updated : {}\n"
-            # "Status  : {}\n"
-            "ID   : {}\n"
-            "\n"
-            ).format(
-                str(result[0]), str(result[1]), str(result[2]))
+        message += ("Name : {}\n"
+                    "URL  : {}\n"
+                    # "Updated : {}\n"
+                    # "Status  : {}\n"
+                    "ID   : {}\n"
+                    "\n"
+                    .format(str(result[0]), str(result[1]), str(result[2])))
     if len(results):
-        message += (
-            "```\nTotal of {} subscriptions.\n"
-            ).format(len(results))
+        message += ('```\nTotal of {} subscriptions.\n'
+                    .format(len(results)))
     else:
-        message = (
-            "List of subscriptions is empty.\n"
-            "To add feed, send a URL\n"
-            "Try these:\n"
-            # TODO Pick random from featured/recommended
-            "https://reclaimthenet.org/feed/"
-            )
+        message = ('List of subscriptions is empty.\n'
+                   'To add feed, send a URL\n'
+                   'Featured feed: '
+                   'https://reclaimthenet.org/feed/')
     return message
 
 
 async def list_bookmarks(self):
     conferences = await XmppBookmark.get(self)
-    message = "\nList of groupchats:\n\n```\n"
+    message = '\nList of groupchats:\n\n```\n'
     for conference in conferences:
-        message += (
-            "{}\n"
-            "\n"
-            ).format(
-                conference["jid"]
-                )
-    message += (
-        "```\nTotal of {} groupchats.\n"
-        ).format(len(conferences))
+        message += ('{}\n'
+                    '\n'
+                    .format(conference['jid']))
+    message += ('```\nTotal of {} groupchats.\n'
+                .format(len(conferences)))
     return message
 
 
 def export_to_markdown(jid, filename, results):
     with open(filename, 'w') as file:
-        file.write(
-            '# Subscriptions for {}\n'.format(jid))
-        file.write(
-            '## Set of feeds exported with Slixfeed\n')
+        file.write('# Subscriptions for {}\n'.format(jid))
+        file.write('## Set of feeds exported with Slixfeed\n')
         for result in results:
-            file.write(
-                '- [{}]({})\n'.format(result[0], result[1]))
-        file.write(
-            '\n\n* * *\n\nThis list was saved on {} from xmpp:{} using '
-            '[Slixfeed](https://gitgud.io/sjehuda/slixfeed)\n'.format(
-                dt.current_date(), jid))
+            file.write('- [{}]({})\n'.format(result[0], result[1]))
+        file.write('\n\n* * *\n\nThis list was saved on {} from xmpp:{} using '
+                   '[Slixfeed](https://gitgud.io/sjehuda/slixfeed)\n'
+                   .format(dt.current_date(), jid))
 
 
 # TODO Consider adding element jid as a pointer of import

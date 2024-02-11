@@ -303,7 +303,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = presence['from'].bare
         if jid in self.boundjid.bare:
             return
-        print('JID available:', jid)
+        logging.info('JID {} is available'.format(jid))
         # FIXME TODO Find out what is the source responsible for a couple presences with empty message
         # NOTE This is a temporary solution
         await asyncio.sleep(10)
@@ -326,7 +326,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     def on_presence_unavailable(self, presence):
         jid = presence['from'].bare
-        print('JID unavailable:', jid)
+        logging.info('JID {} is unavailable'.format(jid))
         # await task.stop_tasks(self, jid)
         task.clean_tasks_xmpp(self, jid)
 
@@ -346,7 +346,7 @@ class Slixfeed(slixmpp.ClientXMPP):
     # If bookmarks, remove groupchat JID into file 
     def on_presence_error(self, presence):
         jid = presence["from"].bare
-        print('JID error:', jid)
+        logging.info('JID {} (error)'.format(jid))
         task.clean_tasks_xmpp(self, jid)
 
 
@@ -482,7 +482,9 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscriptions(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Subscriptions')
+        jid = session['from'].bare
+        form = self['xep_0004'].make_form('form',
+                                          'Subscriptions for {}'.format(jid))
         form['instructions'] = '📰️ Manage subscriptions.'
         # form.addField(var='interval',
         #               ftype='text-single',
@@ -491,7 +493,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                                  ftype='list-multi',
                                  label='Select subscriptions',
                                  desc='Select subscription(s) to edit.')
-        jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
@@ -523,7 +524,9 @@ class Slixfeed(slixmpp.ClientXMPP):
     # single: Delete, Disable, Reset and Rename
     # several: Delete, Disable, Reset
     async def _handle_subscription_editor(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Subscriptions')
+        jid = session['from'].bare
+        form = self['xep_0004'].make_form('form',
+                                          'Subscriptions for {}'.format(jid))
         form['instructions'] = '🗞️ Edit subscriptions.'
         options = form.add_field(var='enable',
                                  ftype='boolean',
@@ -542,7 +545,9 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_bookmarks(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Bookmarks')
+        jid = session['from'].bare
+        form = self['xep_0004'].make_form('form',
+                                          'Bookmarks for {}'.format(jid))
         form['instructions'] = '📑️ Organize bookmarks.'
         options = form.add_field(var='bookmarks',
                                  # ftype='list-multi'
@@ -559,7 +564,9 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_bookmarks_editor(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Bookmarks')
+        jid = session['from'].bare
+        form = self['xep_0004'].make_form('form',
+                                          'Bookmarks for {}'.format(jid))
         form['instructions'] = '📝️ Edit bookmarks.'
         form.addField(var='name',
                       ftype='text-single',
@@ -605,11 +612,13 @@ class Slixfeed(slixmpp.ClientXMPP):
                        session. Additional, custom data may be saved
                        here to persist across handler callbacks.
         """
-        form = self['xep_0004'].make_form('form', 'Settings')
-        form['instructions'] = ('📮️ Customize news updates.')
         jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
+        form = self['xep_0004'].make_form('form',
+                                          'Settings for {}'.format(jid))
+        form['instructions'] = ('📮️ Customize news updates.')
+
         value = await config.get_setting_value(db_file, 'enabled')
         value = int(value)
         if value:
@@ -621,6 +630,19 @@ class Slixfeed(slixmpp.ClientXMPP):
                        label='Enable',
                        desc='Enable news updates.',
                        value=value)
+
+        value = await config.get_setting_value(db_file, 'media')
+        value = int(value)
+        if value:
+            value = True
+        else:
+            value = False
+        form.add_field(var='media',
+                       ftype='boolean',
+                       desc='Send audio, images or videos if found.',
+                       label='Display media',
+                       value=value)
+
         value = await config.get_setting_value(db_file, 'old')
         value = int(value)
         if value:
@@ -629,11 +651,11 @@ class Slixfeed(slixmpp.ClientXMPP):
             value = True
         form.add_field(var='old',
                        ftype='boolean',
-                       desc='Do not mark items of newly added subscriptions '
-                            'as read.',
+                       desc='Send old items of newly added subscriptions.',
                        # label='Send only new items',
                        label='Include old news',
                        value=value)
+
         value = await config.get_setting_value(db_file, 'interval')
         value = str(int(value/60))
         options = form.add_field(var='interval',
@@ -647,6 +669,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             lab = str(int(i/60))
             options.addOption(lab, var)
             i += 60
+
         value = await config.get_setting_value(db_file, 'archive')
         value = str(value)
         options = form.add_field(var='archive',
@@ -658,7 +681,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         while i <= 500:
             x = str(i)
             options.addOption(x, x)
-            i += 1
+            i += 50
+
         value = await config.get_setting_value(db_file, 'quantum')
         value = str(value)
         options = form.add_field(var='quantum',
@@ -667,10 +691,11 @@ class Slixfeed(slixmpp.ClientXMPP):
                                  desc='Set amount of updates per update.',
                                  value='3')
         i = 1
-        while i <= 10:
+        while i <= 5:
             x = str(i)
             options.addOption(x, x)
             i += 1
+
         session['payload'] = form
         session['next'] = self._handle_settings_complete
         session['has_next'] = False
@@ -701,7 +726,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         for value in values:
             key = value
             val = values[value]
-            if await sqlite.get_settings_value(db_file, key):
+            if sqlite.get_settings_value(db_file, key):
                 await sqlite.update_settings_value(db_file, [key, val])
             else:
                 await sqlite.set_settings_value(db_file, [key, val])

@@ -363,11 +363,12 @@ async def message(self, message):
                             response = 'Value may not be greater than 500.'
                         else:
                             db_file = config.get_pathname_to_database(jid_file)
-                            if await sqlite.get_settings_value(db_file,
-                                                               [key, val]):
+                            if sqlite.get_settings_value(db_file, key):
+                                print('update archive')
                                 await sqlite.update_settings_value(db_file,
                                                                    [key, val])
                             else:
+                                print('set archive')
                                 await sqlite.set_settings_value(db_file,
                                                                 [key, val])
                             response = ('Maximum archived items has '
@@ -388,6 +389,11 @@ async def message(self, message):
                 else:
                     response = ('This action is restricted. '
                                 'Type: removing bookmarks.')
+                XmppMessage.send_reply(self, message, response)
+            case 'default':
+                db_file = config.get_pathname_to_database(jid_file)
+                await sqlite.delete_settings(db_file)
+                response = ('Default settings have been restored.')
                 XmppMessage.send_reply(self, message, response)
             case 'bookmarks':
                 if jid == config.get_value('accounts', 'XMPP', 'operator'):
@@ -573,8 +579,7 @@ async def message(self, message):
                         try:
                             val = int(val)
                             db_file = config.get_pathname_to_database(jid_file)
-                            if await sqlite.get_settings_value(db_file,
-                                                               [key, val]):
+                            if sqlite.get_settings_value(db_file, key):
                                 await sqlite.update_settings_value(db_file,
                                                                    [key, val])
                             else:
@@ -619,7 +624,7 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'media'
                 val = 0
-                if await sqlite.get_settings_value(db_file, key):
+                if sqlite.get_settings_value(db_file, key):
                     await sqlite.update_settings_value(db_file, [key, val])
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
@@ -629,7 +634,7 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'media'
                 val = 1
-                if await sqlite.get_settings_value(db_file, key):
+                if sqlite.get_settings_value(db_file, key):
                     await sqlite.update_settings_value(db_file, [key, val])
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
@@ -639,7 +644,7 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 0
-                if await sqlite.get_settings_value(db_file, key):
+                if sqlite.get_settings_value(db_file, key):
                     await sqlite.update_settings_value(db_file, [key, val])
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
@@ -650,7 +655,7 @@ async def message(self, message):
                 # num = message_text[5:]
                 # await task.send_update(self, jid, num)
 
-                await task.xmpp_send_update(self, jid)
+                await action.xmpp_send_update(self, jid)
 
                 # task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
                 # await task.start_tasks_xmpp(self, jid, ['status', 'interval'])
@@ -662,7 +667,7 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 1
-                if await sqlite.get_settings_value(db_file, key):
+                if sqlite.get_settings_value(db_file, key):
                     await sqlite.update_settings_value(db_file, [key, val])
                 else:
                     await sqlite.set_settings_value(db_file, [key, val])
@@ -678,7 +683,7 @@ async def message(self, message):
                         #     'Every update will contain {} news items.'
                         #     ).format(response)
                         db_file = config.get_pathname_to_database(jid_file)
-                        if await sqlite.get_settings_value(db_file, key):
+                        if sqlite.get_settings_value(db_file, key):
                             await sqlite.update_settings_value(db_file,
                                                                [key, val])
                         else:

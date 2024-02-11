@@ -162,9 +162,9 @@ archive = """
 archive <number>
 Number of news items to archive (maximum value 500).
 """
-remove = """
-remove <id>
-Remove feed of from subscription list by given <id>.
+default = """
+default
+Restore default settings.
 """
 disable = """
 disable <id>
@@ -173,6 +173,10 @@ Disable updates for feed of given <id>.
 enable = """
 enable <id>
 Enable updates for feed of given <id>.
+"""
+remove = """
+remove <id>
+Remove feed of from subscription list by given <id>.
 """
 reset = """
 reset

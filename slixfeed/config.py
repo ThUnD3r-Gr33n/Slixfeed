@@ -36,7 +36,7 @@ import tomllib
 
 async def get_setting_value(db_file, key):
     value = (
-        await sqlite.get_settings_value(db_file, key) or
+        sqlite.get_settings_value(db_file, key) or
         get_value("settings", "Settings", key)
         )
     value = int(value)

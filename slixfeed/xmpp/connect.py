@@ -44,31 +44,32 @@ class XmppConnect:
             rtt = None
             try:
                 rtt = await self['xep_0199'].ping(jid, timeout=10)
-                logging.info("Success! RTT: %s", rtt)
+                logging.info('Success! RTT: %s', rtt)
             except IqError as e:
-                logging.info("Error pinging %s: %s",
+                logging.info('Error pinging %s: %s',
                              jid,
                              e.iq['error']['condition'])
             except IqTimeout:
-                logging.info("No response from %s", jid)
+                logging.info('No response from %s', jid)
             if not rtt:
+                logging.info('Disconnecting...')
                 self.disconnect()
             await asyncio.sleep(60 * 1)
 
 
     async def recover(self, message):
         logging.warning(message)
-        print(current_time(), message, "Attempting to reconnect.")
+        print(current_time(), message, 'Attempting to reconnect.')
         self.connection_attempts += 1
         # if self.connection_attempts <= self.max_connection_attempts:
         #     self.reconnect(wait=5.0)  # wait a bit before attempting to reconnect
         # else:
         #     print(current_time(),"Maximum connection attempts exceeded.")
         #     logging.error("Maximum connection attempts exceeded.")
-        print(current_time(), "Attempt number", self.connection_attempts)
-        seconds = (get_value("accounts", "XMPP", "reconnect_timeout")) or 30
+        print(current_time(), 'Attempt number', self.connection_attempts)
+        seconds = (get_value('accounts', 'XMPP', 'reconnect_timeout')) or 30
         seconds = int(seconds)
-        print(current_time(), "Next attempt within", seconds, "seconds")
+        print(current_time(), 'Next attempt within', seconds, 'seconds')
         # NOTE asyncio.sleep doesn't interval as expected
         # await asyncio.sleep(seconds)
         sleep(seconds)

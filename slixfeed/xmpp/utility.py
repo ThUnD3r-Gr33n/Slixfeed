@@ -12,12 +12,12 @@ async def get_chat_type(self, jid):
     Check whether a JID is of MUC.
 
     If iqresult["disco_info"]["features"] contains XML namespace
-    of 'http://jabber.org/protocol/muc', then it is a "groupchat".
+    of 'http://jabber.org/protocol/muc', then it is a 'groupchat'.
 
     Unless it has forward slash, which would indicate that it is
     a chat which is conducted through a groupchat.
     
-    Otherwise, determine type "chat".
+    Otherwise, determine type 'chat'.
 
     Parameters
     ----------
@@ -27,7 +27,7 @@ async def get_chat_type(self, jid):
     Returns
     -------
     chat_type : str
-        "chat" or "groupchat.
+        'chat' or 'groupchat'.
     """
     try:
         iqresult = await self["xep_0030"].get_info(jid=jid)

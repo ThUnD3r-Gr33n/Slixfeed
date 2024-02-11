@@ -1808,7 +1808,19 @@ async def update_settings_value(db_file, key_value):
             #         )
 
 
-async def get_settings_value(db_file, key):
+async def delete_settings(db_file):
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                DELETE
+                FROM settings
+                """
+                )
+            cur.execute(sql)
+
+def get_settings_value(db_file, key):
     """
     Get settings value.
 
