@@ -100,7 +100,7 @@ async def xmpp_send_status(self, jid):
     status_text = '📜️ Slixfeed RSS News Bot'
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    enabled = await config.get_setting_value(db_file, 'enabled')
+    enabled = config.get_setting_value(db_file, 'enabled')
     if not enabled:
         status_mode = 'xa'
         status_text = '📪️ Send "Start" to receive updates'
@@ -150,11 +150,11 @@ async def xmpp_send_update(self, jid, num=None):
     """
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    enabled = await config.get_setting_value(db_file, 'enabled')
+    enabled = config.get_setting_value(db_file, 'enabled')
     if enabled:
-        show_media = await config.get_setting_value(db_file, 'media')
+        show_media = config.get_setting_value(db_file, 'media')
         if not num:
-            num = await config.get_setting_value(db_file, 'quantum')
+            num = config.get_setting_value(db_file, 'quantum')
         else:
             num = int(num)
         results = await sqlite.get_unread_entries(db_file, num)
@@ -269,8 +269,7 @@ def manual(filename, section=None, command=None):
     return cmd_list
 
 
-async def xmpp_change_interval(self, key, val, jid, jid_file, message=None,
-                               session=None):
+async def xmpp_change_interval(self, key, val, jid, jid_file, message=None):
     if val:
         # response = (
         #     'Updates will be sent every {} minutes.'
@@ -289,8 +288,6 @@ async def xmpp_change_interval(self, key, val, jid, jid_file, message=None,
         response = 'Missing value.'
     if message:
         XmppMessage.send_reply(self, message, response)
-    if session:
-        XmppMessage.send(self, jid, response, chat_type='chat')
 
 
 async def reset_settings(jid_file):
@@ -547,10 +544,10 @@ async def list_statistics(db_file):
     entries_all = entries + archive
     feeds_active = await sqlite.get_number_of_feeds_active(db_file)
     feeds_all = await sqlite.get_number_of_items(db_file, 'feeds')
-    key_archive = await config.get_setting_value(db_file, 'archive')
-    key_interval = await config.get_setting_value(db_file, 'interval')
-    key_quantum = await config.get_setting_value(db_file, 'quantum')
-    key_enabled = await config.get_setting_value(db_file, 'enabled')
+    key_archive = config.get_setting_value(db_file, 'archive')
+    key_interval = config.get_setting_value(db_file, 'interval')
+    key_quantum = config.get_setting_value(db_file, 'quantum')
+    key_enabled = config.get_setting_value(db_file, 'enabled')
 
     # msg = """You have {} unread news items out of {} from {} news sources.
     #       """.format(unread_entries, entries, feeds)
@@ -729,7 +726,7 @@ async def add_feed(db_file, url):
                         updated=updated
                         )
                     await scan(db_file, url)
-                    old = await config.get_setting_value(db_file, "old")
+                    old = config.get_setting_value(db_file, "old")
                     if not old:
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
@@ -776,7 +773,7 @@ async def add_feed(db_file, url):
                         )
                     await scan_json(
                         db_file, url)
-                    old = await config.get_setting_value(db_file, "old")
+                    old = config.get_setting_value(db_file, "old")
                     if not old:
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
@@ -927,7 +924,7 @@ async def scan_json(db_file, url):
                                 media_link = trim_url(media_link)
                                 break
                         except:
-                            logging.error('KeyError: "url"\n'
+                            logging.info('KeyError: "url"\n'
                                           'Missing "url" attribute for {}'
                                           .format(url))
                             logging.info('Continue scanning for next '
@@ -1210,7 +1207,7 @@ async def scan(db_file, url):
                                     media_link = trim_url(media_link)
                                     break
                         except:
-                            logging.error('KeyError: "href"\n'
+                            logging.info('KeyError: "href"\n'
                                           'Missing "href" attribute for {}'
                                           .format(url))
                             logging.info('Continue scanning for next '
@@ -1615,7 +1612,7 @@ async def remove_nonexistent_entries(db_file, url, feed):
             else:
                 # print(">>> ARCHIVING:", entry_title)
                 await sqlite.archive_entry(db_file, ix)
-        limit = await config.get_setting_value(db_file, "archive")
+        limit = config.get_setting_value(db_file, "archive")
         await sqlite.maintain_archive(db_file, limit)
 
 
@@ -1688,5 +1685,5 @@ async def remove_nonexistent_entries_json(db_file, url, feed):
                 await sqlite.delete_entry_by_id(db_file, ix)
             else:
                 await sqlite.archive_entry(db_file, ix)
-        limit = await config.get_setting_value(db_file, "archive")
+        limit = config.get_setting_value(db_file, "archive")
         await sqlite.maintain_archive(db_file, limit)

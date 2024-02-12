@@ -173,7 +173,7 @@ async def task_status(self, jid):
 async def task_send(self, jid):
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    update_interval = await config.get_setting_value(db_file, 'interval')
+    update_interval = config.get_setting_value(db_file, 'interval')
     update_interval = 60 * int(update_interval)
     last_update_time = await sqlite.get_last_update_time(db_file)
     if last_update_time:
@@ -231,15 +231,14 @@ async def refresh_task(self, jid, callback, key, val=None):
     if not val:
         jid_file = jid.replace('/', '_')
         db_file = config.get_pathname_to_database(jid_file)
-        val = await config.get_setting_value(db_file, key)
+        val = config.get_setting_value(db_file, key)
     # if self.task_manager[jid][key]:
     if jid in self.task_manager:
         try:
             self.task_manager[jid][key].cancel()
         except:
             logging.info('No task of type {} to cancel for '
-                         'JID {} (refresh_task)'.format(key, jid)
-                )
+                         'JID {} (refresh_task)'.format(key, jid))
         # self.task_manager[jid][key] = loop.call_at(
         #     loop.time() + 60 * float(val),
         #     loop.create_task,

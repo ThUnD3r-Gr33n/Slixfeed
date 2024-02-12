@@ -1743,6 +1743,14 @@ async def set_settings_value(db_file, key_value):
     """
     key = key_value[0]
     value = key_value[1]
+
+    if not value:
+        match key:
+            case 'interval':
+                value = 90
+            case 'quantum':
+                value = 3
+
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()

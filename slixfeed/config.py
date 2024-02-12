@@ -34,12 +34,20 @@ import sys
 import tomli_w
 import tomllib
 
-async def get_setting_value(db_file, key):
+def get_setting_value(db_file, key):
     value = (
         sqlite.get_settings_value(db_file, key) or
         get_value("settings", "Settings", key)
         )
-    value = int(value)
+    try:
+        value = int(value)
+    except ValueError as e:
+        print('ValueError for value {} (key {}):\n{}'.format(value, key, e))
+        if isinstance(value, bool):
+            if value:
+                value = 1
+            else:
+                value = 0
     return value
 
 

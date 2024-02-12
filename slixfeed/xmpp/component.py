@@ -530,7 +530,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
-        value = await config.get_setting_value(db_file, 'enabled')
+        value = config.get_setting_value(db_file, 'enabled')
         value = int(value)
         if value:
             value = True
@@ -541,7 +541,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                        label='Enable',
                        desc='Enable news updates.',
                        value=value)
-        value = await config.get_setting_value(db_file, 'old')
+        value = config.get_setting_value(db_file, 'old')
         value = int(value)
         if value:
             value = False
@@ -554,7 +554,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                        # label='Send only new items',
                        label='Include old news',
                        value=value)
-        value = await config.get_setting_value(db_file, 'interval')
+        value = config.get_setting_value(db_file, 'interval')
         value = str(int(value/60))
         options = form.add_field(var='interval',
                                  ftype='list-single',
@@ -567,7 +567,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             lab = str(int(i/60))
             options.addOption(lab, var)
             i += 60
-        value = await config.get_setting_value(db_file, 'archive')
+        value = config.get_setting_value(db_file, 'archive')
         value = str(value)
         options = form.add_field(var='archive',
                                  ftype='list-single',
@@ -579,7 +579,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             x = str(i)
             options.addOption(x, x)
             i += 1
-        value = await config.get_setting_value(db_file, 'quantum')
+        value = config.get_setting_value(db_file, 'quantum')
         value = str(value)
         options = form.add_field(var='quantum',
                                  ftype='list-single',

@@ -454,11 +454,14 @@ class Slixfeed(slixmpp.ClientXMPP):
         #                                  name='Roster',
         #                                  handler=self._handle_roster)
         self['xep_0050'].add_command(node='settings',
-                                     name='Settings',
+                                     name='Edit Settings',
                                      handler=self._handle_settings)
         self['xep_0050'].add_command(node='subscriptions',
-                                     name='Subscriptions',
+                                     name='Manage subscriptions',
                                      handler=self._handle_subscriptions)
+        self['xep_0050'].add_command(node='subscription',
+                                     name='View subscription',
+                                     handler=self._handle_subscription)
         # self['xep_0050'].add_command(node='search',
         #                              name='Search',
         #                              handler=self._handle_search)
@@ -471,14 +474,14 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = session['from'].bare
         form = self['xep_0004'].make_form('form',
                                           'Subscriptions for {}'.format(jid))
-        form['instructions'] = '📰️ Manage subscriptions.'
+        form['instructions'] = '📰️ Manage subscriptions'
         # form.addField(var='interval',
         #               ftype='text-single',
         #               label='Interval period')
         options = form.add_field(var='subscriptions',
                                  ftype='list-multi',
                                  label='Select subscriptions',
-                                 desc='Select subscription(s) to edit.')
+                                 desc='Select subscriptions to edit.')
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
@@ -487,7 +490,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             url = subscription[1]
             options.addOption(title, url)
         session['payload'] = form
-        session['next'] = self._handle_subscription_editor
+        session['next'] = self._edit_subscription
         session['has_next'] = True
         # Other useful session values:
         # session['to']                    -- The JID that received the
@@ -509,11 +512,36 @@ class Slixfeed(slixmpp.ClientXMPP):
     # TODO Make form for a single subscription and several subscriptions
     # single: Delete, Disable, Reset and Rename
     # several: Delete, Disable, Reset
-    async def _handle_subscription_editor(self, iq, session):
+    async def _handle_subscription(self, iq, session):
         jid = session['from'].bare
         form = self['xep_0004'].make_form('form',
                                           'Subscriptions for {}'.format(jid))
-        form['instructions'] = '🗞️ Edit subscriptions.'
+        form['instructions'] = '📰️ View subscription properties'
+        # form.addField(var='interval',
+        #               ftype='text-single',
+        #               label='Interval period')
+        options = form.add_field(var='subscriptions',
+                                 ftype='list-single',
+                                 label='Select subscriptions',
+                                 desc='Select a subscription to view.')
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        subscriptions = await sqlite.get_feeds(db_file)
+        for subscription in subscriptions:
+            title = subscription[0]
+            url = subscription[1]
+            options.addOption(title, url)
+        session['payload'] = form
+        session['next'] = self._edit_subscription
+        session['has_next'] = True
+        return session
+
+
+    async def _edit_subscription(self, iq, session):
+        jid = session['from'].bare
+        form = self['xep_0004'].make_form('form',
+                                          'Subscription editor'.format(jid))
+        form['instructions'] = '🗞️ Edit subscription: {}'.format(title)
         options = form.add_field(var='enable',
                                  ftype='boolean',
                                  label='Enable',
@@ -534,7 +562,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = session['from'].bare
         form = self['xep_0004'].make_form('form',
                                           'Bookmarks for {}'.format(jid))
-        form['instructions'] = '📑️ Organize bookmarks.'
+        form['instructions'] = '📑️ Organize bookmarks'
         options = form.add_field(var='bookmarks',
                                  # ftype='list-multi'
                                  ftype='list-single',
@@ -553,7 +581,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = session['from'].bare
         form = self['xep_0004'].make_form('form',
                                           'Bookmarks for {}'.format(jid))
-        form['instructions'] = '📝️ Edit bookmarks.'
+        form['instructions'] = '📝️ Edit bookmarks'
         form.addField(var='name',
                       ftype='text-single',
                       label='Name')
@@ -603,9 +631,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         db_file = config.get_pathname_to_database(jid_file)
         form = self['xep_0004'].make_form('form',
                                           'Settings for {}'.format(jid))
-        form['instructions'] = ('📮️ Customize news updates.')
+        form['instructions'] = ('📮️ Customize news updates')
 
-        value = await config.get_setting_value(db_file, 'enabled')
+        value = config.get_setting_value(db_file, 'enabled')
         value = int(value)
         if value:
             value = True
@@ -617,7 +645,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                        desc='Enable news updates.',
                        value=value)
 
-        value = await config.get_setting_value(db_file, 'media')
+        value = config.get_setting_value(db_file, 'media')
         value = int(value)
         if value:
             value = True
@@ -629,12 +657,12 @@ class Slixfeed(slixmpp.ClientXMPP):
                        label='Display media',
                        value=value)
 
-        value = await config.get_setting_value(db_file, 'old')
+        value = config.get_setting_value(db_file, 'old')
         value = int(value)
         if value:
-            value = False
-        else:
             value = True
+        else:
+            value = False
         form.add_field(var='old',
                        ftype='boolean',
                        desc='Send old items of newly added subscriptions.',
@@ -642,8 +670,11 @@ class Slixfeed(slixmpp.ClientXMPP):
                        label='Include old news',
                        value=value)
 
-        value = await config.get_setting_value(db_file, 'interval')
-        value = str(int(value/60))
+        value = config.get_setting_value(db_file, 'interval')
+        value = int(value)
+        value = value
+        value = int(value)
+        value = str(value)
         options = form.add_field(var='interval',
                                  ftype='list-single',
                                  label='Interval',
@@ -654,9 +685,12 @@ class Slixfeed(slixmpp.ClientXMPP):
             var = str(i)
             lab = str(int(i/60))
             options.addOption(lab, var)
-            i += 60
+            if i >= 720:
+                i += 360
+            else:
+                i += 60
 
-        value = await config.get_setting_value(db_file, 'archive')
+        value = config.get_setting_value(db_file, 'archive')
         value = str(value)
         options = form.add_field(var='archive',
                                  ftype='list-single',
@@ -669,13 +703,13 @@ class Slixfeed(slixmpp.ClientXMPP):
             options.addOption(x, x)
             i += 50
 
-        value = await config.get_setting_value(db_file, 'quantum')
+        value = config.get_setting_value(db_file, 'quantum')
         value = str(value)
         options = form.add_field(var='quantum',
                                  ftype='list-single',
                                  label='Amount',
                                  desc='Set amount of updates per update.',
-                                 value='3')
+                                 value=value)
         i = 1
         while i <= 5:
             x = str(i)
@@ -702,28 +736,57 @@ class Slixfeed(slixmpp.ClientXMPP):
                        session. Additional, custom data may be saved
                        here to persist across handler callbacks.
         """
+        # This looks nice in Gajim, though there are dropdown menues
+        # form = payload
 
         jid = session['from'].bare
+        form = self['xep_0004'].make_form('form',
+                                          'Settings for {}'.format(jid))
+        form['instructions'] = ('🛡️ Settings have beem saved')
+
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
         # In this case (as is typical), the payload is a form
-        form = payload
-        values = form['values']
+        values = payload['values']
         for value in values:
             key = value
             val = values[value]
+
+            if key == 'interval':
+                val = int(val)
+                if val < 60:
+                    val = 90
+
             if sqlite.get_settings_value(db_file, key):
                 await sqlite.update_settings_value(db_file, [key, val])
             else:
                 await sqlite.set_settings_value(db_file, [key, val])
-            match value:
-                case 'enabled':
-                    pass
-                case 'interval':
-                    pass
-        # Having no return statement is the same as unsetting the 'payload'
-        # and 'next' session values and returning the session.
-        # Unless it is the final step, always return the session dictionary.
-        session['payload'] = None
+
+            val = sqlite.get_settings_value(db_file, key)
+            if key in ('enabled', 'media', 'old'):
+                if val == '1':
+                    val = 'Yes'
+                elif val == '0':
+                    val = 'No'
+
+            if key == 'interval':
+                val = int(val)
+                val = val/60
+                val = int(val)
+                val = str(val)
+
+            # match value:
+            #     case 'enabled':
+            #         pass
+            #     case 'interval':
+            #         pass
+
+            result = '{}: {}'.format(key.capitalize(), val)
+
+            form.add_field(var=key,
+                            ftype='fixed',
+                            value=result)
+        session['payload'] = form # Comment when this is fixed in Gajim
+        session["has_next"] = False
         session['next'] = None
-        return session
+        # return session

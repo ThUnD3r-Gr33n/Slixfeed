@@ -87,18 +87,18 @@ class XmppGroupchat:
 
 
     async def leave(self, muc_jid):
-        messages = [
-            "Whenever you need an RSS service again, "
-            "please don’t hesitate to contact me.",
-            "My JID is xmpp:{}?message".format(self.boundjid.bare),
-            "Farewell."
-            ]
-        for message in messages:
-            self.send_message(mto=muc_jid,
-                              mfrom=self.boundjid.bare,
-                              mbody=message,
-                              mtype='groupchat')
+        jid = self.boundjid.bare
+        message = ('This news bot will now leave this groupchat.\n'
+                   'The JID of this news bot is xmpp:{}?message'
+                   .format(jid))
+        status_message = ('This bot has left the group. '
+                         'It can be reached directly via {}'
+                         .format(jid))
+        self.send_message(mto=muc_jid,
+                          mfrom=self.boundjid.bare,
+                          mbody=message,
+                          mtype='groupchat')
         self.plugin['xep_0045'].leave_muc(muc_jid,
                                           self.alias,
-                                          'Goodbye!',
+                                          status_message,
                                           self.boundjid.bare)
