@@ -293,6 +293,12 @@ async def xmpp_change_interval(self, key, val, jid, jid_file, message=None,
         XmppMessage.send(self, jid, response, chat_type='chat')
 
 
+async def reset_settings(jid_file):
+    db_file = config.get_pathname_to_database(jid_file)
+    await sqlite.delete_settings(db_file)
+    response = 'Default settings have been restored.'
+    return response
+
 async def xmpp_start_updates(self, message, jid, jid_file):
     key = 'enabled'
     val = 1

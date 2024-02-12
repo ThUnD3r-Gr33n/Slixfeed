@@ -390,10 +390,11 @@ async def message(self, message):
                     response = ('This action is restricted. '
                                 'Type: removing bookmarks.')
                 XmppMessage.send_reply(self, message, response)
-            case 'default':
-                db_file = config.get_pathname_to_database(jid_file)
-                await sqlite.delete_settings(db_file)
-                response = ('Default settings have been restored.')
+            case 'default': # TODO Set default per key
+                response = action.reset_settings(jid_file)
+                XmppMessage.send_reply(self, message, response)
+            case 'defaults':
+                response = action.reset_settings(jid_file)
                 XmppMessage.send_reply(self, message, response)
             case 'bookmarks':
                 if jid == config.get_value('accounts', 'XMPP', 'operator'):
@@ -558,8 +559,14 @@ async def message(self, message):
             case _ if message_lowercase.startswith('interval'):
                 key = message_text[:8]
                 val = message_text[9:]
-                await action.xmpp_change_interval(
-                    self, key, val, jid, jid_file, message=message)
+                try:
+                    val = int(val)
+                    await action.xmpp_change_interval(self, key, val, jid,
+                                                      jid_file,
+                                                      message=message)
+                except:
+                    response = 'Enter a numeric value only.'
+                    XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('join'):
                 muc_jid = uri.check_xmpp_uri(message_text[5:])
                 if muc_jid:

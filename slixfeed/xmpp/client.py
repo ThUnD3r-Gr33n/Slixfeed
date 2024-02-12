@@ -3,12 +3,6 @@
 
 """
 
-FIXME
-
-1) Function check_readiness or event "changed_status" is causing for
-   triple status messages and also false ones that indicate of lack
-   of feeds.
-
 TODO
 
 1) Use loop (with gather) instead of TaskGroup.
@@ -29,15 +23,7 @@ Parse me!
 
 NOTE
 
-1) Self presence
-    Apparently, it is possible to view self presence.
-    This means that there is no need to store presences in order to switch or restore presence.
-    check_readiness
-    📂 Send a URL from a blog or a news website.
-    JID: self.boundjid.bare
-    MUC: self.alias
-
-2) Extracting attribute using xmltodict.
+1) Extracting attribute using xmltodict.
     import xmltodict
     message = xmltodict.parse(str(message))
     jid = message["message"]["x"]["@jid"]
