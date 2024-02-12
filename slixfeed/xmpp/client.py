@@ -456,6 +456,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         self['xep_0050'].add_command(node='settings',
                                      name='Edit Settings',
                                      handler=self._handle_settings)
+        self['xep_0050'].add_command(node='filters',
+                                      name='Manage Filters',
+                                      handler=self._handle_filters)
         self['xep_0050'].add_command(node='subscriptions',
                                      name='Manage subscriptions',
                                      handler=self._handle_subscriptions)
@@ -465,9 +468,80 @@ class Slixfeed(slixmpp.ClientXMPP):
         # self['xep_0050'].add_command(node='search',
         #                              name='Search',
         #                              handler=self._handle_search)
-        # self['xep_0050'].add_command(node='filters',
-        #                              name='Filters',
-        #                              handler=self._handle_filters)
+
+
+    async def _handle_filters(self, iq, session):
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        form = self['xep_0004'].make_form('form',
+                                          'Filters for {}'.format(jid))
+        form['instructions'] = '🕸️ Manage filters' # 🪄️
+        value  = await sqlite.get_filters_value(db_file, 'allow')
+        form.add_field(var='allow',
+                       ftype='text-single',
+                       label='Allow list',
+                       value=value,
+                       desc=('Keywords to allow (comma-separated keywords).'))
+        value  = await sqlite.get_filters_value(db_file, 'deny')
+        form.add_field(var='deny',
+                       ftype='text-single',
+                       label='Deny list',
+                       value=value,
+                       desc=('Keywords to deny (comma-separated keywords).'))
+        session['payload'] = form
+        session['next'] = self._handle_filters_complete
+        session['has_next'] = True
+        return session
+
+
+    async def _handle_filters_complete(self, payload, session):
+        """
+        Process a command result from the user.
+
+        Arguments:
+            payload -- Either a single item, such as a form, or a list
+                       of items or forms if more than one form was
+                       provided to the user. The payload may be any
+                       stanza, such as jabber:x:oob for out of band
+                       data, or jabber:x:data for typical data forms.
+            session -- A dictionary of data relevant to the command
+                       session. Additional, custom data may be saved
+                       here to persist across handler callbacks.
+        """
+        # Text is not displayed; only labels
+        form = payload
+
+        jid = session['from'].bare
+        form = self['xep_0004'].make_form('form', 'Filters for {}'.format(jid))
+        form['instructions'] = ('🛡️ Filters have been updated')
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        # In this case (as is typical), the payload is a form
+        values = payload['values']
+        for value in values:
+            key = value
+            val = values[value]
+            # NOTE We might want to add new keywords from
+            #      an empty form instead of editing a form.
+            # keywords = await sqlite.get_filters_value(db_file, key)
+            keywords = ''
+            val = await config.add_to_list(val, keywords)
+            if await sqlite.get_filters_value(db_file, key):
+                await sqlite.update_filters_value(db_file, [key, val])
+            else:
+                await sqlite.set_filters_value(db_file, [key, val])
+            # result = '{}: {}'.format(key, val)
+            form.add_field(var=key + '_title',
+                           ftype='fixed',
+                           value=key.capitalize() + ' Filter')
+            form.add_field(var=key.capitalize() + ' list',
+                           ftype='text-single',
+                           value=val)
+        session['payload'] = form
+        session["has_next"] = False
+        session['next'] = None
+        return session
 
 
     async def _handle_subscriptions(self, iq, session):

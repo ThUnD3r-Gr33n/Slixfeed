@@ -895,10 +895,10 @@ async def scan_json(db_file, url):
                     ).format(
                         title, summary, pathname)
                 allow_list = await config.is_include_keyword(
-                    db_file, "filter-allow", string)
+                    db_file, "allow", string)
                 if not allow_list:
                     reject_list = await config.is_include_keyword(
-                        db_file, "filter-deny", string)
+                        db_file, "deny", string)
                     if reject_list:
                         read_status = 1
                         logging.debug(
@@ -1176,10 +1176,10 @@ async def scan(db_file, url):
                     ).format(
                         title, summary, pathname)
                 allow_list = await config.is_include_keyword(
-                    db_file, "filter-allow", string)
+                    db_file, "allow", string)
                 if not allow_list:
                     reject_list = await config.is_include_keyword(
-                        db_file, "filter-deny", string)
+                        db_file, "deny", string)
                     if reject_list:
                         read_status = 1
                         logging.debug(
