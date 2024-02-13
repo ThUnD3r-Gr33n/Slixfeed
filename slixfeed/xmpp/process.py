@@ -202,7 +202,7 @@ async def message(self, message):
                 print(response)
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('help'):
-                command = message_text[5:]
+                command = message_text[5:].lower()
                 command = command.split(' ')
                 if len(command) == 2:
                     command_root = command[0]
@@ -239,7 +239,7 @@ async def message(self, message):
                             .format(command_list))
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('info'):
-                command = message_text[5:]
+                command = message_text[5:].lower()
                 command_list = action.manual('information.toml', command)
                 if command_list:
                     # command_list = '\n'.join(command_list)
@@ -319,7 +319,7 @@ async def message(self, message):
                     response = 'Missing URL.'
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('allow +'):
-                    key = 'filter-' + message_text[:5]
+                    key = message_text[:5]
                     val = message_text[7:]
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
@@ -337,7 +337,7 @@ async def message(self, message):
                         response = 'Missing keywords.'
                     XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('allow -'):
-                    key = 'filter-' + message_text[:5]
+                    key = message_text[:5]
                     val = message_text[7:]
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
@@ -712,31 +712,34 @@ async def message(self, message):
                 data = message_text[5:]
                 data = data.split()
                 url = data[0]
-                task.clean_tasks_xmpp(self, jid, ['status'])
-                status_type = 'dnd'
-                status_message = ('📫️ Processing request to fetch data from {}'
-                                  .format(url))
-                XmppPresence.send(self, jid, status_message,
-                                  status_type=status_type)
-                if url.startswith('feed:'):
-                    url = uri.feed_to_http(url)
-                url = (uri.replace_hostname(url, 'feed')) or url
-                match len(data):
-                    case 1:
-                        if url.startswith('http'):
-                            response = await action.view_feed(url)
-                        else:
-                            response = 'Missing URL.'
-                    case 2:
-                        num = data[1]
-                        if url.startswith('http'):
-                            response = await action.view_entry(url, num)
-                        else:
-                            response = 'Missing URL.'
-                    case _:
-                        response = ('Enter command as follows:\n'
-                                    '`read <url>` or `read <url> <number>`\n'
-                                    'URL must not contain white space.')
+                if url:
+                    task.clean_tasks_xmpp(self, jid, ['status'])
+                    status_type = 'dnd'
+                    status_message = ('📫️ Processing request to fetch data from {}'
+                                      .format(url))
+                    XmppPresence.send(self, jid, status_message,
+                                      status_type=status_type)
+                    if url.startswith('feed:'):
+                        url = uri.feed_to_http(url)
+                    url = (uri.replace_hostname(url, 'feed')) or url
+                    match len(data):
+                        case 1:
+                            if url.startswith('http'):
+                                response = await action.view_feed(url)
+                            else:
+                                response = 'Missing URL.'
+                        case 2:
+                            num = data[1]
+                            if url.startswith('http'):
+                                response = await action.view_entry(url, num)
+                            else:
+                                response = 'Missing URL.'
+                        case _:
+                            response = ('Enter command as follows:\n'
+                                        '`read <url>` or `read <url> <number>`\n'
+                                        'URL must not contain white space.')
+                else:
+                    response = 'Missing URL.'
                 XmppMessage.send_reply(self, message, response)
                 await task.start_tasks_xmpp(self, jid, ['status'])
             case _ if message_lowercase.startswith('recent'):

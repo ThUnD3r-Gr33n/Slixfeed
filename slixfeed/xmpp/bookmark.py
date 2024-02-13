@@ -18,8 +18,24 @@ class XmppBookmark:
     async def get(self):
         result = await self.plugin['xep_0048'].get_bookmarks()
         bookmarks = result['private']['bookmarks']
-        conferences = bookmarks['conferences']
+        conferences = bookmarks['conferences'] # We might not want this here
+        # conferences = bookmarks
         return conferences
+
+
+    async def properties(self, jid):
+        result = await self.plugin['xep_0048'].get_bookmarks()
+        groupchats = result['private']['bookmarks']['conferences']
+        for groupchat in groupchats:
+            if jid == groupchat['jid']:
+                properties = {'password': groupchat['password'],
+                              'jid': groupchat['jid'],
+                              'name': groupchat['name'],
+                              'nick': groupchat['nick'],
+                              'autojoin': groupchat['autojoin'],
+                              'lang': groupchat['lang']}
+                break
+        return properties
 
 
     async def add(self, muc_jid):

@@ -795,6 +795,31 @@ async def mark_entry_as_read(cur, ix):
     cur.execute(sql, par)
 
 
+def get_number_of_unread_entries_by_feed(db_file, feed_id):
+    """
+    Count entries of goven feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Feed Id.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT count(id)
+            FROM entries
+            WHERE read = 0 AND feed_id = ?
+            """
+            )
+        par = (feed_id,)
+        count = cur.execute(sql, par).fetchone()
+        return count
+
+
 async def mark_feed_as_read(db_file, feed_id):
     """
     Set read status of entries of given feed as read.
@@ -1689,7 +1714,7 @@ async def check_entry_exist(
                 """
                 SELECT id
                 FROM entries
-                WHERE title = :title and link = :link and timestamp = :date
+                WHERE title = :title AND link = :link AND timestamp = :date
                 """
                 )
             par = {
@@ -1708,7 +1733,7 @@ async def check_entry_exist(
                 """
                 SELECT id
                 FROM entries
-                WHERE title = :title and link = :link
+                WHERE title = :title AND link = :link
                 """
                 )
             par = {

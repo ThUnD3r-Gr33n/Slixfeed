@@ -47,6 +47,7 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 # from lxml import etree
 
 import slixfeed.config as config
+from slixfeed.dt import timestamp
 import slixfeed.sqlite as sqlite
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.connect import XmppConnect
@@ -108,6 +109,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         # self.add_event_handler("got_online", self.check_readiness)
         self.add_event_handler("changed_status",
                                self.on_changed_status)
+        self.add_event_handler("disco_info",
+                               self.on_disco_info)
         self.add_event_handler("presence_available",
                                self.on_presence_available)
         # self.add_event_handler("presence_unavailable",
@@ -199,7 +202,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def on_session_start(self, event):
         self.send_presence()
-        await self['xep_0115'].update_caps()
+        await self['xep_0115'].update_caps(preserve=True)
         await self.get_roster()
         await XmppGroupchat.autojoin(self)
         profile.set_identity(self, 'client')
@@ -215,13 +218,22 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def on_session_resumed(self, event):
         self.send_presence()
-        self['xep_0115'].update_caps()
+        self['xep_0115'].update_caps(preserve=True)
         await XmppGroupchat.autojoin(self)
         profile.set_identity(self, 'client')
         
         # Service.commands(self)
         # Service.reactions(self)
         
+        self.service_commands()
+        self.service_reactions()
+
+
+    async def on_disco_info(self, DiscoInfo):
+        jid = DiscoInfo['from']
+        self.send_presence(pto=jid)
+        await self['xep_0115'].update_caps(jid=jid,
+                                           preserve=True)
         self.service_commands()
         self.service_reactions()
 
@@ -348,15 +360,17 @@ class Slixfeed(slixmpp.ClientXMPP):
         if message['type'] in ('chat', 'normal'):
             # task.clean_tasks_xmpp(self, jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
+            # NOTE: Required for Cheogram
 
 
-    def on_chatstate_composing(self, message):
+    async def on_chatstate_composing(self, message):
         if message['type'] in ('chat', 'normal'):
             jid = message['from'].bare
             # task.clean_tasks_xmpp(self, jid, ['status'])
             status_message = ('💡 Send "help" for manual, or "info" for '
                               'information.')
             XmppPresence.send(self, jid, status_message)
+            # NOTE: Required for Cheogram
 
 
     async def on_chatstate_gone(self, message):
@@ -447,28 +461,36 @@ class Slixfeed(slixmpp.ClientXMPP):
         #     )
 
         # if jid == config.get_value('accounts', 'XMPP', 'operator'):
-        #     self['xep_0050'].add_command(node='bookmarks',
-        #                                  name='Bookmarks',
-        #                                  handler=self._handle_bookmarks)
-        #     self['xep_0050'].add_command(node='roster',
-        #                                  name='Roster',
-        #                                  handler=self._handle_roster)
         self['xep_0050'].add_command(node='settings',
-                                     name='Edit Settings',
+                                     name='📮️ Edit settings',
                                      handler=self._handle_settings)
         self['xep_0050'].add_command(node='filters',
-                                      name='Manage Filters',
+                                      name='🕸️ Manage filters',
                                       handler=self._handle_filters)
+        self['xep_0050'].add_command(node='roster',
+                                      name='🧾️ Manage roster',
+                                      handler=self._handle_roster)
+        self['xep_0050'].add_command(node='bookmarks',
+                                      name='📔️ Organize bookmarks',
+                                      handler=self._handle_bookmarks)
         self['xep_0050'].add_command(node='subscriptions',
-                                     name='Manage subscriptions',
+                                     name='📰️  Subscriptions - All',
                                      handler=self._handle_subscriptions)
-        self['xep_0050'].add_command(node='subscription',
-                                     name='View subscription',
+        self['xep_0050'].add_command(node='subscriptions_cat',
+                                     name='🔖️ Subscriptions - Categories',
+                                     handler=self._handle_subscription)
+        self['xep_0050'].add_command(node='subscriptions_tag',
+                                     name='🏷️ Subscriptions - Tags',
+                                     handler=self._handle_subscription)
+        self['xep_0050'].add_command(node='subscriptions_index',
+                                     name='📑️ Subscriptions - Indexed',
                                      handler=self._handle_subscription)
         # self['xep_0050'].add_command(node='search',
         #                              name='Search',
         #                              handler=self._handle_search)
 
+    # Special interface
+    # http://jabber.org/protocol/commands#actions
 
     async def _handle_filters(self, iq, session):
         jid = session['from'].bare
@@ -534,7 +556,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             # result = '{}: {}'.format(key, val)
             form.add_field(var=key + '_title',
                            ftype='fixed',
-                           value=key.capitalize() + ' Filter')
+                           value=key.capitalize() + ' filter')
             form.add_field(var=key.capitalize() + ' list',
                            ftype='text-single',
                            value=val)
@@ -554,17 +576,27 @@ class Slixfeed(slixmpp.ClientXMPP):
         #               label='Interval period')
         options = form.add_field(var='subscriptions',
                                  ftype='list-multi',
-                                 label='Select subscriptions',
-                                 desc='Select subscriptions to edit.')
+                                 label='Subscriptions',
+                                 desc='Select subscriptions to perform action.')
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
+        subscriptions = sorted(subscriptions, key=lambda x: x[0])
         for subscription in subscriptions:
             title = subscription[0]
             url = subscription[1]
             options.addOption(title, url)
+        options = form.add_field(var='action',
+                                 ftype='list-single',
+                                 label='Action',
+                                 value='none')
+        options.addOption('None', 'none')
+        options.addOption('Reset', 'reset')
+        options.addOption('Enable', 'enable')
+        options.addOption('Disable', 'disable')
+        options.addOption('Delete', 'delete')
         session['payload'] = form
-        session['next'] = self._edit_subscription
+        session['next'] = self._handle_subscription_editor
         session['has_next'] = True
         # Other useful session values:
         # session['to']                    -- The JID that received the
@@ -583,109 +615,232 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
-    # TODO Make form for a single subscription and several subscriptions
-    # single: Delete, Disable, Reset and Rename
-    # several: Delete, Disable, Reset
+    # FIXME There are feeds that are missing (possibly because of sortings)
     async def _handle_subscription(self, iq, session):
         jid = session['from'].bare
         form = self['xep_0004'].make_form('form',
                                           'Subscriptions for {}'.format(jid))
-        form['instructions'] = '📰️ View subscription properties'
+        form['instructions'] = '📰️ Edit subscription'
         # form.addField(var='interval',
         #               ftype='text-single',
         #               label='Interval period')
-        options = form.add_field(var='subscriptions',
-                                 ftype='list-single',
-                                 label='Select subscriptions',
-                                 desc='Select a subscription to view.')
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
+        # subscriptions = set(subscriptions)
+        categorized_subscriptions = {}
         for subscription in subscriptions:
             title = subscription[0]
             url = subscription[1]
-            options.addOption(title, url)
+            try:
+                letter = title[0].capitalize()
+                if letter not in categorized_subscriptions:
+                    categorized_subscriptions[letter] = [subscription]
+                        # title[0].capitalize()] = [subscription]
+                else:
+                    categorized_subscriptions[letter].append(subscription)
+                        # title[0].capitalize()].append(subscription)
+            except Exception as e:
+                logging.warning('Title might be empty:', str(e))
+        for category in sorted(categorized_subscriptions):
+            options = form.add_field(var=category,
+                                     ftype='list-single',
+                                     label=category.capitalize(),
+                                     desc='Select a subscription to view.')
+            subscriptions_ = categorized_subscriptions[category]
+            subscriptions_ = sorted(subscriptions_, key=lambda x: x[0])
+            for subscription_ in subscriptions_:
+            # for subscription in categorized_subscriptions[category]:
+                # breakpoint()
+                title = subscription_[0]
+                url = subscription_[1]
+                options.addOption(title, url)
         session['payload'] = form
-        session['next'] = self._edit_subscription
+        session['next'] = self._handle_subscription_editor
         session['has_next'] = True
         return session
 
 
-    async def _edit_subscription(self, iq, session):
+    async def _handle_subscription_editor(self, payload, session):
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form',
-                                          'Subscription editor'.format(jid))
-        form['instructions'] = '🗞️ Edit subscription: {}'.format(title)
-        options = form.add_field(var='enable',
-                                 ftype='boolean',
-                                 label='Enable',
-                                 value=True)
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        # url = payload['values']['subscriptions']
+        urls = payload['values']
+        for i in urls:
+            if urls[i]:
+                url = urls[i]
+                break
+        feed_id = await sqlite.get_feed_id(db_file, url)
+        feed_id = feed_id[0]
+        title = sqlite.get_feed_title(db_file, feed_id)
+        title = title[0]
+        form = self['xep_0004'].make_form('form', 'Subscription editor')
+        form['instructions'] = '📂️ Editing subscription #{}'.format(feed_id)
+        form.add_field(var='properties',
+                       ftype='fixed',
+                       value='Properties')
+        form.add_field(var='name',
+                       ftype='text-single',
+                       label='Name',
+                       value=title)
+        # NOTE This does not look good in Gajim
+        # options = form.add_field(var='url',
+        #                           ftype='fixed',
+        #                           value=url)
+        form.add_field(var='url',
+                       ftype='text-single',
+                       label='URL',
+                       value=url)
+        form.add_field(var='labels',
+                       ftype='fixed',
+                       value='Labels')
+        options = form.add_field(var='category',
+                                 ftype='list-single',
+                                 label='Category',
+                                 value='none')
+        options.addOption('None', 'none')
+        options.addOption('Activity', 'activity')
+        options.addOption('Catalogues', 'catalogues')
+        options.addOption('Clubs', 'clubs')
+        options.addOption('Events', 'events')
+        options.addOption('Forums', 'forums')
+        options.addOption('Music', 'music')
+        options.addOption('News', 'news')
+        options.addOption('Organizations', 'organizations')
+        options.addOption('Podcasts', 'podcasts')
+        options.addOption('Projects', 'projects')
+        options.addOption('Schools', 'schools')
+        options.addOption('Stores', 'stores')
+        options.addOption('Tutorials', 'tutorials')
+        options.addOption('Videos', 'videos')
+        options = form.add_field(var='tags',
+                                 ftype='text-single',
+                                 # ftype='text-multi',
+                                 label='Tags',
+                                 value='')
+        form.add_field(var='options',
+                       ftype='fixed',
+                       value='Options')
+        form.add_field(var='enable',
+                       ftype='boolean',
+                       label='Enable',
+                       value=True)
+        options = form.add_field(var='priority',
+                                 ftype='list-single',
+                                 label='Priority',
+                                 value='0')
+        i = 0
+        while i <= 5:
+            num = str(i)
+            options.addOption(num, num)
+            i += 1
         options = form.add_field(var='action',
                                  ftype='list-single',
                                  label='Action',
-                                 value='reset')
-        options.addOption('Delete', 'delete')
-        options.addOption('Reset', 'reset')
+                                 value='none')
+        options.addOption('None', 'none')
+        count = sqlite.get_number_of_unread_entries_by_feed(db_file, feed_id)
+        count = count[0]
+        if int(count):
+            options.addOption('Mark {} entries as read'.format(count), 'reset')
+        options.addOption('Delete subscription', 'delete')
         session['payload'] = form
-        session['next'] = None
-        session['has_next'] = False
+        session['next'] = self._handle_subscription_complete
+        session['has_next'] = True
         return session
+
+
+    async def _handle_subscription_complete(self, payload, session):
+        form = self['xep_0004'].make_form('form', 'Subscription editor')
+        form['instructions'] = ('📁️ Subscription #{} has been {}'
+                                .format(feed_id, action))
+        pass
 
 
     async def _handle_bookmarks(self, iq, session):
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form',
-                                          'Bookmarks for {}'.format(jid))
-        form['instructions'] = '📑️ Organize bookmarks'
-        options = form.add_field(var='bookmarks',
-                                 # ftype='list-multi'
-                                 ftype='list-single',
-                                 label='Select a bookmark',
-                                 desc='Select a bookmark to edit.')
-        conferences = await XmppBookmark.get(self)
-        for conference in conferences:
-            options.addOption(conference['jid'], conference['jid'])
+        if jid == config.get_value('accounts', 'XMPP', 'operator'):
+            form = self['xep_0004'].make_form('form', 'Bookmarks')
+            form['instructions'] = '📖️ Organize bookmarks'
+            options = form.add_field(var='bookmarks',
+                                     # ftype='list-multi'
+                                     ftype='list-single',
+                                     label='Select a bookmark',
+                                     desc='Select a bookmark to edit.')
+            conferences = await XmppBookmark.get(self)
+            for conference in conferences:
+                options.addOption(conference['name'], conference['jid'])
+            session['next'] = self._handle_bookmarks_editor
+            session['has_next'] = True
+        else:
+            logging.warning('An unauthorized attempt to access bookmarks has '
+                            'been detected!\n'
+                            'Details:\n'
+                            '   Jabber ID: {}\n'
+                            '   Timestamp: {}\n'
+                            .format(jid, timestamp()))
+            form = self['xep_0004'].make_form('form', 'Denied')
+            # form = self['xep_0004'].make_form('error', 'Denied') # Cheogram crashes
+            form['instructions'] = '⚠️ Access denied'
+            form.add_field(var='warning',
+                           ftype='fixed',
+                           label='Warning',
+                           value='You are not allowed to access this resource.')
+            session['next'] = False
+            session['has_next'] = False
         session['payload'] = form
-        session['next'] = self._handle_command_complete
-        session['has_next'] = False
         return session
 
 
-    async def _handle_bookmarks_editor(self, iq, session):
+    async def _handle_bookmarks_editor(self, payload, session):
+        jid = payload['values']['bookmarks']
+        properties = await XmppBookmark.properties(self, jid)
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form',
-                                          'Bookmarks for {}'.format(jid))
-        form['instructions'] = '📝️ Edit bookmarks'
+        form = self['xep_0004'].make_form('form', 'Edit bookmark')
+        form['instructions'] = 'Edit bookmark {}'.format(properties['name'])
+        jid = properties['jid'].split('@')
+        room = jid[0]
+        host = jid[1]
         form.addField(var='name',
                       ftype='text-single',
-                      label='Name')
-        form.addField(var='host',
-                      ftype='text-single',
-                      label='Host',
-                      required=True)
+                      label='Name',
+                      value=properties['name'])
         form.addField(var='room',
                       ftype='text-single',
                       label='Room',
+                      value=room,
+                      required=True)
+        form.addField(var='host',
+                      ftype='text-single',
+                      label='Host',
+                      value=host,
                       required=True)
         form.addField(var='alias',
                       ftype='text-single',
-                      label='Alias')
+                      label='Alias',
+                      value=properties['nick'])
         form.addField(var='password',
                       ftype='text-private',
-                      label='Password')
+                      label='Password',
+                      value=properties['password'])
+        form.addField(var='language',
+                      ftype='text-single',
+                      label='Language',
+                      value=properties['lang'])
         form.add_field(var='autojoin',
                        ftype='boolean',
                        label='Auto-join',
-                       value=True)
+                       value=properties['autojoin'])
         options = form.add_field(var='action',
                        ftype='list-single',
                        label='Action',
                        value='join')
-        options.addOption('Add', 'add')
+        # options.addOption('Add', 'add')
         options.addOption('Join', 'join')
         options.addOption('Remove', 'remove')
         session['payload'] = form
-        session['next'] = None
+        session['next'] = False
         session['has_next'] = False
         return session
 
@@ -756,9 +911,9 @@ class Slixfeed(slixmpp.ClientXMPP):
                                  value=value)
         i = 60
         while i <= 2880:
-            var = str(i)
+            num = str(i)
             lab = str(int(i/60))
-            options.addOption(lab, var)
+            options.addOption(lab, num)
             if i >= 720:
                 i += 360
             else:
