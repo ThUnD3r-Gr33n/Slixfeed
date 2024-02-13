@@ -773,6 +773,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 options.addOption(conference['name'], conference['jid'])
             session['next'] = self._handle_bookmarks_editor
             session['has_next'] = True
+            session['payload'] = form
         else:
             logging.warning('An unauthorized attempt to access bookmarks has '
                             'been detected!\n'
@@ -780,16 +781,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                             '   Jabber ID: {}\n'
                             '   Timestamp: {}\n'
                             .format(jid, timestamp()))
-            form = self['xep_0004'].make_form('form', 'Denied')
-            # form = self['xep_0004'].make_form('error', 'Denied') # Cheogram crashes
-            form['instructions'] = '⚠️ Access denied'
-            form.add_field(var='warning',
-                           ftype='fixed',
-                           label='Warning',
-                           value='You are not allowed to access this resource.')
-            session['next'] = False
-            session['has_next'] = False
-        session['payload'] = form
+            session['notes'] = [['error', 'You are not allowed to access this resource.']]
         return session
 
 
