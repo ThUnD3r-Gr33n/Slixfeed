@@ -201,19 +201,17 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_session_start(self, event):
-        self.send_presence()
-        await self['xep_0115'].update_caps(preserve=True)
+        profile.set_identity(self, 'client')
+        self.service_commands()
+        self.service_reactions()
+        await self['xep_0115'].update_caps()
         await self.get_roster()
         await XmppGroupchat.autojoin(self)
-        profile.set_identity(self, 'client')
         await profile.update(self)
         task.task_ping(self)
         
         # Service.commands(self)
         # Service.reactions(self)
-        
-        self.service_commands()
-        self.service_reactions()
 
 
     async def on_session_resumed(self, event):
