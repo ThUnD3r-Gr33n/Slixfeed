@@ -16,6 +16,11 @@ TODO
         message.reply("Share online status to activate bot.").send()
         return
 
+3) Set timeout for moderator interaction.
+   If moderator interaction has been made, and moderator approves the bot, then
+   the bot will add the given groupchat to bookmarks; otherwise, the bot will
+   send a message that it was not approved and therefore leaves the groupchat.
+
 """
 
 import logging
@@ -379,12 +384,21 @@ async def message(self, message):
                 else:
                     response = 'Missing value.'
                 XmppMessage.send_reply(self, message, response)
+            case _ if message_lowercase.startswith('bookmark +'):
+                if jid == config.get_value('accounts', 'XMPP', 'operator'):
+                    muc_jid = message_text[11:]
+                    await XmppBookmark.add(self, jid=muc_jid)
+                    response = ('Groupchat {} has been added to bookmarks.'
+                                .format(muc_jid))
+                else:
+                    response = ('This action is restricted. '
+                                'Type: adding bookmarks.')
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('bookmark -'):
                 if jid == config.get_value('accounts', 'XMPP', 'operator'):
                     muc_jid = message_text[11:]
                     await XmppBookmark.remove(self, muc_jid)
-                    response = ('Groupchat {} has been removed '
-                                'from bookmarks.'
+                    response = ('Groupchat {} has been removed from bookmarks.'
                                 .format(muc_jid))
                 else:
                     response = ('This action is restricted. '
@@ -572,6 +586,7 @@ async def message(self, message):
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
                     await XmppGroupchat.join(self, jid, muc_jid)
+                    # await XmppBookmark.add(self, jid=muc_jid)
                     response = ('Joined groupchat {}'
                                 .format(message_text))
                 else:
@@ -909,6 +924,7 @@ async def message(self, message):
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
                     await XmppGroupchat.join(self, jid, muc_jid)
+                    # await XmppBookmark.add(self, jid=muc_jid)
                     response = ('Joined groupchat {}'
                                 .format(message_text))
                 else:

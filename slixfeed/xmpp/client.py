@@ -201,6 +201,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_session_start(self, event):
+        # self.send_presence()
         profile.set_identity(self, 'client')
         self.service_commands()
         self.service_reactions()
@@ -212,28 +213,28 @@ class Slixfeed(slixmpp.ClientXMPP):
         
         # Service.commands(self)
         # Service.reactions(self)
+        
 
 
     async def on_session_resumed(self, event):
-        self.send_presence()
-        self['xep_0115'].update_caps(preserve=True)
-        await XmppGroupchat.autojoin(self)
+        # self.send_presence()
         profile.set_identity(self, 'client')
+        # self.service_commands()
+        # self.service_reactions()
+        self['xep_0115'].update_caps()
+        await XmppGroupchat.autojoin(self)
         
         # Service.commands(self)
         # Service.reactions(self)
         
-        self.service_commands()
-        self.service_reactions()
 
 
     async def on_disco_info(self, DiscoInfo):
         jid = DiscoInfo['from']
-        self.send_presence(pto=jid)
-        await self['xep_0115'].update_caps(jid=jid,
-                                           preserve=True)
-        self.service_commands()
-        self.service_reactions()
+        # self.service_commands()
+        # self.service_reactions()
+        # self.send_presence(pto=jid)
+        await self['xep_0115'].update_caps(jid=jid)
 
 
     # TODO Request for subscription
@@ -356,19 +357,25 @@ class Slixfeed(slixmpp.ClientXMPP):
         if jid in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
-            # task.clean_tasks_xmpp(self, jid, ['status'])
-            await task.start_tasks_xmpp(self, jid, ['status'])
             # NOTE: Required for Cheogram
+            await self['xep_0115'].update_caps(jid=jid)
+            # self.send_presence(pto=jid)
+            # task.clean_tasks_xmpp(self, jid, ['status'])
+            await asyncio.sleep(5)
+            await task.start_tasks_xmpp(self, jid, ['status'])
 
 
     async def on_chatstate_composing(self, message):
         if message['type'] in ('chat', 'normal'):
             jid = message['from'].bare
+            # NOTE: Required for Cheogram
+            await self['xep_0115'].update_caps(jid=jid)
+            # self.send_presence(pto=jid)
             # task.clean_tasks_xmpp(self, jid, ['status'])
+            await asyncio.sleep(5)
             status_message = ('💡 Send "help" for manual, or "info" for '
                               'information.')
             XmppPresence.send(self, jid, status_message)
-            # NOTE: Required for Cheogram
 
 
     async def on_chatstate_gone(self, message):
@@ -465,12 +472,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         self['xep_0050'].add_command(node='filters',
                                       name='🕸️ Manage filters',
                                       handler=self._handle_filters)
-        self['xep_0050'].add_command(node='roster',
-                                      name='🧾️ Manage roster',
-                                      handler=self._handle_roster)
         self['xep_0050'].add_command(node='bookmarks',
-                                      name='📔️ Organize bookmarks',
+                                      name='📔️ Organize bookmarks - Restricted',
                                       handler=self._handle_bookmarks)
+        self['xep_0050'].add_command(node='roster',
+                                      name='🧾️ Organize roster - Restricted',
+                                      handler=self._handle_roster)
         self['xep_0050'].add_command(node='subscriptions',
                                      name='📰️  Subscriptions - All',
                                      handler=self._handle_subscriptions)
@@ -483,6 +490,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         self['xep_0050'].add_command(node='subscriptions_index',
                                      name='📑️ Subscriptions - Indexed',
                                      handler=self._handle_subscription)
+        self['xep_0050'].add_command(node='credit',
+                                     name='💡️ Credit',
+                                     handler=self._handle_credit)
+        self['xep_0050'].add_command(node='help',
+                                     name='🛟️ Help',
+                                     handler=self._handle_help)
         # self['xep_0050'].add_command(node='search',
         #                              name='Search',
         #                              handler=self._handle_search)
@@ -756,6 +769,62 @@ class Slixfeed(slixmpp.ClientXMPP):
         pass
 
 
+    async def _handle_credit(self, iq, session):
+        import slixfeed.action as action
+        # form = self['xep_0004'].make_form('result', 'Thanks')
+        # form['instructions'] = action.manual('information.toml', 'thanks')
+        # session['payload'] = form
+        text = '💡️ We are Jabber\n\n'
+        fren = action.manual('information.toml', 'thanks')
+        fren = "".join(fren)
+        fren = fren.split(';')
+        fren = "\n".join(fren)
+        text += fren
+        text += '\n\nYOU!\n\n🫵️\n\n- Join us -\n\n🤝️'
+        session['notes'] = [['info', text]]
+        return session
+
+
+    async def _handle_help(self, iq, session):
+        filename = 'commands.toml'
+        import tomllib
+        config_dir = config.get_default_config_directory()
+        with open(config_dir + '/' + filename, mode="rb") as commands:
+            cmds = tomllib.load(commands)
+
+        form = self['xep_0004'].make_form('result', 'Manual')
+        form['instructions'] = '🛟️ Help manual for interactive chat'
+
+        # text = '🛟️ Help and Information about Slixfeed\n\n'
+        # for cmd in cmds:
+        #     name = cmd.capitalize()
+        #     elements = cmds[cmd]
+        #     text += name + '\n'
+        #     for key, value in elements.items():
+        #         text += " " + key.capitalize() + '\n'
+        #         for line in value.split("\n"):
+        #             text += "  " + line + '\n'
+        # form['instructions'] = text
+
+        for cmd in cmds:
+            name = cmd.capitalize()
+            form.add_field(var='title',
+                           ftype='fixed',
+                           value=name)
+            elements = cmds[cmd]
+            for key, value in elements.items():
+                key = key.replace('_', ' ')
+                key = key.capitalize()
+                form.add_field(var='title',
+                               ftype='text-multi',
+                               label=key,
+                               value=value)
+
+        
+        session['payload'] = form
+        return session
+
+
     async def _handle_bookmarks(self, iq, session):
         jid = session['from'].bare
         if jid == config.get_value('accounts', 'XMPP', 'operator'):
@@ -769,9 +838,9 @@ class Slixfeed(slixmpp.ClientXMPP):
             conferences = await XmppBookmark.get(self)
             for conference in conferences:
                 options.addOption(conference['name'], conference['jid'])
+            session['payload'] = form
             session['next'] = self._handle_bookmarks_editor
             session['has_next'] = True
-            session['payload'] = form
         else:
             logging.warning('An unauthorized attempt to access bookmarks has '
                             'been detected!\n'
@@ -788,7 +857,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         properties = await XmppBookmark.properties(self, jid)
         jid = session['from'].bare
         form = self['xep_0004'].make_form('form', 'Edit bookmark')
-        form['instructions'] = 'Edit bookmark {}'.format(properties['name'])
+        form['instructions'] = '📝️ Edit bookmark {}'.format(properties['name'])
         jid = properties['jid'].split('@')
         room = jid[0]
         host = jid[1]
@@ -822,16 +891,49 @@ class Slixfeed(slixmpp.ClientXMPP):
                        ftype='boolean',
                        label='Auto-join',
                        value=properties['autojoin'])
-        options = form.add_field(var='action',
-                       ftype='list-single',
-                       label='Action',
-                       value='join')
+        # options = form.add_field(var='action',
+        #                ftype='list-single',
+        #                label='Action',
+        #                value='join')
         # options.addOption('Add', 'add')
-        options.addOption('Join', 'join')
-        options.addOption('Remove', 'remove')
+        # options.addOption('Join', 'join')
+        # options.addOption('Remove', 'remove')
         session['payload'] = form
-        session['next'] = False
-        session['has_next'] = False
+        session['next'] = self._handle_bookmarks_complete
+        session['has_next'] = True
+        return session
+
+
+    async def _handle_bookmarks_complete(self, payload, session):
+        """
+        Process a command result from the user.
+
+        Arguments:
+            payload -- Either a single item, such as a form, or a list
+                       of items or forms if more than one form was
+                       provided to the user. The payload may be any
+                       stanza, such as jabber:x:oob for out of band
+                       data, or jabber:x:data for typical data forms.
+            session -- A dictionary of data relevant to the command
+                       session. Additional, custom data may be saved
+                       here to persist across handler callbacks.
+        """
+
+        form = self['xep_0004'].make_form('result', 'Bookmarks')
+        form['instructions'] = ('🛡️ Bookmark has been saved')
+        # In this case (as is typical), the payload is a form
+        values = payload['values']
+        await XmppBookmark.add(self, properties=values)
+        for value in values:
+            key = str(value)
+            val = str(values[value])
+            form.add_field(var=key,
+                            ftype='text-single',
+                            label=key.capitalize(),
+                            value=val)
+        session['payload'] = form # Comment when this is fixed in Gajim
+        session["has_next"] = False
+        session['next'] = None
         return session
 
 
@@ -927,7 +1029,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         options = form.add_field(var='quantum',
                                  ftype='list-single',
                                  label='Amount',
-                                 desc='Set amount of updates per update.',
+                                 desc='Set amount of items per update.',
                                  value=value)
         i = 1
         while i <= 5:
@@ -961,7 +1063,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = session['from'].bare
         form = self['xep_0004'].make_form('form',
                                           'Settings for {}'.format(jid))
-        form['instructions'] = ('🛡️ Settings have beem saved')
+        form['instructions'] = ('🛡️ Settings have been saved')
 
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)

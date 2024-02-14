@@ -797,7 +797,7 @@ async def mark_entry_as_read(cur, ix):
 
 def get_number_of_unread_entries_by_feed(db_file, feed_id):
     """
-    Count entries of goven feed.
+    Count entries of given feed.
 
     Parameters
     ----------

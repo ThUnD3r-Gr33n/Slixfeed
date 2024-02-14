@@ -617,9 +617,10 @@ async def list_bookmarks(self):
     conferences = await XmppBookmark.get(self)
     message = '\nList of groupchats:\n\n```\n'
     for conference in conferences:
-        message += ('{}\n'
+        message += ('Name: {}\n'
+                    'Room: {}\n'
                     '\n'
-                    .format(conference['jid']))
+                    .format(conference['name'], conference['jid']))
     message += ('```\nTotal of {} groupchats.\n'
                 .format(len(conferences)))
     return message

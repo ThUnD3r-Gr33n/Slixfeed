@@ -17,9 +17,7 @@ class XmppBookmark:
 
     async def get(self):
         result = await self.plugin['xep_0048'].get_bookmarks()
-        bookmarks = result['private']['bookmarks']
-        conferences = bookmarks['conferences'] # We might not want this here
-        # conferences = bookmarks
+        conferences = result['private']['bookmarks']['conferences']
         return conferences
 
 
@@ -38,21 +36,37 @@ class XmppBookmark:
         return properties
 
 
-    async def add(self, muc_jid):
+    async def add(self, jid=None, properties=None):
         result = await self.plugin['xep_0048'].get_bookmarks()
-        bookmarks = result['private']['bookmarks']
-        conferences = bookmarks['conferences']
-        mucs = []
+        conferences = result['private']['bookmarks']['conferences']
+        groupchats = []
         for conference in conferences:
-            jid = conference['jid']
-            mucs.extend([jid])
-        if muc_jid not in mucs:
+            groupchats.extend([conference])
+        if properties:
+            properties['jid'] = properties['room'] + '@' + properties['host']
+        else:
+            properties = {
+                'jid' : jid,
+                'alias' : self.alias,
+                'name' : jid.split('@')[0],
+                'autojoin' : True,
+                'password' : None,
+                }
+        if jid not in groupchats:
             bookmarks = Bookmarks()
-            mucs.extend([muc_jid])
-            for muc in mucs:
-                bookmarks.add_conference(muc,
-                                         self.alias,
-                                         autojoin=True)
+            for groupchat in groupchats:
+                # if groupchat['jid'] == groupchat['name']:
+                #     groupchat['name'] = groupchat['name'].split('@')[0]
+                bookmarks.add_conference(groupchat['jid'],
+                                         groupchat['alias'],
+                                         name=groupchat['name'],
+                                         autojoin=groupchat['autojoin'],
+                                         password=groupchat['password'])
+            bookmarks.add_conference(properties['jid'],
+                                     properties['alias'],
+                                     name=properties['name'],
+                                     autojoin=properties['autojoin'],
+                                     password=properties['password'])
             await self.plugin['xep_0048'].set_bookmarks(bookmarks)
         # bookmarks = Bookmarks()
         # await self.plugin['xep_0048'].set_bookmarks(bookmarks)
@@ -63,19 +77,18 @@ class XmppBookmark:
         # await self['xep_0402'].publish(bm)
 
 
-    async def remove(self, muc_jid):
+    async def remove(self, jid):
         result = await self.plugin['xep_0048'].get_bookmarks()
-        bookmarks = result['private']['bookmarks']
-        conferences = bookmarks['conferences']
-        mucs = []
+        conferences = result['private']['bookmarks']['conferences']
+        groupchats = []
         for conference in conferences:
-            jid = conference['jid']
-            mucs.extend([jid])
-        if muc_jid in mucs:
-            bookmarks = Bookmarks()
-            mucs.remove(muc_jid)
-            for muc in mucs:
-                bookmarks.add_conference(muc,
-                                         self.alias,
-                                         autojoin=True)
-            await self.plugin['xep_0048'].set_bookmarks(bookmarks)
+            if not conference['jid'] == jid:
+                groupchats.extend([conference])
+        bookmarks = Bookmarks()
+        for groupchat in groupchats:
+            bookmarks.add_conference(groupchat['jid'],
+                                     groupchat['nick'],
+                                     name=groupchat['name'],
+                                     autojoin=groupchat['autojoin'],
+                                     password=groupchat['password'])
+        await self.plugin['xep_0048'].set_bookmarks(bookmarks)
