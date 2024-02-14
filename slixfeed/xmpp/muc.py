@@ -27,21 +27,22 @@ class XmppGroupchat:
     #         jid = message['groupchat_invite']['jid']
     #     else:
     #         jid = message
-    async def accept_invitation(self, message):
+    def accept_invitation(self, message):
         # operator muc_chat
         inviter = message["from"].bare
-        muc_jid = message['groupchat_invite']['jid']
-        await self.join(self, inviter, muc_jid)
+        jid = message['groupchat_invite']['jid']
+        self.join(self, inviter, jid)
 
 
-    async def autojoin(self):
-        result = await self.plugin['xep_0048'].get_bookmarks()
-        bookmarks = result["private"]["bookmarks"]
-        conferences = bookmarks["conferences"]
+    def autojoin(self, bookmarks):
+        conferences = bookmarks["private"]["bookmarks"]["conferences"]
         for conference in conferences:
-            if conference["autojoin"]:
-                muc_jid = conference["jid"]
-                self.plugin['xep_0045'].join_muc(muc_jid,
+            if conference["jid"] and conference["autojoin"]:
+                if not conference["nick"]:
+                    conference["nick"] = self.alias
+                    logging.error('Alias (i.e. Nicknname) is missing for '
+                                  'bookmark {}'.format(conference['name']))
+                self.plugin['xep_0045'].join_muc(conference["jid"],
                                                  conference["nick"],
                                                  # If a room password is needed, use:
                                                  # password=the_room_password,
@@ -51,11 +52,14 @@ class XmppGroupchat:
                              'JID   : {}\n'
                              'Alias : {}\n'
                              .format(conference["name"],
-                                     muc_jid,
+                                     conference["jid"],
                                      conference["nick"]))
+            elif not conference["jid"]:
+                logging.error('JID is missing for bookmark {}'
+                              .format(conference['name']))
 
 
-    async def join(self, inviter, muc_jid):
+    def join(self, inviter, jid):
         # token = await initdb(
         #     muc_jid,
         #     get_settings_value,
@@ -78,27 +82,26 @@ class XmppGroupchat:
         logging.info('Joining groupchat\n'
                      'JID     : {}\n'
                      'Inviter : {}\n'
-                     .format(muc_jid, inviter))
-        self.plugin['xep_0045'].join_muc(muc_jid,
+                     .format(jid, inviter))
+        self.plugin['xep_0045'].join_muc(jid,
                                          self.alias,
                                          # If a room password is needed, use:
                                          # password=the_room_password,
                                          )
 
 
-    async def leave(self, muc_jid):
-        jid = self.boundjid.bare
+    def leave(self, jid):
         message = ('This news bot will now leave this groupchat.\n'
                    'The JID of this news bot is xmpp:{}?message'
-                   .format(jid))
+                   .format(self.boundjid.bare))
         status_message = ('This bot has left the group. '
                          'It can be reached directly via {}'
-                         .format(jid))
-        self.send_message(mto=muc_jid,
-                          mfrom=self.boundjid.bare,
+                         .format(self.boundjid.bare))
+        self.send_message(mto=jid,
+                          mfrom=self.boundjid,
                           mbody=message,
                           mtype='groupchat')
-        self.plugin['xep_0045'].leave_muc(muc_jid,
+        self.plugin['xep_0045'].leave_muc(jid,
                                           self.alias,
                                           status_message,
-                                          self.boundjid.bare)
+                                          self.boundjid)

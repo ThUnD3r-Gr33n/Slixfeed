@@ -167,7 +167,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         inviter = message['from'].bare
         muc_jid = message['groupchat_invite']['jid']
         await XmppBookmark.add(self, muc_jid)
-        await XmppGroupchat.join(self, inviter, muc_jid)
+        XmppGroupchat.join(self, inviter, muc_jid)
         message_body = ('Greetings! I am {}, the news anchor.\n'
                         'My job is to bring you the latest '
                         'news from sources you provide me with.\n'
@@ -181,7 +181,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         inviter = message['from'].bare
         muc_jid = message['groupchat_invite']['jid']
         await XmppBookmark.add(self, muc_jid)
-        await XmppGroupchat.join(self, inviter, muc_jid)
+        XmppGroupchat.join(self, inviter, muc_jid)
         message_body = ('Greetings! I am {}, the news anchor.\n'
                         'My job is to bring you the latest '
                         'news from sources you provide me with.\n'
@@ -207,22 +207,23 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.service_reactions()
         await self['xep_0115'].update_caps()
         await self.get_roster()
-        await XmppGroupchat.autojoin(self)
         await profile.update(self)
         task.task_ping(self)
+        bookmarks = await self.plugin['xep_0048'].get_bookmarks()
+        XmppGroupchat.autojoin(self, bookmarks)
         
         # Service.commands(self)
         # Service.reactions(self)
         
 
 
-    async def on_session_resumed(self, event):
+    def on_session_resumed(self, event):
         # self.send_presence()
         profile.set_identity(self, 'client')
         # self.service_commands()
         # self.service_reactions()
         self['xep_0115'].update_caps()
-        await XmppGroupchat.autojoin(self)
+        XmppGroupchat.autojoin(self)
         
         # Service.commands(self)
         # Service.reactions(self)
@@ -358,7 +359,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             return
         if message['type'] in ('chat', 'normal'):
             # NOTE: Required for Cheogram
-            await self['xep_0115'].update_caps(jid=jid)
+            # await self['xep_0115'].update_caps(jid=jid)
             # self.send_presence(pto=jid)
             # task.clean_tasks_xmpp(self, jid, ['status'])
             await asyncio.sleep(5)
@@ -369,7 +370,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         if message['type'] in ('chat', 'normal'):
             jid = message['from'].bare
             # NOTE: Required for Cheogram
-            await self['xep_0115'].update_caps(jid=jid)
+            # await self['xep_0115'].update_caps(jid=jid)
             # self.send_presence(pto=jid)
             # task.clean_tasks_xmpp(self, jid, ['status'])
             await asyncio.sleep(5)
@@ -466,36 +467,42 @@ class Slixfeed(slixmpp.ClientXMPP):
         #     )
 
         # if jid == config.get_value('accounts', 'XMPP', 'operator'):
-        self['xep_0050'].add_command(node='settings',
-                                     name='📮️ Edit settings',
-                                     handler=self._handle_settings)
-        self['xep_0050'].add_command(node='filters',
-                                      name='🕸️ Manage filters',
-                                      handler=self._handle_filters)
-        self['xep_0050'].add_command(node='bookmarks',
-                                      name='📔️ Organize bookmarks - Restricted',
-                                      handler=self._handle_bookmarks)
-        self['xep_0050'].add_command(node='roster',
-                                      name='🧾️ Organize roster - Restricted',
-                                      handler=self._handle_roster)
         self['xep_0050'].add_command(node='subscriptions',
-                                     name='📰️  Subscriptions - All',
+                                     name='📰️  Subscriptions',
                                      handler=self._handle_subscriptions)
         self['xep_0050'].add_command(node='subscriptions_cat',
-                                     name='🔖️ Subscriptions - Categories',
+                                     name='🔖️ Categories',
                                      handler=self._handle_subscription)
         self['xep_0050'].add_command(node='subscriptions_tag',
-                                     name='🏷️ Subscriptions - Tags',
+                                     name='🏷️ Tags',
                                      handler=self._handle_subscription)
         self['xep_0050'].add_command(node='subscriptions_index',
-                                     name='📑️ Subscriptions - Indexed',
+                                     name='📑️ Index (A - Z)',
                                      handler=self._handle_subscription)
-        self['xep_0050'].add_command(node='credit',
-                                     name='💡️ Credit',
-                                     handler=self._handle_credit)
+        self['xep_0050'].add_command(node='settings',
+                                     name='📮️ Settings',
+                                     handler=self._handle_settings)
+        self['xep_0050'].add_command(node='filters',
+                                      name='🛡️ Filters',
+                                      handler=self._handle_filters)
+        self['xep_0050'].add_command(node='bookmarks',
+                                      name='📕 Bookmarks',
+                                      handler=self._handle_bookmarks)
+        self['xep_0050'].add_command(node='roster',
+                                      name='📓 Roster', # 📋
+                                      handler=self._handle_roster)
         self['xep_0050'].add_command(node='help',
-                                     name='🛟️ Help',
+                                     name='📔️ Manual',
                                      handler=self._handle_help)
+        self['xep_0050'].add_command(node='motd',
+                                     name='🗓️ MOTD',
+                                     handler=self._handle_motd)
+        self['xep_0050'].add_command(node='credit',
+                                     name='Credits', # 💡️
+                                     handler=self._handle_credit)
+        self['xep_0050'].add_command(node='about',
+                                     name='About', # 📜️
+                                     handler=self._handle_about)
         # self['xep_0050'].add_command(node='search',
         #                              name='Search',
         #                              handler=self._handle_search)
@@ -547,7 +554,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
         jid = session['from'].bare
         form = self['xep_0004'].make_form('form', 'Filters for {}'.format(jid))
-        form['instructions'] = ('🛡️ Filters have been updated')
+        form['instructions'] = ('✅️ Filters have been updated')
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
         # In this case (as is typical), the payload is a form
@@ -769,18 +776,55 @@ class Slixfeed(slixmpp.ClientXMPP):
         pass
 
 
+    async def _handle_about(self, iq, session):
+        import slixfeed.action as action
+        # form = self['xep_0004'].make_form('result', 'Thanks')
+        # form['instructions'] = action.manual('information.toml', 'thanks')
+        # session['payload'] = form
+        # text = '💡️ About Slixfeed, slixmpp and XMPP\n\n'
+        # text += '\n\n'
+        # form = self['xep_0004'].make_form('result', 'About')
+        text = 'Slixfeed\n\n'
+        text += ''.join(action.manual('information.toml', 'about'))
+        text += '\n\n'
+        text += 'Slixmpp\n\n'
+        text += ''.join(action.manual('information.toml', 'slixmpp'))
+        text += '\n\n'
+        text += 'SleekXMPP\n\n'
+        text += ''.join(action.manual('information.toml', 'sleekxmpp'))
+        text += '\n\n'
+        text += 'XMPP\n\n'
+        text += ''.join(action.manual('information.toml', 'xmpp'))
+        session['notes'] = [['info', text]]
+        # form.add_field(var='about',
+        #                ftype='text-multi',
+        #                label='About',
+        #                value=text)
+        # session['payload'] = form
+        return session
+
+
+    async def _handle_motd(self, iq, session):
+        # TODO add functionality to attach image.
+        text = ('Here you can add groupchat rules,post schedule, tasks or '
+                'anything elaborated you might deem fit. Good luck!')
+        session['notes'] = [['info', text]]
+        return session
+
+
     async def _handle_credit(self, iq, session):
         import slixfeed.action as action
         # form = self['xep_0004'].make_form('result', 'Thanks')
         # form['instructions'] = action.manual('information.toml', 'thanks')
         # session['payload'] = form
-        text = '💡️ We are Jabber\n\n'
+        text = '💡️ We are XMPP\n\n'
         fren = action.manual('information.toml', 'thanks')
         fren = "".join(fren)
         fren = fren.split(';')
         fren = "\n".join(fren)
         text += fren
-        text += '\n\nYOU!\n\n🫵️\n\n- Join us -\n\n🤝️'
+        # text += '\n\nYOU!\n\n🫵️\n\n- Join us -\n\n🤝️'
+        text += '\n\nYOU!\n\n🫵️\n\n- Join us -'
         session['notes'] = [['info', text]]
         return session
 
@@ -819,8 +863,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                                ftype='text-multi',
                                label=key,
                                value=value)
-
-        
         session['payload'] = form
         return session
 
@@ -864,7 +906,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         form.addField(var='name',
                       ftype='text-single',
                       label='Name',
-                      value=properties['name'])
+                      value=properties['name'],
+                      required=True)
         form.addField(var='room',
                       ftype='text-single',
                       label='Room',
@@ -878,7 +921,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         form.addField(var='alias',
                       ftype='text-single',
                       label='Alias',
-                      value=properties['nick'])
+                      value=properties['nick'],
+                      required=True)
         form.addField(var='password',
                       ftype='text-private',
                       label='Password',
@@ -920,13 +964,14 @@ class Slixfeed(slixmpp.ClientXMPP):
         """
 
         form = self['xep_0004'].make_form('result', 'Bookmarks')
-        form['instructions'] = ('🛡️ Bookmark has been saved')
+        form['instructions'] = ('✅️ Bookmark has been saved')
         # In this case (as is typical), the payload is a form
         values = payload['values']
         await XmppBookmark.add(self, properties=values)
         for value in values:
             key = str(value)
             val = str(values[value])
+            if not val: val = 'None' # '(empty)'
             form.add_field(var=key,
                             ftype='text-single',
                             label=key.capitalize(),
@@ -1067,7 +1112,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = session['from'].bare
         form = self['xep_0004'].make_form('form',
                                           'Settings for {}'.format(jid))
-        form['instructions'] = ('🛡️ Settings have been saved')
+        form['instructions'] = ('✅️ Settings have been saved')
 
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)

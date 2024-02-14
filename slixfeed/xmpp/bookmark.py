@@ -44,6 +44,8 @@ class XmppBookmark:
             groupchats.extend([conference])
         if properties:
             properties['jid'] = properties['room'] + '@' + properties['host']
+            if not properties['alias']: properties['alias'] = self.alias
+                
         else:
             properties = {
                 'jid' : jid,

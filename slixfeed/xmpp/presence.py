@@ -17,8 +17,9 @@ class XmppPresence:
 
 
     def send(self, jid, status_message, presence_type=None, status_type=None):
+        jid_from = str(self.boundjid) if self.is_component else None
         self.send_presence(pto=jid,
-                           pfrom=self.boundjid,
+                           pfrom=jid_from,
                            pshow=status_type,
                            pstatus=status_message,
                            ptype=presence_type)

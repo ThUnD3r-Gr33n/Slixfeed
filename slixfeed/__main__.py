@@ -113,6 +113,7 @@ class JabberComponent:
         xmpp.register_plugin('xep_0084') # User Avatar
         xmpp.register_plugin('xep_0085') # Chat State Notifications
         xmpp.register_plugin('xep_0115') # Entity Capabilities
+        xmpp.register_plugin('xep_0122') # Data Forms Validation
         xmpp.register_plugin('xep_0153') # vCard-Based Avatars
         xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
         xmpp.register_plugin('xep_0249') # Direct MUC Invitations
@@ -127,7 +128,6 @@ class JabberClient:
     def __init__(self, jid, password, hostname=None, port=None, alias=None):
         xmpp = Slixfeed(jid, password, hostname, port, alias)
         xmpp.register_plugin('xep_0004') # Data Forms
-        xmpp.register_plugin('xep_0122') # Data Forms Validation
         xmpp.register_plugin('xep_0030') # Service Discovery
         xmpp.register_plugin('xep_0045') # Multi-User Chat
         xmpp.register_plugin('xep_0048') # Bookmarks
@@ -140,6 +140,7 @@ class JabberClient:
         xmpp.register_plugin('xep_0084') # User Avatar
         xmpp.register_plugin('xep_0085') # Chat State Notifications
         xmpp.register_plugin('xep_0115') # Entity Capabilities
+        xmpp.register_plugin('xep_0122') # Data Forms Validation
         xmpp.register_plugin('xep_0153') # vCard-Based Avatars
         xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
         xmpp.register_plugin('xep_0249') # Direct MUC Invitations

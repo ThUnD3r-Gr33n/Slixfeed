@@ -565,7 +565,7 @@ async def message(self, message):
                 XmppMessage.send_reply(self, message, response)
             case 'goodbye':
                 if message['type'] == 'groupchat':
-                    await XmppGroupchat.leave(self, jid)
+                    XmppGroupchat.leave(self, jid)
                     await XmppBookmark.remove(self, jid)
                 else:
                     response = 'This command is valid in groupchat only.'
@@ -585,7 +585,7 @@ async def message(self, message):
                 muc_jid = uri.check_xmpp_uri(message_text[5:])
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
-                    await XmppGroupchat.join(self, jid, muc_jid)
+                    XmppGroupchat.join(self, jid, muc_jid)
                     # await XmppBookmark.add(self, jid=muc_jid)
                     response = ('Joined groupchat {}'
                                 .format(message_text))
@@ -923,7 +923,7 @@ async def message(self, message):
                 muc_jid = uri.check_xmpp_uri(message_text)
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
-                    await XmppGroupchat.join(self, jid, muc_jid)
+                    XmppGroupchat.join(self, jid, muc_jid)
                     # await XmppBookmark.add(self, jid=muc_jid)
                     response = ('Joined groupchat {}'
                                 .format(message_text))
