@@ -18,7 +18,7 @@ class XmppPresence:
 
     def send(self, jid, status_message, presence_type=None, status_type=None):
         self.send_presence(pto=jid,
-                           pfrom=self.boundjid.bare,
+                           pfrom=self.boundjid,
                            pshow=status_type,
                            pstatus=status_message,
                            ptype=presence_type)
