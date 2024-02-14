@@ -1018,6 +1018,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                                  label='Archive',
                                  desc='Number of news items to archive.',
                                  value=value)
+        options['validate']['datatype'] = 'xs:integer'
+        options['validate']['range'] = { 'minimum': 0, 'maximum': 500 }
         i = 0
         while i <= 500:
             x = str(i)
@@ -1031,6 +1033,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                                  label='Amount',
                                  desc='Set amount of items per update.',
                                  value=value)
+        options['validate']['datatype'] = 'xs:integer'
+        options['validate']['range'] = { 'minimum': 1, 'maximum': 5 }
         i = 1
         while i <= 5:
             x = str(i)
