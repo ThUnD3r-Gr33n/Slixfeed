@@ -102,7 +102,6 @@ async def message(self, message):
                 response = 'Successfully imported {} feeds.'.format(count)
             else:
                 response = 'OPML file was not imported.'
-            # task.clean_tasks_xmpp(self, jid, ['status'])
             await task.start_tasks_xmpp(self, jid, ['status'])
             XmppMessage.send_reply(self, message, response)
             return
@@ -454,32 +453,16 @@ async def message(self, message):
                         response = 'Missing keywords.'
                     XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('export'):
-                ex = message_text[7:]
-                if ex in ('opml', 'html', 'md', 'xbel'):
+                ext = message_text[7:]
+                if ext in ('md', 'opml'): # html xbel
                     status_type = 'dnd'
                     status_message = ('📤️ Procesing request to '
                                       'export feeds into {}...'
-                                      .format(ex))
+                                      .format(ext.upper()))
                     XmppPresence.send(self, jid, status_message,
                                       status_type=status_type)
-                    cache_dir = config.get_default_cache_directory()
-                    if not os.path.isdir(cache_dir):
-                        os.mkdir(cache_dir)
-                    if not os.path.isdir(cache_dir + '/' + ex):
-                        os.mkdir(cache_dir + '/' + ex)
-                    filename = os.path.join(
-                        cache_dir, ex, 'slixfeed_' + timestamp() + '.' + ex)
-                    db_file = config.get_pathname_to_database(jid_file)
-                    results = await sqlite.get_feeds(db_file)
-                    match ex:
-                        case 'html':
-                            response = 'Not yet implemented.'
-                        case 'md':
-                            action.export_to_markdown(jid, filename, results)
-                        case 'opml':
-                            action.export_to_opml(jid, filename, results)
-                        case 'xbel':
-                            response = 'Not yet implemented.'
+                    filename = await action.export_feeds(self, jid, jid_file,
+                                                         ext)
                     url = await XmppUpload.start(self, jid, filename)
                     # response = (
                     #     'Feeds exported successfully to {}.\n{}'
@@ -490,7 +473,7 @@ async def message(self, message):
                     await task.start_tasks_xmpp(self, jid, ['status'])
                 else:
                     response = ('Unsupported filetype.\n'
-                                'Try: html, md, opml, or xbel')
+                                'Try: md or opml')
                     XmppMessage.send_reply(self, message, response)
             case _ if (message_lowercase.startswith('gemini:') or
                        message_lowercase.startswith('gopher:')):
@@ -507,24 +490,23 @@ async def message(self, message):
                 ix_url = message_text.split(' ')[0]
                 await action.download_document(self, message, jid, jid_file,
                                           message_text, ix_url, True)
-            # case _ if (message_lowercase.startswith('http')) and(
-            #     message_lowercase.endswith('.opml')):
-            #     url = message_text
-            #     task.clean_tasks_xmpp(self, jid, ['status'])
-            #     status_type = 'dnd'
-            #     status_message = '📥️ Procesing request to import feeds...'
-            #     XmppPresence.send(self, jid, status_message,
-            #                       status_type=status_type)
-            #     db_file = config.get_pathname_to_database(jid_file)
-            #     count = await action.import_opml(db_file, url)
-            #     if count:
-            #         response = ('Successfully imported {} feeds.'
-            #                     .format(count))
-            #     else:
-            #         response = 'OPML file was not imported.'
-            #     task.clean_tasks_xmpp(self, jid, ['status'])
-            #     await task.start_tasks_xmpp(self, jid, ['status'])
-            #     XmppMessage.send_reply(self, message, response)
+            case _ if (message_lowercase.startswith('http')) and(
+                message_lowercase.endswith('.opml')):
+                url = message_text
+                task.clean_tasks_xmpp(self, jid, ['status'])
+                status_type = 'dnd'
+                status_message = '📥️ Procesing request to import feeds...'
+                XmppPresence.send(self, jid, status_message,
+                                  status_type=status_type)
+                db_file = config.get_pathname_to_database(jid_file)
+                count = await action.import_opml(db_file, url)
+                if count:
+                    response = ('Successfully imported {} feeds.'
+                                .format(count))
+                else:
+                    response = 'OPML file was not imported.'
+                await task.start_tasks_xmpp(self, jid, ['status'])
+                XmppMessage.send_reply(self, message, response)
             case _ if (message_lowercase.startswith('http') or
                        message_lowercase.startswith('feed:')):
                 url = message_text

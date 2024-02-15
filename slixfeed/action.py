@@ -87,6 +87,27 @@ except ImportError:
         "Arc90 Lab algorithm is disabled.")
 
 
+async def export_feeds(self, jid, jid_file, ext):
+    cache_dir = config.get_default_cache_directory()
+    if not os.path.isdir(cache_dir):
+        os.mkdir(cache_dir)
+    if not os.path.isdir(cache_dir + '/' + ext):
+        os.mkdir(cache_dir + '/' + ext)
+    filename = os.path.join(
+        cache_dir, ext, 'slixfeed_' + dt.timestamp() + '.' + ext)
+    db_file = config.get_pathname_to_database(jid_file)
+    results = await sqlite.get_feeds(db_file)
+    match ext:
+        # case 'html':
+        #     response = 'Not yet implemented.'
+        case 'md':
+            export_to_markdown(jid, filename, results)
+        case 'opml':
+            export_to_opml(jid, filename, results)
+        # case 'xbel':
+        #     response = 'Not yet implemented.'
+    return filename
+
 async def xmpp_send_status(self, jid):
     """
     Send status message.
