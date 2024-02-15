@@ -864,11 +864,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         form = self['xep_0004'].make_form('form',
                                           'Import data for {}'.format(jid))
         form['instructions'] = '🗞️ Import feeds from OPML'
-        form.add_field(var='url',
+        url = form.add_field(var='url',
                        ftype='text-single',
                        label='URL',
                        desc='Enter URL to OPML file.',
                        required=True)
+        url['validate']['datatype'] = 'xs:anyURI'
         session['payload'] = form
         session['next'] = self._handle_import_complete
         session['has_next'] = True
