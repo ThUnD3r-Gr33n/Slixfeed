@@ -119,45 +119,45 @@ MIT License for more details.
 https://gitgud.io/sjehuda/slixfeed
 """
 
-thanks = """
-Alixander Court <alixandercourt.com> (Utah); \
-Chriss Farrell (SalixOS, Oregon); \
-Christian Dersch (SalixOS); \
-Cyrille Pontvieux <enialis.net> (SalixOS, France); \
-Denis Fomin (Gajim, Russia); \
-Dimitris Tzemos (SalixOS, Greece); \
-Emmanuel Gil Peyrot (Poezio, France); \
-Florent Le Coz (Poezio, France); \
-George Vlahavas <vlahavas.com> (SalixOS, Greece); \
-Guus der Kinderen <igniterealtime.org> (Openfire, Netherlands); \
-habnabit_ from #python on irc.libera.chat; \
-Imar van Erven Dorens <simplicit.nl> (SalixOS, Netherlands); \
-imattau (atomtopubsub); \
-Jaussoin Timothée <mov.im> (Movim, France); \
-Justin Karneges <jblog.andbit.net> (Psi, California); \
-Kevin Smith <isode.com> (Swift IM, Wales); \
-Lars Windolf (Liferea, Germany); \
-Luis Henrique Mello (SalixOS, Brazil); \
-magicfelix; \
-Markus Muttilainen (SalixOS); \
-Martin <debacle@debian.org> (Debian, Germany); \
-Mathieu Pasquet (slixmpp, France); \
-Maxime Buquet (slixmpp, France); \
-mirux (Germany); \
-Phillip Watkins (SalixOS, United Kingdom); \
-Pierrick Le Brun (SalixOS, France); \
-Raphael Groner (Fedora, Germany); \
-Remko Tronçon <mko.re> (Psi , Belgium); \
-Simone "roughnecks" Canaletti <woodpeckersnest.space> (Italy); \
-Richard Lapointe (SalixOS, Connecticut); \
-Stephen Paul Weber <singpolyma.net>; \
-Strix from Loqi; \
-Thibaud Guerin (SalixOS); \
-Thorsten Fröhlich (France); \
-Thorsten Mühlfelder (SalixOS, Germany); \
-Tim Beech (SalixOS, Brazil); \
-Yann Leboulanger (Gajim, France).
-"""
+thanks = [
+    "Alixander Court <alixandercourt.com> (Utah)",
+    "Chriss Farrell (SalixOS, Oregon)",
+    "Christian Dersch (SalixOS)",
+    "Cyrille Pontvieux <enialis.net> (SalixOS, France)",
+    "Denis Fomin (Gajim, Russia)",
+    "Dimitris Tzemos (SalixOS, Greece)",
+    "Emmanuel Gil Peyrot (Poezio, France)",
+    "Florent Le Coz (Poezio, France)",
+    "George Vlahavas <vlahavas.com> (SalixOS, Greece)",
+    "Guus der Kinderen <igniterealtime.org> (Openfire, Netherlands)",
+    "habnabit_ from #python on irc.libera.chat",
+    "Imar van Erven Dorens <simplicit.nl> (SalixOS, Netherlands)",
+    "imattau (atomtopubsub)",
+    "Jaussoin Timothée <mov.im> (Movim, France)",
+    "Justin Karneges <jblog.andbit.net> (Psi, California)",
+    "Kevin Smith <isode.com> (Swift IM, Wales)",
+    "Lars Windolf (Liferea, Germany)",
+    "Luis Henrique Mello (SalixOS, Brazil)",
+    "magicfelix",
+    "Markus Muttilainen (SalixOS)",
+    "Martin <debacle@debian.org> (Debian, Germany)",
+    "Mathieu Pasquet (slixmpp, France)",
+    "Maxime Buquet (slixmpp, France)",
+    "mirux (Germany)",
+    "Phillip Watkins (SalixOS, United Kingdom)",
+    "Pierrick Le Brun (SalixOS, France)",
+    "Raphael Groner (Fedora, Germany)",
+    "Remko Tronçon <mko.re> (Psi , Belgium)",
+    "Simone \"roughnecks\" Canaletti <woodpeckersnest.space> (Italy)",
+    "Richard Lapointe (SalixOS, Connecticut)",
+    "Stephen Paul Weber <singpolyma.net>",
+    "Strix from Loqi",
+    "Thibaud Guerin (SalixOS)",
+    "Thorsten Fröhlich (France)",
+	 "Thorsten Mühlfelder (SalixOS, Germany)",
+    "Tim Beech (SalixOS, Brazil)",
+	 "Yann Leboulanger (Gajim, France)"
+]
 
 xmpp = """
 XMPP is the Extensible Messaging and Presence Protocol, a set \
