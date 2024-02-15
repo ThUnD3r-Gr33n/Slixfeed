@@ -736,23 +736,22 @@ class Slixfeed(slixmpp.ClientXMPP):
             title = title[0]
             form = self['xep_0004'].make_form('form', 'Subscription editor')
             form['instructions'] = '📂️ Editing subscription #{}'.format(feed_id)
-            form.add_field(var='properties',
-                           ftype='fixed',
+            form.add_field(ftype='fixed',
                            value='Properties')
             form.add_field(var='name',
                            ftype='text-single',
                            label='Name',
                            value=title)
             # NOTE This does not look good in Gajim
-            # options = form.add_field(var='url',
-            #                           ftype='fixed',
-            #                           value=url)
+            #url = form.add_field(ftype='fixed',
+            #                         value=url)
+            #url['validate']['datatype'] = 'xs:anyURI'
+
             form.add_field(var='url',
                            ftype='text-single',
                            label='URL',
                            value=url)
-            form.add_field(var='options',
-                           ftype='fixed',
+            form.add_field(ftype='fixed',
                            value='Options')
             options = form.add_field(var='action',
                                      ftype='list-single',
@@ -779,8 +778,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             num = str(i)
             options.addOption(num, num)
             i += 1
-        form.add_field(var='labels',
-                       ftype='fixed',
+        form.add_field(ftype='fixed',
                        value='Labels')
         options = form.add_field(var='category',
                                  ftype='list-single',
