@@ -62,14 +62,14 @@ class XmppGroupchat:
     def join(self, inviter, jid):
         # token = await initdb(
         #     muc_jid,
-        #     get_settings_value,
+        #     sqlite.get_setting_value,
         #     "token"
         #     )
         # if token != "accepted":
         #     token = randrange(10000, 99999)
         #     await initdb(
         #         muc_jid,
-        #         update_settings_value,
+        #         sqlite.update_setting_value,
         #         ["token", token]
         #     )
         #     self.send_message(

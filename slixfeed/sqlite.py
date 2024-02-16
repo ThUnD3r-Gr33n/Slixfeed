@@ -1752,9 +1752,9 @@ async def check_entry_exist(
         return exist
 
 
-async def set_settings_value(db_file, key_value):
+async def set_setting_value(db_file, key_value):
     """
-    Set settings value.
+    Set setting value.
 
     Parameters
     ----------
@@ -1795,9 +1795,9 @@ async def set_settings_value(db_file, key_value):
             cur.execute(sql, par)
 
 
-async def update_settings_value(db_file, key_value):
+async def update_setting_value(db_file, key_value):
     """
-    Update settings value.
+    Update setting value.
 
     Parameters
     ----------
@@ -1841,6 +1841,36 @@ async def update_settings_value(db_file, key_value):
             #         )
 
 
+async def delete_filter(db_file, key):
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                DELETE
+                FROM filters
+                WHERE key = ?
+                """
+                )
+            par = (key,)
+            cur.execute(sql, par)
+
+
+async def delete_setting(db_file, key):
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                DELETE
+                FROM settings
+                WHERE key = ?
+                """
+                )
+            par = (key,)
+            cur.execute(sql, par)
+
+
 async def delete_settings(db_file):
     async with DBLOCK:
         with create_connection(db_file) as conn:
@@ -1853,7 +1883,8 @@ async def delete_settings(db_file):
                 )
             cur.execute(sql)
 
-def get_settings_value(db_file, key):
+
+def get_setting_value(db_file, key):
     """
     Get settings value.
 
@@ -1872,26 +1903,49 @@ def get_settings_value(db_file, key):
     """
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        try:
-            sql = (
-                """
-                SELECT value
-                FROM settings
-                WHERE key = ?
-                """
-                )
-            par = (key,)
-            value = cur.execute(sql, par).fetchone()[0]
-            value = str(value)
-        except:
-            value = None
-            logging.debug(
-                "No specific value set for key {}.".format(key)
-                )
-    return value
+        sql = (
+            """
+            SELECT value
+            FROM settings
+            WHERE key = ?
+            """
+            )
+        par = (key,)
+        value = cur.execute(sql, par).fetchone()
+        return value
 
 
-async def set_filters_value(db_file, key_value):
+def is_setting_key(db_file, key):
+    """
+    Check whether setting key exist.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    key : str
+        Key: allow, deny.
+
+    Returns
+    -------
+    key : str
+        Key.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT key
+            FROM settings
+            WHERE key = ?
+            """
+            )
+        par = (key,)
+        key = cur.execute(sql, par).fetchone()
+    return key
+
+
+async def set_filter_value(db_file, key_value):
     """
     Set settings value.
 
@@ -1901,7 +1955,7 @@ async def set_filters_value(db_file, key_value):
         Path to database file.
     key_value : list
          key : str
-               filter-allow, filter-deny, filter-replace.
+               allow, deny, replace.
          value : int
                Numeric value.
     """
@@ -1926,7 +1980,7 @@ async def set_filters_value(db_file, key_value):
             cur.execute(sql, par)
 
 
-async def update_filters_value(db_file, key_value):
+async def update_filter_value(db_file, key_value):
     """
     Update settings value.
 
@@ -1936,7 +1990,7 @@ async def update_filters_value(db_file, key_value):
         Path to database file.
     key_value : list
          key : str
-               filter-allow, filter-deny, filter-replace.
+               allow, deny, replace.
          value : int
                Numeric value.
     """
@@ -1968,9 +2022,9 @@ async def update_filters_value(db_file, key_value):
             cur.execute(sql, par)
 
 
-async def is_filter_key(db_file, key):
+def is_filter_key(db_file, key):
     """
-    Get filters key.
+    Check whether filter key exist.
 
     Parameters
     ----------
@@ -1986,26 +2040,21 @@ async def is_filter_key(db_file, key):
     """
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        try:
-            sql = (
-                """
-                SELECT key
-                FROM filters
-                WHERE key = ?
-                """
-                )
-            par = (key,)
-            key = cur.execute(sql, par)
-            key = True
-        except:
-            key = False
-            logging.debug("No key {}.".format(key))
-    return key
+        sql = (
+            """
+            SELECT key
+            FROM filters
+            WHERE key = ?
+            """
+            )
+        par = (key,)
+        key = cur.execute(sql, par).fetchone()
+        return key
 
 
-async def get_filters_value(db_file, key):
+def get_filter_value(db_file, key):
     """
-    Get filters value.
+    Get filter value.
 
     Parameters
     ----------
@@ -2021,20 +2070,16 @@ async def get_filters_value(db_file, key):
     """
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        try:
-            sql = (
-                """
-                SELECT value
-                FROM filters
-                WHERE key = ?
-                """
-                )
-            par = (key,)
-            value = cur.execute(sql, par).fetchone()[0]
-            value = str(value)
-        except:
-            value = None
-            logging.debug("No specific value set for key {}.".format(key))
+        sql = (
+            """
+            SELECT value
+            FROM filters
+            WHERE key = ?
+            """
+            )
+        par = (key,)
+        value = cur.execute(sql, par).fetchone()[0]
+        value = str(value)
     return value
 
 

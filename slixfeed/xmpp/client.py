@@ -50,6 +50,7 @@ import slixfeed.action as action
 import slixfeed.config as config
 from slixfeed.dt import timestamp
 import slixfeed.sqlite as sqlite
+from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.connect import XmppConnect
 from slixfeed.xmpp.muc import XmppGroupchat
@@ -213,10 +214,10 @@ class Slixfeed(slixmpp.ClientXMPP):
         task.task_ping(self)
         bookmarks = await self.plugin['xep_0048'].get_bookmarks()
         XmppGroupchat.autojoin(self, bookmarks)
-        
-        # Service.commands(self)
-        # Service.reactions(self)
-        
+        if config.get_value('accounts', 'XMPP', 'operator'):
+            jid_op = config.get_value('accounts', 'XMPP', 'operator')
+            message_body = 'Slixfeed version {}'.format(__version__)
+            XmppMessage.send(self, jid_op, message_body, 'chat')
 
 
     def on_session_resumed(self, event):
@@ -549,13 +550,13 @@ class Slixfeed(slixmpp.ClientXMPP):
         db_file = config.get_pathname_to_database(jid_file)
         form = self['xep_0004'].make_form('form', 'Filters')
         form['instructions'] = '🛡️ Manage filters' # 🪄️
-        value  = await sqlite.get_filters_value(db_file, 'allow')
+        value = sqlite.get_filter_value(db_file, 'allow')
         form.add_field(var='allow',
                        ftype='text-single',
                        label='Allow list',
                        value=value,
                        desc=('Keywords to allow (comma-separated keywords).'))
-        value  = await sqlite.get_filters_value(db_file, 'deny')
+        value = sqlite.get_filter_value(db_file, 'deny')
         form.add_field(var='deny',
                        ftype='text-single',
                        label='Deny list',
@@ -596,13 +597,13 @@ class Slixfeed(slixmpp.ClientXMPP):
             val = values[value]
             # NOTE We might want to add new keywords from
             #      an empty form instead of editing a form.
-            # keywords = await sqlite.get_filters_value(db_file, key)
+            # keywords = sqlite.get_filter_value(db_file, key)
             keywords = ''
             val = await config.add_to_list(val, keywords)
-            if await sqlite.is_filter_key(db_file, key):
-                await sqlite.update_filters_value(db_file, [key, val])
+            if sqlite.is_filter_key(db_file, key):
+                await sqlite.update_filter_value(db_file, [key, val])
             elif val:
-                await sqlite.set_filters_value(db_file, [key, val])
+                await sqlite.set_filter_value(db_file, [key, val])
             form.add_field(var=key.capitalize() + ' list',
                            ftype='text-single',
                            value=val)
@@ -664,7 +665,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             #             'in the subscription list at index '
             #             '{}.\n{}'.format(result['name'], result['index'],
             #                              result['url']))
-            # session['notes'] = [['warning', response]] # Not supported by Gajim
+            # session['notes'] = [['warn', response]] # Not supported by Gajim
             # session['notes'] = [['info', response]]
             form = self['xep_0004'].make_form('result', 'Subscriptions')
             form['instructions'] = ('⚠️ Feed "{}" already exist as index {}'
@@ -964,7 +965,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         # text = '💡️ About Slixfeed, slixmpp and XMPP\n\n'
         # text += '\n\n'
         # form = self['xep_0004'].make_form('result', 'About')
-        text = 'Slixfeed\n\n'
+        text = 'Slixfeed {}\n\n'.format(__version__)
         text += ''.join(action.manual('information.toml', 'about'))
         text += '\n\n'
         text += 'Slixmpp\n\n'
@@ -1109,7 +1110,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         form = self['xep_0004'].make_form('result', 'Credits')
         form['instructions'] = "We are XMPP"
         form.add_field(ftype="text-multi", value=action.manual('information.toml', 'thanks'))
-        form['instructions'] = 'YOU!\n🫵️\n- Join us -'
+
+        # Gajim displays all form['instructions'] on top
+        # Psi ignore the latter form['instructions']
+        # form['instructions'] = 'YOU!\n🫵️\n- Join us -'
+
         session['payload'] = form
         return session
 
@@ -1174,7 +1179,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                             '   Jabber ID: {}\n'
                             '   Timestamp: {}\n'
                             .format(jid, timestamp()))
-            session['notes'] = [['error', 'You are not allowed to access this resource.']]
+            session['notes'] = [['warn', 'You are not allowed to access this resource.']]
         return session
 
 
@@ -1410,12 +1415,13 @@ class Slixfeed(slixmpp.ClientXMPP):
                 if val < 1: val = 1
                 val = val * 60
 
-            if sqlite.get_settings_value(db_file, key):
-                await sqlite.update_settings_value(db_file, [key, val])
+            if sqlite.is_setting_key(db_file, key):
+                await sqlite.update_setting_value(db_file, [key, val])
             else:
-                await sqlite.set_settings_value(db_file, [key, val])
+                await sqlite.set_setting_value(db_file, [key, val])
 
-            val = sqlite.get_settings_value(db_file, key)
+            val = sqlite.get_setting_value(db_file, key)
+            val = val[0]
             if key in ('enabled', 'media', 'old'):
                 if val == '1':
                     val = 'Yes'

@@ -63,7 +63,7 @@ Send an article as file. Specify <id> or <url> and <type>.
 Supported types are ePUB, HTML, MD and PDF (default).
 """
 
-[filter]
+[filters]
 allow = """
 allow [+|-] <keyword>
 Keywords to allow
@@ -77,11 +77,11 @@ comma-separated keywords
 '+' appends to, '-' removes from.
 """
 clear_allow = """
-filter clear allow
+clear allow
 Reset allow list.
 """
 clear_deny = """
-filter clear deny
+clear deny
 Reset deny list.
 """
 

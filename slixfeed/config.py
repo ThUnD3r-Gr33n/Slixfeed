@@ -35,10 +35,8 @@ import tomli_w
 import tomllib
 
 def get_setting_value(db_file, key):
-    value = (
-        sqlite.get_settings_value(db_file, key) or
-        get_value("settings", "Settings", key)
-        )
+    value = (sqlite.get_setting_value(db_file, key)[0] or
+             get_value("settings", "Settings", key))
     try:
         value = int(value)
     except ValueError as e:
@@ -470,7 +468,7 @@ async def is_include_keyword(db_file, key, string):
     """
 # async def reject(db_file, string):
 # async def is_blacklisted(db_file, string):
-    keywords = (await sqlite.get_filters_value(db_file, key)) or ''
+    keywords = sqlite.get_filters_value(db_file, key) or ''
     keywords = keywords.split(",")
     keywords = keywords + (open_config_file("lists.toml")[key])
     for keyword in keywords:
@@ -486,9 +484,9 @@ async def is_include_keyword(db_file, key, string):
 This code was tested at module datahandler
 
 reject = 0
-blacklist = await get_settings_value(
+blacklist = sqlite.get_setting_value(
     db_file,
-    "filter-deny"
+    "deny"
     )
 # print(">>> blacklist:")
 # print(blacklist)

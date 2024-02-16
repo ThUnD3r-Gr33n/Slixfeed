@@ -625,10 +625,10 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         for value in values:
             key = value
             val = values[value]
-            if sqlite.get_settings_value(db_file, key):
-                await sqlite.update_settings_value(db_file, [key, val])
+            if sqlite.is_setting_key(db_file, key):
+                await sqlite.update_setting_value(db_file, [key, val])
             else:
-                await sqlite.set_settings_value(db_file, [key, val])
+                await sqlite.set_setting_value(db_file, [key, val])
             match value:
                 case 'enabled':
                     pass

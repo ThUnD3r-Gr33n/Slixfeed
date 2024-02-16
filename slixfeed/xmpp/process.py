@@ -116,13 +116,13 @@ async def message(self, message):
                 return
             # token = await initdb(
             #     jid,
-            #     get_settings_value,
+            #     sqlite.get_setting_value,
             #     'token'
             #     )
             # if token == 'accepted':
             #     operator = await initdb(
             #         jid,
-            #         get_settings_value,
+            #         sqlite.get_setting_value,
             #         'masters'
             #         )
             #     if operator:
@@ -144,7 +144,7 @@ async def message(self, message):
             # if not approved:
             #     operator = await initdb(
             #         jid,
-            #         get_settings_value,
+            #         sqlite.get_setting_value,
             #         'masters'
             #         )
             #     if operator:
@@ -266,18 +266,18 @@ async def message(self, message):
             #         acode = message[9:]
             #         token = await initdb(
             #             jid,
-            #             get_settings_value,
+            #             sqlite.get_setting_value,
             #             'token'
             #             )
             #         if int(acode) == token:
             #             await initdb(
             #                 jid,
-            #                 update_settings_value,
+            #                 sqlite.update_setting_value,
             #                 ['masters', nick]
             #                 )
             #             await initdb(
             #                 jid,
-            #                 update_settings_value,
+            #                 sqlite.update_setting_value,
             #                 ['token', 'accepted']
             #                 )
             #             response = '{}, your are in command.'.format(nick)
@@ -327,13 +327,13 @@ async def message(self, message):
                     val = message_text[7:]
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
-                        keywords = await sqlite.get_filters_value(db_file, key)
+                        keywords = sqlite.get_filter_value(db_file, key)
                         val = await config.add_to_list(val, keywords)
-                        if await sqlite.get_filters_value(db_file, key):
-                            await sqlite.update_filters_value(db_file,
+                        if sqlite.is_filter_key(db_file, key):
+                            await sqlite.update_filter_value(db_file,
                                                               [key, val])
                         else:
-                            await sqlite.set_filters_value(db_file, [key, val])
+                            await sqlite.set_filter_value(db_file, [key, val])
                         response = ('Approved keywords\n'
                                     '```\n{}\n```'
                                     .format(val))
@@ -345,13 +345,13 @@ async def message(self, message):
                     val = message_text[7:]
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
-                        keywords = await sqlite.get_filters_value(db_file, key)
+                        keywords = sqlite.get_filter_value(db_file, key)
                         val = await config.remove_from_list(val, keywords)
-                        if await sqlite.get_filters_value(db_file, key):
-                            await sqlite.update_filters_value(db_file,
+                        if sqlite.is_filter_key(db_file, key):
+                            await sqlite.update_filter_value(db_file,
                                                               [key, val])
                         else:
-                            await sqlite.set_filters_value(db_file, [key, val])
+                            await sqlite.set_filter_value(db_file, [key, val])
                         response = ('Approved keywords\n'
                                     '```\n{}\n```'
                                     .format(val))
@@ -367,13 +367,13 @@ async def message(self, message):
                             response = 'Value may not be greater than 500.'
                         else:
                             db_file = config.get_pathname_to_database(jid_file)
-                            if sqlite.get_settings_value(db_file, key):
+                            if sqlite.is_setting_key(db_file, key):
                                 print('update archive')
-                                await sqlite.update_settings_value(db_file,
+                                await sqlite.update_setting_value(db_file,
                                                                    [key, val])
                             else:
                                 print('set archive')
-                                await sqlite.set_settings_value(db_file,
+                                await sqlite.set_setting_value(db_file,
                                                                 [key, val])
                             response = ('Maximum archived items has '
                                         'been set to {}.'
@@ -403,11 +403,23 @@ async def message(self, message):
                     response = ('This action is restricted. '
                                 'Type: removing bookmarks.')
                 XmppMessage.send_reply(self, message, response)
-            case 'default': # TODO Set default per key
-                response = action.reset_settings(jid_file)
+            case _ if message_lowercase.startswith('default '):
+                key = message_text[8:]
+                db_file = config.get_pathname_to_database(jid_file)
+                await sqlite.delete_setting(db_file, key)
+                response = ('Setting {} has been restored to default value.'
+                            .format(key))
                 XmppMessage.send_reply(self, message, response)
             case 'defaults':
-                response = action.reset_settings(jid_file)
+                db_file = config.get_pathname_to_database(jid_file)
+                await sqlite.delete_settings(db_file)
+                response = 'Default settings have been restored.'
+                XmppMessage.send_reply(self, message, response)
+            case _ if message_lowercase.startswith('clear '):
+                key = message_text[6:]
+                db_file = config.get_pathname_to_database(jid_file)
+                await sqlite.delete_filter(db_file, key)
+                response = 'Filter {} has been purged.'.format(key)
                 XmppMessage.send_reply(self, message, response)
             case 'bookmarks':
                 if jid == config.get_value('accounts', 'XMPP', 'operator'):
@@ -417,17 +429,17 @@ async def message(self, message):
                                 'Type: viewing bookmarks.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('deny +'):
-                    key = 'filter-' + message_text[:4]
+                    key = message_text[:4]
                     val = message_text[6:]
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
-                        keywords = await sqlite.get_filters_value(db_file, key)
+                        keywords = sqlite.get_filter_value(db_file, key)
                         val = await config.add_to_list(val, keywords)
-                        if await sqlite.get_filters_value(db_file, key):
-                            await sqlite.update_filters_value(db_file,
+                        if sqlite.is_filter_key(db_file, key):
+                            await sqlite.update_filter_value(db_file,
                                                               [key, val])
                         else:
-                            await sqlite.set_filters_value(db_file, [key, val])
+                            await sqlite.set_filter_value(db_file, [key, val])
                         response = ('Rejected keywords\n'
                                     '```\n{}\n```'
                                     .format(val))
@@ -435,17 +447,17 @@ async def message(self, message):
                         response = 'Missing keywords.'
                     XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('deny -'):
-                    key = 'filter-' + message_text[:4]
+                    key = message_text[:4]
                     val = message_text[6:]
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
-                        keywords = await sqlite.get_filters_value(db_file, key)
+                        keywords = sqlite.get_filter_value(db_file, key)
                         val = await config.remove_from_list(val, keywords)
-                        if await sqlite.get_filters_value(db_file, key):
-                            await sqlite.update_filters_value(db_file,
+                        if sqlite.is_filter_key(db_file, key):
+                            await sqlite.update_filter_value(db_file,
                                                               [key, val])
                         else:
-                            await sqlite.set_filters_value(db_file, [key, val])
+                            await sqlite.set_filter_value(db_file, [key, val])
                         response = ('Rejected keywords\n'
                                     '```\n{}\n```'
                                     .format(val))
@@ -606,11 +618,11 @@ async def message(self, message):
                         try:
                             val = int(val)
                             db_file = config.get_pathname_to_database(jid_file)
-                            if sqlite.get_settings_value(db_file, key):
-                                await sqlite.update_settings_value(db_file,
+                            if sqlite.is_setting_key(db_file, key):
+                                await sqlite.update_setting_value(db_file,
                                                                    [key, val])
                             else:
-                                await sqlite.set_settings_value(db_file,
+                                await sqlite.set_setting_value(db_file,
                                                                 [key, val])
                             if val == 0: # if not val:
                                 response = 'Summary length limit is disabled.'
@@ -628,7 +640,7 @@ async def message(self, message):
             #         if val:
             #             names = await initdb(
             #                 jid,
-            #                 get_settings_value,
+            #                 sqlite.get_setting_value,
             #                 key
             #                 )
             #             val = await config.add_to_list(
@@ -637,7 +649,7 @@ async def message(self, message):
             #                 )
             #             await initdb(
             #                 jid,
-            #                 update_settings_valuevv,
+            #                 sqlite.update_setting_valuevv,
             #                 [key, val]
             #                 )
             #             response = (
@@ -651,30 +663,30 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'media'
                 val = 0
-                if sqlite.get_settings_value(db_file, key):
-                    await sqlite.update_settings_value(db_file, [key, val])
+                if sqlite.is_setting_key(db_file, key):
+                    await sqlite.update_setting_value(db_file, [key, val])
                 else:
-                    await sqlite.set_settings_value(db_file, [key, val])
+                    await sqlite.set_setting_value(db_file, [key, val])
                 response = 'Media is disabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'media on':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'media'
                 val = 1
-                if sqlite.get_settings_value(db_file, key):
-                    await sqlite.update_settings_value(db_file, [key, val])
+                if sqlite.is_setting_key(db_file, key):
+                    await sqlite.update_setting_value(db_file, [key, val])
                 else:
-                    await sqlite.set_settings_value(db_file, [key, val])
+                    await sqlite.set_setting_value(db_file, [key, val])
                 response = 'Media is enabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'new':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 0
-                if sqlite.get_settings_value(db_file, key):
-                    await sqlite.update_settings_value(db_file, [key, val])
+                if sqlite.is_setting_key(db_file, key):
+                    await sqlite.update_setting_value(db_file, [key, val])
                 else:
-                    await sqlite.set_settings_value(db_file, [key, val])
+                    await sqlite.set_setting_value(db_file, [key, val])
                 response = 'Only new items of newly added feeds will be sent.'
                 XmppMessage.send_reply(self, message, response)
             # TODO Will you add support for number of messages?
@@ -694,10 +706,10 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 1
-                if sqlite.get_settings_value(db_file, key):
-                    await sqlite.update_settings_value(db_file, [key, val])
+                if sqlite.is_setting_key(db_file, key):
+                    await sqlite.update_setting_value(db_file, [key, val])
                 else:
-                    await sqlite.set_settings_value(db_file, [key, val])
+                    await sqlite.set_setting_value(db_file, [key, val])
                 response = 'All items of newly added feeds will be sent.'
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('quantum'):
@@ -710,11 +722,11 @@ async def message(self, message):
                         #     'Every update will contain {} news items.'
                         #     ).format(response)
                         db_file = config.get_pathname_to_database(jid_file)
-                        if sqlite.get_settings_value(db_file, key):
-                            await sqlite.update_settings_value(db_file,
+                        if sqlite.is_setting_key(db_file, key):
+                            await sqlite.update_setting_value(db_file,
                                                                [key, val])
                         else:
-                            await sqlite.set_settings_value(db_file,
+                            await sqlite.set_setting_value(db_file,
                                                             [key, val])
                         response = ('Next update will contain {} news items.'
                                     .format(val))

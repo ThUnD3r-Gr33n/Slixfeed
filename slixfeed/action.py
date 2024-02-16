@@ -242,7 +242,7 @@ async def xmpp_send_update(self, jid, num=None):
 
     # interval = await initdb(
     #     jid,
-    #     sqlite.get_settings_value,
+    #     sqlite.is_setting_key,
     #     "interval"
     # )
     # self.task_manager[jid]["interval"] = loop.call_at(
@@ -296,10 +296,10 @@ async def xmpp_change_interval(self, key, val, jid, jid_file, message=None):
         #     'Updates will be sent every {} minutes.'
         #     ).format(response)
         db_file = config.get_pathname_to_database(jid_file)
-        if sqlite.get_settings_value(db_file, key):
-            await sqlite.update_settings_value(db_file, [key, val])
+        if sqlite.is_setting_key(db_file, key):
+            await sqlite.update_setting_value(db_file, [key, val])
         else:
-            await sqlite.set_settings_value(db_file, [key, val])
+            await sqlite.set_setting_value(db_file, [key, val])
         # NOTE Perhaps this should be replaced
         # by functions clean and start
         await task.refresh_task(self, jid, task.task_send, key, val)
@@ -311,20 +311,14 @@ async def xmpp_change_interval(self, key, val, jid, jid_file, message=None):
         XmppMessage.send_reply(self, message, response)
 
 
-async def reset_settings(jid_file):
-    db_file = config.get_pathname_to_database(jid_file)
-    await sqlite.delete_settings(db_file)
-    response = 'Default settings have been restored.'
-    return response
-
 async def xmpp_start_updates(self, message, jid, jid_file):
     key = 'enabled'
     val = 1
     db_file = config.get_pathname_to_database(jid_file)
-    if sqlite.get_settings_value(db_file, key):
-        await sqlite.update_settings_value(db_file, [key, val])
+    if sqlite.is_setting_key(db_file, key):
+        await sqlite.update_setting_value(db_file, [key, val])
     else:
-        await sqlite.set_settings_value(db_file, [key, val])
+        await sqlite.set_setting_value(db_file, [key, val])
     status_type = 'available'
     status_message = '📫️ Welcome back!'
     XmppPresence.send(self, jid, status_message, status_type=status_type)
@@ -338,10 +332,10 @@ async def xmpp_stop_updates(self, message, jid, jid_file):
     key = 'enabled'
     val = 0
     db_file = config.get_pathname_to_database(jid_file)
-    if sqlite.get_settings_value(db_file, key):
-        await sqlite.update_settings_value(db_file, [key, val])
+    if sqlite.is_setting_key(db_file, key):
+        await sqlite.update_setting_value(db_file, [key, val])
     else:
-        await sqlite.set_settings_value(db_file, [key, val])
+        await sqlite.set_setting_value(db_file, [key, val])
     task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
     message_body = 'Updates are disabled.'
     XmppMessage.send_reply(self, message, message_body)
@@ -468,10 +462,10 @@ def list_unread_entries(result, feed_title):
     # TODO Do this when entry is added to list and mark it as read
     # DONE!
     # results = []
-    # if get_settings_value(db_file, "filter-deny"):
+    # if sqlite.is_setting_key(db_file, "deny"):
     #     while len(results) < num:
     #         result = cur.execute(sql).fetchone()
-    #         blacklist = await get_settings_value(db_file, "filter-deny").split(",")
+    #         blacklist = sqlite.get_setting_value(db_file, "deny").split(",")
     #         for i in blacklist:
     #             if i in result[1]:
     #                 continue
@@ -496,7 +490,7 @@ def list_unread_entries(result, feed_title):
     #     breakpoint()
     # # TODO Limit text length
     # summary = summary.replace("\n\n\n", "\n\n")
-    # length = await get_settings_value(db_file, "length")
+    # length = sqlite.get_setting_value(db_file, "length")
     # summary = summary[:length] + " […]"
     # summary = summary.strip().split('\n')
     # summary = ["> " + line for line in summary]
