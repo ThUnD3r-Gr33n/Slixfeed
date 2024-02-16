@@ -512,8 +512,7 @@ async def message(self, message):
                 url = message_text
                 # task.clean_tasks_xmpp(self, jid, ['status'])
                 status_type = 'dnd'
-                status_message = ('📫️ Processing request '
-                                  'to fetch data from {}'
+                status_message = ('📫️ Processing request to fetch data from {}'
                                   .format(url))
                 XmppPresence.send(self, jid, status_message,
                                   status_type=status_type)
@@ -522,7 +521,31 @@ async def message(self, message):
                 url = (uri.replace_hostname(url, 'feed')) or url
                 db_file = config.get_pathname_to_database(jid_file)
                 # try:
-                response = await action.add_feed(db_file, url)
+                result = await action.add_feed(db_file, url)
+                if isinstance(result, list):
+                    results = result
+                    response = ("Web feeds found for {}\n\n```\n"
+                                .format(url))
+                    for result in results:
+                        response += ("Title : {}\n"
+                                     "Link  : {}\n"
+                                     "\n"
+                                     .format(result['name'], result['url']))
+                    response += ('```\nTotal of {} feeds.'
+                                .format(len(results)))
+                elif result['exist']:
+                    response = ('> {}\nNews source "{}" is already '
+                                'listed in the subscription list at '
+                                'index {}'.format(result['url'],
+                                                  result['name'],
+                                                  result['index']))
+                elif result['error']:
+                    response = ('> {}\nFailed to load URL.  Reason: {}'
+                                .format(url, result['code']))
+                else:
+                    response = ('> {}\nNews source "{}" has been '
+                                'added to subscription list.'
+                                .format(result['url'], result['name']))
                 # task.clean_tasks_xmpp(self, jid, ['status'])
                 await task.start_tasks_xmpp(self, jid, ['status'])
                 # except:

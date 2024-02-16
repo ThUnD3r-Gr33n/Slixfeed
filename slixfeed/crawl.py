@@ -300,7 +300,8 @@ async def process_feed_selection(url, urls):
     feeds = {}
     for i in urls:
         res = await fetch.http(i)
-        if res[1] == 200:
+        status_code = res[1]
+        if status_code == 200:
             try:
                 feeds[i] = [parse(res[0])]
             except:
@@ -308,8 +309,7 @@ async def process_feed_selection(url, urls):
     message = (
         "Web feeds found for {}\n\n```\n"
         ).format(url)
-    counter = 0
-    feed_url_mark = 0
+    urls = []
     for feed_url in feeds:
         # try:
         #     res = await fetch.http(feed)
@@ -327,24 +327,28 @@ async def process_feed_selection(url, urls):
             continue
         if feed_amnt:
             # NOTE Because there could be many false positives
-            # which are revealed in second phase of scan, we
-            # could end with a single feed, which would be
-            # listed instead of fetched, so feed_url_mark is
-            # utilized in order to make fetch possible.
-            feed_url_mark = [feed_url]
-            counter += 1
-            message += (
-                "Title : {}\n"
-                "Link  : {}\n"
-                "\n"
-                ).format(feed_name, feed_url)
-    if counter > 1:
-        message += (
-            "```\nTotal of {} feeds."
-            ).format(counter)
-        result = message
-    elif feed_url_mark:
-        result = feed_url_mark
+            #      which are revealed in second phase of scan, we
+            #      could end with a single feed, which would be
+            #      listed instead of fetched, so feed_url_mark is
+            #      utilized in order to make fetch possible.
+            # NOTE feed_url_mark was a variable which stored
+            #      single URL (probably first accepted as valid)
+            #      in order to get an indication whether a single
+            #      URL has been fetched, so that the receiving
+            #      function will scan that single URL instead of
+            #      listing it as a message.
+            url = {'url' : feed_url,
+                   'index' : None,
+                   'name' : feed_name,
+                   'code' : status_code,
+                   'error' : False,
+                   'exist' : None}
+            urls.extend([url])
+    count = len(urls)
+    if count > 1:
+        result = urls
+    elif count:
+        result = urls[0]
     else:
         result = None
     return result

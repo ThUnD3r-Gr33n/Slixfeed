@@ -8,6 +8,10 @@ TODO
 1) Look into self.set_jid in order to be able to join to groupchats
    https://slixmpp.readthedocs.io/en/latest/api/basexmpp.html#slixmpp.basexmpp.BaseXMPP.set_jid
 
+2) czar
+   https://slixmpp.readthedocs.io/en/latest/api/plugins/xep_0223.html
+   https://slixmpp.readthedocs.io/en/latest/api/plugins/xep_0222.html#module-slixmpp.plugins.xep_0222
+
 """
 
 import asyncio

@@ -737,22 +737,26 @@ async def add_feed(db_file, url):
                         updated = ''
                     version = feed["version"]
                     entries = len(feed["entries"])
-                    await sqlite.insert_feed(
-                        db_file, url,
-                        title=title,
-                        entries=entries,
-                        version=version,
-                        encoding=encoding,
-                        language=language,
-                        status_code=status_code,
-                        updated=updated
-                        )
+                    await sqlite.insert_feed(db_file, url,
+                                             title=title,
+                                             entries=entries,
+                                             version=version,
+                                             encoding=encoding,
+                                             language=language,
+                                             status_code=status_code,
+                                             updated=updated)
                     await scan(db_file, url)
                     old = config.get_setting_value(db_file, "old")
                     if not old:
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
                         await sqlite.mark_feed_as_read(db_file, feed_id)
+                    result_final = {'url' : url,
+                                    'index' : feed_id,
+                                    'name' : title,
+                                    'code' : status_code,
+                                    'error' : False,
+                                    'exist' : False}
                     response = ('> {}\nNews source "{}" has been '
                                 'added to subscription list.'
                                 .format(url, title))
@@ -783,47 +787,64 @@ async def add_feed(db_file, url):
                         updated = ''
                     version = 'json' + feed["version"].split('/').pop()
                     entries = len(feed["items"])
-                    await sqlite.insert_feed(
-                        db_file, url,
-                        title=title,
-                        entries=entries,
-                        version=version,
-                        encoding=encoding,
-                        language=language,
-                        status_code=status_code,
-                        updated=updated
-                        )
-                    await scan_json(
-                        db_file, url)
+                    await sqlite.insert_feed(db_file, url,
+                                             title=title,
+                                             entries=entries,
+                                             version=version,
+                                             encoding=encoding,
+                                             language=language,
+                                             status_code=status_code,
+                                             updated=updated)
+                    await scan_json(db_file, url)
                     old = config.get_setting_value(db_file, "old")
                     if not old:
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
                         await sqlite.mark_feed_as_read(db_file, feed_id)
+                    result_final = {'url' : url,
+                                    'index' : feed_id,
+                                    'name' : title,
+                                    'code' : status_code,
+                                    'error' : False,
+                                    'exist' : False}
                     response = ('> {}\nNews source "{}" has been '
                                 'added to subscription list.'
                                 .format(url, title))
                     break
                 else:
-                    result = await crawl.probe_page(
-                        url, document)
-                    if isinstance(result, str):
-                        response = result
+                    # NOTE Do not be tempted to return a compact dictionary.
+                    #      That is, dictionary within dictionary
+                    #      Return multimple dictionaries.
+                    result = await crawl.probe_page(url, document)
+                    if isinstance(result, list):
+                        result_final = result
                         break
                     else:
-                        url = result[0]
+                        url = result['url']
             else:
+                result_final = {'url' : url,
+                                'index' : None,
+                                'name' : None,
+                                'code' : status_code,
+                                'error' : True,
+                                'exist' : False}
                 response = ('> {}\nFailed to load URL.  Reason: {}'
                             .format(url, status_code))
                 break
         else:
             ix = exist[0]
             name = exist[1]
+            result_final = {'url' : url,
+                            'index' : ix,
+                            'name' : name,
+                            'code' : None,
+                            'error' : False,
+                            'exist' : True}
             response = ('> {}\nNews source "{}" is already '
                         'listed in the subscription list at '
                         'index {}'.format(url, name, ix))
             break
-    return response
+    return result_final
 
 
 async def scan_json(db_file, url):

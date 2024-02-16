@@ -147,7 +147,7 @@ pathnames = [
 # would get the best out of this news application.
 
 # Entries with the following keywords will not be filtered
-filter-allow = [
+allow = [
 "akkoma",
 "censorship",
 "earthing",
@@ -187,7 +187,7 @@ filter-allow = [
 ]
 
 # Entries with the following keywords will be filtered
-filter-deny = [
+deny = [
 # brands
 # Almost every time you see a brand name in title or content, it is because
 # someone, usually a marketing agency or a venture capital firm, has paid for
@@ -264,6 +264,7 @@ filter-deny = [
 "homosex",
 "lesbian",
 "lgbt",
+"nonbinary",
 "nude",
 "nudity",
 "onlyfans",
