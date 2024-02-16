@@ -223,14 +223,8 @@ class Slixfeed(slixmpp.ClientXMPP):
     def on_session_resumed(self, event):
         # self.send_presence()
         profile.set_identity(self, 'client')
-        # self.service_commands()
-        # self.service_reactions()
         self['xep_0115'].update_caps()
         XmppGroupchat.autojoin(self)
-        
-        # Service.commands(self)
-        # Service.reactions(self)
-        
 
 
     async def on_disco_info(self, DiscoInfo):
@@ -1321,7 +1315,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             value = False
         form.add_field(var='old',
                        ftype='boolean',
-                       desc='Send old items of newly added subscriptions.',
+                       desc='Treat all items of newly added subscriptions as new.',
                        # label='Send only new items',
                        label='Include old news',
                        value=value)
