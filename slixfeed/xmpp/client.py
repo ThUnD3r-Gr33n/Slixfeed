@@ -528,6 +528,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         self['xep_0050'].add_command(node='about',
                                      name='About', # 📜️
                                      handler=self._handle_about)
+        self['xep_0050'].add_command(node='exploit',
+                                     name='Exploit', # 📜️
+                                     handler=self._handle_reveal_jid)
         # self['xep_0050'].add_command(node='search',
         #                              name='Search',
         #                              handler=self._handle_search)
@@ -535,12 +538,16 @@ class Slixfeed(slixmpp.ClientXMPP):
     # Special interface
     # http://jabber.org/protocol/commands#actions
 
+    async def _handle_reveal_jid(self, iq, session):
+        jid = session['from'].bare
+        session['notes'] = [['info', jid]]
+        return session
+
     async def _handle_filters(self, iq, session):
         jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
-        form = self['xep_0004'].make_form('form',
-                                          'Filters for {}'.format(jid))
+        form = self['xep_0004'].make_form('form', 'Filters')
         form['instructions'] = '🕸️ Manage filters' # 🪄️
         value  = await sqlite.get_filters_value(db_file, 'allow')
         form.add_field(var='allow',
@@ -578,7 +585,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         form = payload
 
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form', 'Filters for {}'.format(jid))
+        form = self['xep_0004'].make_form('result', 'Filters')
         form['instructions'] = ('✅️ Filters have been updated')
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
@@ -707,8 +714,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def _handle_subscriptions(self, iq, session):
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form',
-                                          'Subscriptions for {}'.format(jid))
+        form = self['xep_0004'].make_form('form', 'Subscriptions')
         form['instructions'] = '📰️ Manage subscriptions'
         # form.addField(var='interval',
         #               ftype='text-single',
@@ -759,8 +765,7 @@ class Slixfeed(slixmpp.ClientXMPP):
     # FIXME There are feeds that are missing (possibly because of sortings)
     async def _handle_subscription(self, iq, session):
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form',
-                                          'Subscriptions for {}'.format(jid))
+        form = self['xep_0004'].make_form('form', 'Subscriptions')
         form['instructions'] = '📰️ Edit subscription'
         # form.addField(var='interval',
         #               ftype='text-single',
@@ -913,8 +918,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def _handle_subscription_selector(self, payload, session):
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form',
-                                          'Discovered ubscriptions for {}'.format(jid))
+        form = self['xep_0004'].make_form('form', 'Subscribe')
         form['instructions'] = ('📰️ Select a subscriptions to add\n'
                                 'Subsciptions discovered for {}'
                                 .format(url))
@@ -998,9 +1002,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_import(self, iq, session):
-        jid = session['from'].bare
-        form = self['xep_0004'].make_form('form',
-                                          'Import data for {}'.format(jid))
+        form = self['xep_0004'].make_form('form', 'Import')
         form['instructions'] = '🗞️ Import feeds from OPML'
         url = form.add_field(var='url',
                              ftype='text-single',
@@ -1024,8 +1026,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             count = await action.import_opml(db_file, url)
             try:
                 int(count)
-                form = self['xep_0004'].make_form('result',
-                                                  'Import data for {}'.format(jid))
+                form = self['xep_0004'].make_form('result', 'Import')
                 form['instructions'] = ('✅️ Feeds have been imported')
                 message = '{} feeds have been imported to {}.'.format(count, jid)
                 form.add_field(var='message',
@@ -1043,9 +1044,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_export(self, iq, session):
-        jid = session['from'].bare
-        form = self['xep_0004'].make_form('form',
-                                          'Export data for {}'.format(jid))
+        form = self['xep_0004'].make_form('form', 'Export')
         form['instructions'] = '🗞️ Export feeds'
         options = form.add_field(var='filetype',
                                  ftype='list-multi',
@@ -1066,8 +1065,7 @@ class Slixfeed(slixmpp.ClientXMPP):
     async def _handle_export_complete(self, payload, session):
         jid = session['from'].bare
         jid_file = jid.replace('/', '_')
-        form = self['xep_0004'].make_form('result',
-                                          'Export data for {}'.format(jid))
+        form = self['xep_0004'].make_form('result', 'Export')
         form['instructions'] = ('✅️ Feeds have been exported')
         exts = payload['values']['filetype']
         for ext in exts:
@@ -1285,8 +1283,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
-        form = self['xep_0004'].make_form('form',
-                                          'Settings for {}'.format(jid))
+        form = self['xep_0004'].make_form('form', 'Settings')
         form['instructions'] = ('📮️ Customize news updates')
 
         value = config.get_setting_value(db_file, 'enabled')
@@ -1401,8 +1398,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         # form = payload
 
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form',
-                                          'Settings for {}'.format(jid))
+        form = self['xep_0004'].make_form('form', 'Settings')
         form['instructions'] = ('✅️ Settings have been saved')
 
         jid_file = jid
