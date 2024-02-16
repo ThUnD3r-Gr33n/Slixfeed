@@ -875,6 +875,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_import_complete(self, payload, session):
+        session['next'] = None
         url = payload['values']['url']
         if url.startswith('http') and url.endswith('.opml'):
             jid = session['from'].bare
@@ -895,17 +896,9 @@ class Slixfeed(slixmpp.ClientXMPP):
             except:
                 session['notes'] = [['error', 'Import failed. Filetype does not appear to be an OPML file.']]
                 session['has_next'] = False
-
-                # Mitigate Cheogram issue
-                # Gajim acts also strage, so this might be an issue with slixmmpp
-                # session['next'] = False
         else:
             session['notes'] = [['error', 'Import aborted. Send URL of OPML file.']]
             session['has_next'] = False
-
-            # Mitigate Cheogram issue
-            # Gajim acts also strage, so this might be an issue with slixmmpp
-            # session['next'] = False
         return session
 
 
