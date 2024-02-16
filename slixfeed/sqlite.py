@@ -2078,8 +2078,7 @@ def get_filter_value(db_file, key):
             """
             )
         par = (key,)
-        value = cur.execute(sql, par).fetchone()[0]
-        value = str(value)
+        value = cur.execute(sql, par).fetchone()
     return value
 
 

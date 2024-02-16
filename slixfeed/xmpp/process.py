@@ -328,6 +328,7 @@ async def message(self, message):
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
                         keywords = sqlite.get_filter_value(db_file, key)
+                        if keywords: keywords = str(keywords[0])
                         val = await config.add_to_list(val, keywords)
                         if sqlite.is_filter_key(db_file, key):
                             await sqlite.update_filter_value(db_file,
@@ -346,6 +347,7 @@ async def message(self, message):
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
                         keywords = sqlite.get_filter_value(db_file, key)
+                        if keywords: keywords = str(keywords[0])
                         val = await config.remove_from_list(val, keywords)
                         if sqlite.is_filter_key(db_file, key):
                             await sqlite.update_filter_value(db_file,
@@ -434,6 +436,7 @@ async def message(self, message):
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
                         keywords = sqlite.get_filter_value(db_file, key)
+                        if keywords: keywords = str(keywords[0])
                         val = await config.add_to_list(val, keywords)
                         if sqlite.is_filter_key(db_file, key):
                             await sqlite.update_filter_value(db_file,
@@ -452,6 +455,7 @@ async def message(self, message):
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
                         keywords = sqlite.get_filter_value(db_file, key)
+                        if keywords: keywords = str(keywords[0])
                         val = await config.remove_from_list(val, keywords)
                         if sqlite.is_filter_key(db_file, key):
                             await sqlite.update_filter_value(db_file,

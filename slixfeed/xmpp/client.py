@@ -551,12 +551,14 @@ class Slixfeed(slixmpp.ClientXMPP):
         form = self['xep_0004'].make_form('form', 'Filters')
         form['instructions'] = '🛡️ Manage filters' # 🪄️
         value = sqlite.get_filter_value(db_file, 'allow')
+        if value: value = str(value[0])
         form.add_field(var='allow',
                        ftype='text-single',
                        label='Allow list',
                        value=value,
                        desc=('Keywords to allow (comma-separated keywords).'))
         value = sqlite.get_filter_value(db_file, 'deny')
+        if value: value = str(value[0])
         form.add_field(var='deny',
                        ftype='text-single',
                        label='Deny list',
@@ -599,7 +601,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             #      an empty form instead of editing a form.
             # keywords = sqlite.get_filter_value(db_file, key)
             keywords = ''
-            val = await config.add_to_list(val, keywords)
+            val = await config.add_to_list(val, keywords) if val else ''
             if sqlite.is_filter_key(db_file, key):
                 await sqlite.update_filter_value(db_file, [key, val])
             elif val:
