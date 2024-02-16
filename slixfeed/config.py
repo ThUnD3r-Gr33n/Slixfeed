@@ -468,7 +468,7 @@ async def is_include_keyword(db_file, key, string):
     """
 # async def reject(db_file, string):
 # async def is_blacklisted(db_file, string):
-    keywords = sqlite.get_filters_value(db_file, key) or ''
+    keywords = sqlite.get_filter_value(db_file, key) or ''
     keywords = keywords.split(",")
     keywords = keywords + (open_config_file("lists.toml")[key])
     for keyword in keywords:
