@@ -1968,6 +1968,41 @@ async def update_filters_value(db_file, key_value):
             cur.execute(sql, par)
 
 
+async def is_filter_key(db_file, key):
+    """
+    Get filters key.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    key : str
+        Key: allow, deny.
+
+    Returns
+    -------
+    key : str
+        Key.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        try:
+            sql = (
+                """
+                SELECT key
+                FROM filters
+                WHERE key = ?
+                """
+                )
+            par = (key,)
+            key = cur.execute(sql, par)
+            key = True
+        except:
+            key = False
+            logging.debug("No key {}.".format(key))
+    return key
+
+
 async def get_filters_value(db_file, key):
     """
     Get filters value.
@@ -1981,7 +2016,7 @@ async def get_filters_value(db_file, key):
 
     Returns
     -------
-    val : str
+    value : str
         List of strings.
     """
     with create_connection(db_file) as conn:
@@ -1999,9 +2034,7 @@ async def get_filters_value(db_file, key):
             value = str(value)
         except:
             value = None
-            logging.debug(
-                "No specific value set for key {}.".format(key)
-                )
+            logging.debug("No specific value set for key {}.".format(key))
     return value
 
 

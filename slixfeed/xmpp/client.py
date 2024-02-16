@@ -548,7 +548,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
         form = self['xep_0004'].make_form('form', 'Filters')
-        form['instructions'] = '🕸️ Manage filters' # 🪄️
+        form['instructions'] = '🛡️ Manage filters' # 🪄️
         value  = await sqlite.get_filters_value(db_file, 'allow')
         form.add_field(var='allow',
                        ftype='text-single',
@@ -599,14 +599,10 @@ class Slixfeed(slixmpp.ClientXMPP):
             # keywords = await sqlite.get_filters_value(db_file, key)
             keywords = ''
             val = await config.add_to_list(val, keywords)
-            if await sqlite.get_filters_value(db_file, key):
+            if await sqlite.is_filter_key(db_file, key):
                 await sqlite.update_filters_value(db_file, [key, val])
-            else:
+            elif val:
                 await sqlite.set_filters_value(db_file, [key, val])
-            # result = '{}: {}'.format(key, val)
-            form.add_field(var=key + '_title',
-                           ftype='fixed',
-                           value=key.capitalize() + ' filter')
             form.add_field(var=key.capitalize() + ' list',
                            ftype='text-single',
                            value=val)
