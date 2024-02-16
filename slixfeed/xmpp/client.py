@@ -470,10 +470,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
         # if jid == config.get_value('accounts', 'XMPP', 'operator'):
         self['xep_0050'].add_command(node='subscription',
-                                     name='➕️ Add Subscription',
+                                     name='➕️ Add',
                                      handler=self._handle_subscription_add)
         self['xep_0050'].add_command(node='subscriptions',
-                                     name='📰️ Browse Subscriptions',
+                                     name='📰️ Subscriptions',
                                      handler=self._handle_subscriptions)
         # self['xep_0050'].add_command(node='subscriptions_cat',
         #                              name='🔖️ Categories',
@@ -519,12 +519,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         self['xep_0050'].add_command(node='export',
                                      name='📤️ Export',
                                      handler=self._handle_export)
+        self['xep_0050'].add_command(node='credit',
+                                     name='🏅️ Credits',
+                                     handler=self._handle_credit)
         self['xep_0050'].add_command(node='privacy',
                                      name='Privacy',
                                      handler=self._handle_privacy)
-        self['xep_0050'].add_command(node='credit',
-                                     name='Credits', # 💡️
-                                     handler=self._handle_credit)
         self['xep_0050'].add_command(node='about',
                                      name='About', # 📜️
                                      handler=self._handle_about)
