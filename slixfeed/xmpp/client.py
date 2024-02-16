@@ -972,18 +972,11 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_credit(self, iq, session):
-        # form = self['xep_0004'].make_form('result', 'Thanks')
-        # form['instructions'] = action.manual('information.toml', 'thanks')
-        # session['payload'] = form
-        text = 'We are XMPP\n\n'
-        fren = action.manual('information.toml', 'thanks')
-        fren = "".join(fren)
-        fren = fren.split(';')
-        fren = "\n".join(fren)
-        text += fren
-        # text += '\n\nYOU!\n\n🫵️\n\n- Join us -\n\n🤝️'
-        text += '\n\nYOU!\n\n🫵️\n\n- Join us -'
-        session['notes'] = [['info', text]]
+        form = self['xep_0004'].make_form('result', 'Credits')
+        form['instructions'] = "We are XMPP"
+        form.add_field(ftype="text-multi", value=action.manual('information.toml', 'thanks'))
+        form['instructions'] = 'YOU!\n🫵️\n- Join us -'
+        session['payload'] = form
         return session
 
 
