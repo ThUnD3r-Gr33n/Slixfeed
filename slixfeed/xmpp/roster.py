@@ -12,6 +12,13 @@ TODO
 
 class XmppRoster:
 
+
+    async def get(self):
+        await self.get_roster()
+        contacts = self.client_roster
+        return contacts
+
+
     async def add(self, jid):
         """
         Add JID to roster.

@@ -1,0 +1,840 @@
+# This is a default set of featured feeds allocated by locality (i.e. language code).
+# Copy this file to ~/.config/slixfeed/feeds.toml if you want to modify the list.
+
+# NOTE <presence xml:lang="fr"></presence>
+# TODO Consider splitting into files feeds-cz.toml, feeds-de.toml, feeds-el.toml.
+
+[[feeds]]
+lang = "cs-cz"
+name = "Česká pirátská strana"
+link = "https://www.pirati.cz/feeds/atom/"
+tags = ["czech", "party", "pirate"]
+
+[[feeds]]
+lang = "cs-cz"
+name = "Paralelní Polis"
+link = "https://www.paralelnipolis.cz/feed/"
+tags = ["communication", "czech", "hackerspace", "hardware", "internet", "makers", "technology", "telecom"]
+
+[[feeds]]
+lang = "de-at"
+name = "Alle Neuigkeiten von jotwewe.de"
+link = "http://www.jotwewe.de/alles_de.xml"
+tags = ["jabber", "jabrss", "xmpp", "syndication"]
+
+[[feeds]]
+lang = "de-at"
+name = "Piratenpartei Österreichs"
+link = "https://piratenpartei.at/feed/"
+tags = ["austria", "party", "pirate"]
+
+[[feeds]]
+lang = "de-ch"
+name = "Chaos Computer Club Basel"
+link = "https://ccc-basel.ch/feeds/all.atom.xml"
+tags = ["ccc", "club", "computer", "switzerland"]
+
+[[feeds]]
+lang = "de-ch"
+name = "GNU/Linux.ch"
+link = "https://gnulinux.ch/rss.xml"
+tags = ["computer", "industry", "computer", "linux", "mobile", "pda", "switzerland"]
+
+[[feeds]]
+lang = "de-ch"
+name = "Piratenpartei Schweiz"
+link = "https://www.piratenpartei.ch/feed/"
+tags = ["party", "pirate", "switzerland"]
+
+[[feeds]]
+lang = "de-de"
+name = "0d - Zeroday"
+link = "https://0x0d.de/feed/mp3/"
+tags = ["computer", "germany", "podcast"]
+
+[[feeds]]
+lang = "de-de"
+name = "Berlin XMPP Meetup"
+link = "https://mov.im/?feed/pubsub.movim.eu/berlin-xmpp-meetup"
+tags = ["event", "germany", "xmpp"]
+
+[[feeds]]
+lang = "de-de"
+name = "CCC Event Blog"
+link = "https://events.ccc.de/feed"
+tags = ["ccc", "club", "event"]
+
+[[feeds]]
+lang = "de-de"
+name = "Chaos Computer Club: Updates"
+link = "https://www.ccc.de/de/rss/updates.rdf"
+tags = ["ccc", "news", "politics", "privacy", "surveillance", "technology", "germany"]
+
+[[feeds]]
+lang = "de-de"
+name = "classless Kulla"
+link = "https://www.classless.org/feed/atom/"
+tags = ["europe ,germany ,history ,literature ,war"]
+
+[[feeds]]
+lang = "de-de"
+name = "Digitalcourage"
+link = "https://digitalcourage.de/rss.xml"
+tags = ["culture", "digital", "germany"]
+
+[[feeds]]
+lang = "de-de"
+name = "FSFE Events"
+link = "https://fsfe.org/events/events.de.rss"
+tags = ["computer", "events", "germany", "internet", "technology"]
+
+[[feeds]]
+lang = "de-de"
+name = "FSFE News"
+link = "https://fsfe.org/news/news.de.rss"
+tags = ["computer", "events", "germany", "internet", "privacy", "technology"]
+
+[[feeds]]
+lang = "de-de"
+name = "Jabber.de"
+link = "https://www.jabber.de/?feed=rss2"
+tags = ["germany", "jabber", "telecom", "xmpp"]
+
+[[feeds]]
+lang = "de-de"
+name = "KI-Verband"
+link = "https://ki-verband.de/feed/"
+tags = ["ai", "germany", "machine", "model", "learning", "technology"]
+
+[[feeds]]
+lang = "de-de"
+name = "media.ccc.de"
+link = "https://media.ccc.de/news.atom"
+tags = ["ccc", "technology", "video"]
+
+[[feeds]]
+lang = "de-de"
+name = "pimux.de"
+link = "https://pimux.de/blog.rss"
+tags = ["germany", "jabber", "mastodon", "telecom", "xmpp"]
+
+[[feeds]]
+lang = "de-de"
+name = "Sovereign Tech Fund"
+link = "https://www.sovereigntechfund.de/de/feed.rss"
+tags = ["germany", "technology", "open source"]
+
+[[feeds]]
+lang = "de-de"
+name = "WinFuture News"
+link = "https://static.winfuture.de/feeds/WinFuture-News-rss2.0.xml"
+tags = ["computer", "germany", "technology", "germany"]
+
+[[feeds]]
+lang = "el-gr"
+name = "Ηρακλής Παπαθεοδώρου • heracl.es"
+link = "https://heracl.es/el/feed.xml"
+tags = ["computer", "electronics", "greece", "technology"]
+
+[[feeds]]
+lang = "el-gr"
+name = "Κόμμα Πειρατών Ελλάδας – Pirate party of Greece"
+link = "https://www.pirateparty.gr/feed/"
+tags = ["greece", "party", "pirate"]
+
+[[feeds]]
+lang = "en-au"
+name = "Pirate Party Australia"
+link = "https://pirateparty.org.au/feed/podcast/"
+tags = ["australia", "party", "pirate"]
+
+[[feeds]]
+lang = "en-ca"
+name = "CAFE - The Canadian Association for Free Expression"
+link = "http://cafe.nfshost.com/?feed=rss2"
+tags = ["canada", "freedom", "government", "immigration", "society", "speech"]
+
+[[feeds]]
+lang = "en-ca"
+name = "Christian Faith and Copyfreedom"
+link = "https://singpolyma.net/2015/07/christian-faith-and-copyfreedom/feed/"
+tags = ["christianity", "copy", "freedom", "religion", "software", "technology"]
+
+[[feeds]]
+lang = "en-ca"
+name = "blog.jmp.chat's blog"
+link = "https://blog.jmp.chat/atom.xml"
+tags = ["jmp", "service", "sms", "telecom", "xmpp"]
+
+[[feeds]]
+lang = "en-ca"
+name = "RantMedia Forum"
+link = "https://smf.rantradio.com/index.php?type=atom;action=.xml"
+tags = ["canada", "forum", "politics", "privacy", "surveillance"]
+
+[[feeds]]
+lang = "en-ca"
+name = "Singpolyma"
+link = "https://singpolyma.net/feed/"
+tags = ["code", "computer", "culture", "jmp", "people", "software", "technology", "xmpp"]
+
+[[feeds]]
+lang = "en-gb"
+name = "A sysadmin's (mis)adventures"
+link = "https://blog.woodpeckersnest.space/feed/"
+tags = ["computer", "internet", "people", "technology", "xmpp"]
+
+[[feeds]]
+lang = "en-gb"
+name = "media.ccc.de"
+link = "https://media.ccc.de/news.atom"
+tags = ["ccc", "technology", "video"]
+
+[[feeds]]
+lang = "en-gb"
+name = "Christof Meerwald"
+link = "https://cmeerw.org/blog.atom"
+tags = ["austria", "computer", "linux", "people", "xmpp"]
+
+[[feeds]]
+lang = "en-gb"
+name = "German AI Association"
+link = "https://ki-verband.de/en/feed/"
+tags = ["ai", "machine", "model", "learning", "technology"]
+
+[[feeds]]
+lang = "en-gb"
+name = "La Quadrature du Net"
+link = "https://www.laquadrature.net/en/feed/"
+tags = ["news", "politics", "privacy", "surveillance"]
+
+[[feeds]]
+lang = "en-gb"
+name = "Pimux XMPP News"
+link = "https://pimux.de/blog.rss"
+tags = ["germany", "jabber", "mastodon", "telecom", "xmpp"]
+
+[[feeds]]
+lang = "en-gb"
+name = "Pirate Party UK"
+link = "https://pirateparty.org.uk/feed.xml"
+tags = ["party", "pirate", "uk"]
+
+[[feeds]]
+lang = "en-gb"
+name = "RIAT Institute"
+link = "https://riat.at/feed/"
+tags = ["art", "economics", "education", "hardware", "research", "technology"]
+
+[[feeds]]
+lang = "en-gb"
+name = "Snikket Blog on Snikket Chat"
+link = "https://snikket.org/blog/index.xml"
+tags = ["chat", "jabber", "telecom", "xmpp"]
+
+[[feeds]]
+lang = "en-gb"
+name = "The Brexit Party"
+link = "https://www.thebrexitparty.org/feed/"
+tags = ["europe", "politics", "uk"]
+
+[[feeds]]
+lang = "en-us"
+name = "153 News - Videos Being Watched"
+link = "https://153news.net/rss.php?mode=watching"
+tags = ["news", "politics", "usa", "video"]
+
+[[feeds]]
+lang = "en-us"
+name = "AudioBook Bay (ABB)"
+link = "https://audiobookbay.is/feed/atom/"
+tags = ["audiobook", "torrent"]
+
+[[feeds]]
+lang = "en-us"
+name = "Bald & Beards"
+link = "https://www.baldandbeards.com/feed/"
+tags = ["lifestyle", "men"]
+
+[[feeds]]
+lang = "en-us"
+name = "BlackListed News"
+link = "https://www.blacklistednews.com/rss.php"
+tags = ["news", "politics", "usa", "world"]
+
+[[feeds]]
+lang = "en-us"
+name = "Canoe Mail"
+link = "https://canoemail.net/rss.xml"
+tags = ["email", "jabber", "telecom", "xmpp"]
+
+[[feeds]]
+lang = "en-us"
+name = "CODEPINK - Women for Peace"
+link = "https://www.codepink.org/news.rss"
+tags = ["activism", "peace", "war", "women"]
+
+[[feeds]]
+lang = "en-us"
+name = "Ctrl blog"
+link = "https://feed.ctrl.blog/latest.atom"
+tags = ["computer", "technology"]
+
+[[feeds]]
+lang = "en-us"
+name = "Disroot Blog"
+link = "https://disroot.org/en/blog.atom"
+tags = ["decentralization", "privacy"]
+
+[[feeds]]
+lang = "en-us"
+name = "F-Droid"
+link = "https://f-droid.org/feed.xml"
+tags = ["android", "pda", "privacy"]
+
+[[feeds]]
+lang = "en-us"
+name = "Fairphone"
+link = "https://www.fairphone.com/en/feed/"
+tags = ["pda", "privacy"]
+
+[[feeds]]
+lang = "en-us"
+name = "Fakeologist.com"
+link = "https://fakeologist.com/feed/"
+tags = ["news", "politics", "usa", "world"]
+
+[[feeds]]
+lang = "en-us"
+name = "Fakeologist Forums"
+link = "https://fakeologist.com/forums2/app.php/feed/news"
+tags = ["forum", "politics", "usa", "world"]
+
+[[feeds]]
+lang = "en-us"
+name = "FSFE Events"
+link = "https://fsfe.org/events/events.en.rss"
+tags = ["computer", "events", "internet", "technology"]
+
+[[feeds]]
+lang = "en-us"
+name = "FSFE News"
+link = "https://fsfe.org/news/news.en.rss"
+tags = ["computer", "events", "internet", "privacy", "technology"]
+
+[[feeds]]
+lang = "en-us"
+name = "Hacker Public Radio"
+link = "https://hackerpublicradio.org/hpr_ogg_rss.php"
+tags = ["computer", "internet", "podcast", "technology"]
+
+[[feeds]]
+lang = "en-us"
+name = "Hardy Fruit Tree Nursery"
+link = "https://www.hardyfruittrees.ca/feed/"
+tags = ["farming", "food", "gardening", "survival"]
+
+[[feeds]]
+lang = "en-us"
+name = "Ice Age Farmer"
+link = "https://www.iceagefarmer.com/feed/"
+tags = ["farming", "food", "gardening", "survival"]
+
+[[feeds]]
+lang = "en-us"
+name = "International Consortium of Investigative Journalists"
+link = "https://www.icij.org/feed/"
+tags = ["news", "politics", "usa", "world"]
+
+[[feeds]]
+lang = "en-us"
+name = "Jacob's Unnamed Blog"
+link = "https://jacobwsmith.xyz/feed.xml"
+tags = ["book", "community", "culture", "family", "finance", "lifestyle", "market", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "Juicing for Health"
+link = "https://juicing-for-health.com/feed"
+tags = ["beverage", "drink", "recipe"]
+
+[[feeds]]
+lang = "en-us"
+name = "karson777"
+link = "https://videos.danksquad.org/feeds/videos.xml?videoChannelId=4711"
+tags = ["computer", "game", "internet", "linux", "software", "technology"]
+
+[[feeds]]
+lang = "en-us"
+name = "Larken Rose"
+link = "http://larkenrose.com/?format=feed&type=atom"
+tags = ["news", "politics", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "LibriVox's New Releases"
+link = "https://librivox.org/rss/latest_releases"
+tags = ["audiobook,"]
+
+[[feeds]]
+lang = "en-us"
+name = "Massachusetts Pirate Party"
+link = "https://masspirates.org/blog/feed/"
+tags = ["massachusetts", "party", "pirate", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "Mercola.com"
+link = "https://articles.mercola.com/sites/articles/rss.aspx"
+tags = ["health"]
+
+[[feeds]]
+lang = "en-us"
+name = "Monal IM"
+link = "https://monal-im.org/index.xml"
+tags = ["iphone", "xmpp"]
+
+[[feeds]]
+lang = "en-us"
+name = "Mom on a Mission"
+link = "https://www.mom-on-a-mission.blog/all-posts?format=rss"
+tags = ["family", "farming", "food", "gardening", "survival"]
+
+[[feeds]]
+lang = "en-us"
+name = "NLnet News"
+link = "https://nlnet.nl/feed.atom"
+tags = ["decentralization", "privacy"]
+
+[[feeds]]
+lang = "en-us"
+name = "nobulart"
+link = "https://nobulart.com/feed/"
+tags = ["news", "survival", "politics", "usa", "world"]
+
+[[feeds]]
+lang = "en-us"
+name = "Opt Out Podcast"
+link = "https://optoutpod.com/index.xml"
+tags = ["podcast", "politics", "privacy", "surveillance"]
+
+[[feeds]]
+lang = "en-us"
+name = "Phish.in Music Updates"
+link = "https://phish.in/feeds/rss"
+tags = ["music"]
+
+[[feeds]]
+lang = "en-us"
+name = "PINE64"
+link = "https://www.pine64.org/feed/"
+tags = ["pda", "privacy"]
+
+[[feeds]]
+lang = "en-us"
+name = "PineTalk Podcast"
+link = "https://www.pine64.org/feed/opus/"
+tags = ["pda", "podcast", "privacy"]
+
+[[feeds]]
+lang = "en-us"
+name = "Pirate Parties International"
+link = "https://pp-international.net/feed/"
+tags = ["party", "pirate", "international"]
+
+[[feeds]]
+lang = "en-us"
+name = "Planet Jabber"
+link = "https://planet.jabber.org/atom.xml"
+tags = ["xmpp"]
+
+[[feeds]]
+lang = "en-us"
+name = "Ploum.net"
+link = "https://ploum.net/atom_en.xml"
+tags = ["computer", "decentralization", "internet", "linux", "technology"]
+
+[[feeds]]
+lang = "en-us"
+name = "PrivacySavvy"
+link = "https://privacysavvy.com/"
+tags = ["privacy"]
+
+[[feeds]]
+lang = "en-us"
+name = "postmarketOS Podcast"
+link = "https://cast.postmarketos.org/feed.rss"
+tags = ["pda", "podcast", "privacy"]
+
+[[feeds]]
+lang = "en-us"
+name = "Project Gemini news"
+link = "https://gemini.circumlunar.space/news/atom.xml"
+tags = ["gemini", "internet"]
+
+[[feeds]]
+lang = "en-us"
+name = "PUNCH"
+link = "https://punchdrink.com/feed/"
+tags = ["beverage", "drink", "recipe"]
+
+[[feeds]]
+lang = "en-us"
+name = "Radio 3Fourteen"
+link = "https://redice.tv/rss/radio-3fourteen"
+tags = ["culture", "podcast", "politics", "radio", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "Real Liberty Media"
+link = "https://www.reallibertymedia.com/category/podcasts/feed/?redirect=no"
+tags = ["culture", "news", "podcast", "politics", "privacy", "surveillance", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "Reclaim The Net"
+link = "https://reclaimthenet.org/feed"
+tags = ["news", "politics", "privacy", "surveillance"]
+
+[[feeds]]
+lang = "en-us"
+name = "Red Ice News"
+link = "https://redice.tv/rss/news"
+tags = ["culture", "news", "politics", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "Red Ice Radio"
+link = "https://redice.tv/rss/red-ice-radio"
+tags = ["culture", "podcast", "politics", "radio", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "Red Ice TV"
+link = "https://redice.tv/rss/red-ice-tv"
+tags = ["culture", "podcast", "politics", "usa", "vodcast"]
+
+[[feeds]]
+lang = "en-us"
+name = "Redecentralize Blog"
+link = "https://redecentralize.org/blog/feed.rss"
+tags = ["podcast", "privacy", "surveillance", "vodcast"]
+
+[[feeds]]
+lang = "en-us"
+name = "Road Runners Club of America"
+link = "https://www.rrca.org/feed/"
+tags = ["jog", "road", "run", "sports", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "Seymour Hersh"
+link = "https://seymourhersh.substack.com/feed"
+tags = ["news", "politics", "usa", "war"]
+
+[[feeds]]
+lang = "en-us"
+name = "Signs of the Times"
+link = "https://www.sott.net/xml_engine/signs_rss"
+tags = ["europe", "industry", "news", "politics", "usa", "war", "world"]
+
+[[feeds]]
+lang = "en-us"
+name = "Simplified Privacy"
+link = "https://simplifiedprivacy.com/feed/"
+tags = ["news", "privacy", "surveillance", "vodcast"]
+
+[[feeds]]
+lang = "en-us"
+name = "Software Freedom Conservancy News"
+link = "https://sfconservancy.org/feeds/news/"
+tags = ["culture", "free software", "freedom", "liberty", "open source", "software"]
+
+[[feeds]]
+lang = "en-us"
+name = "Software Freedom Podcast"
+link = "http://fsfe.org/news/podcast.en.rss"
+tags = ["computer", "podcast", "technology"]
+
+[[feeds]]
+lang = "en-us"
+name = "Stop Spraying Us!"
+link = "http://www.stopsprayingus.com/feed/"
+tags = ["activism", "geoengineering"]
+
+[[feeds]]
+lang = "en-us"
+name = "Sweet Home 3D Blog"
+link = "http://www.sweethome3d.com/blog/rss.xml"
+tags = ["3d", "architecture", "design", "game"]
+
+[[feeds]]
+lang = "en-us"
+name = "Take Back Our Tech"
+link = "https://takebackourtech.org/rss/"
+tags = ["internet", "privacy", "surveillance"]
+
+[[feeds]]
+lang = "en-us"
+name = "The Bald Brothers"
+link = "https://thebaldbrothers.com/feed/"
+tags = ["lifestyle", "men"]
+
+[[feeds]]
+lang = "en-us"
+name = "The 250kb Club"
+link = "https://250kb.club/rss.xml"
+tags = ["webring"]
+
+[[feeds]]
+lang = "en-us"
+name = "The Conscious Resistance Network"
+link = "https://theconsciousresistance.com/feed/"
+tags = ["culture", "government", "podcast", "politics", "privacy", "surveillance", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "The Corbett Report"
+link = "https://www.corbettreport.com/feed/"
+tags = ["podcast", "politics", "privacy", "surveillance", "usa", "vodcast"]
+
+[[feeds]]
+lang = "en-us"
+name = "The Organic Prepper"
+link = "https://www.theorganicprepper.com/feed/"
+tags = ["farming", "food", "gardening", "survival"]
+
+[[feeds]]
+lang = "en-us"
+name = "The XMPP Blog on XMPP"
+link = "https://xmpp.org/feeds/all.atom.xml"
+tags = ["jabber", "telecom", "xmpp"]
+
+[[feeds]]
+lang = "en-us"
+name = "Truthstream Media"
+link = "http://truthstreammedia.com/feed/"
+tags = ["culture", "privacy", "surveillance", "usa", "vodcast"]
+
+[[feeds]]
+lang = "en-us"
+name = "United States Pirate Party"
+link = "https://uspirates.org/feed/"
+tags = ["party", "pirate", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "Xonotic"
+link = "https://xonotic.org/index.xml"
+tags = ["3d", "game"]
+
+[[feeds]]
+lang = "en-us"
+name = "yaxim"
+link = "https://yaxim.org/atom.xml"
+tags = ["android", "germany", "jabber", "telecom", "xmpp"]
+
+[[feeds]]
+lang = "es-es"
+name = "Disroot Blog"
+link = "https://disroot.org/es/blog.atom"
+tags = ["decentralization", "privacy"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "Agate Blue"
+link = "https://agate.blue/feed.xml"
+tags = ["computer", "music"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "Archlinux.fr [Forums]"
+link = "https://forums.archlinux.fr/app.php/feed"
+tags = ["forum", "linux"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "Cours et Tutoriels sur le Langage SQL"
+link = "https://sql.sh/feed"
+tags = ["sql", "tutorial"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "Developpez"
+link = "https://www.developpez.com/index/atom"
+tags = ["technology"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "Disroot Blog"
+link = "https://disroot.org/fr/blog.atom"
+tags = ["decentralization", "privacy"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "Framablog"
+link = "https://framablog.org/feed/"
+tags = ["fediverse", "framasoft", "open source", "peertube", "privacy", "software", "xmpp"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "FSFE Events"
+link = "https://fsfe.org/events/events.fr.rss"
+tags = ["computer", "events", "internet", "technology"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "FSFE News"
+link = "https://fsfe.org/news/news.fr.rss"
+tags = ["computer", "events", "internet", "privacy", "technology"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "La Quadrature du Net"
+link = "https://www.laquadrature.net/feed/"
+tags = ["news", "politics", "privacy", "surveillance"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "Ploum.net"
+link = "https://ploum.net/atom_fr.xml"
+tags = ["computer", "decentralization", "internet", "linux", "technology"]
+
+[[feeds]]
+lang = "fr-fr"
+name = "Wiki de sebsauvage.net"
+link = "https://sebsauvage.net/wiki/feed.php"
+tags = ["computer", "network"]
+
+[[feeds]]
+lang = "he-il"
+name = "ALIVE528"
+link = "https://alive528.com/feed/"
+tags = ["health", "news", "politics", "privacy", "surveillance"]
+
+[[feeds]]
+lang = "he-il"
+name = "אגוגו מגזין בריאות"
+link = "https://www.agogo.co.il/feed/"
+tags = ["food", "health"]
+
+[[feeds]]
+lang = "he-il"
+name = "האייל הקורא"
+link = "http://www.haayal.co.il/xml/rss"
+tags = ["news", "politics"]
+
+[[feeds]]
+lang = "he-il"
+name = "העין השביעית"
+link = "https://www.the7eye.org.il/feed"
+tags = ["industry", "media", "news", "propaganda"]
+
+[[feeds]]
+lang = "he-il"
+name = "מזבלה"
+link = "https://mizbala.com/feed"
+tags = ["industry", "media", "news", "propaganda"]
+
+[[feeds]]
+lang = "he-il"
+name = "פרויקט אמת אחרת"
+link = "https://www.emetaheret.org.il/feed/"
+tags = ["food", "health", "media", "news", "politics"]
+
+[[feeds]]
+lang = "he-il"
+name = "שיחה מקומית"
+link = "https://www.mekomit.co.il/feed/"
+tags = ["news", "politics"]
+
+[[feeds]]
+lang = "it-it"
+name = "Diggita / Prima Pagina"
+link = "https://diggita.com/rss.php"
+tags = ["computer", "culture", "food", "technology"]
+
+[[feeds]]
+lang = "it-it"
+name = "Feddit.it"
+link = "https://feddit.it/feeds/local.xml?sort=Active"
+tags = ["fediverse", "forum"]
+
+[[feeds]]
+lang = "it-it"
+name = "A sysadmin's (mis)adventures"
+link = "https://blog.woodpeckersnest.space/feed/"
+tags = ["computer", "internet", "people", "technology", "xmpp"]
+
+[[feeds]]
+lang = "it-it"
+name = "Avvocato a Roma"
+link = "https://www.studiosabatino.it/feed/"
+tags = ["law"]
+
+[[feeds]]
+lang = "it-it"
+name = "Disroot Blog"
+link = "https://disroot.org/it/blog.atom"
+tags = ["decentralization", "privacy"]
+
+[[feeds]]
+lang = "it-it"
+name = "LinuxTrent"
+link = "https://www.linuxtrent.it/feed/"
+tags = ["computer", "internet", "linux", "technology", "xmpp"]
+
+[[feeds]]
+lang = "it-it"
+name = "Mario Sabatino Gemini capsule"
+link = "https://gemini.sabatino.cloud/rss.xml"
+tags = ["computer", "people", "xmpp"]
+
+[[feeds]]
+lang = "it-it"
+name = "XMPP-IT Italian Community"
+link = "https://www.xmpp-it.net/feed/"
+tags = ["xmpp"]
+
+[[feeds]]
+lang = "ja-jp"
+name = "ニュース速報（総合）"
+link = "https://mainichi.jp/rss/etc/mainichi-flash.rss"
+tags = ["japan", "news", "politics", "world"]
+
+[[feeds]]
+lang = "nl-nl"
+name = "Piratenpartij"
+link = "https://piratenpartij.nl/feed/"
+tags = ["netherlands", "party", "pirate"]
+
+[[feeds]]
+lang = "pl-pl"
+name = "Fundacja Internet. Czas działać!"
+link = "https://www.internet-czas-dzialac.pl/rss/"
+tags = ["computer", "technology", "design"]
+
+[[feeds]]
+lang = "ru-ru"
+name = "Disroot Blog"
+link = "https://disroot.org/ru/blog.atom"
+tags = ["decentralization", "privacy"]
+
+[[feeds]]
+lang = "ru-ru"
+name = "За вашу и нашу Свободу!"
+link = "https://lev-sharansky2.livejournal.com/data/atom"
+tags = ["culture"]
+
+[[feeds]]
+lang = "sv-se"
+name = "Piratpartiet"
+link = "https://piratpartiet.se/feed/"
+tags = ["party", "pirate", "sweden"]
+
+[[feeds]]
+lang = "vi-vn"
+name = "Trần H. Trung"
+link = "https://trung.fun/atom.xml"
+tags = ["artist", "computer", "filmmaker", "people", "technology", "vietnam", "xmpp"]
+

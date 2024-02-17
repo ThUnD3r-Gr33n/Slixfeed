@@ -106,6 +106,7 @@ def http_response(url):
         response = None
     return response
 
+
 async def http(url):
     """
     Download content of given URL.
@@ -120,13 +121,10 @@ async def http(url):
     msg: list or str
         Document or error message.
     """
-    user_agent = (
-        config.get_value(
-            "settings", "Network", "user-agent")
-        ) or 'Slixfeed/0.1'
+    user_agent = (config.get_value("settings", "Network", "user-agent")
+                  or 'Slixfeed/0.1')
     headers = {'User-Agent': user_agent}
-    proxy = (config.get_value(
-        "settings", "Network", "http_proxy")) or ''
+    proxy = (config.get_value("settings", "Network", "http_proxy") or '')
     timeout = ClientTimeout(total=10)
     async with ClientSession(headers=headers) as session:
     # async with ClientSession(trust_env=True) as session:
@@ -136,36 +134,39 @@ async def http(url):
                                    timeout=timeout
                                    ) as response:
                 status = response.status
-                if response.status == 200:
+                if status == 200:
                     try:
-                        doc = await response.text()
-                        # print (response.content_type)
-                        msg = [doc, status]
+                        document = await response.text()
+                        result = {'charset': response.charset,
+                                  'content': document,
+                                  'content_length': response.content_length,
+                                  'content_type': response.content_type,
+                                  'error': False,
+                                  'message': None,
+                                  'original_url': url,
+                                  'status_code': status,
+                                  'response_url': response.url}
                     except:
-                        # msg = [
-                        #     False,
-                        #     ("The content of this document "
-                        #      "doesn't appear to be textual."
-                        #      )
-                        #     ]
-                        msg = [
-                            False, "Document is too large or is not textual."
-                            ]
+                        result = {'error': True,
+                                  'message': 'Could not get document.',
+                                  'original_url': url,
+                                  'status_code': status,
+                                  'response_url': response.url}
                 else:
-                    msg = [
-                        False, "HTTP Error: " + str(status)
-                        ]
+                    result = {'error': True,
+                              'message': 'HTTP Error:' + str(status),
+                              'original_url': url,
+                              'status_code': status,
+                              'response_url': response.url}
         except ClientError as e:
-            # print('Error', str(e))
-            msg = [
-                False, "Error: " + str(e)
-                ]
+            result = {'error': True,
+                      'message': 'Error:' + str(e),
+                      'original_url': url}
         except TimeoutError as e:
-            # print('Timeout:', str(e))
-            msg = [
-                False, "Timeout: " + str(e)
-                ]
-    return msg
+            result = {'error': True,
+                      'message': 'Timeout:' + str(e),
+                      'original_url': url}
+    return result
 
 
 async def magnet(link):

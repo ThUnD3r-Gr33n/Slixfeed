@@ -48,6 +48,8 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 
 import slixfeed.action as action
 import slixfeed.config as config
+import slixfeed.crawl as crawl
+import slixfeed.fetch as fetch
 from slixfeed.dt import timestamp
 import slixfeed.sqlite as sqlite
 from slixfeed.version import __version__
@@ -464,12 +466,15 @@ class Slixfeed(slixmpp.ClientXMPP):
         #     )
 
         # if jid == config.get_value('accounts', 'XMPP', 'operator'):
-        self['xep_0050'].add_command(node='subscription',
-                                     name='➕️ Add',
-                                     handler=self._handle_subscription_add)
         self['xep_0050'].add_command(node='subscriptions',
                                      name='📰️ Subscriptions',
                                      handler=self._handle_subscriptions)
+        self['xep_0050'].add_command(node='promoted',
+                                     name='🔮️ Featured',
+                                     handler=self._handle_promoted)
+        self['xep_0050'].add_command(node='subscription',
+                                     name='🔗️ Add', # 🪶️
+                                     handler=self._handle_subscription_add)
         # self['xep_0050'].add_command(node='subscriptions_cat',
         #                              name='🔖️ Categories',
         #                              handler=self._handle_subscription)
@@ -479,29 +484,32 @@ class Slixfeed(slixmpp.ClientXMPP):
         # self['xep_0050'].add_command(node='subscriptions_index',
         #                              name='📑️ Index (A - Z)',
         #                              handler=self._handle_subscription)
-        # TODO Join Filters and Settings into  Preferences
-        self['xep_0050'].add_command(node='filters',
-                                     name='🛡️ Filters',
-                                     handler=self._handle_filters)
+        # TODO Join Filters, Schedule and Settings into Preferences
         self['xep_0050'].add_command(node='settings',
                                      name='📮️ Settings',
                                      handler=self._handle_settings)
-        if not self.is_component: # This will be changed with XEP-0222 XEP-0223
-            self['xep_0050'].add_command(node='bookmarks',
-                                          name='📕 Bookmarks',
-                                          handler=self._handle_bookmarks)
-            self['xep_0050'].add_command(node='roster',
-                                          name='📓 Roster', # 📋
-                                          handler=self._handle_roster)
+        self['xep_0050'].add_command(node='filters',
+                                     name='🛡️ Filters',
+                                     handler=self._handle_filters)
+        self['xep_0050'].add_command(node='schedule',
+                                     name='📅 Schedule',
+                                     handler=self._handle_schedule)
         self['xep_0050'].add_command(node='help',
                                      name='📔️ Manual',
                                      handler=self._handle_help)
         self['xep_0050'].add_command(node='totd',
-                                     name='💡️ TOTD',
+                                     name='💡️ Tips',
                                      handler=self._handle_totd)
-        self['xep_0050'].add_command(node='fotd',
-                                     name='🗓️ FOTD',
-                                     handler=self._handle_fotd)
+        if not self.is_component: # This will be changed with XEP-0222 XEP-0223
+            self['xep_0050'].add_command(node='subscribers',
+                                         name='🏡️ Subscribers', # 🎫
+                                         handler=self._handle_subscribers)
+            self['xep_0050'].add_command(node='bookmarks',
+                                         name='📕 Bookmarks',
+                                         handler=self._handle_bookmarks)
+            self['xep_0050'].add_command(node='roster',
+                                         name='📓 Roster', # 📋
+                                         handler=self._handle_contacts)
         self['xep_0050'].add_command(node='activity',
                                      name='📠️ Activity',
                                      handler=self._handle_activity)
@@ -542,8 +550,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
-        form = self['xep_0004'].make_form('form', 'Filters')
-        form['instructions'] = '🛡️ Manage filters' # 🪄️
+        form = self['xep_0004'].make_form('form', 'Filter editor')
+        form['instructions'] = '🛡️ Edit and manage filters' # 🪄️
         value = sqlite.get_filter_value(db_file, 'allow')
         if value: value = str(value[0])
         form.add_field(var='allow',
@@ -582,7 +590,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         form = payload
 
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('result', 'Filters')
+        form = self['xep_0004'].make_form('result', 'Done')
         form['instructions'] = ('✅️ Filters have been updated')
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
@@ -611,7 +619,7 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def _handle_subscription_add(self, iq, session):
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form', 'Add Subscriptions')
+        form = self['xep_0004'].make_form('form', 'Add Subscription')
         form['instructions'] = '📰️ Add a new subscription'
         options = form.add_field(var='subscription',
                                  # TODO Make it possible to add several subscriptions at once;
@@ -643,7 +651,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         result = await action.add_feed(db_file, url)
         if isinstance(result, list):
             results = result
-            form = self['xep_0004'].make_form('form', 'Subscriptions')
+            form = self['xep_0004'].make_form('form', 'Select subscription')
             form['instructions'] = ('🔍️ Discovered {} subscriptions for {}'
                                     .format(len(results), url))
             options = form.add_field(var='subscriptions',
@@ -652,7 +660,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                      desc=('Select a subscription to add.'),
                                      required=True)
             for result in results:
-                options.addOption(result['name'], result['url'])
+                options.addOption(result['name'], result['link'])
             session['payload'] = form
             session['next'] = self._handle_subscription_editor
             session['has_next'] = True
@@ -660,45 +668,41 @@ class Slixfeed(slixmpp.ClientXMPP):
             # response = ('News source "{}" is already listed '
             #             'in the subscription list at index '
             #             '{}.\n{}'.format(result['name'], result['index'],
-            #                              result['url']))
+            #                              result['link']))
             # session['notes'] = [['warn', response]] # Not supported by Gajim
             # session['notes'] = [['info', response]]
-            form = self['xep_0004'].make_form('result', 'Subscriptions')
-            form['instructions'] = ('⚠️ Feed "{}" already exist as index {}'
-                                    .format(result['name'], result['index']))
+            form = self['xep_0004'].make_form('form', 'Edit subscription')
+            form['instructions'] = ('📰️ ' + result['name'])
             options = form.add_field(var='subscriptions',
-                                     ftype='text-single',
-                                     label=result['url'],
-                                     desc='Choose next to edit subscription.',
-                                     value=result['url'])
-            # FIXME payload value does not pass, only [].
+                                     ftype='list-single',
+                                     label='Edit sbscription #{}'.format(result['index']),
+                                     # desc='Click URL to edit subscription.',
+                                     value=result['link'])
+            options.addOption(result['name'], result['link'])
             session['payload'] = form
             session['next'] = self._handle_subscription_editor
-            session['has_next'] = True
+            # session['has_next'] = False
         elif result['error']:
-            response = ('Failed to load URL.'
+            response = ('Failed to load URL {}'
                         '\n\n'
                         'Reason: {}'
-                        '\n\n'
-                        'URL: {}'
-                        .format(result['code'], url))
+                        .format(url, result['code']))
             session['notes'] = [['error', response]]
             session['next'] = None
         else:
             # response = ('News source "{}" has been '
             #             'added to subscription list.\n{}'
-            #             .format(result['name'], result['url']))
+            #             .format(result['name'], result['link']))
             # session['notes'] = [['info', response]]
-            form = self['xep_0004'].make_form('result', 'Subscriptions')
+            form = self['xep_0004'].make_form('result', 'Done')
             form['instructions'] = ('✅️ News source "{}" has been added to '
                                     'subscription list as index {}'
                                     .format(result['name'], result['index']))
             options = form.add_field(var='subscriptions',
                                      ftype='text-single',
-                                     label=result['url'],
+                                     label=result['link'],
                                      desc='Choose next to edit subscription.',
-                                     value=result['url'])
-            # FIXME payload value does not pass, only [].
+                                     value=result['link'])
             session['payload'] = form
             session['next'] = self._handle_subscription_editor
             session['has_next'] = True
@@ -758,8 +762,8 @@ class Slixfeed(slixmpp.ClientXMPP):
     # FIXME There are feeds that are missing (possibly because of sortings)
     async def _handle_subscription(self, iq, session):
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form', 'Subscriptions')
-        form['instructions'] = '📰️ Edit subscription'
+        form = self['xep_0004'].make_form('form', 'Subscription editor')
+        form['instructions'] = '📰️ Edit subscription preferences and properties'
         # form.addField(var='interval',
         #               ftype='text-single',
         #               label='Interval period')
@@ -829,7 +833,11 @@ class Slixfeed(slixmpp.ClientXMPP):
             options.addOption('Delete {} subscriptions'.format(url_count), 'delete')
             options.addOption('Export {} subscriptions'.format(url_count), 'export')
         else:
-            url = urls[0]
+            if isinstance(urls, list):
+                url = urls[0]
+            # elif isinstance(urls, str):
+            else:
+                url = urls
             feed_id = await sqlite.get_feed_id(db_file, url)
             feed_id = feed_id[0]
             title = sqlite.get_feed_title(db_file, feed_id)
@@ -1019,7 +1027,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             count = await action.import_opml(db_file, url)
             try:
                 int(count)
-                form = self['xep_0004'].make_form('result', 'Import')
+                form = self['xep_0004'].make_form('result', 'Done')
                 form['instructions'] = ('✅️ Feeds have been imported')
                 message = '{} feeds have been imported to {}.'.format(count, jid)
                 form.add_field(var='message',
@@ -1058,7 +1066,7 @@ class Slixfeed(slixmpp.ClientXMPP):
     async def _handle_export_complete(self, payload, session):
         jid = session['from'].bare
         jid_file = jid.replace('/', '_')
-        form = self['xep_0004'].make_form('result', 'Export')
+        form = self['xep_0004'].make_form('result', 'Done')
         form['instructions'] = ('✅️ Feeds have been exported')
         exts = payload['values']['filetype']
         for ext in exts:
@@ -1082,9 +1090,48 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
-    async def _handle_fotd(self, iq, session):
-        text = ('Here we publish featured news feeds!')
+    async def _handle_schedule(self, iq, session):
+        text = ('Schedule')
+        text += '\n\n'
+        text += 'Set days and hours to receive news.'
         session['notes'] = [['info', text]]
+        return session
+
+
+    # TODO Exclude feeds that are already in database or requester.
+    # TODO Attempt to look up for feeds of hostname of JID (i.e. scan
+    # jabber.de for feeds for julient@jabber.de)
+    async def _handle_promoted(self, iq, session):
+        url = action.pick_a_feed()
+        form = self['xep_0004'].make_form('form', 'Subscribe')
+        # NOTE Refresh button would be of use
+        form['instructions'] = '🔮️ Featured subscriptions' # 🎲️
+        options = form.add_field(var='subscription',
+                                 ftype="list-single",
+                                 label=url['name'],
+                                 value=url['link'])
+        options.addOption(url['name'], url['link'])
+        jid = session['from'].bare
+        if '@' in jid:
+            hostname = jid.split('@')[1]
+            url = 'http://' + hostname
+        result = await crawl.probe_page(url)
+        if not result:
+            url = {'url' : url,
+                    'index' : None,
+                    'name' : None,
+                    'code' : None,
+                    'error' : True,
+                    'exist' : False}
+        elif isinstance(result, list):
+            for url in result:
+                if url['link']: options.addOption(url['name'], url['link'])
+        else:
+            url = result
+            # Automatically set priority to 5 (highest)
+            if url['link']: options.addOption(url['name'], url['link'])
+        session['payload'] = form
+        session['next'] = self._handle_subscription_new
         return session
 
 
@@ -1103,9 +1150,11 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_credit(self, iq, session):
+        wrjx = action.manual('information.toml', 'thanks')
         form = self['xep_0004'].make_form('result', 'Credits')
         form['instructions'] = "We are XMPP"
-        form.add_field(ftype="text-multi", value=action.manual('information.toml', 'thanks'))
+        form.add_field(ftype="text-multi",
+                       value=wrjx)
 
         # Gajim displays all form['instructions'] on top
         # Psi ignore the latter form['instructions']
@@ -1153,6 +1202,188 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
+    async def _handle_subscribers(self, iq, session):
+        jid = session['from'].bare
+        if jid == config.get_value('accounts', 'XMPP', 'operator'):
+            form = self['xep_0004'].make_form('form', 'Subscribers')
+            form['instructions'] = '📖️ Organize subscribers'
+            options = form.add_field(var='jid',
+                                     ftype='list-single',
+                                     label='Contacts',
+                                     desc='Select a contact.',
+                                     required=True)
+            contacts = await XmppRoster.get(self)
+            for contact in contacts:
+                contact_name = contacts[contact]['name']
+                contact_name = contact_name if contact_name else contact
+                options.addOption(contact_name, contact)
+            options = form.add_field(var='action',
+                                     ftype='list-single',
+                                     label='Action',
+                                     value='message')
+            options.addOption('Resend authorization To', 'to')
+            options.addOption('Request authorization From', 'from')
+            options.addOption('Send message', 'message')
+            options.addOption('Remove', 'remove')
+            form.add_field(var='message',
+                           ftype='text-multi',
+                           label='Message',
+                           desc='Add a descriptive message.')
+            session['payload'] = form
+            session['next'] = self._handle_subscribers_complete
+            session['has_next'] = True
+        else:
+            logging.warning('An unauthorized attempt to access bookmarks has '
+                            'been detected!\n'
+                            'Details:\n'
+                            '   Jabber ID: {}\n'
+                            '   Timestamp: {}\n'
+                            .format(jid, timestamp()))
+            session['notes'] = [['warn', 'This resource is restricted.']]
+        return session
+
+
+    async def _handle_subscribers_complete(self, iq, session):
+        pass
+
+
+    async def _handle_contacts(self, iq, session):
+        jid = session['from'].bare
+        if jid == config.get_value('accounts', 'XMPP', 'operator'):
+            form = self['xep_0004'].make_form('form', 'Contacts')
+            form['instructions'] = '📖️ Organize contacts'
+            options = form.add_field(var='jid',
+                                     ftype='list-single',
+                                     label='Contact',
+                                     desc='Select a contact.',
+                                     required=True)
+            contacts = await XmppRoster.get(self)
+            for contact in contacts:
+                contact_name = contacts[contact]['name']
+                contact_name = contact_name if contact_name else contact
+                options.addOption(contact_name, contact)
+            options = form.add_field(var='action',
+                                     ftype='list-single',
+                                     label='Action',
+                                     value='view')
+            options.addOption('Display', 'view')
+            options.addOption('Edit', 'edit')
+            session['payload'] = form
+            session['next'] = self._handle_contact_action
+            session['has_next'] = True
+        else:
+            logging.warning('An unauthorized attempt to access bookmarks has '
+                            'been detected!\n'
+                            'Details:\n'
+                            '   Jabber ID: {}\n'
+                            '   Timestamp: {}\n'
+                            .format(jid, timestamp()))
+            session['notes'] = [['warn', 'This resource is restricted.']]
+        return session
+
+
+    async def _handle_contact_action(self, payload, session):
+        jid = payload['values']['jid']
+        form = self['xep_0004'].make_form('form', 'Contact editor')
+        session['allow_complete'] = True
+        match payload['values']['action']:
+            case 'edit':
+                form['instructions'] = '📖️ Edit contact'
+                roster = await XmppRoster.get(self)
+                properties = roster[jid]
+                form.add_field(var='name',
+                               ftype='text-single',
+                               label='Name',
+                               value=properties['name'])
+            case 'view':
+                session['has_next'] = False
+                session['next'] = None
+                session['allow_complete'] = None
+                form = self['xep_0004'].make_form('form', 'Contact info')
+                form['instructions'] = '📖️ Contact details'
+                roster = await XmppRoster.get(self)
+                properties = roster[jid]
+                contact_name = properties['name']
+                contact_name = contact_name if contact_name else jid
+                form.add_field(var='name',
+                               ftype='text-single',
+                               label='Name',
+                               value=properties['name'])
+                form.add_field(var='from',
+                               ftype='boolean',
+                               label='From',
+                               value=properties['from'])
+                form.add_field(var='to',
+                               ftype='boolean',
+                               label='To',
+                               value=properties['to'])
+                form.add_field(var='pending_in',
+                               ftype='boolean',
+                               label='Pending in',
+                               value=properties['pending_in'])
+                form.add_field(var='pending_out',
+                               ftype='boolean',
+                               label='Pending out',
+                               value=properties['pending_out'])
+                form.add_field(var='whitelisted',
+                               ftype='boolean',
+                               label='Whitelisted',
+                               value=properties['whitelisted'])
+                form.add_field(var='subscription',
+                               ftype='fixed',
+                               label='Subscription',
+                               value=properties['subscription'])
+        session['payload'] = form
+        session['prev'] = self._handle_contacts
+        session['allow_prev'] = True
+        # session['next'] = None
+        # session['has_next'] = False
+        # session['allow_complete'] = True
+        return session
+
+
+    async def _handle_contacts_complete(self, payload, session):
+        pass
+
+
+    async def _handle_contacts_view(self, payload, session):
+        jid = payload['values']['jid']
+        roster = await XmppRoster.get(self)
+        properties = roster[jid]
+        form = self['xep_0004'].make_form('result', 'Contact')
+        contact_name = properties['name']
+        contact_name = contact_name if contact_name else jid
+        form['instructions'] = '📝️ Edit contact {}'.format(contact_name)
+        form.add_field(var='name',
+                       ftype='boolean',
+                       label='From',
+                       value=properties['from'])
+        form.add_field(var='to',
+                       ftype='boolean',
+                       label='To',
+                       value=properties['to'])
+        form.add_field(var='pending_in',
+                       ftype='boolean',
+                       label='Pending in',
+                       value=properties['pending_in'])
+        form.add_field(var='pending_out',
+                       ftype='boolean',
+                       label='Pending out',
+                       value=properties['pending_out'])
+        form.add_field(var='whitelisted',
+                       ftype='boolean',
+                       label='Whitelisted',
+                       value=properties['whitelisted'])
+        form.add_field(var='subscription',
+                       ftype='text-single',
+                       label='Subscription',
+                       value=properties['subscription'])
+        session['payload'] = form
+        session['next'] = self._handle_bookmarks_complete
+        session['has_next'] = True
+        return session
+
+
     async def _handle_bookmarks(self, iq, session):
         jid = session['from'].bare
         if jid == config.get_value('accounts', 'XMPP', 'operator'):
@@ -1175,15 +1406,14 @@ class Slixfeed(slixmpp.ClientXMPP):
                             '   Jabber ID: {}\n'
                             '   Timestamp: {}\n'
                             .format(jid, timestamp()))
-            session['notes'] = [['warn', 'You are not allowed to access this resource.']]
+            session['notes'] = [['warn', 'This resource is restricted.']]
         return session
 
 
     async def _handle_bookmarks_editor(self, payload, session):
         jid = payload['values']['bookmarks']
         properties = await XmppBookmark.properties(self, jid)
-        jid = session['from'].bare
-        form = self['xep_0004'].make_form('form', 'Edit bookmark')
+        form = self['xep_0004'].make_form('form', 'Bookmark editor')
         form['instructions'] = '📝️ Edit bookmark {}'.format(properties['name'])
         jid = properties['jid'].split('@')
         room = jid[0]
@@ -1248,7 +1478,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                        here to persist across handler callbacks.
         """
 
-        form = self['xep_0004'].make_form('result', 'Bookmarks')
+        form = self['xep_0004'].make_form('result', 'Done')
         form['instructions'] = ('✅️ Bookmark has been saved')
         # In this case (as is typical), the payload is a form
         values = payload['values']
@@ -1280,7 +1510,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
-        form = self['xep_0004'].make_form('form', 'Settings')
+        form = self['xep_0004'].make_form('form', 'Setting editor')
         form['instructions'] = ('📮️ Customize news updates')
 
         value = config.get_setting_value(db_file, 'enabled')
@@ -1395,7 +1625,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         # form = payload
 
         jid = session['from'].bare
-        form = self['xep_0004'].make_form('form', 'Settings')
+        form = self['xep_0004'].make_form('form', 'Done')
         form['instructions'] = ('✅️ Settings have been saved')
 
         jid_file = jid

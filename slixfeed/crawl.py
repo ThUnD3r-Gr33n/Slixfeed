@@ -108,7 +108,7 @@ from urllib.parse import urlsplit, urlunsplit
 #                 return await callback(url)
 
 
-async def probe_page(url, document):
+async def probe_page(url, document=None):
     """
     Parameters
     ----------
@@ -122,32 +122,34 @@ async def probe_page(url, document):
     result : list or str
         Single URL as list or selection of URLs as str.
     """
-    result = None
+    if not document:
+        response = await fetch.http(url)
+        if not response['error']:
+            document = response['content']
     try:
         # tree = etree.fromstring(res[0]) # etree is for xml
         tree = html.fromstring(document)
+        result = None
     except:
-        result = (
-            "> {}\nFailed to parse URL as feed."
-            ).format(url)
+        logging.debug("Failed to parse URL as feed for {}.".format(url))
+        result = {'link' : None,
+                  'index' : None,
+                  'name' : None,
+                  'code' : None,
+                  'error' : True,
+                  'exist' : None}
     if not result:
-        logging.debug(
-            "Feed auto-discovery engaged for {}".format(url))
+        logging.debug("Feed auto-discovery engaged for {}".format(url))
         result = await feed_mode_auto_discovery(url, tree)
     if not result:
-        logging.debug(
-            "Feed link scan mode engaged for {}".format(url))
+        logging.debug("Feed link scan mode engaged for {}".format(url))
         result = await feed_mode_scan(url, tree)
     if not result:
-        logging.debug(
-            "Feed arbitrary mode engaged for {}".format(url))
+        logging.debug("Feed arbitrary mode engaged for {}".format(url))
         result = await feed_mode_guess(url, tree)
     if not result:
-        logging.debug(
-            "No feeds were found for {}".format(url))
-        result = (
-            "> {}\nNo news feeds were found for URL."
-            ).format(url)
+        logging.debug("No feeds were found for {}".format(url))
+        result = None
     return result
 
 
@@ -182,8 +184,9 @@ async def feed_mode_guess(url, tree):
             ) if '.rss' not in paths else -1
         # if paths.index('.rss'):
         #     paths.extend([".atom", ".feed", ".rdf", ".rss"])
+    parted_url_path = parted_url.path if parted_url.path else '/'
     for path in paths:
-        address = join_url(url, parted_url.path.split('/')[1] + path)
+        address = join_url(url, parted_url_path.split('/')[1] + path)
         if address not in urls:
             urls.extend([address])
     # breakpoint()
@@ -299,13 +302,15 @@ async def feed_mode_auto_discovery(url, tree):
 async def process_feed_selection(url, urls):
     feeds = {}
     for i in urls:
-        res = await fetch.http(i)
-        status_code = res[1]
-        if status_code == 200:
-            try:
-                feeds[i] = [parse(res[0])]
-            except:
-                continue
+        result = await fetch.http(i)
+        if not result['error']:
+            document = result['content']
+            status_code = result['status_code']
+            if status_code == 200: # NOTE This line might be redundant
+                try:
+                    feeds[i] = [parse(document)]
+                except:
+                    continue
     message = (
         "Web feeds found for {}\n\n```\n"
         ).format(url)
@@ -337,7 +342,7 @@ async def process_feed_selection(url, urls):
             #      URL has been fetched, so that the receiving
             #      function will scan that single URL instead of
             #      listing it as a message.
-            url = {'url' : feed_url,
+            url = {'link' : feed_url,
                    'index' : None,
                    'name' : feed_name,
                    'code' : status_code,

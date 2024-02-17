@@ -498,22 +498,17 @@ def list_unread_entries(result, feed_title):
     link = result[2]
     link = remove_tracking_parameters(link)
     link = (replace_hostname(link, "link")) or link
-    news_item = (
-        "\n{}\n{}\n{} [{}]\n"
-        ).format(
-            str(title), str(link), str(feed_title), str(ix)
-            )
+    news_item = ("\n{}\n{}\n{} [{}]\n").format(str(title), str(link),
+                                               str(feed_title), str(ix))
     return news_item
 
 
 def list_search_results(query, results):
-    message = (
-        "Search results for '{}':\n\n```"
-        ).format(query)
+    message = ("Search results for '{}':\n\n```"
+               .format(query))
     for result in results:
-        message += (
-            "\n{}\n{}\n"
-            ).format(str(result[0]), str(result[1]))
+        message += ("\n{}\n{}\n"
+                    .format(str(result[0]), str(result[1])))
     if len(results):
         message += "```\nTotal of {} results".format(len(results))
     else:
@@ -523,15 +518,13 @@ def list_search_results(query, results):
 
 def list_feeds_by_query(db_file, query):
     results = sqlite.search_feeds(db_file, query)
-    message = (
-        'Feeds containing "{}":\n\n```'
-        .format(query))
+    message = ('Feeds containing "{}":\n\n```'
+               .format(query))
     for result in results:
-        message += (
-            '\nName : {} [{}]'
-            '\nURL  : {}'
-            '\n'
-            .format(str(result[0]), str(result[1]), str(result[2])))
+        message += ('\nName : {} [{}]'
+                    '\nURL  : {}'
+                    '\n'
+                    .format(str(result[0]), str(result[1]), str(result[2])))
     if len(results):
         message += "\n```\nTotal of {} feeds".format(len(results))
     else:
@@ -607,6 +600,15 @@ def list_last_entries(results, num):
     return message
 
 
+def pick_a_feed(lang=None):
+    config_dir = config.get_default_config_directory()
+    with open(config_dir + '/' + 'feeds.toml', mode="rb") as feeds:
+        urls = tomllib.load(feeds)
+    import random
+    url = random.choice(urls['feeds'])
+    return url
+
+
 def list_feeds(results):
     message = "\nList of subscriptions:\n\n```\n"
     for result in results:
@@ -621,10 +623,11 @@ def list_feeds(results):
         message += ('```\nTotal of {} subscriptions.\n'
                     .format(len(results)))
     else:
-        message = ('List of subscriptions is empty.\n'
-                   'To add feed, send a URL\n'
-                   'Featured feed: '
-                   'https://reclaimthenet.org/feed/')
+        url = pick_a_feed()
+        message = ('List of subscriptions is empty.  To add a feed, send a URL.'
+                   'Featured feed:\n*{}*\n{}'
+                   .format(url['name'],
+                           url['link']))
     return message
 
 
@@ -678,8 +681,8 @@ def export_to_opml(jid, filename, results):
 
 async def import_opml(db_file, url):
     result = await fetch.http(url)
-    document = result[0]
-    if document:
+    if not result['error']:
+        document = result['content']
         root = ET.fromstring(document)
         before = await sqlite.get_number_of_items(
             db_file, 'feeds')
@@ -703,9 +706,9 @@ async def add_feed(db_file, url):
         exist = await sqlite.get_feed_id_and_name(db_file, url)
         if not exist:
             result = await fetch.http(url)
-            document = result[0]
-            status_code = result[1]
-            if document:
+            if not result['error']:
+                document = result['content']
+                status_code = result['status_code']
                 feed = parse(document)
                 # if is_feed(url, feed):
                 if is_feed(feed):
@@ -745,7 +748,7 @@ async def add_feed(db_file, url):
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
                         await sqlite.mark_feed_as_read(db_file, feed_id)
-                    result_final = {'url' : url,
+                    result_final = {'link' : url,
                                     'index' : feed_id,
                                     'name' : title,
                                     'code' : status_code,
@@ -795,7 +798,7 @@ async def add_feed(db_file, url):
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
                         await sqlite.mark_feed_as_read(db_file, feed_id)
-                    result_final = {'url' : url,
+                    result_final = {'link' : url,
                                     'index' : feed_id,
                                     'name' : title,
                                     'code' : status_code,
@@ -808,15 +811,26 @@ async def add_feed(db_file, url):
                 else:
                     # NOTE Do not be tempted to return a compact dictionary.
                     #      That is, dictionary within dictionary
-                    #      Return multimple dictionaries.
+                    #      Return multiple dictionaries in a list or tuple.
                     result = await crawl.probe_page(url, document)
-                    if isinstance(result, list):
+                    if not result:
+                        # Get out of the loop with dict indicating error.
+                        result_final = {'link' : url,
+                                        'index' : None,
+                                        'name' : None,
+                                        'code' : status_code,
+                                        'error' : True,
+                                        'exist' : False}
+                        break
+                    elif isinstance(result, list):
+                        # Get out of the loop and deliver a list of dicts.
                         result_final = result
                         break
                     else:
-                        url = result['url']
+                        # Go back up to the while loop and try again.
+                        url = result['link']
             else:
-                result_final = {'url' : url,
+                result_final = {'link' : url,
                                 'index' : None,
                                 'name' : None,
                                 'code' : status_code,
@@ -828,7 +842,7 @@ async def add_feed(db_file, url):
         else:
             ix = exist[0]
             name = exist[1]
-            result_final = {'url' : url,
+            result_final = {'link' : url,
                             'index' : ix,
                             'name' : name,
                             'code' : None,
@@ -854,145 +868,142 @@ async def scan_json(db_file, url):
     """
     if isinstance(url, tuple): url = url[0]
     result = await fetch.http(url)
-    try:
-        document = result[0]
-        status = result[1]
-    except:
-        return
-    new_entries = []
-    if document and status == 200:
-        feed = json.loads(document)
-        entries = feed["items"]
-        await remove_nonexistent_entries_json(
-            db_file, url, feed)
-        try:
-            feed_id = await sqlite.get_feed_id(db_file, url)
-            feed_id = feed_id[0]
-            # await sqlite.update_feed_validity(
-            #     db_file, feed_id, valid)
-            if "date_published" in feed.keys():
-                updated = feed["date_published"]
-                try:
-                    updated = dt.convert_struct_time_to_iso8601(updated)
-                except:
+    if not result['error']:
+        document = result['content']
+        status = result['status_code']
+        new_entries = []
+        if document and status == 200:
+            feed = json.loads(document)
+            entries = feed["items"]
+            await remove_nonexistent_entries_json(
+                db_file, url, feed)
+            try:
+                feed_id = await sqlite.get_feed_id(db_file, url)
+                feed_id = feed_id[0]
+                # await sqlite.update_feed_validity(
+                #     db_file, feed_id, valid)
+                if "date_published" in feed.keys():
+                    updated = feed["date_published"]
+                    try:
+                        updated = dt.convert_struct_time_to_iso8601(updated)
+                    except:
+                        updated = ''
+                else:
                     updated = ''
-            else:
-                updated = ''
+                feed_id = await sqlite.get_feed_id(db_file, url)
+                feed_id = feed_id[0]
+                await sqlite.update_feed_properties(
+                    db_file, feed_id, len(feed["items"]), updated)
+                # await update_feed_status
+            except (
+                    IncompleteReadError,
+                    IncompleteRead,
+                    error.URLError
+                    ) as e:
+                logging.error(e)
+                return
+            # new_entry = 0
+            for entry in entries:
+                if "date_published" in entry.keys():
+                    date = entry["date_published"]
+                    date = dt.rfc2822_to_iso8601(date)
+                elif "date_modified" in entry.keys():
+                    date = entry["date_modified"]
+                    date = dt.rfc2822_to_iso8601(date)
+                else:
+                    date = dt.now()
+                if "url" in entry.keys():
+                    # link = complete_url(source, entry.link)
+                    link = join_url(url, entry["url"])
+                    link = trim_url(link)
+                else:
+                    link = url
+                # title = feed["feed"]["title"]
+                # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
+                title = entry["title"] if "title" in entry.keys() else date
+                entry_id = entry["id"] if "id" in entry.keys() else link
+                feed_id = await sqlite.get_feed_id(db_file, url)
+                feed_id = feed_id[0]
+                exist = await sqlite.check_entry_exist(
+                    db_file, feed_id, entry_id=entry_id,
+                    title=title, link=link, date=date)
+                if not exist:
+                    summary = entry["summary"] if "summary" in entry.keys() else ''
+                    if not summary:
+                        summary = (entry["content_html"]
+                                   if "content_html" in entry.keys()
+                                   else '')
+                    if not summary:
+                        summary = (entry["content_text"]
+                                   if "content_text" in entry.keys()
+                                   else '')
+                    read_status = 0
+                    pathname = urlsplit(link).path
+                    string = (
+                        "{} {} {}"
+                        ).format(
+                            title, summary, pathname)
+                    allow_list = config.is_include_keyword(db_file, "allow",
+                                                           string)
+                    if not allow_list:
+                        reject_list = config.is_include_keyword(db_file, "deny",
+                                                                string)
+                        if reject_list:
+                            read_status = 1
+                            logging.debug('Rejected : {}'
+                                          '\n'
+                                          'Keyword  : {}'
+                                          .format(link, reject_list))
+                    if isinstance(date, int):
+                        logging.error('Variable "date" is int: {}'.format(date))
+                    media_link = ''
+                    if "attachments" in entry.keys():
+                        for e_link in entry["attachments"]:
+                            try:
+                                # if (link.rel == "enclosure" and
+                                #     (link.type.startswith("audio/") or
+                                #      link.type.startswith("image/") or
+                                #      link.type.startswith("video/"))
+                                #     ):
+                                media_type = e_link["mime_type"][:e_link["mime_type"].index("/")]
+                                if media_type in ("audio", "image", "video"):
+                                    media_link = e_link["url"]
+                                    media_link = join_url(url, e_link["url"])
+                                    media_link = trim_url(media_link)
+                                    break
+                            except:
+                                logging.info('KeyError: "url"\n'
+                                              'Missing "url" attribute for {}'
+                                              .format(url))
+                                logging.info('Continue scanning for next '
+                                             'potential enclosure of {}'
+                                             .format(link))
+                    entry = {
+                        "title": title,
+                        "link": link,
+                        "enclosure": media_link,
+                        "entry_id": entry_id,
+                        "date": date,
+                        "read_status": read_status
+                        }
+                    new_entries.extend([entry])
+                    # await sqlite.add_entry(
+                    #     db_file, title, link, entry_id,
+                    #     url, date, read_status)
+                    # await sqlite.set_date(db_file, url)
+        if len(new_entries):
             feed_id = await sqlite.get_feed_id(db_file, url)
             feed_id = feed_id[0]
-            await sqlite.update_feed_properties(
-                db_file, feed_id, len(feed["items"]), updated)
-            # await update_feed_status
-        except (
-                IncompleteReadError,
-                IncompleteRead,
-                error.URLError
-                ) as e:
-            logging.error(e)
-            return
-        # new_entry = 0
-        for entry in entries:
-            if "date_published" in entry.keys():
-                date = entry["date_published"]
-                date = dt.rfc2822_to_iso8601(date)
-            elif "date_modified" in entry.keys():
-                date = entry["date_modified"]
-                date = dt.rfc2822_to_iso8601(date)
-            else:
-                date = dt.now()
-            if "url" in entry.keys():
-                # link = complete_url(source, entry.link)
-                link = join_url(url, entry["url"])
-                link = trim_url(link)
-            else:
-                link = url
-            # title = feed["feed"]["title"]
-            # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
-            title = entry["title"] if "title" in entry.keys() else date
-            entry_id = entry["id"] if "id" in entry.keys() else link
-            feed_id = await sqlite.get_feed_id(db_file, url)
-            feed_id = feed_id[0]
-            exist = await sqlite.check_entry_exist(
-                db_file, feed_id, entry_id=entry_id,
-                title=title, link=link, date=date)
-            if not exist:
-                summary = entry["summary"] if "summary" in entry.keys() else ''
-                if not summary:
-                    summary = (entry["content_html"]
-                               if "content_html" in entry.keys()
-                               else '')
-                if not summary:
-                    summary = (entry["content_text"]
-                               if "content_text" in entry.keys()
-                               else '')
-                read_status = 0
-                pathname = urlsplit(link).path
-                string = (
-                    "{} {} {}"
-                    ).format(
-                        title, summary, pathname)
-                allow_list = await config.is_include_keyword(
-                    db_file, "allow", string)
-                if not allow_list:
-                    reject_list = await config.is_include_keyword(
-                        db_file, "deny", string)
-                    if reject_list:
-                        read_status = 1
-                        logging.debug(
-                            "Rejected : {}\n"
-                            "Keyword  : {}".format(
-                                link, reject_list))
-                if isinstance(date, int):
-                    logging.error(
-                        "Variable 'date' is int: {}".format(date))
-                media_link = ''
-                if "attachments" in entry.keys():
-                    for e_link in entry["attachments"]:
-                        try:
-                            # if (link.rel == "enclosure" and
-                            #     (link.type.startswith("audio/") or
-                            #      link.type.startswith("image/") or
-                            #      link.type.startswith("video/"))
-                            #     ):
-                            media_type = e_link["mime_type"][:e_link["mime_type"].index("/")]
-                            if media_type in ("audio", "image", "video"):
-                                media_link = e_link["url"]
-                                media_link = join_url(url, e_link["url"])
-                                media_link = trim_url(media_link)
-                                break
-                        except:
-                            logging.info('KeyError: "url"\n'
-                                          'Missing "url" attribute for {}'
-                                          .format(url))
-                            logging.info('Continue scanning for next '
-                                         'potential enclosure of {}'
-                                         .format(link))
-                entry = {
-                    "title": title,
-                    "link": link,
-                    "enclosure": media_link,
-                    "entry_id": entry_id,
-                    "date": date,
-                    "read_status": read_status
-                    }
-                new_entries.extend([entry])
-                # await sqlite.add_entry(
-                #     db_file, title, link, entry_id,
-                #     url, date, read_status)
-                # await sqlite.set_date(db_file, url)
-    if len(new_entries):
-        feed_id = await sqlite.get_feed_id(db_file, url)
-        feed_id = feed_id[0]
-        await sqlite.add_entries_and_update_timestamp(
-            db_file, feed_id, new_entries)
+            await sqlite.add_entries_and_update_timestamp(db_file, feed_id,
+                                                          new_entries)
 
 
 async def view_feed(url):
     while True:
         result = await fetch.http(url)
-        document = result[0]
-        status = result[1]
-        if document:
+        if not result['error']:
+            document = result['content']
+            status = result['status_code']
             feed = parse(document)
             # if is_feed(url, feed):
             if is_feed(feed):
@@ -1023,13 +1034,12 @@ async def view_feed(url):
                         date = dt.rfc2822_to_iso8601(date)
                     else:
                         date = "*** No date ***"
-                    response += (
-                        "Title : {}\n"
-                        "Date  : {}\n"
-                        "Link  : {}\n"
-                        "Count : {}\n"
-                        "\n"
-                        ).format(title, date, link, counter)
+                    response += ("Title : {}\n"
+                                 "Date  : {}\n"
+                                 "Link  : {}\n"
+                                 "Count : {}\n"
+                                 "\n"
+                                 .format(title, date, link, counter))
                     if counter > 4:
                         break
                 response += (
@@ -1037,8 +1047,7 @@ async def view_feed(url):
                     ).format(url)
                 break
             else:
-                result = await crawl.probe_page(
-                    url, document)
+                result = await crawl.probe_page(url, document)
                 if isinstance(result, str):
                     response = result
                     break
@@ -1054,9 +1063,9 @@ async def view_feed(url):
 async def view_entry(url, num):
     while True:
         result = await fetch.http(url)
-        document = result[0]
-        status = result[1]
-        if document:
+        if not result['error']:
+            document = result['content']
+            status = result['status_code']
             feed = parse(document)
             # if is_feed(url, feed):
             if is_feed(feed):
@@ -1094,19 +1103,17 @@ async def view_entry(url, num):
                     link = trim_url(link)
                 else:
                     link = "*** No link ***"
-                response = (
-                    "{}\n"
-                    "\n"
-                    # "> {}\n"
-                    "{}\n"
-                    "\n"
-                    "{}\n"
-                    "\n"
-                    ).format(title, summary, link)
+                response = ("{}\n"
+                            "\n"
+                            # "> {}\n"
+                            "{}\n"
+                            "\n"
+                            "{}\n"
+                            "\n"
+                            .format(title, summary, link))
                 break
             else:
-                result = await crawl.probe_page(
-                    url, document)
+                result = await crawl.probe_page(url, document)
                 if isinstance(result, str):
                     response = result
                     break
@@ -1119,6 +1126,7 @@ async def view_entry(url, num):
     return response
 
 
+# TODO Rename function name (idea: scan_and_populate)
 async def scan(db_file, url):
     """
     Check feeds for new entries.
@@ -1132,142 +1140,136 @@ async def scan(db_file, url):
     """
     if isinstance(url, tuple): url = url[0]
     result = await fetch.http(url)
-    try:
-        document = result[0]
-        status = result[1]
-    except:
-        return
-    new_entries = []
-    if document and status == 200:
-        feed = parse(document)
-        entries = feed.entries
-        # length = len(entries)
-        await remove_nonexistent_entries(
-            db_file, url, feed)
-        try:
-            if feed.bozo:
-                # bozo = (
-                #     "WARNING: Bozo detected for feed: {}\n"
-                #     "For more information, visit "
-                #     "https://pythonhosted.org/feedparser/bozo.html"
-                #     ).format(url)
-                # print(bozo)
-                valid = 0
-            else:
-                valid = 1
-            feed_id = await sqlite.get_feed_id(db_file, url)
-            feed_id = feed_id[0]
-            await sqlite.update_feed_validity(
-                db_file, feed_id, valid)
-            if "updated_parsed" in feed["feed"].keys():
-                updated = feed["feed"]["updated_parsed"]
-                try:
-                    updated = dt.convert_struct_time_to_iso8601(updated)
-                except:
+    if not result['error']:
+        document = result['content']
+        status = result['status_code']
+        new_entries = []
+        if document and status == 200:
+            feed = parse(document)
+            entries = feed.entries
+            # length = len(entries)
+            await remove_nonexistent_entries(db_file, url, feed)
+            try:
+                if feed.bozo:
+                    # bozo = (
+                    #     "WARNING: Bozo detected for feed: {}\n"
+                    #     "For more information, visit "
+                    #     "https://pythonhosted.org/feedparser/bozo.html"
+                    #     ).format(url)
+                    # print(bozo)
+                    valid = 0
+                else:
+                    valid = 1
+                feed_id = await sqlite.get_feed_id(db_file, url)
+                feed_id = feed_id[0]
+                await sqlite.update_feed_validity(
+                    db_file, feed_id, valid)
+                if "updated_parsed" in feed["feed"].keys():
+                    updated = feed["feed"]["updated_parsed"]
+                    try:
+                        updated = dt.convert_struct_time_to_iso8601(updated)
+                    except:
+                        updated = ''
+                else:
                     updated = ''
-            else:
-                updated = ''
+                feed_id = await sqlite.get_feed_id(db_file, url)
+                feed_id = feed_id[0]
+                await sqlite.update_feed_properties(db_file, feed_id,
+                                                    len(feed["entries"]), updated)
+                # await update_feed_status
+            except (IncompleteReadError, IncompleteRead, error.URLError) as e:
+                logging.error(e)
+                return
+            # new_entry = 0
+            for entry in entries:
+                if entry.has_key("published"):
+                    date = entry.published
+                    date = dt.rfc2822_to_iso8601(date)
+                elif entry.has_key("updated"):
+                    date = entry.updated
+                    date = dt.rfc2822_to_iso8601(date)
+                else:
+                    date = dt.now()
+                if entry.has_key("link"):
+                    # link = complete_url(source, entry.link)
+                    link = join_url(url, entry.link)
+                    link = trim_url(link)
+                else:
+                    link = url
+                # title = feed["feed"]["title"]
+                # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
+                title = entry.title if entry.has_key("title") else date
+                entry_id = entry.id if entry.has_key("id") else link
+                feed_id = await sqlite.get_feed_id(db_file, url)
+                feed_id = feed_id[0]
+                exist = await sqlite.check_entry_exist(db_file, feed_id,
+                                                       entry_id=entry_id,
+                                                       title=title, link=link,
+                                                       date=date)
+                if not exist:
+                    summary = entry.summary if entry.has_key("summary") else ''
+                    read_status = 0
+                    pathname = urlsplit(link).path
+                    string = (
+                        "{} {} {}"
+                        ).format(
+                            title, summary, pathname)
+                    allow_list = config.is_include_keyword(db_file, "allow",
+                                                           string)
+                    if not allow_list:
+                        reject_list = config.is_include_keyword(db_file, "deny",
+                                                                string)
+                        if reject_list:
+                            read_status = 1
+                            logging.debug('Rejected : {}'
+                                          '\n'
+                                          'Keyword  : {}'.format(link,
+                                                                 reject_list))
+                    if isinstance(date, int):
+                        logging.error('Variable "date" is int: {}'
+                                      .format(date))
+                    media_link = ''
+                    if entry.has_key("links"):
+                        for e_link in entry.links:
+                            try:
+                                # if (link.rel == "enclosure" and
+                                #     (link.type.startswith("audio/") or
+                                #      link.type.startswith("image/") or
+                                #      link.type.startswith("video/"))
+                                #     ):
+                                media_type = e_link.type[:e_link.type.index("/")]
+                                if e_link.has_key("rel"):
+                                    if (e_link.rel == "enclosure" and
+                                        media_type in ("audio", "image", "video")):
+                                        media_link = e_link.href
+                                        media_link = join_url(url, e_link.href)
+                                        media_link = trim_url(media_link)
+                                        break
+                            except:
+                                logging.info('KeyError: "href"\n'
+                                              'Missing "href" attribute for {}'
+                                              .format(url))
+                                logging.info('Continue scanning for next '
+                                             'potential enclosure of {}'
+                                             .format(link))
+                    entry = {
+                        "title": title,
+                        "link": link,
+                        "enclosure": media_link,
+                        "entry_id": entry_id,
+                        "date": date,
+                        "read_status": read_status
+                        }
+                    new_entries.extend([entry])
+                    # await sqlite.add_entry(
+                    #     db_file, title, link, entry_id,
+                    #     url, date, read_status)
+                    # await sqlite.set_date(db_file, url)
+        if len(new_entries):
             feed_id = await sqlite.get_feed_id(db_file, url)
             feed_id = feed_id[0]
-            await sqlite.update_feed_properties(
-                db_file, feed_id, len(feed["entries"]), updated)
-            # await update_feed_status
-        except (
-                IncompleteReadError,
-                IncompleteRead,
-                error.URLError
-                ) as e:
-            logging.error(e)
-            return
-        # new_entry = 0
-        for entry in entries:
-            if entry.has_key("published"):
-                date = entry.published
-                date = dt.rfc2822_to_iso8601(date)
-            elif entry.has_key("updated"):
-                date = entry.updated
-                date = dt.rfc2822_to_iso8601(date)
-            else:
-                date = dt.now()
-            if entry.has_key("link"):
-                # link = complete_url(source, entry.link)
-                link = join_url(url, entry.link)
-                link = trim_url(link)
-            else:
-                link = url
-            # title = feed["feed"]["title"]
-            # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
-            title = entry.title if entry.has_key("title") else date
-            entry_id = entry.id if entry.has_key("id") else link
-            feed_id = await sqlite.get_feed_id(db_file, url)
-            feed_id = feed_id[0]
-            exist = await sqlite.check_entry_exist(
-                db_file, feed_id, entry_id=entry_id,
-                title=title, link=link, date=date)
-            if not exist:
-                summary = entry.summary if entry.has_key("summary") else ''
-                read_status = 0
-                pathname = urlsplit(link).path
-                string = (
-                    "{} {} {}"
-                    ).format(
-                        title, summary, pathname)
-                allow_list = await config.is_include_keyword(
-                    db_file, "allow", string)
-                if not allow_list:
-                    reject_list = await config.is_include_keyword(
-                        db_file, "deny", string)
-                    if reject_list:
-                        read_status = 1
-                        logging.debug(
-                            "Rejected : {}\n"
-                            "Keyword  : {}".format(
-                                link, reject_list))
-                if isinstance(date, int):
-                    logging.error('Variable "date" is int: {}'
-                                  .format(date))
-                media_link = ''
-                if entry.has_key("links"):
-                    for e_link in entry.links:
-                        try:
-                            # if (link.rel == "enclosure" and
-                            #     (link.type.startswith("audio/") or
-                            #      link.type.startswith("image/") or
-                            #      link.type.startswith("video/"))
-                            #     ):
-                            media_type = e_link.type[:e_link.type.index("/")]
-                            if e_link.has_key("rel"):
-                                if (e_link.rel == "enclosure" and
-                                    media_type in ("audio", "image", "video")):
-                                    media_link = e_link.href
-                                    media_link = join_url(url, e_link.href)
-                                    media_link = trim_url(media_link)
-                                    break
-                        except:
-                            logging.info('KeyError: "href"\n'
-                                          'Missing "href" attribute for {}'
-                                          .format(url))
-                            logging.info('Continue scanning for next '
-                                         'potential enclosure of {}'
-                                         .format(link))
-                entry = {
-                    "title": title,
-                    "link": link,
-                    "enclosure": media_link,
-                    "entry_id": entry_id,
-                    "date": date,
-                    "read_status": read_status
-                    }
-                new_entries.extend([entry])
-                # await sqlite.add_entry(
-                #     db_file, title, link, entry_id,
-                #     url, date, read_status)
-                # await sqlite.set_date(db_file, url)
-    if len(new_entries):
-        feed_id = await sqlite.get_feed_id(db_file, url)
-        feed_id = feed_id[0]
-        await sqlite.add_entries_and_update_timestamp(
-            db_file, feed_id, new_entries)
+            await sqlite.add_entries_and_update_timestamp(db_file, feed_id,
+                                                          new_entries)
 
 
 async def download_document(self, message, jid, jid_file, message_text, ix_url,
@@ -1286,8 +1288,7 @@ async def download_document(self, message, jid, jid_file, message_text, ix_url,
         status_type = 'dnd'
         status_message = ('📃️ Procesing request to produce {} document...'
                           .format(ext.upper()))
-        XmppPresence.send(self, jid, status_message,
-                               status_type=status_type)
+        XmppPresence.send(self, jid, status_message, status_type=status_type)
         db_file = config.get_pathname_to_database(jid_file)
         cache_dir = config.get_default_cache_directory()
         if ix_url:
@@ -1313,9 +1314,9 @@ async def download_document(self, message, jid, jid_file, message_text, ix_url,
                 logging.info('Processed URL (replace hostname): {}'
                              .format(url))
                 result = await fetch.http(url)
-                data = result[0]
-                code = result[1]
-                if data:
+                if not result['error']:
+                    data = result['content']
+                    code = result['status_code']
                     title = get_document_title(data)
                     title = title.strip().lower()
                     for i in (' ', '-'):
@@ -1332,8 +1333,7 @@ async def download_document(self, message, jid, jid_file, message_text, ix_url,
                                     'Failed to export {}.  Reason: {}'
                                     .format(url, ext.upper(), error))
                     else:
-                        url = await XmppUpload.start(self, jid,
-                                                 filename)
+                        url = await XmppUpload.start(self, jid, filename)
                         chat_type = await get_chat_type(self, jid)
                         XmppMessage.send_oob(self, jid, url, chat_type)
                 else:
@@ -1416,8 +1416,8 @@ async def extract_image_from_feed(db_file, feed_id, url):
     feed_url = sqlite.get_feed_url(db_file, feed_id)
     feed_url = feed_url[0]
     result = await fetch.http(feed_url)
-    document = result[0]
-    if document:
+    if not result['error']:
+        document = result['content']
         feed = parse(document)
         for entry in feed.entries:
             try:
@@ -1434,8 +1434,8 @@ async def extract_image_from_feed(db_file, feed_id, url):
 
 async def extract_image_from_html(url):
     result = await fetch.http(url)
-    data = result[0]
-    if data:
+    if not result['error']:
+        data = result['content']
         try:
             document = Document(data)
             content = document.summary()

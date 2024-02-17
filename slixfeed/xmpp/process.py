@@ -546,13 +546,13 @@ async def message(self, message):
                         response += ("Title : {}\n"
                                      "Link  : {}\n"
                                      "\n"
-                                     .format(result['name'], result['url']))
+                                     .format(result['name'], result['link']))
                     response += ('```\nTotal of {} feeds.'
                                 .format(len(results)))
                 elif result['exist']:
                     response = ('> {}\nNews source "{}" is already '
                                 'listed in the subscription list at '
-                                'index {}'.format(result['url'],
+                                'index {}'.format(result['link'],
                                                   result['name'],
                                                   result['index']))
                 elif result['error']:
@@ -561,7 +561,7 @@ async def message(self, message):
                 else:
                     response = ('> {}\nNews source "{}" has been '
                                 'added to subscription list.'
-                                .format(result['url'], result['name']))
+                                .format(result['link'], result['name']))
                 # task.clean_tasks_xmpp(self, jid, ['status'])
                 await task.start_tasks_xmpp(self, jid, ['status'])
                 # except:

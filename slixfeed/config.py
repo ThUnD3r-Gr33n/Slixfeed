@@ -35,8 +35,11 @@ import tomli_w
 import tomllib
 
 def get_setting_value(db_file, key):
-    value = (sqlite.get_setting_value(db_file, key)[0] or
-             get_value("settings", "Settings", key))
+    value = sqlite.get_setting_value(db_file, key)
+    if value:
+        value = value[0]
+    else:
+        value = get_value("settings", "Settings", key)
     try:
         value = int(value)
     except ValueError as e:
@@ -448,7 +451,7 @@ async def remove_from_list(newwords, keywords):
     return val
 
 
-async def is_include_keyword(db_file, key, string):
+def is_include_keyword(db_file, key, string):
     """
     Check keyword match.
 
@@ -468,7 +471,8 @@ async def is_include_keyword(db_file, key, string):
     """
 # async def reject(db_file, string):
 # async def is_blacklisted(db_file, string):
-    keywords = sqlite.get_filter_value(db_file, key) or ''
+    keywords = sqlite.get_filter_value(db_file, key)
+    keywords = keywords[0] if keywords else ''
     keywords = keywords.split(",")
     keywords = keywords + (open_config_file("lists.toml")[key])
     for keyword in keywords:
