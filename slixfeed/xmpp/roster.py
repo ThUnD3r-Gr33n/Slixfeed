@@ -13,12 +13,6 @@ TODO
 class XmppRoster:
 
 
-    async def get(self):
-        await self.get_roster()
-        contacts = self.client_roster
-        return contacts
-
-
     async def add(self, jid):
         """
         Add JID to roster.
@@ -39,6 +33,12 @@ class XmppRoster:
             self.update_roster(jid, subscription='both')
 
 
+    async def get_contacts(self):
+        await self.get_roster()
+        contacts = self.client_roster
+        return contacts
+
+
     def remove(self, jid):
         """
         Remove JID from roster.
@@ -53,3 +53,12 @@ class XmppRoster:
         None.
         """
         self.update_roster(jid, subscription='remove')
+
+
+    def set_contact_name(self, jid, name):
+        self.client_roster[jid]['name'] = name
+
+
+    def get_contact_name(self, jid):
+        name = self.client_roster[jid]['name']
+        return name

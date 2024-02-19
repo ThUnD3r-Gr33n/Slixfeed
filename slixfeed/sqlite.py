@@ -933,6 +933,36 @@ def get_feed_title(db_file, feed_id):
         return title
 
 
+async def set_feed_title(db_file, feed_id, name):
+    """
+    Set new name for feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Index of feed.
+    name : str
+        New name.
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                UPDATE feeds
+                SET name = :name
+                WHERE id = :feed_id
+                """
+                )
+            par = {
+                "name": name,
+                "feed_id": feed_id
+                }
+            cur.execute(sql, par)
+
+
 def get_entry_url(db_file, ix):
     with create_connection(db_file) as conn:
         cur = conn.cursor()

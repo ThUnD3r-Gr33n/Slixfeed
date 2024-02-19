@@ -705,6 +705,7 @@ async def add_feed(db_file, url):
     while True:
         exist = await sqlite.get_feed_id_and_name(db_file, url)
         if not exist:
+            status_code = None
             result = await fetch.http(url)
             if not result['error']:
                 document = result['content']

@@ -320,7 +320,9 @@ async def message(self, message):
                                     'index {}'
                                     .format(url, name, ix))
                 else:
-                    response = 'Missing URL.'
+                    response = ('No action has been taken.'
+                                '\n'
+                                'Missing URL.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('allow +'):
                     key = message_text[:5]
@@ -339,7 +341,9 @@ async def message(self, message):
                                     '```\n{}\n```'
                                     .format(val))
                     else:
-                        response = 'Missing keywords.'
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Missing keywords.')
                     XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('allow -'):
                     key = message_text[:5]
@@ -358,7 +362,9 @@ async def message(self, message):
                                     '```\n{}\n```'
                                     .format(val))
                     else:
-                        response = 'Missing keywords.'
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Missing keywords.')
                     XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('archive'):
                 key = message_text[:7]
@@ -381,9 +387,13 @@ async def message(self, message):
                                         'been set to {}.'
                                         .format(val))
                     except:
-                        response = 'Enter a numeric value only.'
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Enter a numeric value only.')
                 else:
-                    response = 'Missing value.'
+                    response = ('No action has been taken.'
+                                '\n'
+                                'Missing value.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('bookmark +'):
                 if jid == config.get_value('accounts', 'XMPP', 'operator'):
@@ -447,7 +457,9 @@ async def message(self, message):
                                     '```\n{}\n```'
                                     .format(val))
                     else:
-                        response = 'Missing keywords.'
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Missing keywords.')
                     XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('deny -'):
                     key = message_text[:4]
@@ -466,7 +478,9 @@ async def message(self, message):
                                     '```\n{}\n```'
                                     .format(val))
                     else:
-                        response = 'Missing keywords.'
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Missing keywords.')
                     XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('export'):
                 ext = message_text[7:]
@@ -600,7 +614,9 @@ async def message(self, message):
                                                       jid_file,
                                                       message=message)
                 except:
-                    response = 'Enter a numeric value only.'
+                    response = ('No action has been taken.'
+                                '\n'
+                                'Enter a numeric value only.')
                     XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('join'):
                 muc_jid = uri.check_xmpp_uri(message_text[5:])
@@ -635,9 +651,13 @@ async def message(self, message):
                                             'is set to {} characters.'
                                             .format(val))
                         except:
-                            response = 'Enter a numeric value only.'
+                            response = ('No action has been taken.'
+                                        '\n'
+                                        'Enter a numeric value only.')
                     else:
-                        response = 'Missing value.'
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Missing value.')
             # case _ if message_lowercase.startswith('mastership'):
             #         key = message_text[:7]
             #         val = message_text[11:]
@@ -735,9 +755,13 @@ async def message(self, message):
                         response = ('Next update will contain {} news items.'
                                     .format(val))
                     except:
-                        response = 'Enter a numeric value only.'
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Enter a numeric value only.')
                 else:
-                    response = 'Missing value.'
+                    response = ('No action has been taken.'
+                                '\n'
+                                'Missing value.')
                 XmppMessage.send_reply(self, message, response)
             case 'random':
                 # TODO /questions/2279706/select-random-row-from-a-sqlite-table
@@ -763,19 +787,25 @@ async def message(self, message):
                             if url.startswith('http'):
                                 response = await action.view_feed(url)
                             else:
-                                response = 'Missing URL.'
+                                response = ('No action has been taken.'
+                                            '\n'
+                                            'Missing URL.')
                         case 2:
                             num = data[1]
                             if url.startswith('http'):
                                 response = await action.view_entry(url, num)
                             else:
-                                response = 'Missing URL.'
+                                response = ('No action has been taken.'
+                                            '\n'
+                                            'Missing URL.')
                         case _:
                             response = ('Enter command as follows:\n'
                                         '`read <url>` or `read <url> <number>`\n'
                                         'URL must not contain white space.')
                 else:
-                    response = 'Missing URL.'
+                    response = ('No action has been taken.'
+                                '\n'
+                                'Missing URL.')
                 XmppMessage.send_reply(self, message, response)
                 await task.start_tasks_xmpp(self, jid, ['status'])
             case _ if message_lowercase.startswith('recent'):
@@ -790,9 +820,13 @@ async def message(self, message):
                             result = await sqlite.last_entries(db_file, num)
                             response = action.list_last_entries(result, num)
                     except:
-                        response = 'Enter a numeric value only.'
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Enter a numeric value only.')
                 else:
-                    response = 'Missing value.'
+                    response = ('No action has been taken.'
+                                '\n'
+                                'Missing value.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('remove'):
                 ix_url = message_text[7:]
@@ -825,8 +859,8 @@ async def message(self, message):
                                         .format(url))
                         else:
                             response = ('> {}\n'
+                                        # 'No action has been made.'
                                         'News source does not exist. '
-                                        'No action has been made.'
                                         .format(url))
                     # await refresh_task(
                     #     self,
@@ -838,7 +872,10 @@ async def message(self, message):
                     # task.clean_tasks_xmpp(self, jid, ['status'])
                     await task.start_tasks_xmpp(self, jid, ['status'])
                 else:
-                    response = 'Missing feed URL or index number.'
+                    response = ('No action has been taken.'
+                                '\n'
+                                'Missing argument. '
+                                'Enter feed URL or index number.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('reset'):
                 # TODO Reset also by ID
@@ -880,8 +917,8 @@ async def message(self, message):
                                         .format(url, name))
                         else:
                             response = ('> {}\n'
+                                        # 'No action has been made.'
                                         'News source does not exist. '
-                                        'No action has been made.'
                                         .format(url))
                 else:
                     await sqlite.mark_all_as_read(db_file)
@@ -898,7 +935,9 @@ async def message(self, message):
                     else:
                         response = 'Enter at least 2 characters to search'
                 else:
-                    response = 'Missing search query.'
+                    response = ('No action has been taken.'
+                                '\n'
+                                'Missing search query.')
                 XmppMessage.send_reply(self, message, response)
             case 'start':
                 await action.xmpp_start_updates(self, message, jid, jid_file)
@@ -918,9 +957,47 @@ async def message(self, message):
                                 'Updates are now disabled for news source "{}"'
                                 .format(addr, name))
                 except:
-                    response = 'No news source with index {}.'.format(feed_id)
+                    response = ('No action has been taken.'
+                                '\n'
+                                'No news source with index {}.'
+                                .format(feed_id))
                 XmppMessage.send_reply(self, message, response)
                 await task.start_tasks_xmpp(self, jid, ['status'])
+            case _ if message_lowercase.startswith('rename'):
+                message_text = message_text[7:]
+                feed_id = message_text.split(' ')[0]
+                name = ' '.join(message_text.split(' ')[1:])
+                if name:
+                    try:
+                        feed_id = int(feed_id)
+                        db_file = config.get_pathname_to_database(jid_file)
+                        name_old = sqlite.get_feed_title(db_file, feed_id)
+                        if name_old:
+                            name_old = name_old[0]
+                            if name == name_old:
+                                response = ('No action has been taken.'
+                                            '\n'
+                                            'Input name is identical to the '
+                                            'existing name.')
+                            else:
+                                await sqlite.set_feed_title(db_file, feed_id, name)
+                                response = ('> {}'
+                                            '\n'
+                                            'Subscription #{} has been renamed to "{}".'
+                                            .format(name_old, feed_id, name))
+                        else:
+                            response = ('Subscription with Id {} does not exist.'
+                                        .format(feed_id))
+                    except:
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Subscription Id must be a numeric value.')
+                else:
+                    response = ('No action has been taken.'
+                                '\n'
+                                'Missing argument. '
+                                'Enter subscription Id and name.')
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('enable'):
                 feed_id = message_text[7:]
                 db_file = config.get_pathname_to_database(jid_file)
@@ -932,7 +1009,9 @@ async def message(self, message):
                                 'Updates are now enabled for news source "{}"'
                                 .format(addr, name))
                 except:
-                    response = 'No news source with index {}.'.format(ix)
+                    response = ('No action has been taken.'
+                                '\n'
+                                'No news source with index {}.'.format(ix))
                 XmppMessage.send_reply(self, message, response)
             case 'stop':
                 await action.xmpp_stop_updates(self, message, jid, jid_file)

@@ -54,7 +54,9 @@ class XmppBookmark:
                 'autojoin' : True,
                 'password' : None,
                 }
-        if jid not in groupchats:
+        # FIXME Ad-hoc bookmark form is stuck
+        # if jid not in groupchats:
+        if properties['jid'] not in groupchats:
             bookmarks = Bookmarks()
             for groupchat in groupchats:
                 # if groupchat['jid'] == groupchat['name']:
