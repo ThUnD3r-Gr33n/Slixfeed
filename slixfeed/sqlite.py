@@ -734,8 +734,8 @@ async def get_unread_entries(db_file, num):
             UNION ALL
             SELECT id, title, link, enclosure, feed_id, timestamp
             FROM archive
-            ORDER BY timestamp
-            DESC LIMIT :num
+            ORDER BY timestamp DESC
+            LIMIT :num
             """
             )
         par = (num,)
@@ -918,17 +918,17 @@ async def archive_entry(db_file, ix):
                     )
 
 
-def get_feed_title(db_file, feed_id):
+def get_feed_title(db_file, ix):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
             """
             SELECT name
             FROM feeds
-            WHERE id = :feed_id
+            WHERE id = :ix
             """
             )
-        par = (feed_id,)
+        par = (ix,)
         title = cur.execute(sql, par).fetchone()
         return title
 
@@ -963,6 +963,21 @@ async def set_feed_title(db_file, feed_id, name):
             cur.execute(sql, par)
 
 
+def get_entry_title(db_file, ix):
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = ( # TODO Handletable archive too
+            """
+            SELECT title
+            FROM entries
+            WHERE id = :ix
+            """
+            )
+        par = (ix,)
+        title = cur.execute(sql, par).fetchone()
+        return title
+
+
 def get_entry_url(db_file, ix):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
@@ -974,21 +989,21 @@ def get_entry_url(db_file, ix):
             """
             )
         par = (ix,)
-        url = cur.execute(sql, par).fetchone()[0]
+        url = cur.execute(sql, par).fetchone()
         return url
 
 
-def get_feed_url(db_file, feed_id):
+def get_feed_url(db_file, ix):
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
             """
             SELECT url
             FROM feeds
-            WHERE id = :feed_id
+            WHERE id = :ix
             """
             )
-        par = (feed_id,)
+        par = (ix,)
         url = cur.execute(sql, par).fetchone()
         return url
 
@@ -2202,3 +2217,175 @@ async def update_last_update_time(db_file):
             "value": time.time()
             }
         cur.execute(sql, par)
+
+########################################
+
+######### EXPERIMENTAL TABLE ###########
+
+########################################
+
+def get_categories(db_file):
+    """
+    Get list of categories.
+
+    Parameters
+    ----------
+    db_file : tuple
+        Path to database file.
+
+    Returns
+    -------
+    categories : str
+        List of categories.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT DISTINCT category
+            FROM entries
+            ORDER BY category ASC
+            """
+            )
+        categories = cur.execute(sql).fetchall()
+    return categories
+
+
+def get_locales(db_file):
+    """
+    Get list of locales.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    locales : tuple
+        List of locales.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT DISTINCT locale
+            FROM entries
+            ORDER BY locale ASC
+            """
+            )
+        locales = cur.execute(sql).fetchall()
+    return locales
+
+
+def get_nations(db_file):
+    """
+    Get list of nations.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    nations : tuple
+        List of nations.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT DISTINCT nation
+            FROM entries
+            ORDER BY nation ASC
+            """
+            )
+        locales = cur.execute(sql).fetchall()
+    return locales
+
+
+def get_tags(db_file):
+    """
+    Get list of title and urls.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    titles_urls : tuple
+        List of titles and urls.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT tags
+            FROM entries
+            ORDER BY tags ASC
+            """
+            )
+        titles_urls = cur.execute(sql).fetchall()
+    return titles_urls
+
+
+def get_titles_tags_urls(db_file):
+    """
+    Get list of title and urls.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    titles_urls : tuple
+        List of titles and urls.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT title, tags, url
+            FROM entries
+            ORDER BY title ASC
+            LIMIT 800
+            """
+            )
+        titles_tags_urls = cur.execute(sql).fetchall()
+    return titles_tags_urls
+
+
+def get_titles_tags_urls_by_category(db_file, category):
+    """
+    Get list of title and urls of given category.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    titles_urls : tuple
+        List of titles and urls.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT title, tags, url
+            FROM entries
+            WHERE category = :category
+            ORDER BY title ASC
+            """
+            )
+        par = {
+            "category": category
+            }
+        titles_tags_urls = cur.execute(sql, par).fetchall()
+    return titles_tags_urls

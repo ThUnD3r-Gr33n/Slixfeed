@@ -107,6 +107,10 @@ in order to remove all threads.
 https://codeberg.org/poezio/slixmpp
 """
 
+support = """
+xmpp:slixfeed@chat.woodpeckersnest.space?join
+"""
+
 terms = """
 Slixfeed is free software; you can redistribute it and/or \
 modify it under the terms of the MIT License.

@@ -116,10 +116,6 @@ key = """
 help <key>
 Print list of commands for selected command type.
 """
-support = """
-support
-Join xmpp:slixfeed@chat.woodpeckersnest.space?join
-"""
 
 [mastership]
 demaster = """
