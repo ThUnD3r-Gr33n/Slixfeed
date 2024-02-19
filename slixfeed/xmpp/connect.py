@@ -54,10 +54,11 @@ class XmppConnect:
             if not rtt:
                 logging.info('Disconnecting...')
                 self.disconnect()
+                break
             await asyncio.sleep(60 * 1)
 
 
-    async def recover(self, message):
+    def recover(self, message):
         logging.warning(message)
         print(current_time(), message, 'Attempting to reconnect.')
         self.connection_attempts += 1
@@ -76,7 +77,7 @@ class XmppConnect:
         self.reconnect(wait=5.0)
 
 
-    async def inspect(self):
+    def inspect(self):
         print('Disconnected\n'
               'Reconnecting...')
         try:

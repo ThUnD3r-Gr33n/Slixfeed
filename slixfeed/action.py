@@ -745,9 +745,9 @@ async def add_feed(db_file, url):
                                              updated=updated)
                     await scan(db_file, url)
                     old = config.get_setting_value(db_file, "old")
+                    feed_id = await sqlite.get_feed_id(db_file, url)
+                    feed_id = feed_id[0]
                     if not old:
-                        feed_id = await sqlite.get_feed_id(db_file, url)
-                        feed_id = feed_id[0]
                         await sqlite.mark_feed_as_read(db_file, feed_id)
                     result_final = {'link' : url,
                                     'index' : feed_id,
@@ -1301,6 +1301,7 @@ async def download_document(self, message, jid, jid_file, message_text, ix_url,
                 ix = int(ix_url)
                 try:
                     url = sqlite.get_entry_url(db_file, ix)
+                    url = url[0]
                 except:
                     response = 'No entry with index {}'.format(ix)
             except:
@@ -1361,6 +1362,27 @@ def get_document_title(data):
         document = BeautifulSoup(data, 'html.parser')
         title = document.title.string
     return title
+
+
+def get_document_content(data):
+    try:
+        document = Document(data)
+        content = document.summary()
+    except:
+        document = BeautifulSoup(data, 'html.parser')
+        content = data
+    return content
+
+
+def get_document_content_as_text(data):
+    try:
+        document = Document(data)
+        content = document.summary()
+    except:
+        document = BeautifulSoup(data, 'html.parser')
+        content = data
+    text = remove_html_tags(content)
+    return text
 
 
 def generate_document(data, url, ext, filename, readability=False):
