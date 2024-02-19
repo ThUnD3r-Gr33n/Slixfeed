@@ -1171,7 +1171,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             # Automatically set priority to 5 (highest)
             if url['link']: options.addOption(url['name'], url['link'])
         session['allow_prev'] = True
-        session['has_next'] = False
+        session['has_next'] = True
         session['next'] = self._handle_subscription_new
         session['payload'] = form
         session['prev'] = self._handle_promoted
