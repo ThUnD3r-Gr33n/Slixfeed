@@ -693,15 +693,14 @@ class Slixfeed(slixmpp.ClientXMPP):
             # session['notes'] = [['info', response]]
             form = self['xep_0004'].make_form('form', 'Subscription')
             form['instructions'] = ('Subscription already exists at index {}.'
-                                    '\n'
-                                    'Would you want to edit this subscription?'
                                     .format(result['index']))
-            options = form.add_field(var='subscription',
-                                     ftype='list-single',
-                                     label='Subscription',
-                                     desc='Continue to edit subscription.',
-                                     value=result['link'])
-            options.addOption(result['name'], result['link'])
+            form.add_field(ftype='boolean',
+                           var='edit',
+                           label='Would you want to edit this subscription?')
+            form.add_field(var='subscription',
+                           ftype='hidden',
+                           value=result['link'])
+
             # NOTE Should we allow "Complete"?
             # Do all clients provide button "Cancel".
             session['allow_complete'] = False
@@ -724,18 +723,13 @@ class Slixfeed(slixmpp.ClientXMPP):
             form['instructions'] = ('New subscription'
                                     '\n'
                                     '"{}"'
-                                    '\n\n'
-                                    'Continue to edit subscription?'
                                     .format(result['name'], result['index']))
-            options = form.add_field(var='subscription',
-                                     ftype='list-single',
-                                     # Should Gajim allows editing text-single
-                                     # field when form is of type "result"?
-                                     # ftype='text-single',
-                                     label='Subscription',
-                                     desc='Continue to edit subscription.',
-                                     value=result['link'])
-            options.addOption(result['name'], result['link'])
+            form.add_field(ftype='boolean',
+                           var='edit',
+                           label='Continue to edit subscription?')
+            form.add_field(var='subscription',
+                           ftype='hidden',
+                           value=result['link'])
             session['allow_complete'] = True
             session['allow_prev'] = False
             session['has_next'] = False
@@ -844,6 +838,10 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
+        if 'edit' in payload['values'] and not payload['values']['edit']:
+            session['payload'] = None
+            session['next'] = None
+            return session
         if 'subscription' in payload['values']:
             urls = payload['values']['subscription']
         elif 'subscriptions' in payload['values']:
