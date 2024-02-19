@@ -711,7 +711,7 @@ async def message(self, message):
                     await sqlite.update_setting_value(db_file, [key, val])
                 else:
                     await sqlite.set_setting_value(db_file, [key, val])
-                response = 'Only new items of newly added feeds will be sent.'
+                response = 'Only new items of newly added feeds be delivered.'
                 XmppMessage.send_reply(self, message, response)
             # TODO Will you add support for number of messages?
             case 'next':
@@ -734,7 +734,7 @@ async def message(self, message):
                     await sqlite.update_setting_value(db_file, [key, val])
                 else:
                     await sqlite.set_setting_value(db_file, [key, val])
-                response = 'All items of newly added feeds will be sent.'
+                response = 'All items of newly added feeds be delivered.'
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('quantum'):
                 key = message_text[:7]

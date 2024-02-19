@@ -184,15 +184,15 @@ def main():
     logging.info('Reading configuration from {}'.format(config_dir))
     print('Reading configuration from {}'.format(config_dir))
 
-    values = config.get_value('accounts', 'XMPP Proxy',
-                              ['socks5_host', 'socks5_port'])
-    if values[0] and values[1]:
-        host = values[0]
-        port = values[1]
-        s = socks.socksocket()
-        s.set_proxy(socks.SOCKS5, host, port)
-        # socks.set_default_proxy(socks.SOCKS5, host, port)
-        # socket.socket = socks.socksocket
+    # values = config.get_value('accounts', 'XMPP Proxy',
+    #                           ['socks5_host', 'socks5_port'])
+    # if values[0] and values[1]:
+    #     host = values[0]
+    #     port = values[1]
+    #     s = socks.socksocket()
+    #     s.set_proxy(socks.SOCKS5, host, port)
+    #     # socks.set_default_proxy(socks.SOCKS5, host, port)
+    #     # socket.socket = socks.socksocket
 
     # Setup the command line arguments.
     parser = ArgumentParser(description=Slixfeed.__doc__)
