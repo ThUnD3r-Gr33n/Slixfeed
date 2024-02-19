@@ -1475,7 +1475,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         #                     label=key.capitalize(),
         #                     value=val)
         form = payload
-        breakpoint()
         form['title'] = 'Done'
         form['instructions'] = 'has been completed!'
         session['next'] = None
