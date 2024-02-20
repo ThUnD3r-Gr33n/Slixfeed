@@ -689,7 +689,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         db_file = config.get_pathname_to_database(jid_file)
         title = sqlite.get_entry_title(db_file, ix)
         form = self['xep_0004'].make_form('result', 'Updates')
-        form['instructions'] = title[0] if title else 'Untitled'
         url = sqlite.get_entry_url(db_file, ix)
         if url:
             url = url[0]
@@ -700,11 +699,13 @@ class Slixfeed(slixmpp.ClientXMPP):
             else:
                 summary = 'No content to show.'
             form.add_field(ftype="text-multi",
+                           label=(title[0] if title else 'Untitled'),
                            value=summary)
-            form['instructions'] = url
-            form.add_field(var='url',
-                           ftype='hidden',
-                           value=url)
+            url = form.add_field(var='url',
+                                 label='Link',
+                                 ftype='text-single',
+                                 value=url)
+            url['validate']['datatype'] = 'xs:anyURI'
         form['instructions'] = 'Proceed to download article.'
         session['allow_prev'] = True
         session['has_next'] = True
