@@ -534,6 +534,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         self['xep_0050'].add_command(node='credit',
                                      name='🏅️ Credits',
                                      handler=self._handle_credit)
+        self['xep_0050'].add_command(node='service',
+                                     name='Services',
+                                     handler=self._handle_services)
         self['xep_0050'].add_command(node='privacy',
                                      name='Privacy',
                                      handler=self._handle_privacy)
@@ -688,6 +691,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
         title = sqlite.get_entry_title(db_file, ix)
+        title = title[0] if title else 'Untitled'
         form = self['xep_0004'].make_form('result', 'Updates')
         url = sqlite.get_entry_url(db_file, ix)
         if url:
@@ -699,7 +703,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             else:
                 summary = 'No content to show.'
             form.add_field(ftype="text-multi",
-                           label=(title[0] if title else 'Untitled'),
+                           label=title,
                            value=summary)
             url = form.add_field(var='url',
                                  label='Link',
@@ -736,7 +740,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                     .format(len(results), url))
             options = form.add_field(var='subscription',
                                      ftype='list-single',
-                                     label='Subscription',
+                                     label='Subscribe',
                                      desc=('Select a subscription to add.'),
                                      required=True)
             for result in results:
@@ -823,7 +827,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         #               label='Interval period')
         options = form.add_field(var='subscriptions',
                                  ftype='list-multi',
-                                 label='Subscription',
+                                 label='Subscriptions',
                                  desc=('Select subscriptions to remove.'),
                                  required=True)
         jid_file = jid
@@ -837,6 +841,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         session['allow_complete'] = True
         session['cancel'] = self._handle_cancel
         session['has_next'] = False
+        # TODO Refer to confirmation dialog which would display feeds selected
         session['next'] = self._handle_subscription_remove
         session['payload'] = form
         return session
@@ -1104,7 +1109,8 @@ class Slixfeed(slixmpp.ClientXMPP):
             form.add_field(var='name',
                            ftype='text-single',
                            label='Name',
-                           value=title)
+                           value=title,
+                           required=True)
             # NOTE This does not look good in Gajim
             # url = form.add_field(ftype='fixed',
             #                      value=url)
@@ -1358,6 +1364,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
+    async def _handle_services(self, iq, session):
+        text_note = 'Syndication services will be published here soon'
+        session['notes'] = [['info', text_note]]
+        return session
+
+
     async def _handle_privacy(self, iq, session):
         text = ('Privacy Policy')
         text += '\n\n'
@@ -1498,8 +1510,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                                      ftype='list-single',
                                      label='Action',
                                      value='message')
-            options.addOption('Resend authorization To', 'to')
             options.addOption('Request authorization From', 'from')
+            options.addOption('Resend authorization To', 'to')
             options.addOption('Send message', 'message')
             options.addOption('Remove', 'remove')
             options = form.add_field(var='jid',
@@ -1537,15 +1549,25 @@ class Slixfeed(slixmpp.ClientXMPP):
     async def _handle_subscribers_complete(self, payload, session):
         values = payload['values']
         jid = values['jid']
-        match values['action']:
-            case 'from':
-                pass
-            case 'remove':
-                XmppRoster.remove(self, jid)
-            case 'to':
-                pass
         value_message = values['message']
         message_body = value_message if value_message else None
+        match values['action']:
+            case 'from':
+                XmppPresence.subscription(self, jid, 'subscribe')
+                if not message_body:
+                    message_body = ('This user wants to subscribe to your presence'
+                                    '. Click the button labelled "Add/Auth" to '
+                                    'authorize the subscription. This will also '
+                                    'add the person to your contact list if it is '
+                                    'not already there.')
+            case 'remove':
+                XmppRoster.remove(self, jid)
+                if not message_body:
+                    message_body = 'Your authorization has been removed!'
+            case 'to':
+                XmppPresence.subscription(self, jid, 'subscribed')
+                if not message_body:
+                    message_body = 'Your authorization has been approved!'
         value_subject = values['subject']
         message_subject = value_subject if value_subject else None
         if message_subject:
