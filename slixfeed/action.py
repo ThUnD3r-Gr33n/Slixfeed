@@ -269,7 +269,12 @@ def manual(filename, section=None, command=None):
     config_dir = config.get_default_config_directory()
     with open(config_dir + '/' + filename, mode="rb") as commands:
         cmds = tomllib.load(commands)
-    if command and section:
+    if section == 'all':
+        cmd_list = ''
+        for cmd in cmds:
+            for i in cmds[cmd]:
+                cmd_list += cmds[cmd][i] + '\n'
+    elif command and section:
         try:
             cmd_list = cmds[section][command]
         except KeyError as e:
@@ -288,60 +293,6 @@ def manual(filename, section=None, command=None):
         for cmd in cmds:
             cmd_list.extend([cmd])
     return cmd_list
-
-
-async def xmpp_change_interval(self, key, val, jid, jid_file, message=None):
-    if val:
-        # response = (
-        #     'Updates will be sent every {} minutes.'
-        #     ).format(response)
-        db_file = config.get_pathname_to_database(jid_file)
-        if sqlite.is_setting_key(db_file, key):
-            await sqlite.update_setting_value(db_file, [key, val])
-        else:
-            await sqlite.set_setting_value(db_file, [key, val])
-        # NOTE Perhaps this should be replaced
-        # by functions clean and start
-        await task.refresh_task(self, jid, task.task_send, key, val)
-        response = ('Updates will be sent every {} minutes.'
-                    .format(val))
-    else:
-        response = 'Missing value.'
-    if message:
-        XmppMessage.send_reply(self, message, response)
-
-
-async def xmpp_start_updates(self, message, jid, jid_file):
-    key = 'enabled'
-    val = 1
-    db_file = config.get_pathname_to_database(jid_file)
-    if sqlite.is_setting_key(db_file, key):
-        await sqlite.update_setting_value(db_file, [key, val])
-    else:
-        await sqlite.set_setting_value(db_file, [key, val])
-    status_type = 'available'
-    status_message = '📫️ Welcome back!'
-    XmppPresence.send(self, jid, status_message, status_type=status_type)
-    message_body = 'Updates are enabled.'
-    XmppMessage.send_reply(self, message, message_body)
-    await asyncio.sleep(5)
-    await task.start_tasks_xmpp(self, jid, ['check', 'status', 'interval'])
-
-
-async def xmpp_stop_updates(self, message, jid, jid_file):
-    key = 'enabled'
-    val = 0
-    db_file = config.get_pathname_to_database(jid_file)
-    if sqlite.is_setting_key(db_file, key):
-        await sqlite.update_setting_value(db_file, [key, val])
-    else:
-        await sqlite.set_setting_value(db_file, [key, val])
-    task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
-    message_body = 'Updates are disabled.'
-    XmppMessage.send_reply(self, message, message_body)
-    status_type = 'xa'
-    status_message = '📪️ Send "Start" to receive Jabber updates'
-    XmppPresence.send(self, jid, status_message, status_type=status_type)
 
 
 def log_to_markdown(timestamp, filename, jid, message):

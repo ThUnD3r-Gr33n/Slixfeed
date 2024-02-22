@@ -23,6 +23,7 @@ TODO
 
 """
 
+import asyncio
 import logging
 import os
 import slixfeed.action as action
@@ -205,6 +206,13 @@ async def message(self, message):
                             .format(command_list))
                 print(response)
                 XmppMessage.send_reply(self, message, response)
+            case 'help all':
+                command_list = action.manual('commands.toml', section='all')
+                response = ('Complete list of commands:\n'
+                            '```\n{}\n```'
+                            .format(command_list))
+                print(response)
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('help'):
                 command = message_text[5:].lower()
                 command = command.split(' ')
@@ -236,7 +244,7 @@ async def message(self, message):
                                 'or command key & name')
                 XmppMessage.send_reply(self, message, response)
             case 'info':
-                command_list = ' '.join(action.manual('information.toml'))
+                command_list = action.manual('information.toml')
                 response = ('Available command options:\n'
                             '```\n{}\n```\n'
                             'Usage: `info <option>`'
@@ -375,14 +383,7 @@ async def message(self, message):
                             response = 'Value may not be greater than 500.'
                         else:
                             db_file = config.get_pathname_to_database(jid_file)
-                            if sqlite.is_setting_key(db_file, key):
-                                print('update archive')
-                                await sqlite.update_setting_value(db_file,
-                                                                   [key, val])
-                            else:
-                                print('set archive')
-                                await sqlite.set_setting_value(db_file,
-                                                                [key, val])
+                            await config.set_setting_value(db_file, key, val)
                             response = ('Maximum archived items has '
                                         'been set to {}.'
                                         .format(val))
@@ -608,16 +609,24 @@ async def message(self, message):
             case _ if message_lowercase.startswith('interval'):
                 key = message_text[:8]
                 val = message_text[9:]
-                try:
-                    val = int(val)
-                    await action.xmpp_change_interval(self, key, val, jid,
-                                                      jid_file,
-                                                      message=message)
-                except:
-                    response = ('No action has been taken.'
-                                '\n'
-                                'Enter a numeric value only.')
-                    XmppMessage.send_reply(self, message, response)
+                if val:
+                    try:
+                        val = int(val)
+                        db_file = config.get_pathname_to_database(jid_file)
+                        await config.set_setting_value(db_file, key, val)
+                        # NOTE Perhaps this should be replaced by functions
+                        # clean and start
+                        await task.refresh_task(self, jid, task.task_send, key,
+                                                val)
+                        response = ('Updates will be sent every {} minutes.'
+                                    .format(val))
+                    except:
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Enter a numeric value only.')
+                else:
+                    response = 'Missing value.'
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('join'):
                 muc_jid = uri.check_xmpp_uri(message_text[5:])
                 if muc_jid:
@@ -638,12 +647,7 @@ async def message(self, message):
                         try:
                             val = int(val)
                             db_file = config.get_pathname_to_database(jid_file)
-                            if sqlite.is_setting_key(db_file, key):
-                                await sqlite.update_setting_value(db_file,
-                                                                   [key, val])
-                            else:
-                                await sqlite.set_setting_value(db_file,
-                                                                [key, val])
+                            await config.set_setting_value(db_file, key, val)
                             if val == 0: # if not val:
                                 response = 'Summary length limit is disabled.'
                             else:
@@ -687,30 +691,21 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'media'
                 val = 0
-                if sqlite.is_setting_key(db_file, key):
-                    await sqlite.update_setting_value(db_file, [key, val])
-                else:
-                    await sqlite.set_setting_value(db_file, [key, val])
+                await config.set_setting_value(db_file, key, val)
                 response = 'Media is disabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'media on':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'media'
                 val = 1
-                if sqlite.is_setting_key(db_file, key):
-                    await sqlite.update_setting_value(db_file, [key, val])
-                else:
-                    await sqlite.set_setting_value(db_file, [key, val])
+                await config.set_setting_value(db_file, key, val)
                 response = 'Media is enabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'new':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 0
-                if sqlite.is_setting_key(db_file, key):
-                    await sqlite.update_setting_value(db_file, [key, val])
-                else:
-                    await sqlite.set_setting_value(db_file, [key, val])
+                await config.set_setting_value(db_file, key, val)
                 response = 'Only new items of newly added feeds be delivered.'
                 XmppMessage.send_reply(self, message, response)
             # TODO Will you add support for number of messages?
@@ -730,10 +725,7 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 1
-                if sqlite.is_setting_key(db_file, key):
-                    await sqlite.update_setting_value(db_file, [key, val])
-                else:
-                    await sqlite.set_setting_value(db_file, [key, val])
+                await config.set_setting_value(db_file, key, val)
                 response = 'All items of newly added feeds be delivered.'
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('quantum'):
@@ -746,12 +738,7 @@ async def message(self, message):
                         #     'Every update will contain {} news items.'
                         #     ).format(response)
                         db_file = config.get_pathname_to_database(jid_file)
-                        if sqlite.is_setting_key(db_file, key):
-                            await sqlite.update_setting_value(db_file,
-                                                               [key, val])
-                        else:
-                            await sqlite.set_setting_value(db_file,
-                                                            [key, val])
+                        await config.set_setting_value(db_file, key, val)
                         response = ('Next update will contain {} news items.'
                                     .format(val))
                     except:
@@ -940,7 +927,17 @@ async def message(self, message):
                                 'Missing search query.')
                 XmppMessage.send_reply(self, message, response)
             case 'start':
-                await action.xmpp_start_updates(self, message, jid, jid_file)
+                key = 'enabled'
+                val = 1
+                db_file = config.get_pathname_to_database(jid_file)
+                await config.set_setting_value(db_file, key, val)
+                status_type = 'available'
+                status_message = '📫️ Welcome back!'
+                XmppPresence.send(self, jid, status_message, status_type=status_type)
+                await asyncio.sleep(5)
+                await task.start_tasks_xmpp(self, jid, ['check', 'status', 'interval'])
+                response = 'Updates are enabled.'
+                XmppMessage.send_reply(self, message, response)
             case 'stats':
                 db_file = config.get_pathname_to_database(jid_file)
                 response = await action.list_statistics(db_file)
@@ -1014,7 +1011,17 @@ async def message(self, message):
                                 'No news source with index {}.'.format(ix))
                 XmppMessage.send_reply(self, message, response)
             case 'stop':
-                await action.xmpp_stop_updates(self, message, jid, jid_file)
+                key = 'enabled'
+                val = 0
+                db_file = config.get_pathname_to_database(jid_file)
+                await config.set_setting_value(db_file, key, val)
+                task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
+                status_type = 'xa'
+                status_message = '📪️ Send "Start" to receive Jabber updates'
+                XmppPresence.send(self, jid, status_message,
+                                  status_type=status_type)
+                response = 'Updates are disabled.'
+                XmppMessage.send_reply(self, message, response)
             case 'support':
                 # TODO Send an invitation.
                 response = 'Join xmpp:slixfeed@chat.woodpeckersnest.space?join'

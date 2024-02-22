@@ -34,6 +34,15 @@ import sys
 import tomli_w
 import tomllib
 
+
+async def set_setting_value(db_file, key, val):
+    key = key.lower()
+    if sqlite.is_setting_key(db_file, key):
+        await sqlite.update_setting_value(db_file, [key, val])
+    else:
+        await sqlite.set_setting_value(db_file, [key, val])
+
+
 def get_setting_value(db_file, key):
     value = sqlite.get_setting_value(db_file, key)
     if value:

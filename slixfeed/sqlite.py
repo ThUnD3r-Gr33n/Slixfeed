@@ -743,6 +743,36 @@ async def get_unread_entries(db_file, num):
         return results
 
 
+def get_feed_id_by_entry_index(db_file, ix):
+    """
+    Get feed id by entry index.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    ix : str
+        Index.
+
+    Returns
+    -------
+    feed_id : str
+        Feed index.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT feed_id
+            FROM entries
+            WHERE id = :ix
+            """
+            )
+        par = (ix,)
+        feed_id = cur.execute(sql, par).fetchone()
+        return feed_id
+
+
 async def get_feed_id(db_file, url):
     """
     Get index of given feed.

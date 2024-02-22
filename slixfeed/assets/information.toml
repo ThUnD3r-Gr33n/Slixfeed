@@ -1,6 +1,7 @@
-about = """
+about = [
+"""
 Slixfeed is a news broker bot for syndicated news which aims to be \
-an easy to use and fully-featured news aggregator bot.
+an easy to use and fully-featured news aggregating bot.
 
 Slixfeed provides a convenient access to Blogs, News websites and \
 even Fediverse instances, along with filtering and other privacy \
@@ -11,19 +12,23 @@ Slixfeed is designed primarily for the XMPP communication network \
 
 https://gitgud.io/sjehuda/slixfeed
 """
+]
 
-authors = """
-Laura Lapina
- Co-Author, Instructor and Mentor.
-Schimon Zackary
- Author.
+authors = [
+    "Laura Lapina ",
+    "(Co-Author, Instructor and Mentor), ",
+    "Schimon Zackary ",
+    "(Author)."
+]
+
+filetypes = [
 """
-
-filetypes = """
 Supported filetypes: Atom, JSON, RDF, RSS and XML.
 """
+]
 
-license = """
+license = [
+"""
 Copyright 2022 - 2024 Schimon Zackary Jehudah
 
 Permission is hereby granted, free of charge, to any person obtaining \
@@ -45,37 +50,63 @@ OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, \
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER \
 DEALINGS IN THE SOFTWARE.
 """
+]
 
-note = """
+note = [
+"""
 You can run Slixfeed as a client, from your own computer, server, \
 and even from a Linux phone (i.e. Droidian, Kupfer, Mobian, NixOS, \
 postmarketOS), and even from Termux.
 All you need is one of the above and an XMPP account to connect \
 Slixfeed to. Good luck!
 """
+]
 
-operators = """
+operators = [
+"""
 No operator was specified for this instance.
 """
+]
 
-platforms = """
+platforms = [
+"""
 Supported platforms: XMPP
 Platforms to be added in future: ActivityPub, Briar, Email, IRC, LXMF, \
 Matrix, MQTT, Nostr, Session, Tox.
 For ideal experience, we recommend using XMPP.
 """
+]
 
-privacy = """
+privacy = [
+"""
 All your data belongs to us.
 """
+]
 
-protocols = """
+protocols = [
+"""
 Supported protocols: HTTP
 Protocols to be added in future: Dat, FTP, Gemini, Gopher, IPFS.
 """
+]
 # Supported protocols: Dat, FTP, Gemini, Gopher, HTTP and IPFS.
 
-resources = """
+rtf = [
+"""
+The RSS Task Force is an international organization headquartered in Switzerland.
+
+It was originally formed to maintain, serve and improve data flow to and from \
+small and medium enterprises, namely rural farms and long distance taxi drivers.
+
+Thanks to a joint effort of several taxi and travel companies, in 2021 we have \
+expanded our cause towards all entities of all types and sorts.
+
+The RSS Task Force was founded in 2018.
+"""
+]
+
+resources = [
+"""
 Slixfeed
 https://gitgud.io/sjehuda/slixfeed
 
@@ -88,16 +119,65 @@ https://pythonhosted.org/feedparser
 XMPP
 https://xmpp.org/about/
 """
+]
 
-sleekxmpp = """
+services = [
+"""
+Feed Creator
+
+Feed Creator is a service that creates feeds from HTML pages. \
+It generates RSS and JSON feeds from a set of links or other HTML elements.
+
+https://www.fivefilters.org/feed-creator/
+
+
+Kill the Newsletter
+
+Kill the Newsletter converts email newsletters into Web feeds.
+
+https://kill-the-newsletter.com/
+
+
+Open RSS
+
+Open RSS is a nonprofit organization that provides free RSS feeds for \
+websites and applications that don't already provide them, so RSS feeds \
+can continue to be a reliable way for people to stay up-to-date with \
+content anywhere on the internet.
+
+https://openrss.org/
+
+
+RSS-Bridge
+
+RSS-Bridge is free and open source software for generating Atom or RSS \
+feeds from websites which don’t have one. It is written in PHP and intended \
+to run on a Web server.
+
+https://rss-bridge.org/bridge01/
+
+
+RSSHub
+
+RSSHub is an open source, easy to use, and extensible RSS feed generator. \
+It's capable of generating RSS feeds from pretty much everything.
+
+https://docs.rsshub.app/
+"""
+]
+
+sleekxmpp = [
+"""
 SleekXMPP is an MIT licensed XMPP library for Python 2.6/3.1+, and is featured \
 in examples in the book XMPP: The Definitive Guide by Kevin Smith, Remko Tronçon, \
 and Peter Saint-Andre.
 
 https://codeberg.org/fritzy/SleekXMPP
 """
+]
 
-slixmpp = """
+slixmpp = [
+"""
 Slixmpp is an MIT licensed XMPP library for Python 3.7+. It is a fork of SleekXMPP.
 
 Slixmpp's goals is to only rewrite the core of the SleekXMPP library \
@@ -106,12 +186,82 @@ in order to remove all threads.
 
 https://codeberg.org/poezio/slixmpp
 """
+]
 
-support = """
+software = [
+"""
+CommaFeed
+
+A self-hosted RSS reader, based on Dropwizard and React/TypeScript.
+
+https://commafeed.com/
+
+
+FreshRSS
+
+FreshRSS is a self-hosted RSS and Atom feed aggregator.
+It is lightweight, easy to work with, powerful, and customizable.
+
+https://freshrss.org/
+
+
+Liferea
+
+Liferea is a feed reader/news aggregator that brings together \
+all of the content from your favorite subscriptions into a simple \
+interface that makes it easy to organize and browse feeds. Its \
+GUI is similar to a desktop mail/news client, with an embedded \
+web browser.
+
+https://lzone.de/liferea/
+
+
+NetNewsWire
+
+NetNewsWire shows you articles from your favorite blogs and news \
+sites and keeps track of what you’ve read.
+
+This means you can stop going from page to page in your browser \
+looking for new articles to read. Do it the easy way instead: let \
+NetNewsWire bring you the news.
+
+And, if you’ve been getting your news via the commercial Social \
+Networks — with their ads, algorithms, user tracking, outrage, and \
+misinformation — you can switch to NetNewsWire to get news directly \
+and more reliably from the sites you trust.
+
+https://netnewswire.com/
+
+
+Spot-On
+
+Spot-On is a software carnival which brings chat, email, news, \
+newsgroups, search and other forms of communications into a single \
+communications orchestra.
+
+https://textbrowser.github.io/spot-on/
+
+
+Vienna RSS
+
+Vienna is an RSS/Atom reader for macOS, packed with powerful \
+features that help you make sense of the flood of information \
+that is distributed via these formats today.
+
+https://vienna-rss.com/
+
+
+"""
+]
+
+support = [
+"""
 xmpp:slixfeed@chat.woodpeckersnest.space?join
 """
+]
 
-terms = """
+terms = [
+"""
 Slixfeed is free software; you can redistribute it and/or \
 modify it under the terms of the MIT License.
 
@@ -122,48 +272,51 @@ MIT License for more details.
 
 https://gitgud.io/sjehuda/slixfeed
 """
+]
 
 thanks = [
-    "Alixander Court <alixandercourt.com> (Utah)",
-    "Chriss Farrell (SalixOS, Oregon)",
-    "Christian Dersch (SalixOS)",
-    "Cyrille Pontvieux <enialis.net> (SalixOS, France)",
-    "Denis Fomin (Gajim, Russia)",
-    "Dimitris Tzemos (SalixOS, Greece)",
-    "Emmanuel Gil Peyrot (Poezio, France)",
-    "Florent Le Coz (Poezio, France)",
-    "George Vlahavas <vlahavas.com> (SalixOS, Greece)",
-    "Guus der Kinderen <igniterealtime.org> (Openfire, Netherlands)",
-    "habnabit_ from #python on irc.libera.chat",
-    "Imar van Erven Dorens <simplicit.nl> (SalixOS, Netherlands)",
-    "imattau (atomtopubsub)",
-    "Jaussoin Timothée <mov.im> (Movim, France)",
-    "Justin Karneges <jblog.andbit.net> (Psi, California)",
-    "Kevin Smith <isode.com> (Swift IM, Wales)",
-    "Lars Windolf (Liferea, Germany)",
-    "Luis Henrique Mello (SalixOS, Brazil)",
-    "magicfelix",
-    "Markus Muttilainen (SalixOS)",
-    "Martin <debacle@debian.org> (Debian, Germany)",
-    "Mathieu Pasquet (slixmpp, France)",
-    "Maxime Buquet (slixmpp, France)",
-    "mirux (Germany)",
-    "Phillip Watkins (SalixOS, United Kingdom)",
-    "Pierrick Le Brun (SalixOS, France)",
-    "Raphael Groner (Fedora, Germany)",
-    "Remko Tronçon <mko.re> (Psi , Belgium)",
-    "Simone \"roughnecks\" Canaletti <woodpeckersnest.space> (Italy)",
-    "Richard Lapointe (SalixOS, Connecticut)",
-    "Stephen Paul Weber <singpolyma.net>",
-    "Strix from Loqi",
-    "Thibaud Guerin (SalixOS)",
-    "Thorsten Fröhlich (France)",
-    "Thorsten Mühlfelder (SalixOS, Germany)",
-    "Tim Beech (SalixOS, Brazil)",
+    "Alixander Court &lt;alixandercourt.com&gt; (Utah), ",
+    "Arne-Brün Vogelsang &lt;monocles.de&gt; (monocles, Germany), ",
+    "Chriss Farrell (SalixOS, Oregon), ",
+    "Christian Dersch (SalixOS), ",
+    "Cyrille Pontvieux &lt;enialis.net&gt; (SalixOS, France), ",
+    "Denis Fomin (Gajim, Russia), ",
+    "Dimitris Tzemos (SalixOS, Greece), ",
+    "Emmanuel Gil Peyrot (Poezio, France), ",
+    "Florent Le Coz (Poezio, France), ",
+    "George Vlahavas &lt;vlahavas.com&gt; (SalixOS, Greece), ",
+    "Guus der Kinderen &lt;igniterealtime.org&gt; (Openfire, Netherlands), ",
+    "habnabit_ from #python on irc.libera.chat, ",
+    "Imar van Erven Dorens &lt;simplicit.nl&gt; (SalixOS, Netherlands), ",
+    "imattau (atomtopubsub), ",
+    "Jaussoin Timothée &lt;mov.im&gt; (Movim, France), ",
+    "Justin Karneges &lt;jblog.andbit.net&gt; (Psi, California), ",
+    "Kevin Smith &lt;isode.com&gt; (Swift IM, Wales), ",
+    "Lars Windolf (Liferea, Germany), ",
+    "Luis Henrique Mello (SalixOS, Brazil), ",
+    "magicfelix, ",
+    "Markus Muttilainen (SalixOS), ",
+    "Martin &lt;debacle@debian.org&gt; (Debian, Germany), ",
+    "Mathieu Pasquet (slixmpp, France), ",
+    "Maxime Buquet (slixmpp, France), ",
+    "mirux (Germany), ",
+    "Phillip Watkins (SalixOS, United Kingdom), ",
+    "Pierrick Le Brun (SalixOS, France), ",
+    "Raphael Groner (Fedora, Germany), ",
+    "Remko Tronçon &lt;mko.re&gt; (Psi , Belgium), ",
+    "Simone &quot;roughnecks&quot; Canaletti &lt;woodpeckersnest.space&gt; (Italy), ",
+    "Richard Lapointe (SalixOS, Connecticut), ",
+    "Stephen Paul Weber &lt;singpolyma.net&gt;, ",
+    "Strix from Loqi, ",
+    "Thibaud Guerin (SalixOS), ",
+    "Thorsten Fröhlich (France), ",
+    "Thorsten Mühlfelder (SalixOS, Germany), ",
+    "Tim Beech (SalixOS, Brazil), ",
     "Yann Leboulanger (Gajim, France)"
 ]
 
-xmpp = """
+xmpp = [
+"""
 XMPP is the Extensible Messaging and Presence Protocol, a set \
 of open technologies for instant messaging, presence, multi-party \
 chat, voice and video calls, collaboration, lightweight \
@@ -172,3 +325,4 @@ data.
 
 https://xmpp.org/about/
 """
+]
