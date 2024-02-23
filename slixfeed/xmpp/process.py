@@ -33,6 +33,7 @@ import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
 import slixfeed.task as task
 import slixfeed.url as uri
+from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.message import XmppMessage
@@ -1097,8 +1098,13 @@ async def message(self, message):
                 response = 'Updates are disabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'support':
-                # TODO Send an invitation.
-                response = 'Join xmpp:slixfeed@chat.woodpeckersnest.space?join'
+                muc_jid = 'slixfeed@chat.woodpeckersnest.space'
+                response = 'Join xmpp:{}?join'.format(muc_jid)
+                XmppMessage.send_reply(self, message, response)
+                if await get_chat_type(self, jid) == 'chat':
+                    self.plugin['xep_0045'].invite(muc_jid, jid)
+            case 'version':
+                response = __version__
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('xmpp:'):
                 muc_jid = uri.check_xmpp_uri(message_text)
