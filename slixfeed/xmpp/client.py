@@ -238,20 +238,30 @@ class Slixfeed(slixmpp.ClientXMPP):
         await self['xep_0115'].update_caps(jid=jid)
 
 
-    # TODO Request for subscription
     async def on_message(self, message):
-        jid = message["from"].bare
-        if (await get_chat_type(self, jid) == 'chat' and
-            not self.client_roster[jid]['to']):
-            XmppPresence.subscription(self, jid, 'subscribe')
-            await XmppRoster.add(self, jid)
-            status_message = '✒️ Share online status to receive updates'
+        jid = message['from'].bare
+        if jid == self.boundjid.bare:
+            status_type = 'dnd'
+            status_message = ('Slixfeed is not designed to receive messages '
+                              'from itself')
+            XmppPresence.send(self, jid, status_message,
+                              status_type=status_type)
+            await asyncio.sleep(5)
+            status_message = ('Slixfeed news bot from RSS Task Force')
             XmppPresence.send(self, jid, status_message)
-            message_subject = 'RSS News Bot'
-            message_body = 'Share online status to receive updates.'
-            XmppMessage.send_headline(self, jid, message_subject, message_body,
-                                      'chat')
-        await process.message(self, message)
+        else:
+            # TODO Request for subscription
+            if (await get_chat_type(self, jid) == 'chat' and
+                not self.client_roster[jid]['to']):
+                XmppPresence.subscription(self, jid, 'subscribe')
+                await XmppRoster.add(self, jid)
+                status_message = '✒️ Share online status to receive updates'
+                XmppPresence.send(self, jid, status_message)
+                message_subject = 'RSS News Bot'
+                message_body = 'Share online status to receive updates.'
+                XmppMessage.send_headline(self, jid, message_subject,
+                                          message_body, 'chat')
+            await process.message(self, message)
         # chat_type = message["type"]
         # message_body = message["body"]
         # message_reply = message.reply
@@ -1395,29 +1405,32 @@ class Slixfeed(slixmpp.ClientXMPP):
                 # form, this check is being done just in case.
                 jid = session['from'].bare
                 if jid == config.get_value('accounts', 'XMPP', 'operator'):
-                    if not self.is_component: # This will be changed with XEP-0222 XEP-0223
+                    if self.is_component:
+                        # NOTE This will be changed with XEP-0222 XEP-0223
+                        text_info = ('Subscriber management options are '
+                                     'currently not available for Slixfeed '
+                                     'running as component. Once support for '
+                                     'XEP-0222 and XEP-0223 be added, this '
+                                     'panel will be usable for components as '
+                                     'well.')
+                        session['has_next'] = False
+                        session['next'] = None
+                        session['notes'] = [['info', text_info]]
+                    else:
                         form = self['xep_0004'].make_form('form', 'Admin Panel')
                         form['instructions'] = 'Administration actions'
                         options = form.add_field(var='action',
                                                  ftype='list-single',
-                                                 label='Action',
+                                                 label='Manage',
                                                  desc='Select action type.',
                                                  value='subscribers',
                                                  required=True)
-                        options.addOption('Manage bookmarks', 'bookmarks')
-                        options.addOption('Manage contacts', 'roster')
-                        options.addOption('Manage subscribers', 'subscribers')
+                        options.addOption('Bookmarks', 'bookmarks')
+                        options.addOption('Contacts', 'roster')
+                        options.addOption('Subscribers', 'subscribers')
                         session['payload'] = form
                         session['next'] = self._handle_admin_action
                         session['has_next'] = True
-                    else:
-                        text_info = ('Subscriber management options are currently not '
-                                     'available for Slixfeed running as component. '
-                                     'Once support for XEP-0222 and XEP-0223 be added, '
-                                     'this panel will be usable for components as well.')
-                        session['has_next'] = False
-                        session['next'] = None
-                        session['notes'] = [['info', text_info]]
                 else:
                     logging.warning('An unauthorized attempt to access bookmarks has '
                                     'been detected!\n'
@@ -1824,7 +1837,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 session['next'] = self._handle_subscribers_complete
         session['allow_prev'] = True
         session['payload'] = form
-        session['prev'] = self._handle_admin
+        session['prev'] = self._handle_advanced
         return session
 
 
