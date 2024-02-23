@@ -190,6 +190,17 @@ https://codeberg.org/poezio/slixmpp
 
 software = [
 """
+Canto
+
+Canto is an Atom/RSS feed reader for the console that is meant to \
+be quick, concise, and colorful. It’s meant to provide a minimal, yet \
+information packed interface. No navigating menus. No dense blocks of \
+unreadable white text. An interface with almost infinite customization \
+and extensibility using the excellent Python programming language.
+
+https://codezen.org/canto-ng/
+
+
 CommaFeed
 
 A self-hosted RSS reader, based on Dropwizard and React/TypeScript.
@@ -231,6 +242,24 @@ misinformation — you can switch to NetNewsWire to get news directly \
 and more reliably from the sites you trust.
 
 https://netnewswire.com/
+
+
+QuiteRSS
+
+QuiteRSS is a free and convenient program for reading RSS/Atom news \
+feeds.
+
+http://quiterss.org/
+
+
+Raven Reader
+
+Raven is a open source desktop news reader with flexible settings to \
+optimize your experience. No login is required, and no personal data \
+is collected. Just select the websites you want to curate articles \
+from and enjoy!
+
+https://ravenreader.app/
 
 
 Spot-On

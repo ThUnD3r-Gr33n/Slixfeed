@@ -511,16 +511,96 @@ async def message(self, message):
                 response = 'Gemini and Gopher are not supported yet.'
                 XmppMessage.send_reply(self, message, response)
             # TODO xHTML, HTMLZ, MHTML
-            case _ if (message_lowercase.startswith('page')):
-                message_text = message_text[5:]
+            case _ if (message_lowercase.startswith('content') or
+                       message_lowercase.startswith('page')):
+                if message_lowercase.startswith('content'):
+                    message_text = message_text[8:]
+                    readability = True
+                else:
+                    message_text = message_text[5:]
+                    readability = False
                 ix_url = message_text.split(' ')[0]
-                await action.download_document(self, message, jid, jid_file,
-                                          message_text, ix_url, False)
-            case _ if (message_lowercase.startswith('content')):
-                message_text = message_text[8:]
-                ix_url = message_text.split(' ')[0]
-                await action.download_document(self, message, jid, jid_file,
-                                          message_text, ix_url, True)
+                ext = ' '.join(message_text.split(' ')[1:])
+                ext = ext if ext else 'pdf'
+                url = None
+                error = None
+                response = None
+                if ext in ('epub', 'html', 'markdown', 'md', 'pdf', 'text',
+                           'txt'):
+                    match ext:
+                        case 'markdown':
+                            ext = 'md'
+                        case 'text':
+                            ext = 'txt'
+                    status_type = 'dnd'
+                    status_message = ('📃️ Procesing request to produce {} '
+                                      'document...'.format(ext.upper()))
+                    XmppPresence.send(self, jid, status_message,
+                                      status_type=status_type)
+                    db_file = config.get_pathname_to_database(jid_file)
+                    cache_dir = config.get_default_cache_directory()
+                    if not os.path.isdir(cache_dir):
+                        os.mkdir(cache_dir)
+                    if not os.path.isdir(cache_dir + '/readability'):
+                        os.mkdir(cache_dir + '/readability')
+                    if ix_url:
+                        try:
+                            ix = int(ix_url)
+                            try:
+                                url = sqlite.get_entry_url(db_file, ix)
+                                url = url[0]
+                            except:
+                                response = 'No entry with index {}'.format(ix)
+                        except:
+                            url = ix_url
+                        if url:
+                            url = uri.remove_tracking_parameters(url)
+                            url = (uri.replace_hostname(url, 'link')) or url
+                            result = await fetch.http(url)
+                            if not result['error']:
+                                data = result['content']
+                                code = result['status_code']
+                                title = get_document_title(data)
+                                title = title.strip().lower()
+                                for i in (' ', '-'):
+                                    title = title.replace(i, '_')
+                                for i in ('?', '"', '\'', '!'):
+                                    title = title.replace(i, '')
+                                filename = os.path.join(
+                                    cache_dir, 'readability',
+                                    title + '_' + dt.timestamp() + '.' + ext)
+                                error = action.generate_document(data, url,
+                                                                 ext, filename,
+                                                                 readability)
+                                if error:
+                                    response = ('> {}\n'
+                                                'Failed to export {}.  '
+                                                'Reason: {}'.format(url,
+                                                                    ext.upper(),
+                                                                    error))
+                                else:
+                                    url = await XmppUpload.start(self, jid,
+                                                                 filename)
+                                    chat_type = await get_chat_type(self, jid)
+                                    XmppMessage.send_oob(self, jid, url,
+                                                         chat_type)
+                            else:
+                                response = ('> {}\n'
+                                            'Failed to fetch URL.  Reason: {}'
+                                            .format(url, code))
+                        await task.start_tasks_xmpp(self, jid, ['status'])
+                    else:
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Missing argument. '
+                                    'Enter URL or entry index number.')
+                else:
+                    response = ('Unsupported filetype.\n'
+                                'Try: epub, html, md (markdown), '
+                                'pdf, or txt (text)')
+                if response:
+                    logging.warning('Error for URL {}: {}'.format(url, error))
+                    XmppMessage.send_reply(self, message, response)
             case _ if (message_lowercase.startswith('http')) and(
                 message_lowercase.endswith('.opml')):
                 url = message_text

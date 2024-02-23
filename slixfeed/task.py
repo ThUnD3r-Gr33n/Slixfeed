@@ -5,13 +5,9 @@
 
 TODO
 
-0) Move functions send_status and send_update to module action
-
 1) Deprecate "add" (see above) and make it interactive.
    Slixfeed: Do you still want to add this URL to subscription list?
    See: case _ if message_lowercase.startswith("add"):
-
-2) Use loop (with gather) instead of TaskGroup.
 
 3) Assure message delivery before calling a new task.
     See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-marker_acknowledged
