@@ -32,8 +32,11 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 
 import slixfeed.action as action
 import slixfeed.config as config
-from slixfeed.dt import timestamp
+import slixfeed.crawl as crawl
+import slixfeed.dt as dt
+import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
+import slixfeed.url as uri
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.connect import XmppConnect
@@ -68,6 +71,10 @@ loop = asyncio.get_event_loop()
 
 
 class SlixfeedComponent(slixmpp.ComponentXMPP):
+    """
+    Slixfeed:
+    News bot that sends updates from RSS feeds.
+    """
     def __init__(self, jid, secret, hostname, port, alias=None):
         slixmpp.ComponentXMPP.__init__(self, jid, secret, hostname, port)
 
@@ -119,10 +126,10 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         self.add_event_handler("message",
                                self.on_message)
 
-        self.add_event_handler("groupchat_invite",
-                               self.on_groupchat_invite) # XEP_0045
-        self.add_event_handler("groupchat_direct_invite",
-                               self.on_groupchat_direct_invite) # XEP_0249
+        # self.add_event_handler("groupchat_invite",
+        #                        self.on_groupchat_invite) # XEP_0045
+        # self.add_event_handler("groupchat_direct_invite",
+        #                        self.on_groupchat_direct_invite) # XEP_0249
         # self.add_event_handler("groupchat_message", self.message)
 
         # self.add_event_handler("disconnected", self.reconnect)
@@ -166,19 +173,21 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
     async def on_session_end(self, event):
         message = 'Session has ended.'
-        await XmppConnect.recover(self, message)
+        XmppConnect.recover(self, message)
 
 
     async def on_connection_failed(self, event):
         message = 'Connection has failed.  Reason: {}'.format(event)
-        await XmppConnect.recover(self, message)
+        XmppConnect.recover(self, message)
 
 
     async def on_session_start(self, event):
-        self.send_presence()
+        # self.send_presence()
+        profile.set_identity(self, 'service')
+        self.service_commands()
+        self.service_reactions()
         await self['xep_0115'].update_caps()
         # await XmppGroupchat.autojoin(self)
-        profile.set_identity(self, 'service')
         await profile.update(self)
         task.task_ping(self)
         # bookmarks = await self.plugin['xep_0048'].get_bookmarks()
@@ -204,20 +213,29 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         await self['xep_0115'].update_caps(jid=jid)
 
 
-    # TODO Request for subscription
     async def on_message(self, message):
-        # jid = message['from'].bare
+        jid = message['from'].bare
+        if jid == self.boundjid.bare:
+            status_type = 'dnd'
+            status_message = ('Slixfeed is not designed to receive messages '
+                              'from itself')
+            XmppPresence.send(self, jid, status_message,
+                              status_type=status_type)
+            await asyncio.sleep(5)
+            status_message = ('Slixfeed news bot from RSS Task Force')
+            XmppPresence.send(self, jid, status_message)
+        else:
+            # TODO Request for subscription
+            # if "chat" == await XmppUtility.get_chat_type(self, jid):
+            #     presence_probe = ET.Element('presence')
+            #     presence_probe.attrib['type'] = 'probe'
+            #     presence_probe.attrib['to'] = jid
+            #     print('presence_probe')
+            #     print(presence_probe)
+            #     self.send_raw(str(presence_probe))
+            #     presence_probe.send()
 
-        # if "chat" == await XmppUtility.get_chat_type(self, jid):
-        #     presence_probe = ET.Element('presence')
-        #     presence_probe.attrib['type'] = 'probe'
-        #     presence_probe.attrib['to'] = jid
-        #     print('presence_probe')
-        #     print(presence_probe)
-        #     self.send_raw(str(presence_probe))
-        #     presence_probe.send()
-
-        await process.message(self, message)
+            await process.message(self, message)
         # chat_type = message["type"]
         # message_body = message["body"]
         # message_reply = message.reply
@@ -432,77 +450,40 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         #     handler=option_enable_updates,
         #     )
 
+        # NOTE https://codeberg.org/poezio/slixmpp/issues/3515
         # if jid == config.get_value('accounts', 'XMPP', 'operator'):
+        self['xep_0050'].add_command(node='recent',
+                                     name='📰️ Browse',
+                                     handler=self._handle_recent)
+        self['xep_0050'].add_command(node='subscription',
+                                     name='🪶️ Subscribe',
+                                     handler=self._handle_subscription_add)
         self['xep_0050'].add_command(node='subscriptions',
-                                     name='📰️ Subscriptions',
+                                     name='🗞️ Subscriptions',
                                      handler=self._handle_subscriptions)
         self['xep_0050'].add_command(node='promoted',
                                      name='🔮️ Featured',
                                      handler=self._handle_promoted)
         self['xep_0050'].add_command(node='discover',
                                      name='🔍️ Discover',
-                                     handler=self._handle_promoted)
-        self['xep_0050'].add_command(node='subscription',
-                                     name='🔗️ Add', # 🪶️
-                                     handler=self._handle_subscription_add)
-        # self['xep_0050'].add_command(node='subscriptions_cat',
-        #                              name='🔖️ Categories',
-        #                              handler=self._handle_subscription)
-        # self['xep_0050'].add_command(node='subscriptions_tag',
-        #                              name='🏷️ Tags',
-        #                              handler=self._handle_subscription)
-        # self['xep_0050'].add_command(node='subscriptions_index',
-        #                              name='📑️ Index (A - Z)',
-        #                              handler=self._handle_subscription)
-        # TODO Join Filters, Schedule and Settings into Preferences
+                                     handler=self._handle_discover)
         self['xep_0050'].add_command(node='settings',
                                      name='📮️ Settings',
                                      handler=self._handle_settings)
         self['xep_0050'].add_command(node='filters',
                                      name='🛡️ Filters',
                                      handler=self._handle_filters)
-        self['xep_0050'].add_command(node='scheduler',
-                                     name='📅 Scheduler',
-                                     handler=self._handle_schedule)
         self['xep_0050'].add_command(node='help',
                                      name='📔️ Manual',
                                      handler=self._handle_help)
-        self['xep_0050'].add_command(node='totd',
-                                     name='💡️ Tips',
-                                     handler=self._handle_totd)
-        if not self.is_component: # This will be changed with XEP-0222 XEP-0223
-            self['xep_0050'].add_command(node='subscribers',
-                                         name='🏡️ Subscribers', # 🎫
-                                         handler=self._handle_subscribers)
-            self['xep_0050'].add_command(node='bookmarks',
-                                         name='📕 Bookmarks',
-                                         handler=self._handle_bookmarks)
-            self['xep_0050'].add_command(node='roster',
-                                         name='📓 Roster', # 📋
-                                         handler=self._handle_contacts)
-        self['xep_0050'].add_command(node='activity',
-                                     name='📠️ Activity',
-                                     handler=self._handle_activity)
-        self['xep_0050'].add_command(node='statistics',
-                                     name='📊️ Statistics',
-                                     handler=self._handle_statistics)
-        self['xep_0050'].add_command(node='import',
-                                     name='📥️ Import',
-                                     handler=self._handle_import)
-        self['xep_0050'].add_command(node='export',
-                                     name='📤️ Export',
-                                     handler=self._handle_export)
-        self['xep_0050'].add_command(node='credit',
-                                     name='🏅️ Credits',
-                                     handler=self._handle_credit)
-        self['xep_0050'].add_command(node='privacy',
-                                     name='Privacy',
-                                     handler=self._handle_privacy)
+        self['xep_0050'].add_command(node='advanced',
+                                     name='📓 Advanced',
+                                     handler=self._handle_advanced)
         self['xep_0050'].add_command(node='about',
-                                     name='About', # 📜️
+                                     name='📜️ About',
                                      handler=self._handle_about)
         self['xep_0050'].add_command(node='exploit',
-                                     name='Exploit', # 📜️
+                                     name='Exploit',
                                      handler=self._handle_reveal_jid)
         # self['xep_0050'].add_command(node='search',
         #                              name='Search',
@@ -603,6 +584,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                        ftype='text-single',
                        label='URL',
                        desc='Enter subscription URL.',
+                       value='http://',
                        required=True)
         # form.add_field(var='scan',
         #                ftype='boolean',
@@ -617,149 +599,548 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         return session
 
 
+    async def _handle_recent(self, iq, session):
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        num = 100
+        results = await sqlite.get_unread_entries(db_file, num)
+        form = self['xep_0004'].make_form('form', 'Updates')
+        form['instructions'] = 'Recent {} updates'.format(num)
+        options = form.add_field(var='update',
+                                 ftype='list-single',
+                                 label='News',
+                                 desc=('Select a news update to read.'),
+                                 required=True)
+        for result in results:
+            title = result[1]
+            ix = str(result[0])
+            options.addOption(title, ix)
+        session['allow_prev'] = False # Cheogram changes style if that button - which should not be on this form - is present
+        session['has_next'] = True
+        session['next'] = self._handle_recent_select
+        session['payload'] = form
+        session['prev'] = None # Cheogram works as expected with 'allow_prev' set to False Just in case
+        return session
+
+
+    async def _handle_recent_select(self, payload, session):
+        values = payload['values']
+        ix = values['update']
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        title = sqlite.get_entry_title(db_file, ix)
+        title = title[0] if title else 'Untitled'
+        form = self['xep_0004'].make_form('form', 'Article')
+        url = sqlite.get_entry_url(db_file, ix)
+        url = url[0]
+        logging.info('Original URL: {}'.format(url))
+        url = uri.remove_tracking_parameters(url)
+        logging.info('Processed URL (tracker removal): {}'.format(url))
+        url = (uri.replace_hostname(url, 'link')) or url
+        logging.info('Processed URL (replace hostname): {}'.format(url))
+        result = await fetch.http(url)
+        if 'content' in result:
+            data = result['content']
+            summary = action.get_document_content_as_text(data)
+        else:
+            summary = 'No content to show.'
+        form.add_field(ftype="text-multi",
+                       label=title,
+                       value=summary)
+        field_url = form.add_field(var='url',
+                                   ftype='hidden',
+                                   value=url)
+        field_url = form.add_field(var='url_link',
+                                   label='Link',
+                                   ftype='text-single',
+                                   value=url)
+        field_url['validate']['datatype'] = 'xs:anyURI'
+        feed_id = sqlite.get_feed_id_by_entry_index(db_file, ix)
+        feed_id = feed_id[0]
+        feed_url = sqlite.get_feed_url(db_file, feed_id)
+        feed_url = feed_url[0]
+        field_feed = form.add_field(var='url_feed',
+                                    label='Source',
+                                    ftype='text-single',
+                                    value=feed_url)
+        field_feed['validate']['datatype'] = 'xs:anyURI'
+        options = form.add_field(var='filetype',
+                                 ftype='list-single',
+                                 label='Save as',
+                                 desc=('Select file type.'),
+                                 value='pdf',
+                                 required=True)
+        options.addOption('ePUB', 'epub')
+        options.addOption('HTML', 'html')
+        options.addOption('Markdown', 'md')
+        options.addOption('PDF', 'pdf')
+        options.addOption('Plain Text', 'txt')
+        form['instructions'] = 'Proceed to download article.'
+        session['allow_complete'] = False
+        session['allow_prev'] = True
+        session['has_next'] = True
+        session['next'] = self._handle_recent_action
+        session['payload'] = form
+        session['prev'] = self._handle_recent
+        return session
+
+
+    async def _handle_recent_action(self, payload, session):
+        ext = payload['values']['filetype']
+        url = payload['values']['url'][0]
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        cache_dir = config.get_default_cache_directory()
+        if not os.path.isdir(cache_dir):
+            os.mkdir(cache_dir)
+        if not os.path.isdir(cache_dir + '/readability'):
+            os.mkdir(cache_dir + '/readability')
+        url = uri.remove_tracking_parameters(url)
+        url = (uri.replace_hostname(url, 'link')) or url
+        result = await fetch.http(url)
+        if not result['error']:
+            data = result['content']
+            code = result['status_code']
+            title = action.get_document_title(data)
+            title = title.strip().lower()
+            for i in (' ', '-'):
+                title = title.replace(i, '_')
+            for i in ('?', '"', '\'', '!'):
+                title = title.replace(i, '')
+            filename = os.path.join(
+                cache_dir, 'readability',
+                title + '_' + dt.timestamp() + '.' + ext)
+            error = action.generate_document(data, url, ext, filename,
+                                             readability=True)
+            if error:
+                text_error = ('Failed to export {} fot {}'
+                              '\n\n'
+                              'Reason: {}'.format(ext.upper(), url, error))
+                session['notes'] = [['error', text_error]]
+            else:
+                url = await XmppUpload.start(self, jid, filename)
+                form = self['xep_0004'].make_form('result', 'Download')
+                form['instructions'] = ('Download {} document.'
+                                        .format(ext.upper()))
+                field_url = form.add_field(var='url',
+                                           label='Link',
+                                           ftype='text-single',
+                                           value=url)
+                field_url['validate']['datatype'] = 'xs:anyURI'
+                session['payload'] = form
+        session['allow_complete'] = True
+        session['next'] = None
+        session['prev'] = None
+        return session
+
+
     async def _handle_subscription_new(self, payload, session):
         jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
         # scan = payload['values']['scan']
         url = payload['values']['subscription']
-        result = await action.add_feed(db_file, url)
-        if isinstance(result, list):
-            results = result
-            form = self['xep_0004'].make_form('form', 'Subscriptions')
-            form['instructions'] = ('Discovered {} subscriptions for {}'
-                                    .format(len(results), url))
-            options = form.add_field(var='subscription',
-                                     ftype='list-single',
-                                     label='Subscription',
-                                     desc=('Select a subscription to add.'),
-                                     required=True)
-            for result in results:
-                options.addOption(result['name'], result['link'])
-            # NOTE Disabling "allow_prev" until Cheogram would allow to display
-            # items of list-single as buttons when button "back" is enabled.
-            # session['allow_prev'] = True
-            session['has_next'] = True
-            session['next'] = self._handle_subscription_new
-            session['payload'] = form
-            # session['prev'] = self._handle_subscription_add
-        elif result['error']:
-            response = ('Failed to load URL <{}>  Reason: {}'
-                        .format(url, result['code']))
+        if isinstance(url, list) and len(url) > 1:
+            urls = url
+            agree_count = 0
+            error_count = 0
+            exist_count = 0
+            for url in urls:
+                result = await action.add_feed(db_file, url)
+                if result['error']:
+                    error_count += 1
+                elif result['exist']:
+                    exist_count += 1
+                else:
+                    agree_count += 1
+            form = self['xep_0004'].make_form('form', 'Subscription')
+            if agree_count:
+                response = ('Added {} new subscription(s) out of {}'
+                            .format(agree_count, len(url)))
+                session['notes'] = [['info', response]]
+            else:
+                response = ('No new subscription was added. '
+                            'Exist: {} Error: {}.'
+                            .format(exist_count, error_count))
+                session['notes'] = [['error', response]]
             session['allow_prev'] = True
             session['next'] = None
-            session['notes'] = [['error', response]]
             session['payload'] = None
             session['prev'] = self._handle_subscription_add
-        elif result['exist']:
-            # response = ('News source "{}" is already listed '
-            #             'in the subscription list at index '
-            #             '{}.\n{}'.format(result['name'], result['index'],
-            #                              result['link']))
-            # session['notes'] = [['warn', response]] # Not supported by Gajim
-            # session['notes'] = [['info', response]]
-            form = self['xep_0004'].make_form('form', 'Subscription')
-            form['instructions'] = ('Subscription already exists at index {}.'
-                                    '\n'
-                                    'Would you want to edit this subscription?'
-                                    .format(result['index']))
-            options = form.add_field(var='subscription',
-                                     ftype='list-single',
-                                     label='Subscription',
-                                     desc='Continue to edit subscription.',
-                                     value=result['link'])
-            options.addOption(result['name'], result['link'])
-            # NOTE Should we allow "Complete"?
-            # Do all clients provide button "Cancel".
-            session['allow_complete'] = False
-            session['has_next'] = True
-            session['next'] = self._handle_subscription_editor
-            session['payload'] = form
-            # session['has_next'] = False
         else:
-            # response = ('News source "{}" has been '
-            #             'added to subscription list.\n{}'
-            #             .format(result['name'], result['link']))
-            # session['notes'] = [['info', response]]
-            form = self['xep_0004'].make_form('form', 'Subscription')
-            # form['instructions'] = ('✅️ News source "{}" has been added to '
-            #                         'subscription list as index {}'
-            #                         '\n\n'
-            #                         'Choose next to continue to subscription '
-            #                         'editor.'
-            #                         .format(result['name'], result['index']))
-            form['instructions'] = ('New subscription'
-                                    '\n'
-                                    '"{}"'
-                                    '\n\n'
-                                    'Continue to edit subscription?'
-                                    .format(result['name'], result['index']))
-            options = form.add_field(var='subscription',
-                                     ftype='list-single',
-                                     # Should Gajim allows editing text-single
-                                     # field when form is of type "result"?
-                                     # ftype='text-single',
-                                     label='Subscription',
-                                     desc='Continue to edit subscription.',
-                                     value=result['link'])
-            options.addOption(result['name'], result['link'])
-            session['allow_complete'] = True
-            session['allow_prev'] = False
-            session['has_next'] = False
-            session['next'] = self._handle_subscription_editor
+            if isinstance(url, list):
+                url = url[0]
+            result = await action.add_feed(db_file, url)
+            if isinstance(result, list):
+                results = result
+                form = self['xep_0004'].make_form('form', 'Subscriptions')
+                form['instructions'] = ('Discovered {} subscriptions for {}'
+                                        .format(len(results), url))
+                options = form.add_field(var='subscription',
+                                         ftype='list-multi',
+                                         label='Subscribe',
+                                         desc=('Select subscriptions to add.'),
+                                         required=True)
+                for result in results:
+                    options.addOption(result['name'], result['link'])
+                # NOTE Disabling "allow_prev" until Cheogram would allow to display
+                # items of list-single as buttons when button "back" is enabled.
+                # session['allow_prev'] = True
+                session['has_next'] = True
+                session['next'] = self._handle_subscription_new
+                session['payload'] = form
+                # session['prev'] = self._handle_subscription_add
+            elif result['error']:
+                response = ('Failed to load URL <{}>  Reason: {}'
+                            .format(url, result['code']))
+                session['allow_prev'] = True
+                session['next'] = None
+                session['notes'] = [['error', response]]
+                session['payload'] = None
+                session['prev'] = self._handle_subscription_add
+            elif result['exist']:
+                # response = ('News source "{}" is already listed '
+                #             'in the subscription list at index '
+                #             '{}.\n{}'.format(result['name'], result['index'],
+                #                              result['link']))
+                # session['notes'] = [['warn', response]] # Not supported by Gajim
+                # session['notes'] = [['info', response]]
+                form = self['xep_0004'].make_form('form', 'Subscription')
+                form['instructions'] = ('Subscription is already assigned at index {}.'
+                                        '\n'
+                                        '{}'
+                                        .format(result['index'], result['name']))
+                form.add_field(ftype='boolean',
+                               var='edit',
+                               label='Would you want to edit this subscription?')
+                form.add_field(var='subscription',
+                               ftype='hidden',
+                               value=result['link'])
+                # NOTE Should we allow "Complete"?
+                # Do all clients provide button "Cancel".
+                session['allow_complete'] = False
+                session['has_next'] = True
+                session['next'] = self._handle_subscription_editor
+                session['payload'] = form
+                # session['has_next'] = False
+            else:
+                # response = ('News source "{}" has been '
+                #             'added to subscription list.\n{}'
+                #             .format(result['name'], result['link']))
+                # session['notes'] = [['info', response]]
+                form = self['xep_0004'].make_form('form', 'Subscription')
+                # form['instructions'] = ('✅️ News source "{}" has been added to '
+                #                         'subscription list as index {}'
+                #                         '\n\n'
+                #                         'Choose next to continue to subscription '
+                #                         'editor.'
+                #                         .format(result['name'], result['index']))
+                form['instructions'] = ('New subscription'
+                                        '\n'
+                                        '"{}"'
+                                        .format(result['name']))
+                form.add_field(ftype='boolean',
+                               var='edit',
+                               label='Continue to edit subscription?')
+                form.add_field(var='subscription',
+                               ftype='hidden',
+                               value=result['link'])
+                session['allow_complete'] = False
+                session['has_next'] = True
+                # session['allow_prev'] = False
+                # Gajim: Will offer next dialog but as a result, not as form.
+                # session['has_next'] = False
+                session['next'] = self._handle_subscription_editor
+                session['payload'] = form
+                # session['prev'] = None
+        return session
+
+
+    async def _handle_subscription_enable(self, payload, session):
+        form = payload
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        ixs = payload['values']['subscriptions']
+        form.add_field(ftype='fixed',
+                       value='Modified subscriptions')
+        for ix in ixs:
+            name = sqlite.get_feed_title(db_file, ix)
+            url = sqlite.get_feed_url(db_file, ix)
+            await sqlite.set_enabled_status(db_file, ix, 1)
+            # text = (ix,) + name + url
+            # text = ' - '.join(text)
+            name = name[0] if name else 'Subscription #{}'.format(ix)
+            url = url[0]
+            text = '{} <{}>'.format(name, url)
+            form.add_field(var=ix,
+                           ftype='text-single',
+                           label=url,
+                           value=text)
+        form['type'] = 'result'
+        form['title'] = 'Done'
+        form['instructions'] = ('Completed successfully!')
+        session["has_next"] = False
+        session['next'] = None
+        session['payload'] = form
+        return session
+
+
+    async def _handle_subscription_disable(self, payload, session):
+        form = payload
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        ixs = payload['values']['subscriptions']
+        form.add_field(ftype='fixed',
+                       value='Modified subscriptions')
+        for ix in ixs:
+            name = sqlite.get_feed_title(db_file, ix)
+            url = sqlite.get_feed_url(db_file, ix)
+            await sqlite.set_enabled_status(db_file, ix, 0)
+            # text = (ix,) + name + url
+            # text = ' - '.join(text)
+            name = name[0] if name else 'Subscription #{}'.format(ix)
+            url = url[0]
+            text = '{} <{}>'.format(name, url)
+            form.add_field(var=ix,
+                           ftype='text-single',
+                           label=url,
+                           value=text)
+        form['type'] = 'result'
+        form['title'] = 'Done'
+        form['instructions'] = ('Completed successfully!')
+        session["has_next"] = False
+        session['next'] = None
+        session['payload'] = form
+        return session
+
+
+    async def _handle_subscription_del_complete(self, payload, session):
+        form = payload
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        ixs = payload['values']['subscriptions']
+        form.add_field(ftype='fixed',
+                       value='Deleted subscriptions')
+        for ix in ixs:
+            name = sqlite.get_feed_title(db_file, ix)
+            url = sqlite.get_feed_url(db_file, ix)
+            await sqlite.remove_feed_by_index(db_file, ix)
+            # text = (ix,) + name + url
+            # text = ' - '.join(text)
+            name = name[0] if name else 'Subscription #{}'.format(ix)
+            url = url[0]
+            text = '{} <{}>'.format(name, url)
+            form.add_field(var=ix,
+                           ftype='text-single',
+                           label=url,
+                           value=text)
+        form['type'] = 'result'
+        form['title'] = 'Done'
+        form['instructions'] = ('Completed successfully!')
+        session["has_next"] = False
+        session['next'] = None
+        session['payload'] = form
+        return session
+
+
+    def _handle_cancel(self, payload, session):
+        text_note = ('Operation has been cancelled.'
+                     '\n'
+                     '\n'
+                     'No action was taken.')
+        session['notes'] = [['info', text_note]]
+        return session
+
+
+    def _handle_discover(self, iq, session):
+        form = self['xep_0004'].make_form('form', 'Discover & Search')
+        options = form.add_field(var='search_type',
+                                 ftype='list-single',
+                                 label='Browse',
+                                 desc=('Select type of search.'),
+                                 required=True)
+        options.addOption('All', 'all')
+        options.addOption('Categories', 'cat') # Should we write this in a singular form
+        # options.addOption('Tags', 'tag')
+        session['allow_prev'] = False
+        session['has_next'] = True
+        session['next'] = self._handle_discover_type
+        session['payload'] = form
+        session['prev'] = None
+        return session
+
+
+    def _handle_discover_type(self, payload, session):
+        values = payload['values']
+        search_type = values['search_type']
+        config_dir = config.get_default_config_directory()
+        db_file = config_dir + '/feeds.sqlite'
+        if os.path.isfile(db_file):
+            form = self['xep_0004'].make_form('form', 'Discover & Search')
+            match search_type:
+                case 'all':
+                    options = form.add_field(var='subscription',
+                                             # ftype='list-multi', # TODO To be added soon
+                                             ftype='list-single',
+                                             label='Subscription',
+                                             desc=('Select a subscription to add.'),
+                                             required=True)
+                    results = sqlite.get_titles_tags_urls(db_file)
+                    for result in results:
+                        title = result[0]
+                        tag = result[1]
+                        url = result[2]
+                        text = '{} ({})'.format(title, tag)
+                        options.addOption(text, url)
+                    # session['allow_complete'] = True
+                    session['next'] = self._handle_subscription_new
+                case 'cat':
+                    session['next'] = self._handle_discover_category
+                    options = form.add_field(var='category',
+                                             ftype='list-single',
+                                             label='Categories',
+                                             desc=('Select a category to browse.'),
+                                             required=True) # NOTE Uncategories or no option for entries without category
+                    categories = sqlite.get_categories(db_file)
+                    for category in categories:
+                        category = category[0]
+                        options.addOption(category, category)
+                # case 'tag':
+            session['allow_prev'] = True
+            session['has_next'] = True
             session['payload'] = form
-            session['prev'] = None
+            session['prev'] = self._handle_discover
+        else:
+            text_note = ('Database is missing.'
+                         '\n'
+                         'Contact operator.')
+            session['next'] = None
+            session['notes'] = [['info', text_note]]
+            session['payload'] = None
+        return session
+
+
+    async def _handle_discover_category(self, payload, session):
+        values = payload['values']
+        category = values['category']
+        config_dir = config.get_default_config_directory()
+        db_file = config_dir + '/feeds.sqlite'
+        form = self['xep_0004'].make_form('form', 'Discover & Search')
+        options = form.add_field(var='subscription',
+                                 # ftype='list-multi', # TODO To be added soon
+                                 ftype='list-single',
+                                 label='Subscription',
+                                 desc=('Select a subscription to add.'),
+                                 required=True)
+        results = sqlite.get_titles_tags_urls_by_category(db_file, category)
+        for result in results:
+            title = result[0]
+            tag = result[1]
+            url = result[2]
+            text = '{} ({})'.format(title, tag)
+            options.addOption(text, url)
+        # session['allow_complete'] = True
+        session['next'] = self._handle_subscription_new
+        session['payload'] = form
         return session
 
 
     async def _handle_subscriptions(self, iq, session):
-        jid = session['from'].bare
-        form = self['xep_0004'].make_form('form', 'Subscriptions')
+        form = self['xep_0004'].make_form('form', 'Contacts')
         form['instructions'] = 'Managing subscriptions'
-        # form.addField(var='interval',
-        #               ftype='text-single',
-        #               label='Interval period')
-        options = form.add_field(var='subscriptions',
-                                 # ftype='list-multi', # TODO To be added soon
+        options = form.add_field(var='action',
                                  ftype='list-single',
-                                 label='Subscriptions',
-                                 desc=('Select subscriptions to perform '
-                                       'actions upon.'),
+                                 label='Action',
+                                 desc='Select action type.',
                                  required=True)
+        options.addOption('Enable subscriptions', 'enable')
+        options.addOption('Disable subscriptions', 'disable')
+        options.addOption('Modify subscriptions', 'edit')
+        options.addOption('Remove subscriptions', 'delete')
+        session['payload'] = form
+        session['next'] = self._handle_subscriptions_result
+        session['has_next'] = True
+        return session
+
+
+    async def _handle_subscriptions_result(self, payload, session):
+        jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
         subscriptions = sorted(subscriptions, key=lambda x: x[0])
-        for subscription in subscriptions:
-            title = subscription[0]
-            url = subscription[1]
-            options.addOption(title, url)
-        # options = form.add_field(var='action',
-        #                          ftype='list-single',
-        #                          label='Action',
-        #                          value='none')
-        # options.addOption('None', 'none')
-        # options.addOption('Reset', 'reset')
-        # options.addOption('Enable', 'enable')
-        # options.addOption('Disable', 'disable')
-        # options.addOption('Delete', 'delete')
+        form = self['xep_0004'].make_form('form', 'Subscriptions')
+        match payload['values']['action']:
+            case 'delete':
+                form['instructions'] = 'Removing subscriptions'
+                # form.addField(var='interval',
+                #               ftype='text-single',
+                #               label='Interval period')
+                options = form.add_field(var='subscriptions',
+                                         ftype='list-multi',
+                                         label='Subscriptions',
+                                         desc=('Select subscriptions to remove.'),
+                                         required=True)
+                for subscription in subscriptions:
+                    title = subscription[0]
+                    ix = str(subscription[2])
+                    options.addOption(title, ix)
+                session['cancel'] = self._handle_cancel
+                session['has_next'] = False
+                # TODO Refer to confirmation dialog which would display feeds selected
+                session['next'] = self._handle_subscription_del_complete
+            case 'edit':
+                form['instructions'] = 'Editing subscriptions'
+                options = form.add_field(var='subscriptions',
+                                         # ftype='list-multi', # TODO To be added soon
+                                         ftype='list-single',
+                                         label='Subscription',
+                                         desc=('Select a subscription to edit.'),
+                                         required=True)
+                for subscription in subscriptions:
+                    title = subscription[0]
+                    url = subscription[1]
+                    options.addOption(title, url)
+                session['next'] = self._handle_subscription_editor
+                session['has_next'] = True
+            case 'disable':
+                form['instructions'] = 'Modifying subscriptions'
+                options = form.add_field(var='subscriptions',
+                                         ftype='list-multi',
+                                         label='Subscriptions',
+                                         desc=('Select subscriptions to disable.'),
+                                         required=True)
+                for subscription in subscriptions:
+                    title = subscription[0]
+                    ix = str(subscription[2])
+                    options.addOption(title, ix)
+                session['cancel'] = self._handle_cancel
+                session['has_next'] = False
+                session['next'] = self._handle_subscription_disable
+            case 'enable':
+                form['instructions'] = 'Modifying subscriptions'
+                options = form.add_field(var='subscriptions',
+                                         ftype='list-multi',
+                                         label='Subscriptions',
+                                         desc=('Select subscriptions to enable.'),
+                                         required=True)
+                for subscription in subscriptions:
+                    title = subscription[0]
+                    ix = str(subscription[2])
+                    options.addOption(title, ix)
+                session['cancel'] = self._handle_cancel
+                session['has_next'] = False
+                session['next'] = self._handle_subscription_enable
+        session['allow_complete'] = True
+        session['allow_prev'] = True
         session['payload'] = form
-        session['next'] = self._handle_subscription_editor
-        session['has_next'] = True
-        # Other useful session values:
-        # session['to']                    -- The JID that received the
-        #                                     command request.
-        # session['from']                  -- The JID that sent the
-        #                                     command request.
-        # session['has_next'] = True       -- There are more steps to complete
-        # session['allow_complete'] = True -- Allow user to finish immediately
-        #                                     and possibly skip steps
-        # session['cancel'] = handler      -- Assign a handler for if the user
-        #                                     cancels the command.
-        # session['notes'] = [             -- Add informative notes about the
-        #   ('info', 'Info message'),         command's results.
-        #   ('warning', 'Warning message'),
-        #   ('error', 'Error message')]
+        session['prev'] = self._handle_subscriptions
         return session
 
 
@@ -811,6 +1192,10 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         jid = session['from'].bare
         jid_file = jid
         db_file = config.get_pathname_to_database(jid_file)
+        if 'edit' in payload['values'] and not payload['values']['edit']:
+            session['payload'] = None
+            session['next'] = None
+            return session
         if 'subscription' in payload['values']:
             urls = payload['values']['subscription']
         elif 'subscriptions' in payload['values']:
@@ -838,7 +1223,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             form.add_field(var='name',
                            ftype='text-single',
                            label='Name',
-                           value=title)
+                           value=title,
+                           required=True)
             # NOTE This does not look good in Gajim
             # url = form.add_field(ftype='fixed',
             #                      value=url)
@@ -877,6 +1263,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                        label='Enabled',
                        value=True)
         session['allow_complete'] = True
+        # session['allow_prev'] = True
+        session['cancel'] = self._handle_cancel
         session['has_next'] = False
         session['next'] = self._handle_subscription_complete
         session['payload'] = form
@@ -957,228 +1345,249 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         return session
 
 
-    async def _handle_about(self, iq, session):
-        # form = self['xep_0004'].make_form('result', 'Thanks')
-        # form['instructions'] = action.manual('information.toml', 'thanks')
-        # session['payload'] = form
-        # text = '💡️ About Slixfeed, slixmpp and XMPP\n\n'
-        # text += '\n\n'
-        # form = self['xep_0004'].make_form('result', 'About')
-        text = 'Slixfeed {}\n\n'.format(__version__)
-        text += ''.join(action.manual('information.toml', 'about'))
-        text += '\n\n'
-        text += 'Slixmpp\n\n'
-        text += ''.join(action.manual('information.toml', 'slixmpp'))
-        text += '\n\n'
-        text += 'SleekXMPP\n\n'
-        text += ''.join(action.manual('information.toml', 'sleekxmpp'))
-        text += '\n\n'
-        text += 'XMPP\n\n'
-        text += ''.join(action.manual('information.toml', 'xmpp'))
-        session['notes'] = [['info', text]]
-        # form.add_field(var='about',
-        #                ftype='text-multi',
-        #                label='About',
-        #                value=text)
-        # session['payload'] = form
-        return session
-
-
-    async def _handle_activity(self, iq, session):
-        # TODO dialog for JID and special dialog for operator
-        text = ('Here you can monitor activity')
-        session['notes'] = [['info', text]]
-        return session
-
-
-    async def _handle_statistics(self, iq, session):
-        text = ('Here you can monitor statistics')
-        session['notes'] = [['info', text]]
-        return session
-
-
-    async def _handle_import(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Import')
-        form['instructions'] = 'Importing feeds'
-        url = form.add_field(var='url',
-                             ftype='text-single',
-                             label='URL',
-                             desc='Enter URL to an OPML file.',
-                             required=True)
-        url['validate']['datatype'] = 'xs:anyURI'
-        session['allow_complete'] = True
-        session['has_next'] = False
-        session['next'] = self._handle_import_complete
-        session['payload'] = form
-        return session
-
-
-    async def _handle_import_complete(self, payload, session):
-        form = payload
-        url = payload['values']['url']
-        if url.startswith('http') and url.endswith('.opml'):
-            jid = session['from'].bare
-            jid_file = jid.replace('/', '_')
-            db_file = config.get_pathname_to_database(jid_file)
-            count = await action.import_opml(db_file, url)
-            try:
-                int(count)
-                # form = self['xep_0004'].make_form('result', 'Done')
-                # form['instructions'] = ('✅️ Feeds have been imported')
-                form['title'] = 'Done'
-                form['instructions'] = ('has been completed!')
-                message = '{} feeds have been imported.'.format(count)
-                form.add_field(var='Message',
-                               ftype='text-single',
-                               value=message)
-                session['payload'] = form
-            except:
-                session['payload'] = None
-                session['notes'] = [['error', 'Import failed. Filetype does not appear to be an OPML file.']]
-        else:
-            session['payload'] = None
-            session['notes'] = [['error', 'Import aborted. Send URL of OPML file.']]
-        session["has_next"] = False
-        session['next'] = None
-        return session
-
-
-    async def _handle_export(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Export')
-        form['instructions'] = 'Exporting subscription list'
-        options = form.add_field(var='filetype',
-                                 ftype='list-multi',
-                                 label='Format',
-                                 desc='Choose export format. You are advised '
-                                      'to export into OPML file, if you want '
-                                      'to easily import your feeds into a Feed '
-                                      'Reader, such as Liferea or Qute RSS.',
-                                 value='opml',
+    async def _handle_advanced(self, iq, session):
+        form = self['xep_0004'].make_form('form', 'Advanced Options')
+        form['instructions'] = 'Extended options and information'
+        options = form.add_field(var='option',
+                                 ftype='list-single',
+                                 label='Choose',
                                  required=True)
-        options.addOption('Markdown', 'md')
-        options.addOption('OPML', 'opml')
-        # options.addOption('HTML', 'html')
-        # options.addOption('XBEL', 'xbel')
-        session['allow_complete'] = True
-        session['has_next'] = False
-        session['next'] = self._handle_export_complete
+        # options.addOption('Activity', 'activity')
+        # options.addOption('Filters', 'filter')
+        # options.addOption('Statistics', 'statistics')
+        # options.addOption('Scheduler', 'scheduler')
+        options.addOption('Import', 'import')
+        options.addOption('Export', 'export')
+        jid = session['from'].bare
+        if jid == config.get_value('accounts', 'XMPP', 'operator'):
+            options.addOption('Administration', 'admin')
         session['payload'] = form
+        session['next'] = self._handle_advanced_result
+        session['has_next'] = True
         return session
 
 
-    async def _handle_export_complete(self, payload, session):
-        form = payload
-        jid = session['from'].bare
-        jid_file = jid.replace('/', '_')
-        # form = self['xep_0004'].make_form('result', 'Done')
-        # form['instructions'] = ('✅️ Feeds have been exported')
-        exts = payload['values']['filetype']
-        for ext in exts:
-            filename = await action.export_feeds(self, jid, jid_file, ext)
-            url = await XmppUpload.start(self, jid, filename)
-            form.add_field(var=ext.upper(),
-                            ftype='text-single',
-                            label=ext,
-                            value=url)
-        form['title'] = 'Done'
-        form['instructions'] = ('has been completed!')
+    async def _handle_advanced_result(self, payload, session):
+        match payload['values']['option']:
+            case 'activity':
+                # TODO dialog for JID and special dialog for operator
+                # Here you can monitor activity
+                text_note = 'This feature is not yet available.'
+                session['notes'] = [['info', text_note]]
+            case 'admin':
+                # NOTE Even though this check is already conducted on previous
+                # form, this check is being done just in case.
+                jid = session['from'].bare
+                if jid == config.get_value('accounts', 'XMPP', 'operator'):
+                    if self.is_component:
+                        # NOTE This will be changed with XEP-0222 XEP-0223
+                        text_info = ('Subscriber management options are '
+                                     'currently not available for Slixfeed '
+                                     'running as component. Once support for '
+                                     'XEP-0222 and XEP-0223 be added, this '
+                                     'panel will be usable for components as '
+                                     'well.')
+                        session['has_next'] = False
+                        session['next'] = None
+                        session['notes'] = [['info', text_info]]
+                    else:
+                        form = self['xep_0004'].make_form('form', 'Admin Panel')
+                        form['instructions'] = 'Administration actions'
+                        options = form.add_field(var='action',
+                                                 ftype='list-single',
+                                                 label='Manage',
+                                                 desc='Select action type.',
+                                                 value='subscribers',
+                                                 required=True)
+                        options.addOption('Bookmarks', 'bookmarks')
+                        options.addOption('Contacts', 'roster')
+                        options.addOption('Subscribers', 'subscribers')
+                        session['payload'] = form
+                        session['next'] = self._handle_admin_action
+                        session['has_next'] = True
+                else:
+                    logging.warning('An unauthorized attempt to access bookmarks has '
+                                    'been detected!\n'
+                                    'Details:\n'
+                                    '   Jabber ID: {}\n'
+                                    '   Timestamp: {}\n'
+                                    .format(jid, dt.timestamp()))
+                    text_warn = 'This resource is restricted.'
+                    session['notes'] = [['warn', text_warn]]
+                    session['has_next'] = False
+                    session['next'] = None
+            # case 'filters':
+                # TODO Ability to edit lists.toml or filters.toml
+            case 'scheduler':
+                # TODO Set days and hours to receive news
+                text_note = 'This feature is not yet available.'
+                session['notes'] = [['info', text_note]]
+                session['has_next'] = False
+                session['next'] = None
+            case 'statistics':
+                # TODO Here you can monitor statistics
+                text_note = 'This feature is not yet available.'
+                session['notes'] = [['info', text_note]]
+                session['has_next'] = False
+                session['next'] = None
+            case 'import':
+                form = self['xep_0004'].make_form('form', 'Import')
+                form['instructions'] = 'Importing feeds'
+                url = form.add_field(var='url',
+                                     ftype='text-single',
+                                     label='URL',
+                                     desc='Enter URL to an OPML file.',
+                                     required=True)
+                url['validate']['datatype'] = 'xs:anyURI'
+                session['allow_complete'] = True
+                session['has_next'] = False
+                session['next'] = self._handle_import_complete
+                session['payload'] = form
+            case 'export':
+                form = self['xep_0004'].make_form('form', 'Export')
+                form['instructions'] = ('To easily import subscriptions from '
+                                        'one News Reader to another, then it '
+                                        'is always recommended to export '
+                                        'subscriptions into OPML file. See '
+                                        'About -> Software for a list of '
+                                        'News Readers offered for desktop and '
+                                        'mobile devices.')
+                options = form.add_field(var='filetype',
+                                         ftype='list-multi',
+                                         label='Format',
+                                         desc='Choose export format.',
+                                         value='opml',
+                                         required=True)
+                options.addOption('Markdown', 'md')
+                options.addOption('OPML', 'opml')
+                # options.addOption('HTML', 'html')
+                # options.addOption('XBEL', 'xbel')
+                session['allow_complete'] = True
+                session['has_next'] = False
+                session['next'] = self._handle_export_complete
+                session['payload'] = form
+        session['allow_prev'] = True
+        session['prev'] = self._handle_advanced
+        return session
+
+
+    async def _handle_about(self, iq, session):
+        form = self['xep_0004'].make_form('form', 'About')
+        form['instructions'] = 'Information about Slixfeed and related projects'
+        options = form.add_field(var='option',
+                                 ftype='list-single',
+                                 label='About',
+                                 required=True)
+        options.addOption('Slixfeed', 'about')
+        options.addOption('RSS Task Force', 'rtf')
+        # options.addOption('Manual', 'manual')
+        options.addOption('Tips', 'tips')
+        options.addOption('Services for syndication', 'services')
+        options.addOption('Software for syndication', 'software')
+        options.addOption('Terms and conditions', 'terms')
+        options.addOption('Privacy policy', 'policy')
+        options.addOption('License', 'license')
+        options.addOption('Authors', 'author')
+        options.addOption('Translators', 'translators')
+        options.addOption('Thanks', 'thanks')
+        session['payload'] = form
+        session['next'] = self._handle_about_result
+        session['has_next'] = True
+        return session
+
+
+    async def _handle_about_result(self, payload, session):
+        match payload['values']['option']:
+            case 'about':
+                title = 'About'
+                subtitle = 'Slixfeed {}\n\n'.format(__version__)
+                content = action.manual('information.toml', 'about')
+                content += ['\nslixmpp\n']
+                content += action.manual('information.toml', 'slixmpp')
+                content += ['\nSleekXMPP\n']
+                content += action.manual('information.toml', 'sleekxmpp')
+                content += ['\nXMPP\n']
+                content += action.manual('information.toml', 'xmpp')
+            case 'rtf':
+                title = 'About'
+                subtitle = 'RSS Task Force'
+                content = action.manual('information.toml', 'rtf')
+            case 'author':
+                title = 'Authors'
+                subtitle = 'The People Who Made This To Happen'
+                content = action.manual('information.toml', 'authors')
+            # case 'manual':
+            #     title = 'Manual'
+            #     subtitle = 'Slixfeed Manual'
+            #     content = action.manual('information.toml', 'manual')
+            case 'license':
+                title = 'License'
+                subtitle = 'Slixfeed Software License'
+                content = action.manual('information.toml', 'license')
+            case 'policy':
+                title = 'Policies'
+                subtitle = 'Privacy Policy'
+                content = action.manual('information.toml', 'privacy')
+            case 'services':
+                title = 'Services'
+                subtitle = ('Below are online services that extend the '
+                            'syndication experience by means of bookmarking '
+                            'and multimedia, and also enhance it by restoring '
+                            'access to news web feeds.')
+                content = action.manual('information.toml', 'services')
+            case 'software':
+                title = 'Software'
+                subtitle = ('Take back control of your news. With free, high-'
+                            'quality, software for your desktop, home and '
+                            'mobile devices.')
+                content = action.manual('information.toml', 'software')
+            case 'terms':
+                title = 'Policies'
+                subtitle = 'Terms and Conditions'
+                content = action.manual('information.toml', 'terms')
+            case 'thanks':
+                title = 'Thanks'
+                subtitle = 'We are XMPP'
+                content = action.manual('information.toml', 'thanks')
+            case 'tips':
+                # Tips and tricks you might have not known about Slixfeed and XMPP!
+                title = 'Help'
+                subtitle = 'Tips & Tricks'
+                content = 'This page is not yet available.'
+            case 'translators':
+                title = 'Translators'
+                subtitle = 'From all across the world'
+                content = action.manual('information.toml', 'translators')
+        form = self['xep_0004'].make_form('result', title)
+        form['instructions'] = subtitle
+        form.add_field(ftype="text-multi",
+                       value=content)
+        # Gajim displays all form['instructions'] on top
+        # Psi ignore the latter form['instructions']
+        # form['instructions'] = 'YOU!\n🫵️\n- Join us -'
+        session['payload'] = form
+        session['allow_complete'] = True
+        session['allow_prev'] = True
         session["has_next"] = False
         session['next'] = None
-        session['payload'] = form
-        return session
-
-
-    async def _handle_privacy(self, iq, session):
-        text = ('Privacy Policy')
-        text += '\n\n'
-        text += ''.join(action.manual('information.toml', 'privacy'))
-        session['notes'] = [['info', text]]
-        return session
-
-
-    async def _handle_schedule(self, iq, session):
-        text = ('Schedule')
-        text += '\n\n'
-        text += 'Set days and hours to receive news.'
-        session['notes'] = [['info', text]]
-        return session
-
-
-    # TODO Exclude feeds that are already in database or requester.
-    # TODO Attempt to look up for feeds of hostname of JID (i.e. scan
-    # jabber.de for feeds for julient@jabber.de)
-    async def _handle_promoted(self, iq, session):
-        url = action.pick_a_feed()
-        form = self['xep_0004'].make_form('form', 'Subscribe')
-        # NOTE Refresh button would be of use
-        form['instructions'] = 'Featured subscriptions'
-        options = form.add_field(var='subscription',
-                                 ftype="list-single",
-                                 label='Subscribe',
-                                 desc='Click to subscribe.',
-                                 value=url['link'])
-        options.addOption(url['name'], url['link'])
-        jid = session['from'].bare
-        if '@' in jid:
-            hostname = jid.split('@')[1]
-            url = 'http://' + hostname
-        result = await crawl.probe_page(url)
-        if not result:
-            url = {'url' : url,
-                    'index' : None,
-                    'name' : None,
-                    'code' : None,
-                    'error' : True,
-                    'exist' : False}
-        elif isinstance(result, list):
-            for url in result:
-                if url['link']: options.addOption('{}\n{}'.format(url['name'], url['link']), url['link'])
-        else:
-            url = result
-            # Automatically set priority to 5 (highest)
-            if url['link']: options.addOption(url['name'], url['link'])
-        session['allow_prev'] = True
-        session['has_next'] = False
-        session['next'] = self._handle_subscription_new
-        session['payload'] = form
-        session['prev'] = self._handle_promoted
+        # session['payload'] = None # Crash Cheogram
+        session['prev'] = self._handle_about
         return session
 
 
     async def _handle_motd(self, iq, session):
         # TODO add functionality to attach image.
-        text = ('Here you can add groupchat rules,post schedule, tasks or '
-                'anything elaborated you might deem fit. Good luck!')
-        session['notes'] = [['info', text]]
-        return session
-
-
-    async def _handle_totd(self, iq, session):
-        text = ('Tips and tricks you might have not known about Slixfeed and XMPP!')
-        session['notes'] = [['info', text]]
-        return session
-
-
-    async def _handle_credit(self, iq, session):
-        wrjx = action.manual('information.toml', 'thanks')
-        form = self['xep_0004'].make_form('result', 'Credits')
-        form['instructions'] = "We are XMPP"
-        form.add_field(ftype="text-multi",
-                       value=wrjx)
-
-        # Gajim displays all form['instructions'] on top
-        # Psi ignore the latter form['instructions']
-        # form['instructions'] = 'YOU!\n🫵️\n- Join us -'
-
-        session['payload'] = form
+        # Here you can add groupchat rules,post schedule, tasks or
+        # anything elaborated you might deem fit. Good luck!
+        text_note = 'This feature is not yet available.'
+        session['notes'] = [['info', text_note]]
         return session
 
 
     async def _handle_help(self, iq, session):
-        filename = 'commands.toml'
         import tomllib
         config_dir = config.get_default_config_directory()
-        with open(config_dir + '/' + filename, mode="rb") as commands:
+        with open(config_dir + '/' + 'commands.toml', mode="rb") as commands:
             cmds = tomllib.load(commands)
 
         form = self['xep_0004'].make_form('result', 'Manual')
@@ -1212,83 +1621,241 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         return session
 
 
-    async def _handle_subscribers(self, iq, session):
-        jid = session['from'].bare
-        if jid == config.get_value('accounts', 'XMPP', 'operator'):
-            form = self['xep_0004'].make_form('form', 'Subscribers')
-            form['instructions'] = 'Committing subscriber action'
-            options = form.add_field(var='jid',
-                                     ftype='list-single',
-                                     label='Jabber ID',
-                                     desc='Select a contact.',
-                                     required=True)
-            contacts = await XmppRoster.get_contacts(self)
-            for contact in contacts:
-                contact_name = contacts[contact]['name']
-                contact_name = contact_name if contact_name else contact
-                options.addOption(contact_name, contact)
-            options = form.add_field(var='action',
-                                     ftype='list-single',
-                                     label='Action',
-                                     value='message')
-            options.addOption('Resend authorization To', 'to')
-            options.addOption('Request authorization From', 'from')
-            options.addOption('Send message', 'message')
-            options.addOption('Remove', 'remove')
-            form.add_field(var='message',
-                           ftype='text-multi',
-                           label='Message',
-                           desc='Add a descriptive message.')
-            session['payload'] = form
-            session['next'] = self._handle_subscribers_complete
-            session['has_next'] = True
+    async def _handle_import_complete(self, payload, session):
+        form = payload
+        url = payload['values']['url']
+        if url.startswith('http') and url.endswith('.opml'):
+            jid = session['from'].bare
+            jid_file = jid.replace('/', '_')
+            db_file = config.get_pathname_to_database(jid_file)
+            count = await action.import_opml(db_file, url)
+            try:
+                int(count)
+                # form = self['xep_0004'].make_form('result', 'Done')
+                # form['instructions'] = ('✅️ Feeds have been imported')
+                form['title'] = 'Done'
+                form['instructions'] = ('has been completed!')
+                message = '{} feeds have been imported.'.format(count)
+                form.add_field(var='Message',
+                               ftype='text-single',
+                               value=message)
+                session['payload'] = form
+            except:
+                session['payload'] = None
+                text_error = ('Import failed. Filetype does not appear to be '
+                              'an OPML file.')
+                session['notes'] = [['error', text_error]]
         else:
-            logging.warning('An unauthorized attempt to access bookmarks has '
-                            'been detected!\n'
-                            'Details:\n'
-                            '   Jabber ID: {}\n'
-                            '   Timestamp: {}\n'
-                            .format(jid, timestamp()))
-            session['notes'] = [['warn', 'This resource is restricted.']]
+            session['payload'] = None
+            text_error = 'Import aborted. Send URL of OPML file.'
+            session['notes'] = [['error', text_error]]
+        session["has_next"] = False
+        session['next'] = None
         return session
 
 
-    async def _handle_subscribers_complete(self, iq, session):
-        pass
-
-
-    async def _handle_contacts(self, iq, session):
+    async def _handle_export_complete(self, payload, session):
+        form = payload
         jid = session['from'].bare
-        if jid == config.get_value('accounts', 'XMPP', 'operator'):
-            form = self['xep_0004'].make_form('form', 'Contacts')
-            form['instructions'] = 'Organize contacts'
-            options = form.add_field(var='jid',
-                                     ftype='list-single',
-                                     label='Contact',
-                                     desc='Select a contact.',
-                                     required=True)
-            contacts = await XmppRoster.get_contacts(self)
-            for contact in contacts:
-                contact_name = contacts[contact]['name']
-                contact_name = contact_name if contact_name else contact
-                options.addOption(contact_name, contact)
-            options = form.add_field(var='action',
-                                     ftype='list-single',
-                                     label='Action',
-                                     value='view')
-            options.addOption('Display', 'view')
-            options.addOption('Edit', 'edit')
-            session['payload'] = form
-            session['next'] = self._handle_contact_action
-            session['has_next'] = True
+        jid_file = jid.replace('/', '_')
+        # form = self['xep_0004'].make_form('result', 'Done')
+        # form['instructions'] = ('✅️ Feeds have been exported')
+        exts = payload['values']['filetype']
+        for ext in exts:
+            filename = await action.export_feeds(self, jid, jid_file, ext)
+            url = await XmppUpload.start(self, jid, filename)
+            url_field = form.add_field(var=ext.upper(),
+                                       ftype='text-single',
+                                       label=ext,
+                                       value=url)
+            url_field['validate']['datatype'] = 'xs:anyURI'
+        form['type'] = 'result'
+        form['title'] = 'Done'
+        form['instructions'] = ('Completed successfully!')
+        session["has_next"] = False
+        session['next'] = None
+        session['payload'] = form
+        return session
+
+
+    # TODO Exclude feeds that are already in database or requester.
+    # TODO Attempt to look up for feeds of hostname of JID (i.e. scan
+    # jabber.de for feeds for juliet@jabber.de)
+    async def _handle_promoted(self, iq, session):
+        
+        form = self['xep_0004'].make_form('form', 'Subscribe')
+        # NOTE Refresh button would be of use
+        form['instructions'] = 'Featured subscriptions'
+        url = action.pick_a_feed()
+        # options = form.add_field(var='choice',
+        #                          ftype="boolean",
+        #                          label='Subscribe to {}?'.format(url['name']),
+        #                          desc='Click to subscribe.')
+        # form.add_field(var='subscription',
+        #                 ftype='hidden',
+        #                 value=url['link'])
+        options = form.add_field(var='subscription',
+                                  ftype="list-single",
+                                  label='Subscribe',
+                                  desc='Click to subscribe.')
+        for i in range(10):
+            url = action.pick_a_feed()
+            options.addOption(url['name'], url['link'])
+        jid = session['from'].bare
+        if '@' in jid:
+            hostname = jid.split('@')[1]
+            url = 'http://' + hostname
+        result = await crawl.probe_page(url)
+        if not result:
+            url = {'url' : url,
+                    'index' : None,
+                    'name' : None,
+                    'code' : None,
+                    'error' : True,
+                    'exist' : False}
+        elif isinstance(result, list):
+            for url in result:
+                if url['link']: options.addOption('{}\n{}'.format(url['name'], url['link']), url['link'])
         else:
-            logging.warning('An unauthorized attempt to access bookmarks has '
-                            'been detected!\n'
-                            'Details:\n'
-                            '   Jabber ID: {}\n'
-                            '   Timestamp: {}\n'
-                            .format(jid, timestamp()))
-            session['notes'] = [['warn', 'This resource is restricted.']]
+            url = result
+            # Automatically set priority to 5 (highest)
+            if url['link']: options.addOption(url['name'], url['link'])
+        session['allow_complete'] = False
+        session['allow_prev'] = True
+        # singpolyma: Don't use complete action if there may be more steps
+        # https://gitgud.io/sjehuda/slixfeed/-/merge_requests/13
+        # Gajim: On next form Gajim offers no button other than "Commands".
+        # Psi: Psi closes the dialog.
+        # Conclusion, change session['has_next'] from False to True
+        # session['has_next'] = False
+        session['has_next'] = True
+        session['next'] = self._handle_subscription_new
+        session['payload'] = form
+        session['prev'] = self._handle_promoted
+        return session
+
+
+    async def _handle_admin_action(self, payload, session):
+        jid = session['from'].bare
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        subscriptions = await sqlite.get_feeds(db_file)
+        subscriptions = sorted(subscriptions, key=lambda x: x[0])
+        form = self['xep_0004'].make_form('form', 'Subscriptions')
+        match payload['values']['action']:
+            case 'bookmarks':
+                form = self['xep_0004'].make_form('form', 'Bookmarks')
+                form['instructions'] = 'Bookmarks'
+                options = form.add_field(var='jid',
+                                         ftype='list-single',
+                                         label='Jabber ID',
+                                         desc='Select a bookmark to edit.',
+                                         required=True)
+                conferences = await XmppBookmark.get(self)
+                for conference in conferences:
+                    options.addOption(conference['name'], conference['jid'])
+                session['has_next'] = True
+                session['next'] = self._handle_bookmarks_editor
+            case 'roster':
+                form = self['xep_0004'].make_form('form', 'Contacts')
+                form['instructions'] = 'Organize contacts'
+                options = form.add_field(var='jid',
+                                         ftype='list-single',
+                                         label='Contact',
+                                         desc='Select a contact.',
+                                         required=True)
+                contacts = await XmppRoster.get_contacts(self)
+                for contact in contacts:
+                    contact_name = contacts[contact]['name']
+                    contact_name = contact_name if contact_name else contact
+                    options.addOption(contact_name, contact)
+                options = form.add_field(var='action',
+                                         ftype='list-single',
+                                         label='Action',
+                                         required=True)
+                options.addOption('Display', 'view')
+                options.addOption('Edit', 'edit')
+                session['has_next'] = True
+                session['next'] = self._handle_contact_action
+            case 'subscribers':
+                form = self['xep_0004'].make_form('form', 'Subscribers')
+                form['instructions'] = 'Committing subscriber action'
+                options = form.add_field(var='action',
+                                         ftype='list-single',
+                                         label='Action',
+                                         value='message',
+                                         required=True)
+                options.addOption('Request authorization From', 'from')
+                options.addOption('Resend authorization To', 'to')
+                options.addOption('Send message', 'message')
+                options.addOption('Remove', 'remove')
+                options = form.add_field(var='jid',
+                                         ftype='list-single',
+                                         label='Jabber ID',
+                                         desc='Select a contact.',
+                                         required=True)
+                contacts = await XmppRoster.get_contacts(self)
+                for contact in contacts:
+                    contact_name = contacts[contact]['name']
+                    contact_name = contact_name if contact_name else contact
+                    options.addOption(contact_name, contact)
+                form.add_field(var='subject',
+                               ftype='text-single',
+                               label='Subject')
+                form.add_field(var='message',
+                               ftype='text-multi',
+                               label='Message',
+                               desc='Add a descriptive message.')
+                session['allow_complete'] = True
+                session['has_next'] = False
+                session['next'] = self._handle_subscribers_complete
+        session['allow_prev'] = True
+        session['payload'] = form
+        session['prev'] = self._handle_advanced
+        return session
+
+
+    async def _handle_subscribers_complete(self, payload, session):
+        values = payload['values']
+        jid = values['jid']
+        value_subject = values['subject']
+        message_subject = value_subject if value_subject else None
+        value_message = values['message']
+        message_body = value_message if value_message else None
+        match values['action']:
+            case 'from':
+                XmppPresence.subscription(self, jid, 'subscribe')
+                if not message_subject:
+                    message_subject = 'System Message'
+                if not message_body:
+                    message_body = ('This user wants to subscribe to your presence'
+                                    '. Click the button labelled "Add/Auth" to '
+                                    'authorize the subscription. This will also '
+                                    'add the person to your contact list if it is '
+                                    'not already there.')
+            case 'remove':
+                XmppRoster.remove(self, jid)
+                if not message_subject:
+                    message_subject = 'System Message'
+                if not message_body:
+                    message_body = 'Your authorization has been removed!'
+            case 'to':
+                XmppPresence.subscription(self, jid, 'subscribed')
+                if not message_subject:
+                    message_subject = 'System Message'
+                if not message_body:
+                    message_body = 'Your authorization has been approved!'
+        if message_subject:
+            XmppMessage.send_headline(self, jid, message_subject, message_body,
+                                      'chat')
+        elif message_body:
+            XmppMessage.send(self, jid, message_body, 'chat')
+        form = payload
+        form['title'] = 'Done'
+        form['instructions'] = ('has been completed!')
+        # session["has_next"] = False
+        session['next'] = None
+        session['payload'] = form
         return session
 
 
@@ -1361,9 +1928,10 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         name = values['name']
         name_old = XmppRoster.get_contact_name(self, jid)
         if name == name_old:
+            message = ('No action has been taken.  Reason: New '
+                       'name is identical to the current one.')
             session['payload'] = None
-            session['notes'] = [['info', 'No action has been taken.  Reason: '
-                                 'New name is identical to the current one.']]
+            session['notes'] = [['info', message]]
         else:
             XmppRoster.set_contact_name(self, jid, name)
             form = payload
@@ -1371,33 +1939,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             form['instructions'] = ('has been completed!')
             session['payload'] = form
         session['next'] = None
-        return session
-
-
-    async def _handle_bookmarks(self, iq, session):
-        jid = session['from'].bare
-        if jid == config.get_value('accounts', 'XMPP', 'operator'):
-            form = self['xep_0004'].make_form('form', 'Bookmarks')
-            form['instructions'] = 'Bookmarks'
-            options = form.add_field(var='jid',
-                                     ftype='list-single',
-                                     label='Jabber ID',
-                                     desc='Select a bookmark to edit.',
-                                     required=True)
-            conferences = await XmppBookmark.get(self)
-            for conference in conferences:
-                options.addOption(conference['name'], conference['jid'])
-            session['payload'] = form
-            session['next'] = self._handle_bookmarks_editor
-            session['has_next'] = True
-        else:
-            logging.warning('An unauthorized attempt to access bookmarks has '
-                            'been detected!\n'
-                            'Details:\n'
-                            '   Jabber ID: {}\n'
-                            '   Timestamp: {}\n'
-                            .format(jid, timestamp()))
-            session['notes'] = [['warn', 'This resource is restricted.']]
         return session
 
 
@@ -1454,9 +1995,11 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # options.addOption('Join', 'join')
         # options.addOption('Remove', 'remove')
         session['allow_complete'] = True
+        session['allow_prev'] = True
         session['has_next'] = False
         session['next'] = self._handle_bookmarks_complete
         session['payload'] = form
+        session['prev'] = self._handle_admin_action
         return session
 
 
@@ -1595,49 +2138,62 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
     async def _handle_settings_complete(self, payload, session):
         jid = session['from'].bare
         form = payload
-        # jid_file = jid
-        # db_file = config.get_pathname_to_database(jid_file)
-        # # In this case (as is typical), the payload is a form
-        # values = payload['values']
-        # for value in values:
-        #     key = value
-        #     val = values[value]
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+        # In this case (as is typical), the payload is a form
+        values = payload['values']
+        for value in values:
+            key = value
+            val = values[value]
 
-        #     if key == 'interval':
-        #         val = int(val)
-        #         if val < 1: val = 1
-        #         val = val * 60
+            if key == 'interval':
+                val = int(val)
+                if val < 1: val = 1
+                val = val * 60
 
-        #     if sqlite.is_setting_key(db_file, key):
-        #         await sqlite.update_setting_value(db_file, [key, val])
-        #     else:
-        #         await sqlite.set_setting_value(db_file, [key, val])
+            await config.set_setting_value(db_file, key, val)
 
-        #     val = sqlite.get_setting_value(db_file, key)
-        #     val = val[0]
-        #     if key in ('enabled', 'media', 'old'):
-        #         if val == '1':
-        #             val = 'Yes'
-        #         elif val == '0':
-        #             val = 'No'
+            val = sqlite.get_setting_value(db_file, key)
+            val = val[0]
+            if key == 'enabled':
+                if val == 1:
+                    status_type = 'available'
+                    status_message = '📫️ Welcome back!'
+                    XmppPresence.send(self, jid, status_message,
+                                      status_type=status_type)
+                    await asyncio.sleep(5)
+                    await task.start_tasks_xmpp(self, jid, ['check', 'status',
+                                                            'interval'])
+                else:
+                    task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
+                    status_type = 'xa'
+                    status_message = '📪️ Send "Start" to receive Jabber updates'
+                    XmppPresence.send(self, jid, status_message,
+                                      status_type=status_type)
 
-        #     if key == 'interval':
-        #         val = int(val)
-        #         val = val/60
-        #         val = int(val)
-        #         val = str(val)
+            if key in ('enabled', 'media', 'old'):
+                if val == '1':
+                    val = 'Yes'
+                elif val == '0':
+                    val = 'No'
 
-        #     # match value:
-        #     #     case 'enabled':
-        #     #         pass
-        #     #     case 'interval':
-        #     #         pass
+            if key == 'interval':
+                val = int(val)
+                val = val/60
+                val = int(val)
+                val = str(val)
 
-        #     result = '{}: {}'.format(key.capitalize(), val)
+            # match value:
+            #     case 'enabled':
+            #         pass
+            #     case 'interval':
+            #         pass
 
-        #     form.add_field(var=key,
-        #                     ftype='fixed',
-        #                     value=result)
+            # result = '{}: {}'.format(key.capitalize(), val)
+
+            # form.add_field(var=key,
+            #                 ftype='fixed',
+            #                 value=result)
         form['title'] = 'Done'
         form['instructions'] = 'has been completed!'
         session['next'] = None

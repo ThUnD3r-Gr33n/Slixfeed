@@ -1882,6 +1882,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         # session["has_next"] = False
         session['next'] = None
         session['payload'] = form
+        return session
 
 
     async def _handle_contact_action(self, payload, session):

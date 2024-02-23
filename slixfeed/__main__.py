@@ -195,7 +195,11 @@ def main():
     #     # socket.socket = socks.socksocket
 
     # Setup the command line arguments.
-    parser = ArgumentParser(description=Slixfeed.__doc__)
+    match xmpp_type:
+        case 'client':
+            parser = ArgumentParser(description=Slixfeed.__doc__)
+        case 'component':
+            parser = ArgumentParser(description=SlixfeedComponent.__doc__)
 
     parser.add_argument('-v', '--version', help='Print version',
                         action='version', version=__version__)
