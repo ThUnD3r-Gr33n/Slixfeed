@@ -27,9 +27,6 @@ TODO
 6) Logging;
    https://docs.python.org/3/howto/logging.html
 
-9) Readability
-    See project /buriy/python-readability
-
 9.1) IDEA: Bot to display Title and Excerpt
      (including sending a PDF version of it) of posted link
 
@@ -116,7 +113,10 @@ class JabberComponent:
         xmpp.register_plugin('xep_0122') # Data Forms Validation
         xmpp.register_plugin('xep_0153') # vCard-Based Avatars
         xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
+        xmpp.register_plugin('xep_0203') # Delayed Delivery
         xmpp.register_plugin('xep_0249') # Direct MUC Invitations
+        xmpp.register_plugin('xep_0297') # Stanza Forwarding
+        xmpp.register_plugin('xep_0356') # Privileged Entity
         xmpp.register_plugin('xep_0363') # HTTP File Upload
         xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
         xmpp.register_plugin('xep_0444') # Message Reactions
@@ -143,7 +143,10 @@ class JabberClient:
         xmpp.register_plugin('xep_0122') # Data Forms Validation
         xmpp.register_plugin('xep_0153') # vCard-Based Avatars
         xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
+        xmpp.register_plugin('xep_0203') # Delayed Delivery
         xmpp.register_plugin('xep_0249') # Direct MUC Invitations
+        xmpp.register_plugin('xep_0297') # Stanza Forwarding
+        xmpp.register_plugin('xep_0356') # Privileged Entity
         xmpp.register_plugin('xep_0363') # HTTP File Upload
         xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
         xmpp.register_plugin('xep_0444') # Message Reactions
