@@ -788,19 +788,13 @@ async def message(self, message):
                 await config.set_setting_value(db_file, key, val)
                 response = 'Only new items of newly added feeds be delivered.'
                 XmppMessage.send_reply(self, message, response)
-            # TODO Will you add support for number of messages?
-            case 'next':
-                # num = message_text[5:]
-                # await task.send_update(self, jid, num)
-
-                await action.xmpp_send_update(self, jid)
-
-                # task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
-                # await task.start_tasks_xmpp(self, jid, ['status', 'interval'])
-
-                # await refresh_task(self, jid, send_update, 'interval', num)
-                # await refresh_task(self, jid, send_status, 'status', 20)
-                # await refresh_task(jid, key, val)
+            case _ if message_lowercase.startswith('next'):
+                num = message_text[5:]
+                if num:
+                    await action.xmpp_send_update(self, jid, num)
+                else:
+                    await action.xmpp_send_update(self, jid)
+                await task.start_tasks_xmpp(self, jid, ['status'])
             case 'old':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
