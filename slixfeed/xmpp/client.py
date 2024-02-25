@@ -621,14 +621,14 @@ class Slixfeed(slixmpp.ClientXMPP):
                            ftype='text-single',
                            label='Allow list',
                            value=value,
-                           desc=('Keywords to allow (comma-separated keywords).'))
+                           desc='Keywords to allow (comma-separated keywords).')
             value = sqlite.get_filter_value(db_file, 'deny')
             if value: value = str(value[0])
             form.add_field(var='deny',
                            ftype='text-single',
                            label='Deny list',
                            value=value,
-                           desc=('Keywords to deny (comma-separated keywords).'))
+                           desc='Keywords to deny (comma-separated keywords).')
             session['allow_complete'] = True
             session['has_next'] = False
             session['next'] = self._handle_filters_complete
@@ -1366,9 +1366,14 @@ class Slixfeed(slixmpp.ClientXMPP):
                 feed_id = feed_id[0]
                 title = sqlite.get_feed_title(db_file, feed_id)
                 title = title[0]
+                tags_result = sqlite.get_tags_by_feed_id(db_file, feed_id)
+                tags_sorted = sorted(x[0] for x in tags_result)
+                tags = ', '.join(tags_sorted)
                 form['instructions'] = 'Editing subscription #{}'.format(feed_id)
             else:
                 form['instructions'] = 'Adding subscription'
+                title = ''
+                tags = ''
             form.add_field(ftype='fixed',
                            value='Properties')
             form.add_field(var='name',
@@ -1391,11 +1396,14 @@ class Slixfeed(slixmpp.ClientXMPP):
                                      label='ID #',
                                      value=feed_id_str)
             options.addOption(feed_id_str, feed_id_str)
-            form.add_field(var='tags',
+            form.add_field(var='tags_new',
                            ftype='text-single',
-                           # ftype='text-multi',
                            label='Tags',
-                           value='')
+                           desc='Comma-separated tags.',
+                           value=tags)
+            form.add_field(var='tags_old',
+                           ftype='hidden',
+                           value=tags)
         form.add_field(ftype='fixed',
                        value='Options')
         options = form.add_field(var='priority',
@@ -1443,8 +1451,32 @@ class Slixfeed(slixmpp.ClientXMPP):
         await sqlite.set_enabled_status(db_file, feed_id, enabled_status)
         name = values['name']
         await sqlite.set_feed_title(db_file, feed_id, name)
-        values['priority']
-        values['tags']
+        priority = values['priority']
+        tags_new = values['tags_new']
+        tags_old = values['tags_old']
+        # Add new tags
+        for tag in tags_new.split(','):
+            tag = tag.strip()
+            if not tag:
+                continue
+            tag_id = sqlite.get_tag_id(db_file, tag)
+            if not tag_id:
+                await sqlite.set_new_tag(db_file, tag)
+                tag_id = sqlite.get_tag_id(db_file, tag)
+            tag_id = tag_id[0]
+            if not sqlite.is_tag_id_of_feed_id(db_file, tag_id, feed_id):
+                await sqlite.set_feed_id_and_tag_id(db_file, feed_id, tag_id)
+        # Remove tags that were not submitted
+        for tag in tags_old[0].split(','):
+            tag = tag.strip()
+            if not tag:
+                continue
+            if tag not in tags_new:
+                tag_id = sqlite.get_tag_id(db_file, tag)
+                tag_id = tag_id[0]
+                await sqlite.delete_feed_id_tag_id(db_file, feed_id, tag_id)
+                sqlite.is_tag_id_associated(db_file, tag_id)
+                await sqlite.delete_tag_by_index(db_file, tag_id)
         # form = self['xep_0004'].make_form('form', 'Subscription')
         # form['instructions'] = ('📁️ Subscription #{} has been {}'
         #                         .format(feed_id, action))

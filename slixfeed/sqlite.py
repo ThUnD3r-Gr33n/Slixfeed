@@ -211,6 +211,22 @@ def create_tables(db_file):
               );
             """
             )
+        feeds_tags_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS feeds_tags (
+                id INTEGER NOT NULL,
+                feed_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                FOREIGN KEY ("tag_id") REFERENCES "tags" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
         # TODO
         # Consider parameter unique:
         # entry_id TEXT NOT NULL UNIQUE,
@@ -246,6 +262,15 @@ def create_tables(db_file):
               );
             """
             )
+        tags_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS tags (
+                id INTEGER NOT NULL,
+                tag TEXT NOT NULL UNIQUE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
         cur = conn.cursor()
         # cur = get_cursor(db_file)
         cur.execute(archive_table_sql)
@@ -254,10 +279,12 @@ def create_tables(db_file):
         cur.execute(feeds_state_table_sql)
         cur.execute(feeds_properties_table_sql)
         cur.execute(feeds_rules_table_sql)
+        cur.execute(feeds_tags_table_sql)
         cur.execute(filters_table_sql)
         # cur.execute(statistics_table_sql)
         cur.execute(settings_table_sql)
         cur.execute(status_table_sql)
+        cur.execute(tags_table_sql)
 
 
 def get_cursor(db_file):
@@ -598,11 +625,237 @@ async def remove_feed_by_index(db_file, ix):
             # cur.execute(sql, par)
             sql = (
                 """
-                DELETE FROM feeds
+                DELETE
+                FROM feeds
                 WHERE id = ?
                 """
                 )
             par = (ix,)
+            cur.execute(sql, par)
+
+
+def get_tags_by_feed_id(db_file, feed_id):
+    """
+    Get tags of given feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Feed ID.
+
+    Returns
+    -------
+    result : list
+        List of tags.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT tags.tag
+            FROM tags
+            INNER JOIN feeds_tags ON tags.id = feeds_tags.tag_id
+            INNER JOIN feeds ON feeds.id = feeds_tags.feed_id
+            WHERE feeds.id = ?;
+            """
+            )
+        par = (feed_id,)
+        result = cur.execute(sql, par).fetchall()
+        return result
+
+
+async def set_feed_id_and_tag_id(db_file, feed_id, tag_id):
+    """
+    Set Feed ID and Tag ID.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Feed ID
+    tag_id : str
+        Tag ID
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                INSERT
+                INTO feeds_tags(
+                    feed_id, tag_id)
+                VALUES(
+                    :feed_id, :tag_id)
+                """
+                )
+            par = {
+                "feed_id": feed_id,
+                "tag_id": tag_id
+                }
+            cur.execute(sql, par)
+
+
+def get_tag_id(db_file, tag):
+    """
+    Get ID of given tag. Check whether tag exist.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    tag : str
+        Tag.
+
+    Returns
+    -------
+    ix : str
+        Tag ID.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT id
+            FROM tags
+            WHERE tag = ?
+            """
+            )
+        par = (tag,)
+        ix = cur.execute(sql, par).fetchone()
+    return ix
+
+
+def is_tag_id_associated(db_file, tag_id):
+    """
+    Check whether tag_id is associated with any feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    tag_id : str
+        Tag ID.
+
+    Returns
+    -------
+    tag_id : str
+        Tag ID.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT tag_id
+            FROM feeds_tags
+            WHERE tag_id = :tag_id
+            """
+            )
+        par = {
+            "tag_id": tag_id
+            }
+        tag_id = cur.execute(sql, par).fetchone()
+    return tag_id
+
+
+async def delete_tag_by_index(db_file, ix):
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                DELETE
+                FROM tags
+                WHERE id = :id
+                """
+                )
+            par = {
+                "id": ix
+                }
+            cur.execute(sql, par)
+
+
+def is_tag_id_of_feed_id(db_file, tag_id, feed_id):
+    """
+    Check whether given tag is related with given feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Feed ID.
+    tag_id : str
+        Tag ID.
+
+    Returns
+    -------
+    tag_id : str
+        Tag ID.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT tag_id
+            FROM feeds_tags
+            WHERE tag_id = :tag_id AND feed_id = :feed_id
+            """
+            )
+        par = {
+            "tag_id": tag_id,
+            "feed_id": feed_id
+            }
+        tag_id = cur.execute(sql, par).fetchone()
+    return tag_id
+
+
+async def delete_feed_id_tag_id(db_file, feed_id, tag_id):
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                DELETE
+                FROM feeds_tags
+                WHERE tag_id = :tag_id AND feed_id = :feed_id
+                """
+                )
+            par = {
+                "tag_id": tag_id,
+                "feed_id": feed_id
+                }
+            cur.execute(sql, par)
+
+
+async def set_new_tag(db_file, tag):
+    """
+    Set new Tag
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    tag : str
+        Tag
+    """
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                INSERT
+                INTO tags(
+                    tag)
+                VALUES(
+                    :tag)
+                """
+                )
+            par = {
+                "tag": tag
+                }
             cur.execute(sql, par)
 
 
@@ -1112,7 +1365,8 @@ async def delete_archived_entry(cur, ix):
     """
     sql = (
         """
-        DELETE FROM archive
+        DELETE
+        FROM archive
         WHERE id = ?
         """
         )
@@ -1469,7 +1723,8 @@ async def maintain_archive(db_file, limit):
             if difference > 0:
                 sql = (
                     """
-                    DELETE FROM archive
+                    DELETE
+                    FROM archive
                     WHERE id
                     IN (
                         SELECT id

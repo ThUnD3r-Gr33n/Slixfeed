@@ -39,7 +39,7 @@ from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.upload import XmppUpload
-from slixfeed.xmpp.utility import get_chat_type
+from slixfeed.xmpp.utility import get_chat_type, is_moderator
 import time
 
 
@@ -81,9 +81,7 @@ async def message(self, message):
             if (message['muc']['nick'] == self.alias):
                 return
             jid_full = str(message['from'])
-            alias = jid_full[jid_full.index('/')+1:]
-            role = self.plugin['xep_0045'].get_jid_property(jid, alias, 'role')
-            if role != 'moderator':
+            if not is_moderator(self, jid, jid_full):
                 return
 
         # NOTE This is an exceptional case in which we treat
@@ -132,9 +130,7 @@ async def message(self, message):
             #             return
             # approved = False
             jid_full = str(message['from'])
-            role = self.plugin['xep_0045'].get_jid_property(
-                jid, jid_full[jid_full.index('/')+1:], 'role')
-            if role != 'moderator':
+            if not is_moderator(self, jid, jid_full):
                 return
             # if role == 'moderator':
             #     approved = True
