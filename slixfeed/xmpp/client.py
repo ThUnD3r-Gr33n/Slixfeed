@@ -1862,6 +1862,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                                        label=ext,
                                        value=url)
             url_field['validate']['datatype'] = 'xs:anyURI'
+            chat_type = await get_chat_type(self, jid)
+            XmppMessage.send_oob(self, jid, url, chat_type)
         form['type'] = 'result'
         form['title'] = 'Done'
         form['instructions'] = ('Completed successfully!')
