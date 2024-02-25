@@ -55,12 +55,13 @@ async def set_avatar(self):
         config_dir.pop()
         config_dir = '/'.join(config_dir)
         filename = glob.glob(config_dir + '/assets/image.*')
-    filename = filename[0]
-    image_file = os.path.join(config_dir, filename)
-    with open(image_file, 'rb') as avatar_file:
-        avatar = avatar_file.read()
-        # await self.plugin['xep_0084'].publish_avatar(avatar)
-        await self.plugin['xep_0153'].set_avatar(avatar=avatar)
+    if len(filename):
+        filename = filename[0]
+        image_file = os.path.join(config_dir, filename)
+        with open(image_file, 'rb') as avatar_file:
+            avatar = avatar_file.read()
+            # await self.plugin['xep_0084'].publish_avatar(avatar)
+            await self.plugin['xep_0153'].set_avatar(avatar=avatar)
 
 
 def set_identity(self, category):

@@ -81,8 +81,8 @@ async def message(self, message):
             if (message['muc']['nick'] == self.alias):
                 return
             jid_full = str(message['from'])
-            role = self.plugin['xep_0045'].get_jid_property(
-                jid, jid_full[jid_full.index('/')+1:], 'role')
+            alias = jid_full[jid_full.index('/')+1:]
+            role = self.plugin['xep_0045'].get_jid_property(jid, alias, 'role')
             if role != 'moderator':
                 return
 

@@ -158,6 +158,24 @@ def create_tables(db_file):
               );
             """
             )
+        feeds_rules_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS feeds_rules (
+                id INTEGER NOT NULL,
+                feed_id INTEGER NOT NULL UNIQUE,
+                type TEXT NOT NULL,
+                base TEXT NOT NULL,
+                title TEXT NOT NULL,
+                link TEXT NOT NULL,
+                enclosure TEXT,
+                summary TEXT,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY (id)
+              );
+            """
+            )
         feeds_state_table_sql = (
             """
             CREATE TABLE IF NOT EXISTS feeds_state (
@@ -235,6 +253,7 @@ def create_tables(db_file):
         cur.execute(feeds_table_sql)
         cur.execute(feeds_state_table_sql)
         cur.execute(feeds_properties_table_sql)
+        cur.execute(feeds_rules_table_sql)
         cur.execute(filters_table_sql)
         # cur.execute(statistics_table_sql)
         cur.execute(settings_table_sql)

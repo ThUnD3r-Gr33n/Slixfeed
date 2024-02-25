@@ -29,10 +29,12 @@ keywords = [
     "chat",
     "im",
     "jabber",
+    "json",
     "news",
     "rdf",
     "rss",
     "syndication",
+    "xml",
     "xmpp",
 ]
 # urls = {Homepage = "https://gitgud.io/sjehuda/slixfeed"}
@@ -43,6 +45,7 @@ dependencies = [
     "bs4",
     "feedparser",
     "lxml",
+    "tomli", # Python 3.10
     "tomli_w",
     "slixmpp",
 
@@ -50,7 +53,7 @@ dependencies = [
     # listed here (testing)
     "html2text",
     "pdfkit",
-    "pysocks",
+    # "pysocks",
     "readability-lxml",
     "xml2epub",
 ]

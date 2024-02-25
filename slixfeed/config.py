@@ -32,7 +32,10 @@ import os
 import slixfeed.sqlite as sqlite
 import sys
 import tomli_w
-import tomllib
+try:
+    import tomllib
+except:
+    import tomli as tomllib
 
 
 async def set_setting_value(db_file, key, val):
@@ -140,6 +143,7 @@ def clear_values(input):
         return ''
 
 
+# TODO Return dict instead of list
 def get_value(filename, section, keys):
     """
     Get setting value.

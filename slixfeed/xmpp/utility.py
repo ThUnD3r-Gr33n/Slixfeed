@@ -7,9 +7,19 @@ import logging
 # class XmppChat
 # class XmppUtility:
 
+def is_moderator(self, jid, jid_full):
+    alias = jid_full[jid_full.index('/')+1:]
+    role = self.plugin['xep_0045'].get_jid_property(jid, alias, 'role')
+    if role == 'moderator':
+        return True
+    else:
+        return False
+
+
+# TODO Rename to get_jid_type
 async def get_chat_type(self, jid):
     """
-    Check whether a JID is of MUC.
+    Check chat (i.e. JID) type.
 
     If iqresult["disco_info"]["features"] contains XML namespace
     of 'http://jabber.org/protocol/muc', then it is a 'groupchat'.

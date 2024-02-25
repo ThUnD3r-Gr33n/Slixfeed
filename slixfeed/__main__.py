@@ -87,6 +87,9 @@ import socket
 
 xmpp_type = config.get_value('accounts', 'XMPP', 'type')
 
+if not xmpp_type:
+    raise Exception('Key type is missing from accounts.ini.')
+
 match xmpp_type:
     case 'client':
         from slixfeed.xmpp.client import Slixfeed

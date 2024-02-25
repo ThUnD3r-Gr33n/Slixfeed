@@ -31,12 +31,13 @@ NOTE
 """
 
 import asyncio
+from datetime import datetime
 import logging
 import os
 from random import randrange
 import slixmpp
 import slixfeed.task as task
-from time import sleep
+import time
 
 from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadServiceNotFound
 # from slixmpp.plugins.xep_0402 import BookmarkStorage, Conference
@@ -64,7 +65,7 @@ from slixfeed.xmpp.roster import XmppRoster
 # import slixfeed.xmpp.service as service
 from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.upload import XmppUpload
-from slixfeed.xmpp.utility import get_chat_type
+from slixfeed.xmpp.utility import get_chat_type, is_moderator
 
 main_task = []
 jid_tasker = {}
@@ -505,12 +506,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         self['xep_0050'].add_command(node='advanced',
                                      name='📓 Advanced',
                                      handler=self._handle_advanced)
+        self['xep_0050'].add_command(node='profile',
+                                     name='💼️ Profile',
+                                     handler=self._handle_profile)
         self['xep_0050'].add_command(node='about',
                                      name='📜️ About',
                                      handler=self._handle_about)
-        self['xep_0050'].add_command(node='exploit',
-                                     name='Exploit',
-                                     handler=self._handle_reveal_jid)
         # self['xep_0050'].add_command(node='search',
         #                              name='Search',
         #                              handler=self._handle_search)
@@ -518,35 +519,124 @@ class Slixfeed(slixmpp.ClientXMPP):
     # Special interface
     # http://jabber.org/protocol/commands#actions
 
-    async def _handle_reveal_jid(self, iq, session):
+    async def _handle_profile(self, iq, session):
         jid = session['from'].bare
-        session['notes'] = [['info', jid]]
+        jid_file = jid
+        db_file = config.get_pathname_to_database(jid_file)
+
+        feeds_all = str(await sqlite.get_number_of_items(db_file, 'feeds'))
+        feeds_act = str(await sqlite.get_number_of_feeds_active(db_file))
+        unread = str(await sqlite.get_number_of_entries_unread(db_file))
+        entries = await sqlite.get_number_of_items(db_file, 'entries')
+        archive = await sqlite.get_number_of_items(db_file, 'archive')
+        entries_all = str(entries + archive)
+        key_archive = str(config.get_setting_value(db_file, 'archive'))
+        key_enabled = str(config.get_setting_value(db_file, 'enabled'))
+        key_interval = str(config.get_setting_value(db_file, 'interval'))
+        key_media = str(config.get_setting_value(db_file, 'media'))
+        key_old = str(config.get_setting_value(db_file, 'old'))
+        key_quantum = str(config.get_setting_value(db_file, 'quantum'))
+        update_interval = config.get_setting_value(db_file, 'interval')
+        update_interval = 60 * int(update_interval)
+        last_update_time = float(await sqlite.get_last_update_time(db_file))
+        dt_object = datetime.fromtimestamp(last_update_time)
+        last_update = dt_object.strftime('%H:%M:%S')
+        if int(key_enabled):
+            next_update_time = last_update_time + update_interval
+            dt_object = datetime.fromtimestamp(next_update_time)
+            next_update = dt_object.strftime('%H:%M:%S')
+        else:
+            next_update = 'n/a'
+
+        form = self['xep_0004'].make_form('form', 'Profile')
+        form['instructions'] = ('Displaying information\nJabber ID {}'
+                                .format(jid))
+        form.add_field(ftype='fixed',
+                       value='Data')
+        form.add_field(label='Subscriptions',
+                       ftype='text-single',
+                       value=feeds_all)
+        form.add_field(label='Active subscriptions',
+                       ftype='text-single',
+                       value=feeds_act)
+        form.add_field(label='Items',
+                       ftype='text-single',
+                       value=entries_all)
+        form.add_field(label='Unread',
+                       ftype='text-single',
+                       value=unread)
+        form.add_field(ftype='fixed',
+                       value='Schedule')
+        form.add_field(label='Last update',
+                       ftype='text-single',
+                       value=last_update)
+        form.add_field(label='Next update',
+                       ftype='text-single',
+                       value=next_update)
+        form.add_field(ftype='fixed',
+                       value='Options')
+        form.add_field(label='Archive',
+                       ftype='text-single',
+                       value=key_archive)
+        form.add_field(label='Enabled',
+                       ftype='text-single',
+                       value=key_enabled)
+        form.add_field(label='Interval',
+                       ftype='text-single',
+                       value=key_interval)
+        form.add_field(label='Media',
+                       ftype='text-single',
+                       value=key_media)
+        form.add_field(label='Old',
+                       ftype='text-single',
+                       value=key_old)
+        form.add_field(label='Quantum',
+                       ftype='text-single',
+                       value=key_quantum)
+        session['payload'] = form
+        # text_note = ('Jabber ID: {}'
+        #              '\n'
+        #              'Last update: {}'
+        #              '\n'
+        #              'Next update: {}'
+        #              ''.format(jid, last_update, next_update))
+        # session['notes'] = [['info', text_note]]
         return session
 
     async def _handle_filters(self, iq, session):
         jid = session['from'].bare
-        jid_file = jid
-        db_file = config.get_pathname_to_database(jid_file)
-        form = self['xep_0004'].make_form('form', 'Filters')
-        form['instructions'] = 'Editing filters' # 🪄️ 🛡️
-        value = sqlite.get_filter_value(db_file, 'allow')
-        if value: value = str(value[0])
-        form.add_field(var='allow',
-                       ftype='text-single',
-                       label='Allow list',
-                       value=value,
-                       desc=('Keywords to allow (comma-separated keywords).'))
-        value = sqlite.get_filter_value(db_file, 'deny')
-        if value: value = str(value[0])
-        form.add_field(var='deny',
-                       ftype='text-single',
-                       label='Deny list',
-                       value=value,
-                       desc=('Keywords to deny (comma-separated keywords).'))
-        session['allow_complete'] = True
-        session['has_next'] = False
-        session['next'] = self._handle_filters_complete
-        session['payload'] = form
+        jid_full = str(session['from'])
+        chat_type = await get_chat_type(self, jid)
+        if chat_type == 'groupchat':
+            moderator = is_moderator(self, jid, jid_full)
+        if chat_type == 'chat' or moderator:
+            jid = session['from'].bare
+            jid_file = jid
+            db_file = config.get_pathname_to_database(jid_file)
+            form = self['xep_0004'].make_form('form', 'Filters')
+            form['instructions'] = 'Editing filters' # 🪄️ 🛡️
+            value = sqlite.get_filter_value(db_file, 'allow')
+            if value: value = str(value[0])
+            form.add_field(var='allow',
+                           ftype='text-single',
+                           label='Allow list',
+                           value=value,
+                           desc=('Keywords to allow (comma-separated keywords).'))
+            value = sqlite.get_filter_value(db_file, 'deny')
+            if value: value = str(value[0])
+            form.add_field(var='deny',
+                           ftype='text-single',
+                           label='Deny list',
+                           value=value,
+                           desc=('Keywords to deny (comma-separated keywords).'))
+            session['allow_complete'] = True
+            session['has_next'] = False
+            session['next'] = self._handle_filters_complete
+            session['payload'] = form
+        else:
+            text_warn = ('This resource is restricted to moderators of {}.'
+                         .format(jid))
+            session['notes'] = [['warn', text_warn]]
         return session
 
 
@@ -598,30 +688,40 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_add(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Subscription')
-        form['instructions'] = 'Adding subscription'
-        form.add_field(var='subscription',
-                       # TODO Make it possible to add several subscriptions at once;
-                       #      Similarly to BitTorrent trackers list
-                       # ftype='text-multi',
-                       # label='Subscription URLs',
-                       # desc=('Add subscriptions one time per '
-                       #       'subscription.'),
-                       ftype='text-single',
-                       label='URL',
-                       desc='Enter subscription URL.',
-                       value='http://',
-                       required=True)
-        # form.add_field(var='scan',
-        #                ftype='boolean',
-        #                label='Scan',
-        #                desc='Scan URL for validity (recommended).',
-        #                value=True)
-        session['allow_prev'] = False
-        session['has_next'] = True
-        session['next'] = self._handle_subscription_new
-        session['prev'] = None
-        session['payload'] = form
+        jid = session['from'].bare
+        jid_full = str(session['from'])
+        chat_type = await get_chat_type(self, jid)
+        if chat_type == 'groupchat':
+            moderator = is_moderator(self, jid, jid_full)
+        if chat_type == 'chat' or moderator:
+            form = self['xep_0004'].make_form('form', 'Subscription')
+            form['instructions'] = 'Adding subscription'
+            form.add_field(var='subscription',
+                           # TODO Make it possible to add several subscriptions at once;
+                           #      Similarly to BitTorrent trackers list
+                           # ftype='text-multi',
+                           # label='Subscription URLs',
+                           # desc=('Add subscriptions one time per '
+                           #       'subscription.'),
+                           ftype='text-single',
+                           label='URL',
+                           desc='Enter subscription URL.',
+                           value='http://',
+                           required=True)
+            # form.add_field(var='scan',
+            #                ftype='boolean',
+            #                label='Scan',
+            #                desc='Scan URL for validity (recommended).',
+            #                value=True)
+            session['allow_prev'] = False
+            session['has_next'] = True
+            session['next'] = self._handle_subscription_new
+            session['prev'] = None
+            session['payload'] = form
+        else:
+            text_warn = ('This resource is restricted to moderators of {}.'
+                         .format(jid))
+            session['notes'] = [['warn', text_warn]]
         return session
 
 
@@ -636,7 +736,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         options = form.add_field(var='update',
                                  ftype='list-single',
                                  label='News',
-                                 desc=('Select a news update to read.'),
+                                 desc=('Select a news item to read.'),
                                  required=True)
         for result in results:
             title = result[1]
@@ -770,6 +870,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         # scan = payload['values']['scan']
         url = payload['values']['subscription']
         if isinstance(url, list) and len(url) > 1:
+            url_count = len(url)
             urls = url
             agree_count = 0
             error_count = 0
@@ -785,7 +886,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             form = self['xep_0004'].make_form('form', 'Subscription')
             if agree_count:
                 response = ('Added {} new subscription(s) out of {}'
-                            .format(agree_count, len(url)))
+                            .format(agree_count, url_count))
                 session['notes'] = [['info', response]]
             else:
                 response = ('No new subscription was added. '
@@ -984,21 +1085,32 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
-    def _handle_discover(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Discover & Search')
-        options = form.add_field(var='search_type',
-                                 ftype='list-single',
-                                 label='Browse',
-                                 desc=('Select type of search.'),
-                                 required=True)
-        options.addOption('All', 'all')
-        options.addOption('Categories', 'cat') # Should we write this in a singular form
-        # options.addOption('Tags', 'tag')
-        session['allow_prev'] = False
-        session['has_next'] = True
-        session['next'] = self._handle_discover_type
-        session['payload'] = form
-        session['prev'] = None
+    async def _handle_discover(self, iq, session):
+        jid = session['from'].bare
+        jid_full = str(session['from'])
+        chat_type = await get_chat_type(self, jid)
+        if chat_type == 'groupchat':
+            moderator = is_moderator(self, jid, jid_full)
+        if chat_type == 'chat' or moderator:
+            form = self['xep_0004'].make_form('form', 'Discover & Search')
+            form['instructions'] = 'Discover news subscriptions of all kinds'
+            options = form.add_field(var='search_type',
+                                     ftype='list-single',
+                                     label='Browse',
+                                     desc=('Select type of search.'),
+                                     required=True)
+            options.addOption('All', 'all')
+            options.addOption('Categories', 'cat') # Should we write this in a singular form
+            # options.addOption('Tags', 'tag')
+            session['allow_prev'] = False
+            session['has_next'] = True
+            session['next'] = self._handle_discover_type
+            session['payload'] = form
+            session['prev'] = None
+        else:
+            text_warn = ('This resource is restricted to moderators of {}.'
+                         .format(jid))
+            session['notes'] = [['warn', text_warn]]
         return session
 
 
@@ -1011,6 +1123,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             form = self['xep_0004'].make_form('form', 'Discover & Search')
             match search_type:
                 case 'all':
+                    form['instructions'] = 'Browsing subscriptions'
                     options = form.add_field(var='subscription',
                                              # ftype='list-multi', # TODO To be added soon
                                              ftype='list-single',
@@ -1027,6 +1140,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     # session['allow_complete'] = True
                     session['next'] = self._handle_subscription_new
                 case 'cat':
+                    form['instructions'] = 'Browsing categories'
                     session['next'] = self._handle_discover_category
                     options = form.add_field(var='category',
                                              ftype='list-single',
@@ -1058,6 +1172,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         config_dir = config.get_default_config_directory()
         db_file = config_dir + '/feeds.sqlite'
         form = self['xep_0004'].make_form('form', 'Discover & Search')
+        form['instructions'] = 'Browsing category "{}"'.format(category)
         options = form.add_field(var='subscription',
                                  # ftype='list-multi', # TODO To be added soon
                                  ftype='list-single',
@@ -1078,20 +1193,30 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscriptions(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Contacts')
-        form['instructions'] = 'Managing subscriptions'
-        options = form.add_field(var='action',
-                                 ftype='list-single',
-                                 label='Action',
-                                 desc='Select action type.',
-                                 required=True)
-        options.addOption('Enable subscriptions', 'enable')
-        options.addOption('Disable subscriptions', 'disable')
-        options.addOption('Modify subscriptions', 'edit')
-        options.addOption('Remove subscriptions', 'delete')
-        session['payload'] = form
-        session['next'] = self._handle_subscriptions_result
-        session['has_next'] = True
+        jid = session['from'].bare
+        jid_full = str(session['from'])
+        chat_type = await get_chat_type(self, jid)
+        if chat_type == 'groupchat':
+            moderator = is_moderator(self, jid, jid_full)
+        if chat_type == 'chat' or moderator:
+            form = self['xep_0004'].make_form('form', 'Subscriptions')
+            form['instructions'] = 'Managing subscriptions'
+            options = form.add_field(var='action',
+                                     ftype='list-single',
+                                     label='Action',
+                                     desc='Select action type.',
+                                     required=True)
+            options.addOption('Enable subscriptions', 'enable')
+            options.addOption('Disable subscriptions', 'disable')
+            options.addOption('Modify subscriptions', 'edit')
+            options.addOption('Remove subscriptions', 'delete')
+            session['payload'] = form
+            session['next'] = self._handle_subscriptions_result
+            session['has_next'] = True
+        else:
+            text_warn = ('This resource is restricted to moderators of {}.'
+                         .format(jid))
+            session['notes'] = [['warn', text_warn]]
         return session
 
 
@@ -1372,24 +1497,34 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_advanced(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Advanced Options')
-        form['instructions'] = 'Extended options and information'
-        options = form.add_field(var='option',
-                                 ftype='list-single',
-                                 label='Choose',
-                                 required=True)
-        # options.addOption('Activity', 'activity')
-        # options.addOption('Filters', 'filter')
-        # options.addOption('Statistics', 'statistics')
-        # options.addOption('Scheduler', 'scheduler')
-        options.addOption('Import', 'import')
-        options.addOption('Export', 'export')
         jid = session['from'].bare
-        if jid == config.get_value('accounts', 'XMPP', 'operator'):
-            options.addOption('Administration', 'admin')
-        session['payload'] = form
-        session['next'] = self._handle_advanced_result
-        session['has_next'] = True
+        jid_full = str(session['from'])
+        chat_type = await get_chat_type(self, jid)
+        if chat_type == 'groupchat':
+            moderator = is_moderator(self, jid, jid_full)
+        if chat_type == 'chat' or moderator:
+            form = self['xep_0004'].make_form('form', 'Advanced')
+            form['instructions'] = 'Extended options'
+            options = form.add_field(var='option',
+                                     ftype='list-single',
+                                     label='Choose',
+                                     required=True)
+            # options.addOption('Activity', 'activity')
+            # options.addOption('Filters', 'filter')
+            # options.addOption('Statistics', 'statistics')
+            # options.addOption('Scheduler', 'scheduler')
+            options.addOption('Import', 'import')
+            options.addOption('Export', 'export')
+            jid = session['from'].bare
+            if jid == config.get_value('accounts', 'XMPP', 'operator'):
+                options.addOption('Administration', 'admin')
+            session['payload'] = form
+            session['next'] = self._handle_advanced_result
+            session['has_next'] = True
+        else:
+            text_warn = ('This resource is restricted to moderators of {}.'
+                         .format(jid))
+            session['notes'] = [['warn', text_warn]]
         return session
 
 
@@ -1708,56 +1843,65 @@ class Slixfeed(slixmpp.ClientXMPP):
     # TODO Attempt to look up for feeds of hostname of JID (i.e. scan
     # jabber.de for feeds for juliet@jabber.de)
     async def _handle_promoted(self, iq, session):
-        
-        form = self['xep_0004'].make_form('form', 'Subscribe')
-        # NOTE Refresh button would be of use
-        form['instructions'] = 'Featured subscriptions'
-        url = action.pick_a_feed()
-        # options = form.add_field(var='choice',
-        #                          ftype="boolean",
-        #                          label='Subscribe to {}?'.format(url['name']),
-        #                          desc='Click to subscribe.')
-        # form.add_field(var='subscription',
-        #                 ftype='hidden',
-        #                 value=url['link'])
-        options = form.add_field(var='subscription',
-                                  ftype="list-single",
-                                  label='Subscribe',
-                                  desc='Click to subscribe.')
-        for i in range(10):
-            url = action.pick_a_feed()
-            options.addOption(url['name'], url['link'])
         jid = session['from'].bare
-        if '@' in jid:
-            hostname = jid.split('@')[1]
-            url = 'http://' + hostname
-        result = await crawl.probe_page(url)
-        if not result:
-            url = {'url' : url,
-                    'index' : None,
-                    'name' : None,
-                    'code' : None,
-                    'error' : True,
-                    'exist' : False}
-        elif isinstance(result, list):
-            for url in result:
-                if url['link']: options.addOption('{}\n{}'.format(url['name'], url['link']), url['link'])
+        jid_full = str(session['from'])
+        chat_type = await get_chat_type(self, jid)
+        if chat_type == 'groupchat':
+            moderator = is_moderator(self, jid, jid_full)
+        if chat_type == 'chat' or moderator:
+            form = self['xep_0004'].make_form('form', 'Subscribe')
+            # NOTE Refresh button would be of use
+            form['instructions'] = 'Featured subscriptions'
+            url = action.pick_a_feed()
+            # options = form.add_field(var='choice',
+            #                          ftype="boolean",
+            #                          label='Subscribe to {}?'.format(url['name']),
+            #                          desc='Click to subscribe.')
+            # form.add_field(var='subscription',
+            #                 ftype='hidden',
+            #                 value=url['link'])
+            options = form.add_field(var='subscription',
+                                      ftype="list-single",
+                                      label='Subscribe',
+                                      desc='Click to subscribe.')
+            for i in range(10):
+                url = action.pick_a_feed()
+                options.addOption(url['name'], url['link'])
+            jid = session['from'].bare
+            if '@' in jid:
+                hostname = jid.split('@')[1]
+                url = 'http://' + hostname
+            result = await crawl.probe_page(url)
+            if not result:
+                url = {'url' : url,
+                        'index' : None,
+                        'name' : None,
+                        'code' : None,
+                        'error' : True,
+                        'exist' : False}
+            elif isinstance(result, list):
+                for url in result:
+                    if url['link']: options.addOption('{}\n{}'.format(url['name'], url['link']), url['link'])
+            else:
+                url = result
+                # Automatically set priority to 5 (highest)
+                if url['link']: options.addOption(url['name'], url['link'])
+            session['allow_complete'] = False
+            session['allow_prev'] = True
+            # singpolyma: Don't use complete action if there may be more steps
+            # https://gitgud.io/sjehuda/slixfeed/-/merge_requests/13
+            # Gajim: On next form Gajim offers no button other than "Commands".
+            # Psi: Psi closes the dialog.
+            # Conclusion, change session['has_next'] from False to True
+            # session['has_next'] = False
+            session['has_next'] = True
+            session['next'] = self._handle_subscription_new
+            session['payload'] = form
+            session['prev'] = self._handle_promoted
         else:
-            url = result
-            # Automatically set priority to 5 (highest)
-            if url['link']: options.addOption(url['name'], url['link'])
-        session['allow_complete'] = False
-        session['allow_prev'] = True
-        # singpolyma: Don't use complete action if there may be more steps
-        # https://gitgud.io/sjehuda/slixfeed/-/merge_requests/13
-        # Gajim: On next form Gajim offers no button other than "Commands".
-        # Psi: Psi closes the dialog.
-        # Conclusion, change session['has_next'] from False to True
-        # session['has_next'] = False
-        session['has_next'] = True
-        session['next'] = self._handle_subscription_new
-        session['payload'] = form
-        session['prev'] = self._handle_promoted
+            text_warn = ('This resource is restricted to moderators of {}.'
+                         .format(jid))
+            session['notes'] = [['warn', text_warn]]
         return session
 
 
@@ -2062,102 +2206,111 @@ class Slixfeed(slixmpp.ClientXMPP):
                        here to persist across handler callbacks.
         """
         jid = session['from'].bare
-        jid_file = jid
-        db_file = config.get_pathname_to_database(jid_file)
-        form = self['xep_0004'].make_form('form', 'Settings')
-        form['instructions'] = 'Editing settings'
-
-        value = config.get_setting_value(db_file, 'enabled')
-        value = int(value)
-        if value:
-            value = True
-        else:
-            value = False
-        form.add_field(var='enabled',
-                       ftype='boolean',
-                       label='Enabled',
-                       desc='Enable news updates.',
-                       value=value)
-
-        value = config.get_setting_value(db_file, 'media')
-        value = int(value)
-        if value:
-            value = True
-        else:
-            value = False
-        form.add_field(var='media',
-                       ftype='boolean',
-                       desc='Send audio, images or videos if found.',
-                       label='Display media',
-                       value=value)
-
-        value = config.get_setting_value(db_file, 'old')
-        value = int(value)
-        if value:
-            value = True
-        else:
-            value = False
-        form.add_field(var='old',
-                       ftype='boolean',
-                       desc='Treat all items of newly added subscriptions as new.',
-                       # label='Send only new items',
-                       label='Include old news',
-                       value=value)
-
-        value = config.get_setting_value(db_file, 'interval')
-        value = int(value)
-        value = value/60
-        value = int(value)
-        value = str(value)
-        options = form.add_field(var='interval',
-                                 ftype='list-single',
-                                 label='Interval',
-                                 desc='Interval update (in hours).',
-                                 value=value)
-        options['validate']['datatype'] = 'xs:integer'
-        options['validate']['range'] = { 'minimum': 1, 'maximum': 48 }
-        i = 1
-        while i <= 48:
-            x = str(i)
-            options.addOption(x, x)
-            if i >= 12:
-                i += 6
+        jid_full = str(session['from'])
+        chat_type = await get_chat_type(self, jid)
+        if chat_type == 'groupchat':
+            moderator = is_moderator(self, jid, jid_full)
+        if chat_type == 'chat' or moderator:
+            jid_file = jid
+            db_file = config.get_pathname_to_database(jid_file)
+            form = self['xep_0004'].make_form('form', 'Settings')
+            form['instructions'] = 'Editing settings'
+    
+            value = config.get_setting_value(db_file, 'enabled')
+            value = int(value)
+            if value:
+                value = True
             else:
+                value = False
+            form.add_field(var='enabled',
+                           ftype='boolean',
+                           label='Enabled',
+                           desc='Enable news updates.',
+                           value=value)
+    
+            value = config.get_setting_value(db_file, 'media')
+            value = int(value)
+            if value:
+                value = True
+            else:
+                value = False
+            form.add_field(var='media',
+                           ftype='boolean',
+                           desc='Send audio, images or videos if found.',
+                           label='Display media',
+                           value=value)
+    
+            value = config.get_setting_value(db_file, 'old')
+            value = int(value)
+            if value:
+                value = True
+            else:
+                value = False
+            form.add_field(var='old',
+                           ftype='boolean',
+                           desc='Treat all items of newly added subscriptions as new.',
+                           # label='Send only new items',
+                           label='Include old news',
+                           value=value)
+    
+            value = config.get_setting_value(db_file, 'interval')
+            value = int(value)
+            value = value/60
+            value = int(value)
+            value = str(value)
+            options = form.add_field(var='interval',
+                                     ftype='list-single',
+                                     label='Interval',
+                                     desc='Interval update (in hours).',
+                                     value=value)
+            options['validate']['datatype'] = 'xs:integer'
+            options['validate']['range'] = { 'minimum': 1, 'maximum': 48 }
+            i = 1
+            while i <= 48:
+                x = str(i)
+                options.addOption(x, x)
+                if i >= 12:
+                    i += 6
+                else:
+                    i += 1
+    
+            value = config.get_setting_value(db_file, 'quantum')
+            value = str(value)
+            options = form.add_field(var='quantum',
+                                     ftype='list-single',
+                                     label='Amount',
+                                     desc='Amount of items per update.',
+                                     value=value)
+            options['validate']['datatype'] = 'xs:integer'
+            options['validate']['range'] = { 'minimum': 1, 'maximum': 5 }
+            i = 1
+            while i <= 5:
+                x = str(i)
+                options.addOption(x, x)
                 i += 1
-
-        value = config.get_setting_value(db_file, 'quantum')
-        value = str(value)
-        options = form.add_field(var='quantum',
-                                 ftype='list-single',
-                                 label='Amount',
-                                 desc='Amount of items per update.',
-                                 value=value)
-        options['validate']['datatype'] = 'xs:integer'
-        options['validate']['range'] = { 'minimum': 1, 'maximum': 5 }
-        i = 1
-        while i <= 5:
-            x = str(i)
-            options.addOption(x, x)
-            i += 1
-
-        value = config.get_setting_value(db_file, 'archive')
-        value = str(value)
-        options = form.add_field(var='archive',
-                                 ftype='list-single',
-                                 label='Archive',
-                                 desc='Number of news items to archive.',
-                                 value=value)
-        options['validate']['datatype'] = 'xs:integer'
-        options['validate']['range'] = { 'minimum': 0, 'maximum': 500 }
-        i = 0
-        while i <= 500:
-            x = str(i)
-            options.addOption(x, x)
-            i += 50
-        session['allow_complete'] = True
-        session['has_next'] = False
-        session['next'] = self._handle_settings_complete
-        session['payload'] = form
+    
+            value = config.get_setting_value(db_file, 'archive')
+            value = str(value)
+            options = form.add_field(var='archive',
+                                     ftype='list-single',
+                                     label='Archive',
+                                     desc='Number of news items to archive.',
+                                     value=value)
+            options['validate']['datatype'] = 'xs:integer'
+            options['validate']['range'] = { 'minimum': 0, 'maximum': 500 }
+            i = 0
+            while i <= 500:
+                x = str(i)
+                options.addOption(x, x)
+                i += 50
+            session['allow_complete'] = True
+            session['has_next'] = False
+            session['next'] = self._handle_settings_complete
+            session['payload'] = form
+        else:
+            text_warn = ('This resource is restricted to moderators of {}.'
+                         .format(jid))
+            session['notes'] = [['warn', text_warn]]
         return session
 
 
