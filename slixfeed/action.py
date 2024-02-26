@@ -186,12 +186,13 @@ async def xmpp_send_update(self, jid, num=None):
             ix = result[0]
             title_e = result[1]
             url = result[2]
-            enclosure = result[3]
-            feed_id = result[4]
-            date = result[5]
+            summary = result[3]
+            enclosure = result[4]
+            feed_id = result[5]
+            date = result[6]
             title_f = sqlite.get_feed_title(db_file, feed_id)
             title_f = title_f[0]
-            news_digest += list_unread_entries(result, title_f)
+            news_digest += list_unread_entries(result, title_f, jid_file)
             # print(db_file)
             # print(result[0])
             # breakpoint()
@@ -408,7 +409,7 @@ def is_feed(feed):
     return value
 
 
-def list_unread_entries(result, feed_title):
+def list_unread_entries(result, feed_title, jid_file):
     # TODO Add filtering
     # TODO Do this when entry is added to list and mark it as read
     # DONE!
@@ -428,29 +429,41 @@ def list_unread_entries(result, feed_title):
     # NOTE Why doesn't this work without list?
     #      i.e. for result in results
     # for result in results.fetchall():
-    ix = result[0]
-    title = result[1]
+    ix = str(result[0])
+    title = str(result[1])
     # # TODO Retrieve summary from feed
     # # See fetch.view_entry
-    # summary = result[2]
-    # # Remove HTML tags
-    # try:
-    #     summary = BeautifulSoup(summary, "lxml").text
-    # except:
-    #     print(result[2])
-    #     breakpoint()
-    # # TODO Limit text length
+    summary = result[3]
+    # Remove HTML tags
+    try:
+        summary = BeautifulSoup(summary, "lxml").text
+    except:
+        print(result[3])
+        breakpoint()
+    # TODO Limit text length
     # summary = summary.replace("\n\n\n", "\n\n")
-    # length = sqlite.get_setting_value(db_file, "length")
-    # summary = summary[:length] + " […]"
+    summary = summary.replace('\n', ' ')
+    summary = summary.replace('	', ' ')
+    summary = summary.replace('  ', ' ')
+    db_file = config.get_pathname_to_database(jid_file)
+    length = config.get_setting_value(db_file, "length")
+    length = int(length)
+    summary = summary[:length] + " […]"
     # summary = summary.strip().split('\n')
     # summary = ["> " + line for line in summary]
     # summary = "\n".join(summary)
     link = result[2]
     link = remove_tracking_parameters(link)
     link = (replace_hostname(link, "link")) or link
-    news_item = ("\n{}\n{}\n{} [{}]\n").format(str(title), str(link),
-                                               str(feed_title), str(ix))
+    # news_item = ("\n{}\n{}\n{} [{}]\n").format(str(title), str(link),
+    #                                            str(feed_title), str(ix))
+    formatting = config.get_setting_value(db_file, 'formatting')
+    news_item = formatting.format(feed_title=feed_title,
+                                  title=title,
+                                  summary=summary,
+                                  link=link,
+                                  ix=ix)
+    news_item = news_item.replace('\\n', '\n')
     return news_item
 
 
@@ -1207,6 +1220,7 @@ async def scan(db_file, url):
                     entry = {
                         "title": title,
                         "link": link,
+                        "summary": summary,
                         "enclosure": media_link,
                         "entry_id": entry_id,
                         "date": date,

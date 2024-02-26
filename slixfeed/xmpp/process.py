@@ -28,7 +28,7 @@ import logging
 import os
 import slixfeed.action as action
 import slixfeed.config as config
-from slixfeed.dt import current_time, timestamp
+import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
 import slixfeed.task as task
@@ -557,7 +557,7 @@ async def message(self, message):
                             if not result['error']:
                                 data = result['content']
                                 code = result['status_code']
-                                title = get_document_title(data)
+                                title = action.get_document_title(data)
                                 title = title.strip().lower()
                                 for i in (' ', '-'):
                                     title = title.replace(i, '_')
@@ -1137,10 +1137,10 @@ async def message(self, message):
         if not os.path.isdir(data_dir + '/logs/'):
             os.mkdir(data_dir + '/logs/')
         action.log_to_markdown(
-            current_time(), os.path.join(data_dir, 'logs', jid_file),
+            dt.current_time(), os.path.join(data_dir, 'logs', jid_file),
             jid, message_text)
         action.log_to_markdown(
-            current_time(), os.path.join(data_dir, 'logs', jid_file),
+            dt.current_time(), os.path.join(data_dir, 'logs', jid_file),
             self.boundjid.bare, response)
 
         print(

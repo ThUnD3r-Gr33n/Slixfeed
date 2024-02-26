@@ -77,23 +77,16 @@ def create_tables(db_file):
                 id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 link TEXT NOT NULL,
+                summary TEXT,
                 enclosure TEXT,
                 entry_id TEXT NOT NULL,
                 feed_id INTEGER NOT NULL,
                 timestamp TEXT,
                 read INTEGER NOT NULL DEFAULT 0,
+                reject INTEGER NOT NULL DEFAULT 0,
                 FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,
-                PRIMARY KEY ("id")
-              );
-            """
-            )
-        categories_table_sql = (
-            """
-            CREATE TABLE IF NOT EXISTS categories (
-                id INTEGER NOT NULL,
-                name TEXT,
                 PRIMARY KEY ("id")
               );
             """
@@ -104,11 +97,13 @@ def create_tables(db_file):
                 id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 link TEXT NOT NULL,
+                summary TEXT,
                 enclosure TEXT,
                 entry_id TEXT NOT NULL,
                 feed_id INTEGER NOT NULL,
                 timestamp TEXT,
                 read INTEGER NOT NULL DEFAULT 0,
+                reject INTEGER NOT NULL DEFAULT 0,
                 FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,
@@ -1000,11 +995,11 @@ async def get_unread_entries(db_file, num):
         cur = conn.cursor()
         sql = (
             """
-            SELECT id, title, link, enclosure, feed_id, timestamp
+            SELECT id, title, link, summary, enclosure, feed_id, timestamp
             FROM entries
             WHERE read = 0
             UNION ALL
-            SELECT id, title, link, enclosure, feed_id, timestamp
+            SELECT id, title, link, summary, enclosure, feed_id, timestamp
             FROM archive
             ORDER BY timestamp DESC
             LIMIT :num
@@ -1541,14 +1536,15 @@ async def add_entries_and_update_timestamp(db_file, feed_id, new_entries):
                     """
                     INSERT
                     INTO entries(
-                        title, link, enclosure, entry_id, feed_id, timestamp, read)
+                        title, link, summary, enclosure, entry_id, feed_id, timestamp, read)
                     VALUES(
-                        :title, :link, :enclosure, :entry_id, :feed_id, :timestamp, :read)
+                        :title, :link, :summary, :enclosure, :entry_id, :feed_id, :timestamp, :read)
                     """
                     )
                 par = {
                     "title": entry["title"],
                     "link": entry["link"],
+                    "summary": entry["summary"],
                     "enclosure": entry["enclosure"],
                     "entry_id": entry["entry_id"],
                     "feed_id": feed_id,

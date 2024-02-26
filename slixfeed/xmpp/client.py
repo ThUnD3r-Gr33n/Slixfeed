@@ -1373,7 +1373,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             else:
                 form['instructions'] = 'Adding subscription'
                 title = ''
-                tags = ''
+                tags = '' # TODO Suggest tags by element "categories"
             form.add_field(ftype='fixed',
                            value='Properties')
             form.add_field(var='name',
@@ -1430,6 +1430,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
+    # TODO Create a new form. Do not "recycle" the last form.
     async def _handle_subscription_complete(self, payload, session):
         jid = session['from'].bare
         values = payload['values']
