@@ -196,7 +196,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # self.send_presence()
         profile.set_identity(self, 'service')
         # XmppCommand.adhoc_commands(self)
-        self.adhoc_commands(self)
+        self.adhoc_commands()
         self.service_reactions()
         await self['xep_0115'].update_caps()
         # await XmppGroupchat.autojoin(self)
