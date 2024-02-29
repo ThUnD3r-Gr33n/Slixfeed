@@ -46,7 +46,6 @@ import slixfeed.task as task
 import slixfeed.config as config
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
-from slixfeed.xmpp.command import XmppCommand
 from slixfeed.xmpp.connect import XmppConnect
 from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.message import XmppMessage

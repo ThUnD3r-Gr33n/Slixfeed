@@ -33,7 +33,6 @@ import slixfeed.task as task
 import slixfeed.config as config
 from slixfeed.version import __version__
 from slixfeed.xmpp.connect import XmppConnect
-from slixfeed.xmpp.command import XmppCommand
 # NOTE MUC is possible for component
 # from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.message import XmppMessage
