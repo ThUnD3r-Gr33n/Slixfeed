@@ -33,6 +33,7 @@ import slixfeed.task as task
 import slixfeed.config as config
 from slixfeed.version import __version__
 from slixfeed.xmpp.connect import XmppConnect
+from slixfeed.xmpp.command import XmppCommand
 # NOTE MUC is possible for component
 # from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.message import XmppMessage
@@ -175,7 +176,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
     async def on_session_start(self, event):
         # self.send_presence()
         profile.set_identity(self, 'service')
-        self.service_commands()
+        XmppCommand.adhoc_commands(self)
         self.service_reactions()
         await self['xep_0115'].update_caps()
         # await XmppGroupchat.autojoin(self)
@@ -198,7 +199,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
     async def on_disco_info(self, DiscoInfo):
         jid = DiscoInfo['from']
-        # self.service_commands()
         # self.service_reactions()
         # self.send_presence(pto=jid)
         await self['xep_0115'].update_caps(jid=jid)

@@ -223,7 +223,6 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def on_disco_info(self, DiscoInfo):
         jid = DiscoInfo['from']
-        # self.service_commands()
         # self.service_reactions()
         # self.send_presence(pto=jid)
         await self['xep_0115'].update_caps(jid=jid)
