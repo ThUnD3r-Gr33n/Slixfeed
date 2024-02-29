@@ -14,7 +14,7 @@ tags = ["czech", "party", "pirate"]
 lang = "cs-cz"
 name = "Paralelní Polis"
 link = "https://www.paralelnipolis.cz/feed/"
-tags = ["communication", "czech", "hackerspace", "hardware", "internet", "makers", "technology", "telecom"]
+tags = ["communication", "czech", "hackerspace", "hardware", "internet", "makers", "technology", "telecommunication"]
 
 [[feeds]]
 lang = "de-at"
@@ -98,7 +98,7 @@ tags = ["computer", "events", "germany", "internet", "privacy", "technology"]
 lang = "de-de"
 name = "Jabber.de"
 link = "https://www.jabber.de/?feed=rss2"
-tags = ["germany", "jabber", "telecom", "xmpp"]
+tags = ["germany", "jabber", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "de-de"
@@ -116,7 +116,7 @@ tags = ["ccc", "technology", "video"]
 lang = "de-de"
 name = "pimux.de"
 link = "https://pimux.de/blog.rss"
-tags = ["germany", "jabber", "mastodon", "telecom", "xmpp"]
+tags = ["germany", "jabber", "mastodon", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "de-de"
@@ -164,7 +164,7 @@ tags = ["christianity", "copy", "freedom", "religion", "software", "technology"]
 lang = "en-ca"
 name = "blog.jmp.chat's blog"
 link = "https://blog.jmp.chat/atom.xml"
-tags = ["jmp", "service", "sms", "telecom", "xmpp"]
+tags = ["jmp", "service", "sms", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "en-ca"
@@ -212,13 +212,19 @@ tags = ["news", "politics", "privacy", "surveillance"]
 lang = "en-gb"
 name = "Pimux XMPP News"
 link = "https://pimux.de/blog.rss"
-tags = ["germany", "jabber", "mastodon", "telecom", "xmpp"]
+tags = ["germany", "jabber", "mastodon", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "en-gb"
 name = "Pirate Party UK"
 link = "https://pirateparty.org.uk/feed.xml"
 tags = ["party", "pirate", "uk"]
+
+[[feeds]]
+lang = "en-gb"
+name = "postmarketOS Podcast"
+link = "https://cast.postmarketos.org/feed.rss"
+tags = ["linux", "pda", "podcast", "privacy", "telecommunication"]
 
 [[feeds]]
 lang = "en-gb"
@@ -230,7 +236,7 @@ tags = ["art", "economics", "education", "hardware", "research", "technology"]
 lang = "en-gb"
 name = "Snikket Blog on Snikket Chat"
 link = "https://snikket.org/blog/index.xml"
-tags = ["chat", "jabber", "telecom", "xmpp"]
+tags = ["chat", "jabber", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "en-gb"
@@ -266,7 +272,7 @@ tags = ["news", "politics", "usa", "world"]
 lang = "en-us"
 name = "Canoe Mail"
 link = "https://canoemail.net/rss.xml"
-tags = ["email", "jabber", "telecom", "xmpp"]
+tags = ["email", "jabber", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "en-us"
@@ -414,6 +420,12 @@ tags = ["news", "survival", "politics", "usa", "world"]
 
 [[feeds]]
 lang = "en-us"
+name = "OpenRSS"
+link = "https://openrss.org/rss"
+tags = ["news", "syndication", "technology"]
+
+[[feeds]]
+lang = "en-us"
 name = "Opt Out Podcast"
 link = "https://optoutpod.com/index.xml"
 tags = ["podcast", "politics", "privacy", "surveillance"]
@@ -428,7 +440,7 @@ tags = ["music"]
 lang = "en-us"
 name = "PINE64"
 link = "https://www.pine64.org/feed/"
-tags = ["pda", "privacy"]
+tags = ["pda", "privacy", "telecommunication"]
 
 [[feeds]]
 lang = "en-us"
@@ -446,7 +458,7 @@ tags = ["party", "pirate", "international"]
 lang = "en-us"
 name = "Planet Jabber"
 link = "https://planet.jabber.org/atom.xml"
-tags = ["xmpp"]
+tags = ["internet", "jabber", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "en-us"
@@ -458,13 +470,7 @@ tags = ["computer", "decentralization", "internet", "linux", "technology"]
 lang = "en-us"
 name = "PrivacySavvy"
 link = "https://privacysavvy.com/"
-tags = ["privacy"]
-
-[[feeds]]
-lang = "en-us"
-name = "postmarketOS Podcast"
-link = "https://cast.postmarketos.org/feed.rss"
-tags = ["pda", "podcast", "privacy"]
+tags = ["privacy", "technology"]
 
 [[feeds]]
 lang = "en-us"
@@ -608,7 +614,7 @@ tags = ["farming", "food", "gardening", "survival"]
 lang = "en-us"
 name = "The XMPP Blog on XMPP"
 link = "https://xmpp.org/feeds/all.atom.xml"
-tags = ["jabber", "telecom", "xmpp"]
+tags = ["jabber", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "en-us"
@@ -632,7 +638,7 @@ tags = ["3d", "game"]
 lang = "en-us"
 name = "yaxim"
 link = "https://yaxim.org/atom.xml"
-tags = ["android", "germany", "jabber", "telecom", "xmpp"]
+tags = ["android", "germany", "jabber", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "es-es"
