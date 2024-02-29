@@ -17,18 +17,22 @@ opml = """
 export opml
 Send an OPML file with feeds.
 """
-html = """
-backup news html
-Send an HTML formatted file of your news items.
-"""
 md = """
-backup news md
-Send a Markdown file of your news items.
+export md
+Send a Markdown file with feeds.
 """
-text = """
-backup news text
-Send a Plain Text file of your news items.
-"""
+# html = """
+# backup news html
+# Send an HTML formatted file of your news items.
+# """
+# md = """
+# backup news md
+# Send a Markdown file of your news items.
+# """
+# text = """
+# backup news text
+# Send a Plain Text file of your news items.
+# """
 
 [bookmarks]
 bookmark = """
@@ -121,19 +125,19 @@ help <key>
 Print list of commands for selected command type.
 """
 
-[mastership]
-demaster = """
-demaster <nick>
-Remove master privilege from given <nick>.
-"""
-mastership = """
-mastership <nick>
-Add master privilege to given <nick>.
-"""
-ownership = """
-ownership <nick>
-Transfer ownership to given <nick>.
-"""
+# [mastership]
+# demaster = """
+# demaster <nick>
+# Remove master privilege from given <nick>.
+# """
+# mastership = """
+# mastership <nick>
+# Add master privilege to given <nick>.
+# """
+# ownership = """
+# ownership <nick>
+# Transfer ownership to given <nick>.
+# """
 
 [message]
 interval = """
@@ -232,21 +236,21 @@ stats = """
 stats
 Show general statistics.
 """
-analyses = """
-analyses
-Show report and statistics of feeds.
-"""
-obsolete = """
-obsolete
-List feeds that are not available.
-"""
-unread = """
-unread
-Print number of unread news items.
-"""
+# analyses = """
+# analyses
+# Show report and statistics of feeds.
+# """
+# obsolete = """
+# obsolete
+# List feeds that are not available.
+# """
+# unread = """
+# unread
+# Print number of unread news items.
+# """
 
-[token]
-activate = """
-activate <code>
-Activate given token to command bot by given <code>.
-"""
+# [token]
+# activate = """
+# activate <code>
+# Activate given token to command bot by given <code>.
+# """

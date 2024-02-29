@@ -166,6 +166,11 @@ async def http(url):
             result = {'error': True,
                       'message': 'Timeout:' + str(e),
                       'original_url': url}
+        except Exception as e:
+            logging.error(e)
+            result = {'error': True,
+                      'message': 'Error:' + str(e),
+                      'original_url': url}
     return result
 
 

@@ -648,7 +648,7 @@ async def message(self, message):
                                                   result['name'],
                                                   result['index']))
                 elif result['error']:
-                    response = ('> {}\nFailed to load URL.  Reason: {}'
+                    response = ('> {}\nFailed to find subscriptions.  Reason: {}'
                                 .format(url, result['code']))
                 else:
                     response = ('> {}\nNews source "{}" has been '

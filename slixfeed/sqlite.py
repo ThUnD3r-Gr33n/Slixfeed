@@ -629,6 +629,38 @@ async def remove_feed_by_index(db_file, ix):
             cur.execute(sql, par)
 
 
+def get_feeds_by_tag_id(db_file, tag_id):
+    """
+    Get feeds of given tag.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    tag_id : str
+        Tag ID.
+
+    Returns
+    -------
+    result : tuple
+        List of tags.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT feeds.*
+            FROM feeds
+            INNER JOIN feeds_tags ON feeds.id = feeds_tags.feed_id
+            INNER JOIN tags ON tags.id = feeds_tags.tag_id
+            WHERE tags.id = ?;
+            """
+            )
+        par = (tag_id,)
+        result = cur.execute(sql, par).fetchall()
+        return result
+
+
 def get_tags_by_feed_id(db_file, feed_id):
     """
     Get tags of given feed.
@@ -642,7 +674,7 @@ def get_tags_by_feed_id(db_file, feed_id):
 
     Returns
     -------
-    result : list
+    result : tuple
         List of tags.
     """
     with create_connection(db_file) as conn:
@@ -693,7 +725,7 @@ async def set_feed_id_and_tag_id(db_file, feed_id, tag_id):
             cur.execute(sql, par)
 
 
-def get_tag_id(db_file, tag):
+def get_tag_id(db_file, tag_name):
     """
     Get ID of given tag. Check whether tag exist.
 
@@ -701,8 +733,8 @@ def get_tag_id(db_file, tag):
     ----------
     db_file : str
         Path to database file.
-    tag : str
-        Tag.
+    tag_name : str
+        Tag name.
 
     Returns
     -------
@@ -718,9 +750,39 @@ def get_tag_id(db_file, tag):
             WHERE tag = ?
             """
             )
-        par = (tag,)
+        par = (tag_name,)
         ix = cur.execute(sql, par).fetchone()
     return ix
+
+
+def get_tag_name(db_file, ix):
+    """
+    Get name of given tag. Check whether tag exist.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    ix : str
+        Tag ID.
+
+    Returns
+    -------
+    tag_name : str
+        Tag name.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT tag
+            FROM tags
+            WHERE id = ?
+            """
+            )
+        par = (ix,)
+        tag_name = cur.execute(sql, par).fetchone()
+    return tag_name
 
 
 def is_tag_id_associated(db_file, tag_id):
@@ -869,7 +931,7 @@ async def get_feed_id_and_name(db_file, url):
 
     Returns
     -------
-    result : list
+    result : tuple
         List of ID and Name of feed.
     """
     with create_connection(db_file) as conn:
@@ -988,7 +1050,7 @@ async def get_unread_entries(db_file, num):
 
     Returns
     -------
-    results : ???
+    result : tuple
         News items.
     """
     with create_connection(db_file) as conn:
@@ -1006,8 +1068,8 @@ async def get_unread_entries(db_file, num):
             """
             )
         par = (num,)
-        results = cur.execute(sql, par).fetchall()
-        return results
+        result = cur.execute(sql, par).fetchall()
+        return result
 
 
 def get_feed_id_by_entry_index(db_file, ix):
@@ -1525,7 +1587,7 @@ async def add_entries_and_update_timestamp(db_file, feed_id, new_entries):
     ----------
     db_file : str
         Path to database file.
-    new_entries : list
+    new_entries : tuple
         Set of entries as dict.
     """
     async with DBLOCK:
@@ -1779,7 +1841,7 @@ async def get_entries_of_feed(db_file, feed_id):
 
 #     Returns
 #     -------
-#     result : list
+#     result : tuple
 #         Title, URL, Categories, Tags of feeds.
 #     """
 #     with create_connection(db_file) as conn:
@@ -1804,7 +1866,7 @@ async def get_feeds_url(db_file):
 
     Returns
     -------
-    result : list
+    result : tuple
         URLs of active feeds.
     """
     with create_connection(db_file) as conn:
@@ -1819,6 +1881,41 @@ async def get_feeds_url(db_file):
         return result
 
 
+def get_feeds_by_enabled_state(db_file, enabled_state):
+    """
+    Query table feeds by enabled state.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    enabled_state : boolean
+        False or True.
+
+    Returns
+    -------
+    result : tuple
+        List of URLs.
+    """
+    if enabled_state:
+        enabled_state = 1
+    else:
+        enabled_state = 0
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT feeds.*
+            FROM feeds
+            INNER JOIN feeds_state ON feeds.id = feeds_state.feed_id
+            WHERE feeds_state.enabled = ?
+            """
+            )
+        par = (enabled_state,)
+        result = cur.execute(sql, par).fetchall()
+        return result
+
+
 async def get_active_feeds_url(db_file):
     """
     Query table feeds for active URLs.
@@ -1830,7 +1927,7 @@ async def get_active_feeds_url(db_file):
 
     Returns
     -------
-    result : list
+    result : tuple
         URLs of active feeds.
     """
     with create_connection(db_file) as conn:
@@ -1841,6 +1938,32 @@ async def get_active_feeds_url(db_file):
             FROM feeds
             INNER JOIN feeds_state ON feeds.id = feeds_state.feed_id
             WHERE feeds_state.enabled = 1
+            """
+            )
+        result = cur.execute(sql).fetchall()
+        return result
+
+
+def get_tags(db_file):
+    """
+    Query table tags and list items.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    result : tuple
+        List of tags.
+    """
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT tag, id
+            FROM tags
             """
             )
         result = cur.execute(sql).fetchall()
@@ -1858,14 +1981,14 @@ async def get_feeds(db_file):
 
     Returns
     -------
-    results : ???
+    result : tuple
         URLs of feeds.
     """
     # TODO
     # 1) Select id from table feeds
     #    Select name, url (feeds) updated, enabled, feed_id (status)
     # 2) Sort feeds by id. Sort status by feed_id
-    # results += cur.execute(sql).fetchall()
+    # result += cur.execute(sql).fetchall()
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1874,8 +1997,8 @@ async def get_feeds(db_file):
             FROM feeds
             """
             )
-        results = cur.execute(sql).fetchall()
-        return results
+        result = cur.execute(sql).fetchall()
+        return result
 
 
 async def last_entries(db_file, num):
@@ -1891,7 +2014,7 @@ async def last_entries(db_file, num):
 
     Returns
     -------
-    titles_list : str
+    titles_list : tuple
         List of recent N entries as message.
     """
     with create_connection(db_file) as conn:
@@ -1916,8 +2039,8 @@ async def last_entries(db_file, num):
             """
             )
         par = (num,)
-        results = cur.execute(sql, par).fetchall()
-        return results
+        result = cur.execute(sql, par).fetchall()
+        return result
 
 
 def search_feeds(db_file, query):
@@ -1933,7 +2056,7 @@ def search_feeds(db_file, query):
 
     Returns
     -------
-    titles_list : str
+    result : tuple
         Feeds of specified keywords as message.
     """
     with create_connection(db_file) as conn:
@@ -1948,8 +2071,8 @@ def search_feeds(db_file, query):
             """
             )
         par = [f'%{query}%', f'%{query}%']
-        results = cur.execute(sql, par).fetchall()
-        return results
+        result = cur.execute(sql, par).fetchall()
+        return result
 
 
 async def search_entries(db_file, query):
@@ -1965,7 +2088,7 @@ async def search_entries(db_file, query):
 
     Returns
     -------
-    titles_list : str
+    titles_list : tuple
         Entries of specified keywords as message.
     """
     with create_connection(db_file) as conn:
@@ -1983,8 +2106,8 @@ async def search_entries(db_file, query):
             """
             )
         par = (f'%{query}%', f'%{query}%')
-        results = cur.execute(sql, par).fetchall()
-        return results
+        result = cur.execute(sql, par).fetchall()
+        return result
 
 
 """
@@ -2605,31 +2728,31 @@ def get_nations(db_file):
     return locales
 
 
-def get_tags(db_file):
-    """
-    Get list of title and urls.
+# def get_tags(db_file):
+#     """
+#     Get list of title and urls.
 
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
+#     Parameters
+#     ----------
+#     db_file : str
+#         Path to database file.
 
-    Returns
-    -------
-    titles_urls : tuple
-        List of titles and urls.
-    """
-    with create_connection(db_file) as conn:
-        cur = conn.cursor()
-        sql = (
-            """
-            SELECT tags
-            FROM entries
-            ORDER BY tags ASC
-            """
-            )
-        titles_urls = cur.execute(sql).fetchall()
-    return titles_urls
+#     Returns
+#     -------
+#     titles_urls : tuple
+#         List of titles and urls.
+#     """
+#     with create_connection(db_file) as conn:
+#         cur = conn.cursor()
+#         sql = (
+#             """
+#             SELECT tags
+#             FROM entries
+#             ORDER BY tags ASC
+#             """
+#             )
+#         titles_urls = cur.execute(sql).fetchall()
+#     return titles_urls
 
 
 def get_titles_tags_urls(db_file):

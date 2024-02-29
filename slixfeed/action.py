@@ -436,6 +436,7 @@ def list_unread_entries(result, feed_title, jid_file):
     summary = result[3]
     # Remove HTML tags
     try:
+        title = BeautifulSoup(title, "lxml").text
         summary = BeautifulSoup(summary, "lxml").text
     except:
         print(result[3])
