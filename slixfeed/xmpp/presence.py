@@ -9,7 +9,7 @@ Accept symbols 🉑️ 👍️ ✍
 
 TODO
 
-Remove subscription from JID that do not (stopped) share presence.
+Remove subscription from JID that do not (i.e. has stopped) share presence.
 
 """
 

@@ -30,12 +30,11 @@ from bs4 import BeautifulSoup
 from feedparser import parse
 from http.client import IncompleteRead
 import json
-import logging
+from slixfeed.log import Logger
 from lxml import html
 import os
 import slixfeed.config as config
 import slixfeed.crawl as crawl
-
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
@@ -53,41 +52,43 @@ from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utility import get_chat_type
+import sys
 import tomllib
 from urllib import error
 from urllib.parse import parse_qs, urlsplit
 import xml.etree.ElementTree as ET
 
+logger = Logger(__name__)
+
 try:
     import xml2epub
 except ImportError:
-    logging.info(
-        "Package xml2epub was not found.\n"
-        "ePUB support is disabled.")
+    logger.error('Package xml2epub was not found.\n'
+                 'ePUB support is disabled.')
 
 try:
     import html2text
 except ImportError:
-    logging.info(
-        "Package html2text was not found.\n"
-        "Markdown support is disabled.")
+    logger.error('Package html2text was not found.\n'
+                 'Markdown support is disabled.')
 
 try:
     import pdfkit
 except ImportError:
-    logging.info(
-        "Package pdfkit was not found.\n"
-        "PDF support is disabled.")
+    logger.error('Package pdfkit was not found.\n'
+                 'PDF support is disabled.')
 
 try:
     from readability import Document
 except ImportError:
-    logging.info(
-        "Package readability was not found.\n"
-        "Arc90 Lab algorithm is disabled.")
+    logger.error('Package readability was not found.\n'
+                 'Arc90 Lab algorithm is disabled.')
 
 
 async def export_feeds(self, jid, jid_file, ext):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for JID {}.'
+                .format(function_name, jid))
     cache_dir = config.get_default_cache_directory()
     if not os.path.isdir(cache_dir):
         os.mkdir(cache_dir)
@@ -117,7 +118,9 @@ async def xmpp_send_status(self, jid):
     jid : str
         Jabber ID.
     """
-    logging.info('Sending a status message to JID {}'.format(jid))
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for JID {}.'
+                .format(function_name, jid))
     status_text = '📜️ Slixfeed RSS News Bot'
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
@@ -169,6 +172,9 @@ async def xmpp_send_update(self, jid, num=None):
     num : str, optional
         Number. The default is None.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for JID {}.'
+                .format(function_name, jid))
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
     enabled = config.get_setting_value(db_file, 'enabled')
@@ -267,6 +273,9 @@ async def xmpp_send_update(self, jid, num=None):
 
 
 def manual(filename, section=None, command=None):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, filename))
     config_dir = config.get_default_config_directory()
     with open(config_dir + '/' + filename, mode="rb") as commands:
         cmds = tomllib.load(commands)
@@ -279,7 +288,7 @@ def manual(filename, section=None, command=None):
         try:
             cmd_list = cmds[section][command]
         except KeyError as e:
-            logging.error(str(e))
+            logger.error(str(e))
             cmd_list = None
     elif section:
         try:
@@ -287,7 +296,7 @@ def manual(filename, section=None, command=None):
             for cmd in cmds[section]:
                 cmd_list.extend([cmd])
         except KeyError as e:
-            logging.error('KeyError:' + str(e))
+            logger.error('KeyError:' + str(e))
             cmd_list = None
     else:
         cmd_list = []
@@ -316,6 +325,9 @@ def log_to_markdown(timestamp, filename, jid, message):
     None.
     
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, filename))
     with open(filename + '.md', 'a') as file:
         # entry = "{} {}:\n{}\n\n".format(timestamp, jid, message)
         entry = (
@@ -342,6 +354,8 @@ def is_feed_json(document):
     val : boolean
         True or False.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated'.format(function_name))
     value = False
     try:
         feed = json.loads(document)
@@ -376,6 +390,8 @@ def is_feed(feed):
     val : boolean
         True or False.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated'.format(function_name))
     value = False
     # message = None
     if not feed.entries:
@@ -410,6 +426,8 @@ def is_feed(feed):
 
 
 def list_unread_entries(result, feed_title, jid_file):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated'.format(function_name))
     # TODO Add filtering
     # TODO Do this when entry is added to list and mark it as read
     # DONE!
@@ -469,6 +487,9 @@ def list_unread_entries(result, feed_title, jid_file):
 
 
 def list_search_results(query, results):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for query {}.'
+                .format(function_name, query))
     message = ("Search results for '{}':\n\n```"
                .format(query))
     for result in results:
@@ -482,6 +503,9 @@ def list_search_results(query, results):
 
 
 def list_feeds_by_query(db_file, query):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for query {}.'
+                .format(function_name, query))
     results = sqlite.search_feeds(db_file, query)
     message = ('Feeds containing "{}":\n\n```'
                .format(query))
@@ -511,6 +535,9 @@ async def list_statistics(db_file):
     msg : str
         Statistics as message.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     entries_unread = await sqlite.get_number_of_entries_unread(db_file)
     entries = await sqlite.get_number_of_items(db_file, 'entries')
     archive = await sqlite.get_number_of_items(db_file, 'archive')
@@ -554,6 +581,9 @@ async def list_statistics(db_file):
 
 # FIXME Replace counter by len
 def list_last_entries(results, num):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated.'
+                .format(function_name))
     message = "Recent {} titles:\n\n```".format(num)
     for result in results:
         message += ("\n{}\n{}\n"
@@ -566,6 +596,9 @@ def list_last_entries(results, num):
 
 
 def pick_a_feed(lang=None):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated.'
+                .format(function_name))
     config_dir = config.get_default_config_directory()
     with open(config_dir + '/' + 'feeds.toml', mode="rb") as feeds:
         urls = tomllib.load(feeds)
@@ -575,6 +608,9 @@ def pick_a_feed(lang=None):
 
 
 def list_feeds(results):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated.'
+                .format(function_name))
     message = "\nList of subscriptions:\n\n```\n"
     for result in results:
         message += ("Name : {}\n"
@@ -597,6 +633,9 @@ def list_feeds(results):
 
 
 async def list_bookmarks(self):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated.'
+                .format(function_name))
     conferences = await XmppBookmark.get(self)
     message = '\nList of groupchats:\n\n```\n'
     for conference in conferences:
@@ -610,6 +649,9 @@ async def list_bookmarks(self):
 
 
 def export_to_markdown(jid, filename, results):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for JID {}.'
+                .format(function_name, jid))
     with open(filename, 'w') as file:
         file.write('# Subscriptions for {}\n'.format(jid))
         file.write('## Set of feeds exported with Slixfeed\n')
@@ -622,6 +664,9 @@ def export_to_markdown(jid, filename, results):
 
 # TODO Consider adding element jid as a pointer of import
 def export_to_opml(jid, filename, results):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for JID {}.'
+                .format(function_name, jid))
     root = ET.Element("opml")
     root.set("version", "1.0")
     head = ET.SubElement(root, "head")
@@ -645,6 +690,9 @@ def export_to_opml(jid, filename, results):
 
 
 async def import_opml(db_file, url):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     result = await fetch.http(url)
     if not result['error']:
         document = result['content']
@@ -667,6 +715,9 @@ async def import_opml(db_file, url):
 
 
 async def add_feed(db_file, url):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     while True:
         exist = await sqlite.get_feed_id_and_name(db_file, url)
         if not exist:
@@ -832,6 +883,9 @@ async def scan_json(db_file, url):
     url : str, optional
         URL. The default is None.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     if isinstance(url, tuple): url = url[0]
     result = await fetch.http(url)
     if not result['error']:
@@ -866,7 +920,7 @@ async def scan_json(db_file, url):
                     IncompleteRead,
                     error.URLError
                     ) as e:
-                logging.error(e)
+                logger.error(e)
                 return
             # new_entry = 0
             for entry in entries:
@@ -890,9 +944,10 @@ async def scan_json(db_file, url):
                 entry_id = entry["id"] if "id" in entry.keys() else link
                 feed_id = await sqlite.get_feed_id(db_file, url)
                 feed_id = feed_id[0]
-                exist = await sqlite.check_entry_exist(
-                    db_file, feed_id, entry_id=entry_id,
-                    title=title, link=link, date=date)
+                exist = sqlite.check_entry_exist(db_file, feed_id,
+                                                 entry_id=entry_id,
+                                                 title=title, link=link,
+                                                 date=date)
                 if not exist:
                     summary = entry["summary"] if "summary" in entry.keys() else ''
                     if not summary:
@@ -916,12 +971,12 @@ async def scan_json(db_file, url):
                                                                 string)
                         if reject_list:
                             read_status = 1
-                            logging.debug('Rejected : {}'
-                                          '\n'
-                                          'Keyword  : {}'
-                                          .format(link, reject_list))
+                            logger.debug('Rejected : {}'
+                                         '\n'
+                                         'Keyword  : {}'
+                                         .format(link, reject_list))
                     if isinstance(date, int):
-                        logging.error('Variable "date" is int: {}'.format(date))
+                        logger.error('Variable "date" is int: {}'.format(date))
                     media_link = ''
                     if "attachments" in entry.keys():
                         for e_link in entry["attachments"]:
@@ -938,10 +993,10 @@ async def scan_json(db_file, url):
                                     media_link = trim_url(media_link)
                                     break
                             except:
-                                logging.info('KeyError: "url"\n'
+                                logger.info('KeyError: "url"\n'
                                               'Missing "url" attribute for {}'
                                               .format(url))
-                                logging.info('Continue scanning for next '
+                                logger.info('Continue scanning for next '
                                              'potential enclosure of {}'
                                              .format(link))
                     entry = {
@@ -965,6 +1020,9 @@ async def scan_json(db_file, url):
 
 
 async def view_feed(url):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for URL {}.'
+                .format(function_name, url))
     while True:
         result = await fetch.http(url)
         if not result['error']:
@@ -1027,6 +1085,9 @@ async def view_feed(url):
 
 
 async def view_entry(url, num):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for URL {}.'
+                .format(function_name, url))
     while True:
         result = await fetch.http(url)
         if not result['error']:
@@ -1104,6 +1165,9 @@ async def scan(db_file, url):
     url : str, optional
         URL. The default is None.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and URL {}.'
+                .format(function_name, db_file, url))
     if isinstance(url, tuple): url = url[0]
     result = await fetch.http(url)
     if not result['error']:
@@ -1144,7 +1208,7 @@ async def scan(db_file, url):
                                                     len(feed["entries"]), updated)
                 # await update_feed_status
             except (IncompleteReadError, IncompleteRead, error.URLError) as e:
-                logging.error(e)
+                logger.error(e)
                 return
             # new_entry = 0
             for entry in entries:
@@ -1168,10 +1232,10 @@ async def scan(db_file, url):
                 entry_id = entry.id if entry.has_key("id") else link
                 feed_id = await sqlite.get_feed_id(db_file, url)
                 feed_id = feed_id[0]
-                exist = await sqlite.check_entry_exist(db_file, feed_id,
-                                                       entry_id=entry_id,
-                                                       title=title, link=link,
-                                                       date=date)
+                exist = sqlite.check_entry_exist(db_file, feed_id,
+                                                 entry_id=entry_id,
+                                                 title=title, link=link,
+                                                 date=date)
                 if not exist:
                     summary = entry.summary if entry.has_key("summary") else ''
                     read_status = 0
@@ -1187,12 +1251,12 @@ async def scan(db_file, url):
                                                                 string)
                         if reject_list:
                             read_status = 1
-                            logging.debug('Rejected : {}'
+                            logger.debug('Rejected : {}'
                                           '\n'
                                           'Keyword  : {}'.format(link,
                                                                  reject_list))
                     if isinstance(date, int):
-                        logging.error('Variable "date" is int: {}'
+                        logger.error('Variable "date" is int: {}'
                                       .format(date))
                     media_link = ''
                     if entry.has_key("links"):
@@ -1212,10 +1276,10 @@ async def scan(db_file, url):
                                         media_link = trim_url(media_link)
                                         break
                             except:
-                                logging.info('KeyError: "href"\n'
+                                logger.info('KeyError: "href"\n'
                                               'Missing "href" attribute for {}'
                                               .format(url))
-                                logging.info('Continue scanning for next '
+                                logger.info('Continue scanning for next '
                                              'potential enclosure of {}'
                                              .format(link))
                     entry = {
@@ -1240,6 +1304,9 @@ async def scan(db_file, url):
 
 
 def get_document_title(data):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated.'
+                .format(function_name))
     try:
         document = Document(data)
         title = document.short_title()
@@ -1250,6 +1317,9 @@ def get_document_title(data):
 
 
 def get_document_content(data):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated.'
+                .format(function_name))
     try:
         document = Document(data)
         content = document.summary()
@@ -1260,6 +1330,9 @@ def get_document_content(data):
 
 
 def get_document_content_as_text(data):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated.'
+                .format(function_name))
     try:
         document = Document(data)
         content = document.summary()
@@ -1271,6 +1344,9 @@ def get_document_content_as_text(data):
 
 
 def generate_document(data, url, ext, filename, readability=False):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and URL {}.'
+                .format(function_name, filename, url))
     error = None
     if readability:
         try:
@@ -1278,15 +1354,15 @@ def generate_document(data, url, ext, filename, readability=False):
             content = document.summary()
         except:
             content = data
-            logging.warning('Check that package readability is installed.')
+            logger.warning('Check that package readability is installed.')
     else:
         content = data
     match ext:
         case "epub":
             error = generate_epub(content, filename)
             if error:
-                logging.error(error)
-                # logging.error(
+                logger.error(error)
+                # logger.error(
                 #     "Check that packages xml2epub is installed, "
                 #     "or try again.")
         case "html":
@@ -1295,14 +1371,14 @@ def generate_document(data, url, ext, filename, readability=False):
             try:
                 generate_markdown(content, filename)
             except:
-                logging.warning('Check that package html2text '
+                logger.warning('Check that package html2text '
                                 'is installed, or try again.')
                 error = 'Package html2text was not found.'
         case "pdf":
             error = generate_pdf(content, filename)
             if error:
-                logging.error(error)
-                # logging.warning(
+                logger.error(error)
+                # logger.warning(
                 #     "Check that packages pdfkit and wkhtmltopdf "
                 #     "are installed, or try again.")
                 # error = (
@@ -1321,6 +1397,9 @@ def generate_document(data, url, ext, filename, readability=False):
 
 
 async def extract_image_from_feed(db_file, feed_id, url):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and URL {}.'
+                .format(function_name, db_file, url))
     feed_url = sqlite.get_feed_url(db_file, feed_id)
     feed_url = feed_url[0]
     result = await fetch.http(feed_url)
@@ -1336,11 +1415,14 @@ async def extract_image_from_feed(db_file, feed_id, url):
                             image_url = link.href
                             return image_url
             except:
-                logging.error(url)
-                logging.error('AttributeError: object has no attribute "link"')
+                logger.error(url)
+                logger.error('AttributeError: object has no attribute "link"')
 
 
 async def extract_image_from_html(url):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for URL {}.'
+                .format(function_name, url))
     result = await fetch.http(url)
     if not result['error']:
         data = result['content']
@@ -1349,7 +1431,7 @@ async def extract_image_from_html(url):
             content = document.summary()
         except:
             content = data
-            logging.warning('Check that package readability is installed.')
+            logger.warning('Check that package readability is installed.')
         tree = html.fromstring(content)
         # TODO Exclude banners, class="share" links etc.
         images = tree.xpath(
@@ -1370,6 +1452,9 @@ async def extract_image_from_html(url):
 
 
 def generate_epub(text, pathname):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, pathname))
     ## create an empty eBook
     pathname_list = pathname.split("/")
     filename = pathname_list.pop()
@@ -1397,11 +1482,17 @@ def generate_epub(text, pathname):
 
 
 def generate_html(text, filename):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, filename))
     with open(filename, 'w') as file:
         file.write(text)
 
 
 def generate_markdown(text, filename):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, filename))
     h2m = html2text.HTML2Text()
     # Convert HTML to Markdown
     markdown = h2m.handle(text)
@@ -1410,6 +1501,9 @@ def generate_markdown(text, filename):
 
 
 def generate_pdf(text, filename):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, filename))
     try:
         pdfkit.from_string(text, filename)
     except IOError as error:
@@ -1419,17 +1513,26 @@ def generate_pdf(text, filename):
 
 
 def generate_txt(text, filename):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, filename))
     text = remove_html_tags(text)
     with open(filename, 'w') as file:
         file.write(text)
 
 def remove_html_tags(data):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated.'
+                .format(function_name))
     data = BeautifulSoup(data, "lxml").text
     data = data.replace("\n\n", "\n")
     return data
 
 # TODO Add support for eDonkey, Gnutella, Soulseek
 async def get_magnet(link):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for URL {}.'
+                .format(function_name, link))
     parted_link = urlsplit(link)
     queries = parse_qs(parted_link.query)
     query_xt = queries["xt"][0]
@@ -1437,12 +1540,11 @@ async def get_magnet(link):
         filename = queries["dn"][0]
         checksum = query_xt[len("urn:btih:"):]
         torrent = await fetch.magnet(link)
-        logging.debug('Attempting to retrieve {} ({})'
-                      .format(filename, checksum))
+        logger.debug('Attempting to retrieve {} ({})'
+                     .format(filename, checksum))
         if not torrent:
-            logging.debug(
-                "Attempting to retrieve {} from HTTP caching service".format(
-                    filename))
+            logger.debug('Attempting to retrieve {} from HTTP caching service'
+                         .format(filename))
             urls = [
                 'https://watercache.libertycorp.org/get/{}/{}',
                 'https://itorrents.org/torrent/{}.torrent?title={}',
@@ -1471,6 +1573,9 @@ async def remove_nonexistent_entries(db_file, url, feed):
     feed : list
         Parsed feed document.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and URL {}.'
+                .format(function_name, db_file, url))
     feed_id = await sqlite.get_feed_id(db_file, url)
     feed_id = feed_id[0]
     items = await sqlite.get_entries_of_feed(db_file, feed_id)
@@ -1577,6 +1682,9 @@ async def remove_nonexistent_entries_json(db_file, url, feed):
     feed : list
         Parsed feed document.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and URL {}.'
+                .format(function_name, db_file, url))
     feed_id = await sqlite.get_feed_id(db_file, url)
     feed_id = feed_id[0]
     items = await sqlite.get_entries_of_feed(db_file, feed_id)

@@ -18,9 +18,10 @@ TODO
 """
 
 from asyncio import Lock
-import logging
 # from slixfeed.data import join_url
+from slixfeed.log import Logger
 from sqlite3 import connect, Error, IntegrityError
+import sys
 import time
 
 # from eliot import start_action, to_file
@@ -31,10 +32,12 @@ import time
 # # with start_action(action_type="search_entries()", query=query):
 # # with start_action(action_type="check_entry()", link=link):
 
+CURSORS = {}
+
 # aiosqlite
 DBLOCK = Lock()
 
-CURSORS = {}
+logger = Logger(__name__)
 
 def create_connection(db_file):
     """
@@ -51,6 +54,9 @@ def create_connection(db_file):
     conn : object
         Connection object or None.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     conn = None
     try:
         conn = connect(db_file)
@@ -70,6 +76,9 @@ def create_tables(db_file):
     db_file : str
         Path to database file.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         archive_table_sql = (
             """
@@ -296,6 +305,9 @@ def get_cursor(db_file):
     CURSORS[db_file] : object
         Cursor.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     if db_file in CURSORS:
         return CURSORS[db_file]
     else:
@@ -316,6 +328,9 @@ async def import_feeds(db_file, feeds):
     feeds : list
         Set of feeds (Title and URL).
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -337,8 +352,8 @@ async def import_feeds(db_file, feeds):
                 try:
                     cur.execute(sql, par)
                 except IntegrityError as e:
-                    logging.warning("Skipping: " + str(url))
-                    logging.error(e)
+                    logger.warning("Skipping: " + str(url))
+                    logger.error(e)
 
 
 async def add_metadata(db_file):
@@ -350,6 +365,9 @@ async def add_metadata(db_file):
     db_file : str
         Path to database file.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -376,6 +394,9 @@ def insert_feed_status(cur, feed_id):
     cur : object
         Cursor object.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for feed_id {}.'
+                .format(function_name, feed_id))
     sql = (
         """
         INSERT
@@ -389,9 +410,9 @@ def insert_feed_status(cur, feed_id):
     try:
         cur.execute(sql, par)
     except IntegrityError as e:
-        logging.warning(
+        logger.warning(
             "Skipping feed_id {} for table feeds_state".format(feed_id))
-        logging.error(e)
+        logger.error(e)
 
 
 def insert_feed_properties(cur, feed_id):
@@ -403,6 +424,9 @@ def insert_feed_properties(cur, feed_id):
     cur : object
         Cursor object.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for feed_id {}.'
+                .format(function_name, feed_id))
     sql = (
         """
         INSERT
@@ -416,14 +440,14 @@ def insert_feed_properties(cur, feed_id):
     try:
         cur.execute(sql, par)
     except IntegrityError as e:
-        logging.warning(
+        logger.warning(
             "Skipping feed_id {} for table feeds_properties".format(feed_id))
-        logging.error(e)
+        logger.error(e)
 
 
-async def insert_feed(
-    db_file, url, title=None, entries=None, version=None,
-    encoding=None, language=None, status_code=None, updated=None):
+async def insert_feed(db_file, url, title=None, entries=None, version=None,
+                      encoding=None, language=None, status_code=None,
+                      updated=None):
     """
     Insert a new feed into the feeds table.
 
@@ -448,6 +472,9 @@ async def insert_feed(
     updated : ???, optional
         Date feed was last updated. The default is None.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and URL {}.'
+                .format(function_name, db_file, url))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -501,9 +528,9 @@ async def insert_feed(
             cur.execute(sql, par)
 
 
-async def insert_feed_(
-    db_file, url, title=None, entries=None, version=None,
-    encoding=None, language=None, status_code=None, updated=None):
+async def insert_feed_(db_file, url, title=None, entries=None, version=None,
+                       encoding=None, language=None, status_code=None,
+                       updated=None):
     """
     Insert a new feed into the feeds table.
 
@@ -532,6 +559,9 @@ async def insert_feed_(
     updated : ???, optional
         Date feed was last updated. The default is None.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and URL {}.'
+                .format(function_name, db_file, url))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -575,6 +605,9 @@ async def remove_feed_by_url(db_file, url):
     url : str
         URL of feed.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and URL {}.'
+                .format(function_name, db_file, url))
     with create_connection(db_file) as conn:
         async with DBLOCK:
             cur = conn.cursor()
@@ -600,6 +633,9 @@ async def remove_feed_by_index(db_file, ix):
     ix : str
         Index of feed.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     with create_connection(db_file) as conn:
         async with DBLOCK:
             cur = conn.cursor()
@@ -645,6 +681,9 @@ def get_feeds_by_tag_id(db_file, tag_id):
     result : tuple
         List of tags.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Tag ID {}.'
+                .format(function_name, db_file, tag_id))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -677,6 +716,9 @@ def get_tags_by_feed_id(db_file, feed_id):
     result : tuple
         List of tags.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Feed ID {}.'
+                .format(function_name, db_file, feed_id))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -706,6 +748,9 @@ async def set_feed_id_and_tag_id(db_file, feed_id, tag_id):
     tag_id : str
         Tag ID
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Feed ID {} and Tag ID {}.'
+                .format(function_name, db_file, feed_id, tag_id))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -741,6 +786,9 @@ def get_tag_id(db_file, tag_name):
     ix : str
         Tag ID.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Tag {}.'
+                .format(function_name, db_file, tag_name))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -771,6 +819,9 @@ def get_tag_name(db_file, ix):
     tag_name : str
         Tag name.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -801,6 +852,9 @@ def is_tag_id_associated(db_file, tag_id):
     tag_id : str
         Tag ID.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Tag ID {}.'
+                .format(function_name, db_file, tag_id))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -818,6 +872,9 @@ def is_tag_id_associated(db_file, tag_id):
 
 
 async def delete_tag_by_index(db_file, ix):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -852,6 +909,9 @@ def is_tag_id_of_feed_id(db_file, tag_id, feed_id):
     tag_id : str
         Tag ID.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Feed ID {} and Tag ID {}.'
+                .format(function_name, db_file, feed_id, tag_id))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -870,6 +930,9 @@ def is_tag_id_of_feed_id(db_file, tag_id, feed_id):
 
 
 async def delete_feed_id_tag_id(db_file, feed_id, tag_id):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Feed ID {} and Tag ID {}.'
+                .format(function_name, db_file, feed_id, tag_id))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -898,6 +961,9 @@ async def set_new_tag(db_file, tag):
     tag : str
         Tag
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Tag {}.'
+                .format(function_name, db_file, tag))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -934,6 +1000,9 @@ async def get_feed_id_and_name(db_file, url):
     result : tuple
         List of ID and Name of feed.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and URL {}.'
+                .format(function_name, db_file, url))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -964,6 +1033,9 @@ async def get_number_of_items(db_file, table):
     count : ?
         Number of rows.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Table {}.'
+                .format(function_name, db_file, table))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -990,6 +1062,9 @@ async def get_number_of_feeds_active(db_file):
     count : str
         Number of rows.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1017,6 +1092,9 @@ async def get_number_of_entries_unread(db_file):
     count : ?
         Number of rows.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1053,6 +1131,9 @@ async def get_unread_entries(db_file, num):
     result : tuple
         News items.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Num {}.'
+                .format(function_name, db_file, num))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1088,6 +1169,9 @@ def get_feed_id_by_entry_index(db_file, ix):
     feed_id : str
         Feed index.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1118,6 +1202,9 @@ async def get_feed_id(db_file, url):
     feed_id : str
         Feed index.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and URL {}.'
+                .format(function_name, db_file, url))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1143,6 +1230,9 @@ async def mark_entry_as_read(cur, ix):
     ix : str
         Index of entry.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     sql = (
         """
         UPDATE entries
@@ -1165,6 +1255,9 @@ def get_number_of_unread_entries_by_feed(db_file, feed_id):
     feed_id : str
         Feed Id.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Feed ID {}.'
+                .format(function_name, db_file, feed_id))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1190,6 +1283,9 @@ async def mark_feed_as_read(db_file, feed_id):
     feed_id : str
         Feed Id.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Feed ID {}.'
+                .format(function_name, db_file, feed_id))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1215,6 +1311,9 @@ async def delete_entry_by_id(db_file, ix):
     ix : str
         Index.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1240,6 +1339,9 @@ async def archive_entry(db_file, ix):
     ix : str
         Index.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1255,11 +1357,9 @@ async def archive_entry(db_file, ix):
             par = (ix,)
             try:
                 cur.execute(sql, par)
-            except:
-                print(
-                    "ERROR DB insert from entries "
-                    "into archive at index", ix
-                    )
+            except Exception as e:
+                print('ERROR DB insert from entries into archive at index {} '
+                      'for {}. Reason: {}'.format(ix, db_file, e))
             sql = (
                 """
                 DELETE
@@ -1278,6 +1378,9 @@ async def archive_entry(db_file, ix):
 
 
 def get_feed_title(db_file, ix):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1305,6 +1408,9 @@ async def set_feed_title(db_file, feed_id, name):
     name : str
         New name.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Feed ID {} and Name {}.'
+                .format(function_name, db_file, feed_id, name))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1323,6 +1429,9 @@ async def set_feed_title(db_file, feed_id, name):
 
 
 def get_entry_title(db_file, ix):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = ( # TODO Handletable archive too
@@ -1338,6 +1447,9 @@ def get_entry_title(db_file, ix):
 
 
 def get_entry_url(db_file, ix):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = ( # TODO Handletable archive too
@@ -1353,6 +1465,9 @@ def get_entry_url(db_file, ix):
 
 
 def get_feed_url(db_file, ix):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1368,6 +1483,9 @@ def get_feed_url(db_file, ix):
 
 
 async def mark_as_read(db_file, ix):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Index {}.'
+                .format(function_name, db_file, ix))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1390,6 +1508,9 @@ async def mark_all_as_read(db_file):
     db_file : str
         Path to database file.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1420,6 +1541,9 @@ async def delete_archived_entry(cur, ix):
     ix : str
         Index of entry.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for Index {}.'
+                .format(function_name, ix))
     sql = (
         """
         DELETE
@@ -1440,6 +1564,9 @@ async def update_statistics(cur):
     cur : object
         Cursor object.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated.'
+                .format(function_name))
     stat_dict = {}
     stat_dict["feeds"] = await get_number_of_items(cur, 'feeds')
     stat_dict["entries"] = await get_number_of_items(cur, 'entries')
@@ -1491,6 +1618,9 @@ async def set_enabled_status(db_file, feed_id, status):
     status : int
         0 or 1.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Feed ID {} and Status {}.'
+                .format(function_name, db_file, feed_id, status))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1519,8 +1649,8 @@ When time functions of slixfeed.timedate
 were async, there were errors of coroutines
 
 """
-async def add_entry(
-    db_file, title, link, entry_id, feed_id, date, read_status):
+async def add_entry(db_file, title, link, entry_id, feed_id, date,
+                    read_status):
     """
     Add a new entry row into the entries table.
 
@@ -1541,6 +1671,9 @@ async def add_entry(
     read_status : str
         0 or 1.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Feed ID {}.'
+                .format(function_name, db_file, feed_id))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1590,6 +1723,9 @@ async def add_entries_and_update_timestamp(db_file, feed_id, new_entries):
     new_entries : tuple
         Set of entries as dict.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Feed ID {}.'
+                .format(function_name, db_file, feed_id))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1639,6 +1775,9 @@ async def set_date(db_file, feed_id):
     feed_id : str
         Feed Id.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Feed ID {}.'
+                .format(function_name, db_file, feed_id))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1670,6 +1809,9 @@ async def update_feed_status(db_file, feed_id, status_code):
     status : str
         Status ID or message.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Feed ID {} and Status Code {}.'
+                .format(function_name, db_file, feed_id, status_code))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1701,6 +1843,9 @@ async def update_feed_validity(db_file, feed_id, valid):
     valid : boolean
         0 or 1.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Feed ID {} and Validity {}.'
+                .format(function_name, db_file, feed_id, valid))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1733,6 +1878,9 @@ async def update_feed_properties(db_file, feed_id, entries, updated):
     updated : ???
         Date feed was last updated.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Feed ID {}.'
+                .format(function_name, db_file, feed_id))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1761,6 +1909,9 @@ async def maintain_archive(db_file, limit):
     limit : str
         Number of maximum entries to store.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Limit {}.'
+                .format(function_name, db_file, limit))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1815,6 +1966,9 @@ async def get_entries_of_feed(db_file, feed_id):
     feed_id : str
         Feed Id.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Feed ID {}.'
+                .format(function_name, db_file, feed_id))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1869,6 +2023,9 @@ async def get_feeds_url(db_file):
     result : tuple
         URLs of active feeds.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1897,6 +2054,9 @@ def get_feeds_by_enabled_state(db_file, enabled_state):
     result : tuple
         List of URLs.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and State {}.'
+                .format(function_name, db_file, enabled_state))
     if enabled_state:
         enabled_state = 1
     else:
@@ -1930,6 +2090,9 @@ async def get_active_feeds_url(db_file):
     result : tuple
         URLs of active feeds.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1958,6 +2121,9 @@ def get_tags(db_file):
     result : tuple
         List of tags.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -1984,6 +2150,9 @@ async def get_feeds(db_file):
     result : tuple
         URLs of feeds.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     # TODO
     # 1) Select id from table feeds
     #    Select name, url (feeds) updated, enabled, feed_id (status)
@@ -2017,6 +2186,9 @@ async def last_entries(db_file, num):
     titles_list : tuple
         List of recent N entries as message.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Num {}.'
+                .format(function_name, db_file, num))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         # sql = (
@@ -2059,6 +2231,9 @@ def search_feeds(db_file, query):
     result : tuple
         Feeds of specified keywords as message.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Query {}.'
+                .format(function_name, db_file, query))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2091,6 +2266,9 @@ async def search_entries(db_file, query):
     titles_list : tuple
         Entries of specified keywords as message.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Query {}.'
+                .format(function_name, db_file, query))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2132,8 +2310,8 @@ ERROR DATE: result = https://blog.heckel.io/feed/
 19:32:06 ERROR DATE: result = https://mwl.io/feed
 
 """
-async def check_entry_exist(
-    db_file, feed_id, entry_id=None, title=None, link=None, date=None):
+def check_entry_exist(db_file, feed_id, entry_id=None, title=None, link=None,
+                      date=None):
     """
     Check whether an entry exists.
     If entry has an ID, check by ID.
@@ -2160,6 +2338,9 @@ async def check_entry_exist(
     bool
         True or None.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Feed ID {}.'
+                .format(function_name, db_file, feed_id))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         exist = False
@@ -2194,8 +2375,8 @@ async def check_entry_exist(
                 result = cur.execute(sql, par).fetchone()
                 if result: exist = True
             except:
-                logging.error("source =", feed_id)
-                logging.error("date =", date)
+                logger.error("source =", feed_id)
+                logger.error("date =", date)
         else:
             sql = (
                 """
@@ -2236,6 +2417,10 @@ async def set_setting_value(db_file, key_value):
     """
     key = key_value[0]
     value = key_value[1]
+
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Key {} and Value {}.'
+                .format(function_name, db_file, key, value))
 
     if not value:
         match key:
@@ -2288,6 +2473,11 @@ async def update_setting_value(db_file, key_value):
     #     val = 0
     key = key_value[0]
     value = key_value[1]
+
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Key {} and Value {}.'
+                .format(function_name, db_file, key, value))
+
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -2310,6 +2500,9 @@ async def update_setting_value(db_file, key_value):
 
 
 async def delete_filter(db_file, key):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Key {}.'
+                .format(function_name, db_file, key))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -2325,6 +2518,9 @@ async def delete_filter(db_file, key):
 
 
 async def delete_setting(db_file, key):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Key {}.'
+                .format(function_name, db_file, key))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -2340,6 +2536,9 @@ async def delete_setting(db_file, key):
 
 
 async def delete_settings(db_file):
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -2369,6 +2568,9 @@ def get_setting_value(db_file, key):
     val : str
         Numeric value.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Key {}.'
+                .format(function_name, db_file, key))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2399,6 +2601,9 @@ def is_setting_key(db_file, key):
     key : str
         Key.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Key {}.'
+                .format(function_name, db_file, key))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2429,6 +2634,11 @@ async def set_filter_value(db_file, key_value):
     """
     key = key_value[0]
     val = key_value[1]
+
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Key {} and Value {}.'
+                .format(function_name, db_file, key, val))
+
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -2473,6 +2683,11 @@ async def update_filter_value(db_file, key_value):
     #     val = 0
     key = key_value[0]
     val = key_value[1]
+
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Key {} and Value {}.'
+                .format(function_name, db_file, key, val))
+
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -2506,6 +2721,9 @@ def is_filter_key(db_file, key):
     key : str
         Key.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Key {}.'
+                .format(function_name, db_file, key))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2536,6 +2754,9 @@ def get_filter_value(db_file, key):
     value : str
         List of strings.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}, Key {}.'
+                .format(function_name, db_file, key))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2563,6 +2784,9 @@ async def set_last_update_time(db_file):
     -------
     None.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2595,6 +2819,9 @@ async def get_last_update_time(db_file):
     val : str
         Time.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         try:
@@ -2609,7 +2836,7 @@ async def get_last_update_time(db_file):
             value = str(value)
         except:
             value = None
-            logging.debug(
+            logger.debug(
                 "No specific value set for key last_update.")
     return value
 
@@ -2627,6 +2854,9 @@ async def update_last_update_time(db_file):
     -------
     None.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2661,6 +2891,9 @@ def get_categories(db_file):
     categories : str
         List of categories.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2688,6 +2921,9 @@ def get_locales(db_file):
     locales : tuple
         List of locales.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2715,6 +2951,9 @@ def get_nations(db_file):
     nations : tuple
         List of nations.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2769,6 +3008,9 @@ def get_titles_tags_urls(db_file):
     titles_urls : tuple
         List of titles and urls.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {}.'
+                .format(function_name, db_file))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
@@ -2797,6 +3039,9 @@ def get_titles_tags_urls_by_category(db_file, category):
     titles_urls : tuple
         List of titles and urls.
     """
+    function_name = sys._getframe().f_code.co_name
+    logger.info('Function {} has been initiated for filename {} and Category {}.'
+                .format(function_name, db_file, category))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (

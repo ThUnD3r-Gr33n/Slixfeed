@@ -229,9 +229,19 @@ def main():
     logging.basicConfig(level=args.loglevel,
                         format='%(levelname)-8s %(message)s')
 
+    # # Setup logging.
+    # logging.basicConfig(level=args.loglevel,
+    #                     format='%(levelname)-8s %(message)s')
+    # # logging.basicConfig(format='[%(levelname)s] %(message)s')
+    # logger = logging.getLogger()
+    # logdbg = logger.debug
+    # logerr = logger.error
+    # lognfo = logger.info
+    # logwrn = logger.warning
+
     # Try configuration file
-    values = config.get_value('accounts', 'XMPP Client',
-                              ['alias', 'jid', 'password', 'hostname', 'port'])
+    key_list = ['alias', 'jid', 'password', 'hostname', 'port']
+    values = config.get_value('accounts', 'XMPP Client', key_list)
     alias = values[0]
     jid = values[1]
     password = values[2]

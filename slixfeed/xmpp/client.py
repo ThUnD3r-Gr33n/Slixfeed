@@ -31,7 +31,6 @@ NOTE
 """
 
 import asyncio
-import logging
 import slixmpp
 import slixfeed.task as task
 
@@ -44,6 +43,7 @@ import slixfeed.task as task
 # from lxml import etree
 
 import slixfeed.config as config
+from slixfeed.log import Logger
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.connect import XmppConnect
@@ -55,6 +55,7 @@ from slixfeed.xmpp.roster import XmppRoster
 # import slixfeed.xmpp.service as service
 from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.utility import get_chat_type
+import sys
 
 import asyncio
 from datetime import datetime
@@ -91,6 +92,7 @@ loop = asyncio.get_event_loop()
 #     current_time = now.strftime("%H:%M:%S")
 #     return current_time
 
+logger = Logger(__name__)
 
 class Slixfeed(slixmpp.ClientXMPP):
     """
@@ -179,7 +181,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     # TODO Test
     async def on_groupchat_invite(self, message):
-        logging.warning("on_groupchat_invite")
+        jid_full = str(message['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         inviter = message['from'].bare
         muc_jid = message['groupchat_invite']['jid']
         await XmppBookmark.add(self, muc_jid)
@@ -194,6 +199,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     # NOTE Tested with Gajim and Psi
     async def on_groupchat_direct_invite(self, message):
+        jid_full = str(message['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         inviter = message['from'].bare
         muc_jid = message['groupchat_invite']['jid']
         await XmppBookmark.add(self, muc_jid)
@@ -212,11 +221,14 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_connection_failed(self, event):
+        logger.info('Event connection_failed has been initiated.')
         message = 'Connection has failed.  Reason: {}'.format(event)
         XmppConnect.recover(self, message)
 
 
     async def on_session_start(self, event):
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated.'.format(function_name))
         # self.send_presence()
         profile.set_identity(self, 'client')
         # XmppCommand.adhoc_commands(self)
@@ -235,6 +247,8 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     def on_session_resumed(self, event):
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated.'.format(function_name))
         # self.send_presence()
         profile.set_identity(self, 'client')
         self['xep_0115'].update_caps()
@@ -242,34 +256,41 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_disco_info(self, DiscoInfo):
-        jid = DiscoInfo['from']
+        jid_full = str(DiscoInfo['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         # self.service_reactions()
         # self.send_presence(pto=jid)
-        await self['xep_0115'].update_caps(jid=jid)
+        await self['xep_0115'].update_caps(jid=jid_full)
 
 
     async def on_message(self, message):
-        jid = message['from'].bare
-        if jid == self.boundjid.bare:
+        jid_full = str(message['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = message['from'].bare
+        if jid_bare == self.boundjid.bare:
             status_type = 'dnd'
             status_message = ('Slixfeed is not designed to receive messages '
                               'from itself')
-            XmppPresence.send(self, jid, status_message,
+            XmppPresence.send(self, jid_bare, status_message,
                               status_type=status_type)
             await asyncio.sleep(5)
             status_message = ('Slixfeed news bot from RSS Task Force')
-            XmppPresence.send(self, jid, status_message)
+            XmppPresence.send(self, jid_bare, status_message)
         else:
             # TODO Request for subscription
-            if (await get_chat_type(self, jid) == 'chat' and
-                not self.client_roster[jid]['to']):
-                XmppPresence.subscription(self, jid, 'subscribe')
-                await XmppRoster.add(self, jid)
+            if (await get_chat_type(self, jid_bare) == 'chat' and
+                not self.client_roster[jid_bare]['to']):
+                XmppPresence.subscription(self, jid_bare, 'subscribe')
+                await XmppRoster.add(self, jid_bare)
                 status_message = '✒️ Share online status to receive updates'
-                XmppPresence.send(self, jid, status_message)
+                XmppPresence.send(self, jid_bare, status_message)
                 message_subject = 'RSS News Bot'
                 message_body = 'Share online status to receive updates.'
-                XmppMessage.send_headline(self, jid, message_subject,
+                XmppMessage.send_headline(self, jid_bare, message_subject,
                                           message_body, 'chat')
             await process.message(self, message)
         # chat_type = message["type"]
@@ -278,80 +299,106 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_changed_status(self, presence):
+        jid_full = str(presence['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         # await task.check_readiness(self, presence)
-        jid = presence['from'].bare
-        if jid in self.boundjid.bare:
+        jid_bare = presence['from'].bare
+        if jid_bare in self.boundjid.bare:
             return
         if presence['show'] in ('away', 'dnd', 'xa'):
-            task.clean_tasks_xmpp(self, jid, ['interval'])
-            await task.start_tasks_xmpp(self, jid, ['status', 'check'])
+            key_list = ['interval']
+            task.clean_tasks_xmpp(self, jid_bare, key_list)
+            key_list = ['status', 'check']
+            await task.start_tasks_xmpp(self, jid_bare, key_list)
 
 
     async def on_presence_subscribe(self, presence):
-        jid = presence['from'].bare
-        if not self.client_roster[jid]['to']:
+        jid_full = str(presence['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = presence['from'].bare
+        if not self.client_roster[jid_bare]['to']:
         # XmppPresence.subscription(self, jid, 'subscribe')
-            XmppPresence.subscription(self, jid, 'subscribed')
-            await XmppRoster.add(self, jid)
+            XmppPresence.subscription(self, jid_bare, 'subscribed')
+            await XmppRoster.add(self, jid_bare)
             status_message = '✒️ Share online status to receive updates'
-            XmppPresence.send(self, jid, status_message)
+            XmppPresence.send(self, jid_bare, status_message)
             message_subject = 'RSS News Bot'
             message_body = 'Share online status to receive updates.'
-            XmppMessage.send_headline(self, jid, message_subject, message_body,
-                                      'chat')
+            XmppMessage.send_headline(self, jid_bare, message_subject,
+                                      message_body, 'chat')
 
 
     def on_presence_subscribed(self, presence):
-        jid = presence['from'].bare
-        # XmppPresence.subscription(self, jid, 'subscribed')
+        jid_full = str(presence['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         message_subject = 'RSS News Bot'
         message_body = ('Greetings! I am {}, the news anchor.\n'
                         'My job is to bring you the latest '
                         'news from sources you provide me with.\n'
                         'You may always reach me via xmpp:{}?message'
                         .format(self.alias, self.boundjid.bare))
-        XmppMessage.send_headline(self, jid, message_subject, message_body,
-                                  'chat')
+        jid_bare = presence['from'].bare
+        # XmppPresence.subscription(self, jid, 'subscribed')
+        XmppMessage.send_headline(self, jid_bare, message_subject,
+                                  message_body, 'chat')
 
 
     async def on_presence_available(self, presence):
+        jid_full = str(presence['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         # TODO Add function to check whether task is already running or not
         # await task.start_tasks(self, presence)
         # NOTE Already done inside the start-task function
-        jid = presence['from'].bare
-        if jid in self.boundjid.bare:
+        jid_bare = presence['from'].bare
+        if jid_bare in self.boundjid.bare:
             return
-        logging.info('JID {} is available'.format(jid))
         # FIXME TODO Find out what is the source responsible for a couple presences with empty message
         # NOTE This is a temporary solution
         await asyncio.sleep(10)
-        await task.start_tasks_xmpp(self, jid)
+        await task.start_tasks_xmpp(self, jid_bare)
         self.add_event_handler("presence_unavailable",
                                self.on_presence_unavailable)
 
 
     def on_presence_unsubscribed(self, presence):
-        jid = presence['from'].bare
+        jid_full = str(presence['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = presence['from'].bare
         message_body = 'You have been unsubscribed.'
         # status_message = '🖋️ Subscribe to receive updates'
         # status_message = None
-        XmppMessage.send(self, jid, message_body, 'chat')
-        XmppPresence.subscription(self, jid, 'unsubscribed')
+        XmppMessage.send(self, jid_bare, message_body, 'chat')
+        XmppPresence.subscription(self, jid_bare, 'unsubscribed')
         # XmppPresence.send(self, jid, status_message,
         #                   presence_type='unsubscribed')
-        XmppRoster.remove(self, jid)
+        XmppRoster.remove(self, jid_bare)
 
 
     def on_presence_unavailable(self, presence):
-        jid = presence['from'].bare
-        logging.info('JID {} is unavailable'.format(jid))
+        jid_full = str(presence['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = presence['from'].bare
+        logger.info('Event presence_unavailable has been initiated for JID {}.'
+                    .format(jid_bare))
         # await task.stop_tasks(self, jid)
-        task.clean_tasks_xmpp(self, jid)
+        task.clean_tasks_xmpp(self, jid_bare)
 
         # NOTE Albeit nice to ~have~ see, this would constantly
         #      send presence messages to server to no end.
         status_message = 'Farewell'
-        XmppPresence.send(self, jid, status_message,
+        XmppPresence.send(self, jid_bare, status_message,
                           presence_type='unavailable')
         self.del_event_handler("presence_unavailable",
                                self.on_presence_unavailable)
@@ -363,9 +410,12 @@ class Slixfeed(slixmpp.ClientXMPP):
     # If roster, remove contact JID into file 
     # If bookmarks, remove groupchat JID into file 
     def on_presence_error(self, presence):
-        jid = presence["from"].bare
-        logging.info('JID {} (error)'.format(jid))
-        task.clean_tasks_xmpp(self, jid)
+        jid_full = str(presence['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = presence["from"].bare
+        task.clean_tasks_xmpp(self, jid_bare)
 
 
     def on_reactions(self, message):
@@ -374,8 +424,12 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def on_chatstate_active(self, message):
-        jid = message['from'].bare
-        if jid in self.boundjid.bare:
+        jid_full = str(message['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = message['from'].bare
+        if jid_bare in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
             # NOTE: Required for Cheogram
@@ -383,12 +437,17 @@ class Slixfeed(slixmpp.ClientXMPP):
             # self.send_presence(pto=jid)
             # task.clean_tasks_xmpp(self, jid, ['status'])
             await asyncio.sleep(5)
-            await task.start_tasks_xmpp(self, jid, ['status'])
+            key_list = ['status']
+            await task.start_tasks_xmpp(self, jid_bare, key_list)
 
 
     async def on_chatstate_composing(self, message):
+        jid_full = str(message['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         if message['type'] in ('chat', 'normal'):
-            jid = message['from'].bare
+            jid_bare = message['from'].bare
             # NOTE: Required for Cheogram
             # await self['xep_0115'].update_caps(jid=jid)
             # self.send_presence(pto=jid)
@@ -396,34 +455,49 @@ class Slixfeed(slixmpp.ClientXMPP):
             await asyncio.sleep(5)
             status_message = ('💡 Send "help" for manual, or "info" for '
                               'information.')
-            XmppPresence.send(self, jid, status_message)
+            XmppPresence.send(self, jid_bare, status_message)
 
 
     async def on_chatstate_gone(self, message):
-        jid = message['from'].bare
-        if jid in self.boundjid.bare:
+        jid_full = str(message['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = message['from'].bare
+        if jid_bare in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
             # task.clean_tasks_xmpp(self, jid, ['status'])
-            await task.start_tasks_xmpp(self, jid, ['status'])
+            key_list = ['status']
+            await task.start_tasks_xmpp(self, jid_bare, key_list)
 
 
     async def on_chatstate_inactive(self, message):
-        jid = message['from'].bare
-        if jid in self.boundjid.bare:
+        jid_full = str(message['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = message['from'].bare
+        if jid_bare in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
             # task.clean_tasks_xmpp(self, jid, ['status'])
-            await task.start_tasks_xmpp(self, jid, ['status'])
+            key_list = ['status']
+            await task.start_tasks_xmpp(self, jid_bare, key_list)
 
 
     async def on_chatstate_paused(self, message):
-        jid = message['from'].bare
-        if jid in self.boundjid.bare:
+        jid_full = str(message['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = message['from'].bare
+        if jid_bare in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
             # task.clean_tasks_xmpp(self, jid, ['status'])
-            await task.start_tasks_xmpp(self, jid, ['status'])
+            key_list = ['status']
+            await task.start_tasks_xmpp(self, jid_bare, key_list)
 
 
 
@@ -468,12 +542,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         None.
     
         """
-        form = self['xep_0004'].make_form(
-            'form', 'Reactions Information'
-            )
+        form = self['xep_0004'].make_form('form', 'Reactions Information')
 
 
     def adhoc_commands(self):
+        logger.info('Function adhoc_commands has been initiated.')
         # self["xep_0050"].add_command(
         #     node="updates_enable",
         #     name="Enable/Disable News Updates",
@@ -523,12 +596,16 @@ class Slixfeed(slixmpp.ClientXMPP):
     # http://jabber.org/protocol/commands#actions
 
     async def _handle_profile(self, iq, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         form = self['xep_0004'].make_form('form', 'Profile')
         form['instructions'] = ('Displaying information\nJabber ID {}'
-                                .format(jid))
+                                .format(jid_bare))
         form.add_field(ftype='fixed',
                        value='News')
         feeds_all = str(await sqlite.get_number_of_items(db_file, 'feeds'))
@@ -614,11 +691,14 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
     async def _handle_filters(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             jid = session['from'].bare
             jid_file = jid
@@ -664,13 +744,17 @@ class Slixfeed(slixmpp.ClientXMPP):
                        session. Additional, custom data may be saved
                        here to persist across handler callbacks.
         """
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         # Text is not displayed; only labels
         form = payload
 
-        jid = session['from'].bare
+        jid_bare = session['from'].bare
         # form = self['xep_0004'].make_form('result', 'Done')
         # form['instructions'] = ('✅️ Filters have been updated')
-        jid_file = jid
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         # In this case (as is typical), the payload is a form
         values = payload['values']
@@ -698,11 +782,14 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_add(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Subscription')
             form['instructions'] = 'Adding subscription'
@@ -730,12 +817,16 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['payload'] = form
         else:
             text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid))
+                         .format(jid_bare))
             session['notes'] = [['warn', text_warn]]
         return session
 
 
     async def _handle_recent(self, iq, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         form = self['xep_0004'].make_form('form', 'Updates')
         form['instructions'] = 'Browse and read news'
         options = form.add_field(var='action',
@@ -757,8 +848,12 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_recent_result(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         num = 100
         match payload['values']['action']:
@@ -792,21 +887,25 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_recent_select(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         values = payload['values']
         ix = values['update']
-        jid = session['from'].bare
-        jid_file = jid
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         title = sqlite.get_entry_title(db_file, ix)
         title = title[0] if title else 'Untitled'
         form = self['xep_0004'].make_form('form', 'Article')
         url = sqlite.get_entry_url(db_file, ix)
         url = url[0]
-        logging.info('Original URL: {}'.format(url))
+        logger.debug('Original URL: {}'.format(url))
         url = uri.remove_tracking_parameters(url)
-        logging.info('Processed URL (tracker removal): {}'.format(url))
+        logger.debug('Processed URL (tracker removal): {}'.format(url))
         url = (uri.replace_hostname(url, 'link')) or url
-        logging.info('Processed URL (replace hostname): {}'.format(url))
+        logger.debug('Processed URL (replace hostname): {}'.format(url))
         result = await fetch.http(url)
         if 'content' in result:
             data = result['content']
@@ -855,10 +954,14 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_recent_action(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         ext = payload['values']['filetype']
         url = payload['values']['url'][0]
-        jid = session['from'].bare
-        jid_file = jid
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         cache_dir = config.get_default_cache_directory()
         if not os.path.isdir(cache_dir):
@@ -888,7 +991,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                               'Reason: {}'.format(ext.upper(), url, error))
                 session['notes'] = [['error', text_error]]
             else:
-                url = await XmppUpload.start(self, jid, filename)
+                url = await XmppUpload.start(self, jid_bare, filename)
                 form = self['xep_0004'].make_form('result', 'Download')
                 form['instructions'] = ('Download {} document.'
                                         .format(ext.upper()))
@@ -905,8 +1008,12 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_new(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         # scan = payload['values']['scan']
         url = payload['values']['subscription']
@@ -1028,9 +1135,13 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_enable(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         form = payload
-        jid = session['from'].bare
-        jid_file = jid
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         ixs = payload['values']['subscriptions']
         form.add_field(ftype='fixed',
@@ -1058,9 +1169,13 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_disable(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         form = payload
-        jid = session['from'].bare
-        jid_file = jid
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         ixs = payload['values']['subscriptions']
         form.add_field(ftype='fixed',
@@ -1088,9 +1203,13 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_del_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         form = payload
-        jid = session['from'].bare
-        jid_file = jid
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         ixs = payload['values']['subscriptions']
         form.add_field(ftype='fixed',
@@ -1118,6 +1237,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     def _handle_cancel(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         text_note = ('Operation has been cancelled.'
                      '\n'
                      '\n'
@@ -1127,11 +1250,14 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_discover(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Discover & Search')
             form['instructions'] = 'Discover news subscriptions of all kinds'
@@ -1150,12 +1276,16 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['prev'] = None
         else:
             text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid))
+                         .format(jid_bare))
             session['notes'] = [['warn', text_warn]]
         return session
 
 
     def _handle_discover_type(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         values = payload['values']
         search_type = values['search_type']
         config_dir = config.get_default_config_directory()
@@ -1208,6 +1338,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_discover_category(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         values = payload['values']
         category = values['category']
         config_dir = config.get_default_config_directory()
@@ -1234,11 +1368,14 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscriptions(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Subscriptions')
             form['instructions'] = 'Managing subscriptions'
@@ -1258,14 +1395,18 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['has_next'] = True
         else:
             text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid))
+                         .format(jid_bare))
             session['notes'] = [['warn', text_warn]]
         return session
 
 
     async def _handle_subscriptions_result(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         form = self['xep_0004'].make_form('form', 'Subscriptions')
         match payload['values']['action']:
@@ -1364,8 +1505,12 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_tag(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         tag_id = payload['values']['tag']
         tag_name = sqlite.get_tag_name(db_file, tag_id)[0]
@@ -1394,13 +1539,17 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     # FIXME There are feeds that are missing (possibly because of sortings)
     async def _handle_subscription(self, iq, session):
-        jid = session['from'].bare
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
         form = self['xep_0004'].make_form('form', 'Subscription editor')
         form['instructions'] = '📰️ Edit subscription preferences and properties'
         # form.addField(var='interval',
         #               ftype='text-single',
         #               label='Interval period')
-        jid_file = jid
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
         # subscriptions = set(subscriptions)
@@ -1417,7 +1566,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     categorized_subscriptions[letter].append(subscription)
                         # title[0].capitalize()].append(subscription)
             except Exception as e:
-                logging.warning('Title might be empty:', str(e))
+                logger.warning('Title might be empty:', str(e))
         for category in sorted(categorized_subscriptions):
             options = form.add_field(var=category,
                                      ftype='list-single',
@@ -1437,8 +1586,12 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_editor(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         if 'edit' in payload['values'] and not payload['values']['edit']:
             session['payload'] = None
@@ -1529,9 +1682,13 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     # TODO Create a new form. Do not "recycle" the last form.
     async def _handle_subscription_complete(self, payload, session):
-        jid = session['from'].bare
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
         values = payload['values']
-        jid_file = jid
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         # url = values['url']
         # feed_id = await sqlite.get_feed_id(db_file, url)
@@ -1590,7 +1747,11 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_selector(self, payload, session):
-        jid = session['from'].bare
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
         form = self['xep_0004'].make_form('form', 'Add Subscription')
         form['instructions'] = ('📰️ Select a subscription to add\n'
                                 'Subsciptions discovered for {}'
@@ -1604,7 +1765,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                  desc=('Select subscriptions to perform '
                                        'actions upon.'),
                                  required=True)
-        jid_file = jid
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
         subscriptions = sorted(subscriptions, key=lambda x: x[0])
@@ -1628,11 +1789,14 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_advanced(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Advanced')
             form['instructions'] = 'Extended options'
@@ -1660,6 +1824,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_advanced_result(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         match payload['values']['option']:
             case 'activity':
                 # TODO dialog for JID and special dialog for operator
@@ -1669,8 +1837,8 @@ class Slixfeed(slixmpp.ClientXMPP):
             case 'admin':
                 # NOTE Even though this check is already conducted on previous
                 # form, this check is being done just in case.
-                jid = session['from'].bare
-                if jid == config.get_value('accounts', 'XMPP', 'operator'):
+                jid_bare = session['from'].bare
+                if jid_bare == config.get_value('accounts', 'XMPP', 'operator'):
                     if self.is_component:
                         # NOTE This will be changed with XEP-0222 XEP-0223
                         text_info = ('Subscriber management options are '
@@ -1698,12 +1866,9 @@ class Slixfeed(slixmpp.ClientXMPP):
                         session['next'] = self._handle_admin_action
                         session['has_next'] = True
                 else:
-                    logging.warning('An unauthorized attempt to access bookmarks has '
-                                    'been detected!\n'
-                                    'Details:\n'
-                                    '   Jabber ID: {}\n'
-                                    '   Timestamp: {}\n'
-                                    .format(jid, dt.timestamp()))
+                    logger.warning('An unauthorized attempt to access '
+                                   'bookmarks has been detected for JID {} at '
+                                   '{}'.format(jid_bare, dt.timestamp()))
                     text_warn = 'This resource is restricted.'
                     session['notes'] = [['warn', text_warn]]
                     session['has_next'] = False
@@ -1764,6 +1929,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_about(self, iq, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         form = self['xep_0004'].make_form('form', 'About')
         form['instructions'] = 'Information about Slixfeed and related projects'
         options = form.add_field(var='option',
@@ -1789,6 +1958,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_about_result(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         match payload['values']['option']:
             case 'about':
                 title = 'About'
@@ -1868,6 +2041,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_motd(self, iq, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         # TODO add functionality to attach image.
         # Here you can add groupchat rules,post schedule, tasks or
         # anything elaborated you might deem fit. Good luck!
@@ -1877,6 +2054,11 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_help(self, iq, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+
         import tomllib
         config_dir = config.get_default_config_directory()
         with open(config_dir + '/' + 'commands.toml', mode="rb") as commands:
@@ -1914,11 +2096,15 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_import_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         form = payload
         url = payload['values']['url']
         if url.startswith('http') and url.endswith('.opml'):
-            jid = session['from'].bare
-            jid_file = jid.replace('/', '_')
+            jid_bare = session['from'].bare
+            jid_file = jid_bare.replace('/', '_')
             db_file = config.get_pathname_to_database(jid_file)
             count = await action.import_opml(db_file, url)
             try:
@@ -1947,22 +2133,26 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_export_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         form = payload
-        jid = session['from'].bare
-        jid_file = jid.replace('/', '_')
+        jid_bare = session['from'].bare
+        jid_file = jid_bare.replace('/', '_')
         # form = self['xep_0004'].make_form('result', 'Done')
         # form['instructions'] = ('✅️ Feeds have been exported')
         exts = payload['values']['filetype']
         for ext in exts:
-            filename = await action.export_feeds(self, jid, jid_file, ext)
-            url = await XmppUpload.start(self, jid, filename)
+            filename = await action.export_feeds(self, jid_bare, jid_file, ext)
+            url = await XmppUpload.start(self, jid_bare, filename)
             url_field = form.add_field(var=ext.upper(),
                                        ftype='text-single',
                                        label=ext,
                                        value=url)
             url_field['validate']['datatype'] = 'xs:anyURI'
-            chat_type = await get_chat_type(self, jid)
-            XmppMessage.send_oob(self, jid, url, chat_type)
+            chat_type = await get_chat_type(self, jid_bare)
+            XmppMessage.send_oob(self, jid_bare, url, chat_type)
         form['type'] = 'result'
         form['title'] = 'Done'
         form['instructions'] = ('Completed successfully!')
@@ -1976,11 +2166,15 @@ class Slixfeed(slixmpp.ClientXMPP):
     # TODO Attempt to look up for feeds of hostname of JID (i.e. scan
     # jabber.de for feeds for juliet@jabber.de)
     async def _handle_promoted(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_full = str(session['from'])
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Subscribe')
             # NOTE Refresh button would be of use
@@ -2039,8 +2233,12 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_admin_action(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
         subscriptions = sorted(subscriptions, key=lambda x: x[0])
@@ -2119,40 +2317,44 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_subscribers_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         values = payload['values']
-        jid = values['jid']
+        jid_bare = values['jid']
         value_subject = values['subject']
         message_subject = value_subject if value_subject else None
         value_message = values['message']
         message_body = value_message if value_message else None
         match values['action']:
             case 'from':
-                XmppPresence.subscription(self, jid, 'subscribe')
+                XmppPresence.subscription(self, jid_bare, 'subscribe')
                 if not message_subject:
                     message_subject = 'System Message'
                 if not message_body:
-                    message_body = ('This user wants to subscribe to your presence'
-                                    '. Click the button labelled "Add/Auth" to '
-                                    'authorize the subscription. This will also '
-                                    'add the person to your contact list if it is '
-                                    'not already there.')
+                    message_body = ('This user wants to subscribe to your '
+                                    'presence. Click the button labelled '
+                                    '"Add/Auth" toauthorize the subscription. '
+                                    'This will also add the person to your '
+                                    'contact list if it is not already there.')
             case 'remove':
-                XmppRoster.remove(self, jid)
+                XmppRoster.remove(self, jid_bare)
                 if not message_subject:
                     message_subject = 'System Message'
                 if not message_body:
                     message_body = 'Your authorization has been removed!'
             case 'to':
-                XmppPresence.subscription(self, jid, 'subscribed')
+                XmppPresence.subscription(self, jid_bare, 'subscribed')
                 if not message_subject:
                     message_subject = 'System Message'
                 if not message_body:
                     message_body = 'Your authorization has been approved!'
         if message_subject:
-            XmppMessage.send_headline(self, jid, message_subject, message_body,
-                                      'chat')
+            XmppMessage.send_headline(self, jid_bare, message_subject,
+                                      message_body, 'chat')
         elif message_body:
-            XmppMessage.send(self, jid, message_body, 'chat')
+            XmppMessage.send(self, jid_bare, message_body, 'chat')
         form = payload
         form['title'] = 'Done'
         form['instructions'] = ('has been completed!')
@@ -2163,19 +2365,23 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_contact_action(self, payload, session):
-        jid = payload['values']['jid']
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = payload['values']['jid']
         form = self['xep_0004'].make_form('form', 'Contacts')
         session['allow_complete'] = True
         roster = await XmppRoster.get_contacts(self)
-        properties = roster[jid]
+        properties = roster[jid_bare]
         match payload['values']['action']:
             case 'edit':
                 form['instructions'] = 'Editing contact'
                 options = form.add_field(var='jid',
                                          ftype='list-single',
                                          label='Jabber ID',
-                                         value=jid)
-                options.addOption(jid, jid)
+                                         value=jid_bare)
+                options.addOption(jid_bare, jid_bare)
                 form.add_field(var='name',
                                ftype='text-single',
                                label='Name',
@@ -2185,7 +2391,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             case 'view':
                 form['instructions'] = 'Viewing contact'
                 contact_name = properties['name']
-                contact_name = contact_name if contact_name else jid
+                contact_name = contact_name if contact_name else jid_bare
                 form.add_field(var='name',
                                ftype='text-single',
                                label='Name',
@@ -2226,17 +2432,21 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     def _handle_contacts_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         values = payload['values']
-        jid = values['jid']
+        jid_bare = values['jid']
         name = values['name']
-        name_old = XmppRoster.get_contact_name(self, jid)
+        name_old = XmppRoster.get_contact_name(self, jid_bare)
         if name == name_old:
             message = ('No action has been taken.  Reason: New '
                        'name is identical to the current one.')
             session['payload'] = None
             session['notes'] = [['info', message]]
         else:
-            XmppRoster.set_contact_name(self, jid, name)
+            XmppRoster.set_contact_name(self, jid_bare, name)
             form = payload
             form['title'] = 'Done'
             form['instructions'] = ('has been completed!')
@@ -2246,8 +2456,12 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_bookmarks_editor(self, payload, session):
-        jid = payload['values']['jid']
-        properties = await XmppBookmark.properties(self, jid)
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = payload['values']['jid']
+        properties = await XmppBookmark.properties(self, jid_bare)
         form = self['xep_0004'].make_form('form', 'Bookmarks')
         form['instructions'] = 'Editing bookmark'
         jid_split = properties['jid'].split('@')
@@ -2256,8 +2470,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         options = form.addField(var='jid',
                                 ftype='list-single',
                                 label='Jabber ID',
-                                value=jid)
-        options.addOption(jid, jid)
+                                value=jid_bare)
+        options.addOption(jid_bare, jid_bare)
         form.addField(var='name',
                       ftype='text-single',
                       label='Name',
@@ -2307,6 +2521,10 @@ class Slixfeed(slixmpp.ClientXMPP):
 
 
     async def _handle_bookmarks_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
         # form = self['xep_0004'].make_form('result', 'Done')
         # form['instructions'] = ('✅️ Bookmark has been saved')
         # # In this case (as is typical), the payload is a form
@@ -2338,13 +2556,16 @@ class Slixfeed(slixmpp.ClientXMPP):
                        session. Additional, custom data may be saved
                        here to persist across handler callbacks.
         """
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
-            jid_file = jid
+            jid_file = jid_bare
             db_file = config.get_pathname_to_database(jid_file)
             form = self['xep_0004'].make_form('form', 'Settings')
             form['instructions'] = 'Editing settings'
@@ -2442,15 +2663,19 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['payload'] = form
         else:
             text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid))
+                         .format(jid_bare))
             session['notes'] = [['warn', text_warn]]
         return session
 
 
     async def _handle_settings_complete(self, payload, session):
-        jid = session['from'].bare
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.info('Function {} has been initiated for JID {}.'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
         form = payload
-        jid_file = jid
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         # In this case (as is typical), the payload is a form
         values = payload['values']
@@ -2465,22 +2690,23 @@ class Slixfeed(slixmpp.ClientXMPP):
 
             if (key == 'enabled' and val == 1 and
                 config.get_setting_value(db_file, 'enabled') == 0):
-                logging.info('Slixfeed has been enabled for {}'.format(jid))
+                logger.info('Slixfeed has been enabled for {}'.format(jid_bare))
                 status_type = 'available'
                 status_message = '📫️ Welcome back!'
-                XmppPresence.send(self, jid, status_message,
+                XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 await asyncio.sleep(5)
-                await task.start_tasks_xmpp(self, jid, ['check', 'status',
-                                                        'interval'])
+                key_list = ['check', 'status', 'interval']
+                await task.start_tasks_xmpp(self, jid_bare, key_list)
 
             if (key == 'enabled' and val == 0 and
                 config.get_setting_value(db_file, 'enabled') == 1):
-                logging.info('Slixfeed has been disabled for {}'.format(jid))
-                task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
+                logger.info('Slixfeed has been disabled for {}'.format(jid_bare))
+                key_list = ['interval', 'status']
+                task.clean_tasks_xmpp(self, jid_bare, key_list)
                 status_type = 'xa'
                 status_message = '📪️ Send "Start" to receive updates'
-                XmppPresence.send(self, jid, status_message,
+                XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
 
             await config.set_setting_value(db_file, key, val)
