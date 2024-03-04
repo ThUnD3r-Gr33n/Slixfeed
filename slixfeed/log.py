@@ -17,12 +17,12 @@ class Logger:
 
     def __init__(self, name):
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.WARNING)
 
         ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
+        ch.setLevel(logging.WARNING)
         
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('[%(asctime)s] %(levelname)s: %(name)s: %(message)s')
         ch.setFormatter(formatter)
     
         self.logger.addHandler(ch)
@@ -41,3 +41,7 @@ class Logger:
     
     def warning(self, message):
         self.logger.warning(message)
+
+    # def check_difference(function_name, difference):
+    #     if difference > 1:
+    #         Logger.warning(message)
