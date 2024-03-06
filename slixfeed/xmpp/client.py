@@ -64,6 +64,7 @@ import logging
 import os
 import slixfeed.action as action
 import slixfeed.config as config
+from slixfeed.config import Config
 import slixfeed.crawl as crawl
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
@@ -703,6 +704,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
+        setting = Config(db_file)
         form = self['xep_0004'].make_form('form', 'Profile')
         form['instructions'] = ('Displaying information\nJabber ID {}'
                                 .format(jid_bare))
@@ -728,35 +730,35 @@ class Slixfeed(slixmpp.ClientXMPP):
                        value=unread)
         form.add_field(ftype='fixed',
                        value='Options')
-        key_archive = str(config.get_setting_value(db_file, 'archive'))
+        key_archive = str(setting.archive)
         form.add_field(label='Archive',
                        ftype='text-single',
                        value=key_archive)
-        key_enabled = str(config.get_setting_value(db_file, 'enabled'))
+        key_enabled = str(setting.enabled)
         form.add_field(label='Enabled',
                        ftype='text-single',
                        value=key_enabled)
-        key_interval = str(config.get_setting_value(db_file, 'interval'))
+        key_interval = str(setting.interval)
         form.add_field(label='Interval',
                        ftype='text-single',
                        value=key_interval)
-        key_length = str(config.get_setting_value(db_file, 'length'))
+        key_length = str(setting.length)
         form.add_field(label='Length',
                        ftype='text-single',
                        value=key_length)
-        key_media = str(config.get_setting_value(db_file, 'media'))
+        key_media = str(setting.media)
         form.add_field(label='Media',
                        ftype='text-single',
                        value=key_media)
-        key_old = str(config.get_setting_value(db_file, 'old'))
+        key_old = str(setting.old)
         form.add_field(label='Old',
                        ftype='text-single',
                        value=key_old)
-        key_quantum = str(config.get_setting_value(db_file, 'quantum'))
+        key_quantum = str(setting.quantum)
         form.add_field(label='Quantum',
                        ftype='text-single',
                        value=key_quantum)
-        update_interval = config.get_setting_value(db_file, 'interval')
+        update_interval = str(setting.interval)
         update_interval = 60 * int(update_interval)
         last_update_time = await sqlite.get_last_update_time(db_file)
         if last_update_time:
@@ -2667,10 +2669,10 @@ class Slixfeed(slixmpp.ClientXMPP):
         if chat_type == 'chat' or moderator:
             jid_file = jid_bare
             db_file = config.get_pathname_to_database(jid_file)
+            setting = Config(db_file)
             form = self['xep_0004'].make_form('form', 'Settings')
             form['instructions'] = 'Editing settings'
-    
-            value = config.get_setting_value(db_file, 'enabled')
+            value = str(setting.enabled)
             value = int(value)
             if value:
                 value = True
@@ -2682,7 +2684,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                            desc='Enable news updates.',
                            value=value)
     
-            value = config.get_setting_value(db_file, 'media')
+            value = str(setting.media)
             value = int(value)
             if value:
                 value = True
@@ -2694,7 +2696,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                            label='Display media',
                            value=value)
     
-            value = config.get_setting_value(db_file, 'old')
+            value = str(setting.old)
             value = int(value)
             if value:
                 value = True
@@ -2707,7 +2709,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                            label='Include old news',
                            value=value)
     
-            value = config.get_setting_value(db_file, 'interval')
+            value = str(setting.interval)
             value = int(value)
             value = value/60
             value = int(value)
@@ -2728,7 +2730,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 else:
                     i += 1
     
-            value = config.get_setting_value(db_file, 'quantum')
+            value = str(setting.quantum)
             value = str(value)
             options = form.add_field(var='quantum',
                                      ftype='list-single',
@@ -2743,7 +2745,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 options.addOption(x, x)
                 i += 1
     
-            value = config.get_setting_value(db_file, 'archive')
+            value = str(setting.archive)
             value = str(value)
             options = form.add_field(var='archive',
                                      ftype='list-single',
@@ -2777,6 +2779,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         form = payload
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
+        setting = Config(db_file)
         # In this case (as is typical), the payload is a form
         values = payload['values']
         for value in values:
@@ -2789,7 +2792,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 val = val * 60
 
             if (key == 'enabled' and val == 1 and
-                config.get_setting_value(db_file, 'enabled') == 0):
+                str(setting.enabled) == 0):
                 logger.info('Slixfeed has been enabled for {}'.format(jid_bare))
                 status_type = 'available'
                 status_message = '📫️ Welcome back!'
@@ -2800,7 +2803,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
 
             if (key == 'enabled' and val == 0 and
-                config.get_setting_value(db_file, 'enabled') == 1):
+                str(setting.enabled) == 1):
                 logger.info('Slixfeed has been disabled for {}'.format(jid_bare))
                 key_list = ['interval', 'status']
                 task.clean_tasks_xmpp(self, jid_bare, key_list)
@@ -2809,12 +2812,13 @@ class Slixfeed(slixmpp.ClientXMPP):
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
 
+            # These three ilnes (getting value after setting it) might be removed
             await config.set_setting_value(db_file, key, val)
             val = sqlite.get_setting_value(db_file, key)
             val = val[0]
 
             # if key == 'enabled':
-            #     if config.get_setting_value(db_file, 'enabled') == 0:
+            #     if str(setting.enabled) == 0:
             #         status_type = 'available'
             #         status_message = '📫️ Welcome back!'
             #         XmppPresence.send(self, jid, status_message,

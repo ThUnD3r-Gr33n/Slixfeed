@@ -37,6 +37,21 @@ try:
 except:
     import tomli as tomllib
 
+# TODO Consider a class ConfigDefault for default values to be initiate at most
+# basic level possible and a class ConfigJID for each JID (i.e. db_file) to be
+# also initiated at same level or at least at event call, then check whether
+# setting_jid.setting_key has value, otherwise resort to setting_default.setting_key.
+class Config:
+    def __init__(self, db_file):
+        self.archive = get_setting_value(db_file, 'archive')
+        self.enabled = get_setting_value(db_file, 'enabled')
+        self.formatting = get_setting_value(db_file, 'formatting')
+        self.interval = get_setting_value(db_file, 'interval')
+        self.length = get_setting_value(db_file, 'length')
+        self.media = get_setting_value(db_file, 'media')
+        self.old = get_setting_value(db_file, 'old')
+        self.quantum = get_setting_value(db_file, 'quantum')
+
 
 async def set_setting_value(db_file, key, val):
     key = key.lower()
@@ -51,7 +66,7 @@ def get_setting_value(db_file, key):
     if value:
         value = value[0]
     else:
-        value = get_value("settings", "Settings", key)
+        value = get_value('settings', 'Settings', key)
     # try:
     #     value = int(value)
     # except ValueError as e:

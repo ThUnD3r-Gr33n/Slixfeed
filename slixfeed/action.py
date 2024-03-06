@@ -24,7 +24,7 @@ TODO
 
 """
 
-import asyncio
+# import asyncio
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
 from feedparser import parse
@@ -34,6 +34,7 @@ from slixfeed.log import Logger
 from lxml import html
 import os
 import slixfeed.config as config
+from slixfeed.config import Config
 import slixfeed.crawl as crawl
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
@@ -122,7 +123,8 @@ async def xmpp_send_status(self, jid):
     status_text = '📜️ Slixfeed RSS News Bot'
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    enabled = config.get_setting_value(db_file, 'enabled')
+    setting = Config(db_file)
+    enabled = setting.enabled
     if not enabled:
         status_mode = 'xa'
         status_text = '📪️ Send "Start" to receive updates'
@@ -174,11 +176,12 @@ async def xmpp_send_update(self, jid, num=None):
     logger.debug('{}: jid: {} num: {}'.format(function_name, jid, num))
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    enabled = config.get_setting_value(db_file, 'enabled')
+    setting = Config(db_file)
+    enabled = setting.enabled
     if enabled:
-        show_media = config.get_setting_value(db_file, 'media')
+        show_media = setting.media
         if not num:
-            num = config.get_setting_value(db_file, 'quantum')
+            num = setting.quantum
         else:
             num = int(num)
         results = await sqlite.get_unread_entries(db_file, num)
@@ -461,7 +464,8 @@ def list_unread_entries(result, feed_title, jid_file):
     summary = summary.replace('	', ' ')
     summary = summary.replace('  ', ' ')
     db_file = config.get_pathname_to_database(jid_file)
-    length = config.get_setting_value(db_file, "length")
+    setting = Config(db_file)
+    length = setting.length
     length = int(length)
     summary = summary[:length] + " […]"
     # summary = summary.strip().split('\n')
@@ -472,7 +476,7 @@ def list_unread_entries(result, feed_title, jid_file):
     link = (replace_hostname(link, "link")) or link
     # news_item = ("\n{}\n{}\n{} [{}]\n").format(str(title), str(link),
     #                                            str(feed_title), str(ix))
-    formatting = config.get_setting_value(db_file, 'formatting')
+    formatting = setting.formatting
     news_item = formatting.format(feed_title=feed_title,
                                   title=title,
                                   summary=summary,
@@ -540,10 +544,11 @@ async def list_statistics(db_file):
     entries_all = entries + archive
     feeds_active = await sqlite.get_number_of_feeds_active(db_file)
     feeds_all = await sqlite.get_number_of_items(db_file, 'feeds')
-    key_archive = config.get_setting_value(db_file, 'archive')
-    key_interval = config.get_setting_value(db_file, 'interval')
-    key_quantum = config.get_setting_value(db_file, 'quantum')
-    key_enabled = config.get_setting_value(db_file, 'enabled')
+    setting = Config(db_file)
+    key_archive = setting.archive
+    key_interval = setting.interval
+    key_quantum = setting.quantum
+    key_enabled = setting.enabled
 
     # msg = """You have {} unread news items out of {} from {} news sources.
     #       """.format(unread_entries, entries, feeds)
@@ -712,6 +717,7 @@ async def add_feed(db_file, url):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} url: {}'
                 .format(function_name, db_file, url))
+    setting = Config(db_file)
     while True:
         exist = await sqlite.get_feed_id_and_name(db_file, url)
         if not exist:
@@ -754,7 +760,7 @@ async def add_feed(db_file, url):
                                              status_code=status_code,
                                              updated=updated)
                     await scan(db_file, url)
-                    old = config.get_setting_value(db_file, "old")
+                    old = setting.old
                     feed_id = await sqlite.get_feed_id(db_file, url)
                     feed_id = feed_id[0]
                     if not old:
@@ -804,7 +810,7 @@ async def add_feed(db_file, url):
                                              status_code=status_code,
                                              updated=updated)
                     await scan_json(db_file, url)
-                    old = config.get_setting_value(db_file, "old")
+                    old = setting.old
                     if not old:
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
@@ -1570,6 +1576,8 @@ async def remove_nonexistent_entries(db_file, url, feed):
     feed_id = feed_id[0]
     items = await sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed.entries
+    setting = Config(db_file)
+    limit = setting.archive
     for item in items:
         ix = item[0]
         entry_title = item[1]
@@ -1652,7 +1660,6 @@ async def remove_nonexistent_entries(db_file, url, feed):
             else:
                 # print(">>> ARCHIVING:", entry_title)
                 await sqlite.archive_entry(db_file, ix)
-        limit = config.get_setting_value(db_file, "archive")
         await sqlite.maintain_archive(db_file, limit)
 
 
@@ -1679,6 +1686,8 @@ async def remove_nonexistent_entries_json(db_file, url, feed):
     feed_id = feed_id[0]
     items = await sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed["items"]
+    setting = Config(db_file)
+    limit = setting.archive
     for item in items:
         ix = item[0]
         entry_title = item[1]
@@ -1728,5 +1737,4 @@ async def remove_nonexistent_entries_json(db_file, url, feed):
                 await sqlite.delete_entry_by_id(db_file, ix)
             else:
                 await sqlite.archive_entry(db_file, ix)
-        limit = config.get_setting_value(db_file, "archive")
         await sqlite.maintain_archive(db_file, limit)

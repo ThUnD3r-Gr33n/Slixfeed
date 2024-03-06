@@ -7,6 +7,7 @@ import logging
 import os
 import slixfeed.action as action
 import slixfeed.config as config
+from slixfeed.config import Config
 import slixfeed.crawl as crawl
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
@@ -30,6 +31,8 @@ class XmppCommand:
 
 
     def adhoc_commands(self):
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}'.format(function_name))
         # self["xep_0050"].add_command(
         #     node="updates_enable",
         #     name="Enable/Disable News Updates",
@@ -79,12 +82,17 @@ class XmppCommand:
     # http://jabber.org/protocol/commands#actions
 
     async def _handle_profile(self, iq, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
+        setting = Config(db_file)
         form = self['xep_0004'].make_form('form', 'Profile')
         form['instructions'] = ('Displaying information\nJabber ID {}'
-                                .format(jid))
+                                .format(jid_bare))
         form.add_field(ftype='fixed',
                        value='News')
         feeds_all = str(await sqlite.get_number_of_items(db_file, 'feeds'))
@@ -107,35 +115,35 @@ class XmppCommand:
                        value=unread)
         form.add_field(ftype='fixed',
                        value='Options')
-        key_archive = str(config.get_setting_value(db_file, 'archive'))
+        key_archive = str(setting.archive)
         form.add_field(label='Archive',
                        ftype='text-single',
                        value=key_archive)
-        key_enabled = str(config.get_setting_value(db_file, 'enabled'))
+        key_enabled = str(setting.enabled)
         form.add_field(label='Enabled',
                        ftype='text-single',
                        value=key_enabled)
-        key_interval = str(config.get_setting_value(db_file, 'interval'))
+        key_interval = str(setting.interval)
         form.add_field(label='Interval',
                        ftype='text-single',
                        value=key_interval)
-        key_length = str(config.get_setting_value(db_file, 'length'))
+        key_length = str(setting.length)
         form.add_field(label='Length',
                        ftype='text-single',
                        value=key_length)
-        key_media = str(config.get_setting_value(db_file, 'media'))
+        key_media = str(setting.media)
         form.add_field(label='Media',
                        ftype='text-single',
                        value=key_media)
-        key_old = str(config.get_setting_value(db_file, 'old'))
+        key_old = str(setting.old)
         form.add_field(label='Old',
                        ftype='text-single',
                        value=key_old)
-        key_quantum = str(config.get_setting_value(db_file, 'quantum'))
+        key_quantum = str(setting.quantum)
         form.add_field(label='Quantum',
                        ftype='text-single',
                        value=key_quantum)
-        update_interval = config.get_setting_value(db_file, 'interval')
+        update_interval = str(setting.interval)
         update_interval = 60 * int(update_interval)
         last_update_time = await sqlite.get_last_update_time(db_file)
         if last_update_time:
@@ -170,11 +178,14 @@ class XmppCommand:
         return session
 
     async def _handle_filters(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             jid = session['from'].bare
             jid_file = jid
@@ -220,13 +231,17 @@ class XmppCommand:
                        session. Additional, custom data may be saved
                        here to persist across handler callbacks.
         """
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         # Text is not displayed; only labels
         form = payload
 
-        jid = session['from'].bare
+        jid_bare = session['from'].bare
         # form = self['xep_0004'].make_form('result', 'Done')
         # form['instructions'] = ('✅️ Filters have been updated')
-        jid_file = jid
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         # In this case (as is typical), the payload is a form
         values = payload['values']
@@ -254,11 +269,14 @@ class XmppCommand:
 
 
     async def _handle_subscription_add(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Subscription')
             form['instructions'] = 'Adding subscription'
@@ -286,12 +304,16 @@ class XmppCommand:
             session['payload'] = form
         else:
             text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid))
+                         .format(jid_bare))
             session['notes'] = [['warn', text_warn]]
         return session
 
 
     async def _handle_recent(self, iq, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         form = self['xep_0004'].make_form('form', 'Updates')
         form['instructions'] = 'Browse and read news'
         options = form.add_field(var='action',
@@ -313,15 +335,19 @@ class XmppCommand:
 
 
     async def _handle_recent_result(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         num = 100
         match payload['values']['action']:
             case 'all':
-                results = await sqlite.get_entries(db_file, num)
+                results = await sqlite.get_entries(db_file, num) # FIXME
             case 'rejected':
-                results = await sqlite.get_entries_rejected(db_file, num)
+                results = await sqlite.get_entries_rejected(db_file, num) # FIXME
             case 'unread':
                 results = await sqlite.get_unread_entries(db_file, num)
         if results:
@@ -348,21 +374,25 @@ class XmppCommand:
 
 
     async def _handle_recent_select(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         values = payload['values']
         ix = values['update']
-        jid = session['from'].bare
-        jid_file = jid
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         title = sqlite.get_entry_title(db_file, ix)
         title = title[0] if title else 'Untitled'
         form = self['xep_0004'].make_form('form', 'Article')
         url = sqlite.get_entry_url(db_file, ix)
         url = url[0]
-        logging.info('Original URL: {}'.format(url))
+        logger.debug('Original URL: {}'.format(url))
         url = uri.remove_tracking_parameters(url)
-        logging.info('Processed URL (tracker removal): {}'.format(url))
+        logger.debug('Processed URL (tracker removal): {}'.format(url))
         url = (uri.replace_hostname(url, 'link')) or url
-        logging.info('Processed URL (replace hostname): {}'.format(url))
+        logger.debug('Processed URL (replace hostname): {}'.format(url))
         result = await fetch.http(url)
         if 'content' in result:
             data = result['content']
@@ -411,10 +441,14 @@ class XmppCommand:
 
 
     async def _handle_recent_action(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         ext = payload['values']['filetype']
         url = payload['values']['url'][0]
-        jid = session['from'].bare
-        jid_file = jid
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         cache_dir = config.get_default_cache_directory()
         if not os.path.isdir(cache_dir):
@@ -444,7 +478,7 @@ class XmppCommand:
                               'Reason: {}'.format(ext.upper(), url, error))
                 session['notes'] = [['error', text_error]]
             else:
-                url = await XmppUpload.start(self, jid, filename)
+                url = await XmppUpload.start(self, jid_bare, filename)
                 form = self['xep_0004'].make_form('result', 'Download')
                 form['instructions'] = ('Download {} document.'
                                         .format(ext.upper()))
@@ -461,8 +495,12 @@ class XmppCommand:
 
 
     async def _handle_subscription_new(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         # scan = payload['values']['scan']
         url = payload['values']['subscription']
@@ -584,9 +622,13 @@ class XmppCommand:
 
 
     async def _handle_subscription_enable(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         form = payload
-        jid = session['from'].bare
-        jid_file = jid
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         ixs = payload['values']['subscriptions']
         form.add_field(ftype='fixed',
@@ -614,9 +656,13 @@ class XmppCommand:
 
 
     async def _handle_subscription_disable(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         form = payload
-        jid = session['from'].bare
-        jid_file = jid
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         ixs = payload['values']['subscriptions']
         form.add_field(ftype='fixed',
@@ -644,9 +690,13 @@ class XmppCommand:
 
 
     async def _handle_subscription_del_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         form = payload
-        jid = session['from'].bare
-        jid_file = jid
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         ixs = payload['values']['subscriptions']
         form.add_field(ftype='fixed',
@@ -674,6 +724,10 @@ class XmppCommand:
 
 
     def _handle_cancel(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         text_note = ('Operation has been cancelled.'
                      '\n'
                      '\n'
@@ -683,11 +737,14 @@ class XmppCommand:
 
 
     async def _handle_discover(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Discover & Search')
             form['instructions'] = 'Discover news subscriptions of all kinds'
@@ -706,12 +763,16 @@ class XmppCommand:
             session['prev'] = None
         else:
             text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid))
+                         .format(jid_bare))
             session['notes'] = [['warn', text_warn]]
         return session
 
 
     def _handle_discover_type(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         values = payload['values']
         search_type = values['search_type']
         config_dir = config.get_default_config_directory()
@@ -764,6 +825,10 @@ class XmppCommand:
 
 
     async def _handle_discover_category(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         values = payload['values']
         category = values['category']
         config_dir = config.get_default_config_directory()
@@ -790,11 +855,14 @@ class XmppCommand:
 
 
     async def _handle_subscriptions(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Subscriptions')
             form['instructions'] = 'Managing subscriptions'
@@ -814,14 +882,18 @@ class XmppCommand:
             session['has_next'] = True
         else:
             text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid))
+                         .format(jid_bare))
             session['notes'] = [['warn', text_warn]]
         return session
 
 
     async def _handle_subscriptions_result(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         form = self['xep_0004'].make_form('form', 'Subscriptions')
         match payload['values']['action']:
@@ -920,8 +992,12 @@ class XmppCommand:
 
 
     async def _handle_subscription_tag(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         tag_id = payload['values']['tag']
         tag_name = sqlite.get_tag_name(db_file, tag_id)[0]
@@ -950,13 +1026,17 @@ class XmppCommand:
 
     # FIXME There are feeds that are missing (possibly because of sortings)
     async def _handle_subscription(self, iq, session):
-        jid = session['from'].bare
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
         form = self['xep_0004'].make_form('form', 'Subscription editor')
         form['instructions'] = '📰️ Edit subscription preferences and properties'
         # form.addField(var='interval',
         #               ftype='text-single',
         #               label='Interval period')
-        jid_file = jid
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
         # subscriptions = set(subscriptions)
@@ -973,7 +1053,7 @@ class XmppCommand:
                     categorized_subscriptions[letter].append(subscription)
                         # title[0].capitalize()].append(subscription)
             except Exception as e:
-                logging.warning('Title might be empty:', str(e))
+                logger.warning('Title might be empty:', str(e))
         for category in sorted(categorized_subscriptions):
             options = form.add_field(var=category,
                                      ftype='list-single',
@@ -993,8 +1073,12 @@ class XmppCommand:
 
 
     async def _handle_subscription_editor(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         if 'edit' in payload['values'] and not payload['values']['edit']:
             session['payload'] = None
@@ -1085,9 +1169,13 @@ class XmppCommand:
 
     # TODO Create a new form. Do not "recycle" the last form.
     async def _handle_subscription_complete(self, payload, session):
-        jid = session['from'].bare
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
         values = payload['values']
-        jid_file = jid
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         # url = values['url']
         # feed_id = await sqlite.get_feed_id(db_file, url)
@@ -1146,7 +1234,11 @@ class XmppCommand:
 
 
     async def _handle_subscription_selector(self, payload, session):
-        jid = session['from'].bare
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
         form = self['xep_0004'].make_form('form', 'Add Subscription')
         form['instructions'] = ('📰️ Select a subscription to add\n'
                                 'Subsciptions discovered for {}'
@@ -1160,7 +1252,7 @@ class XmppCommand:
                                  desc=('Select subscriptions to perform '
                                        'actions upon.'),
                                  required=True)
-        jid_file = jid
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
         subscriptions = sorted(subscriptions, key=lambda x: x[0])
@@ -1184,11 +1276,14 @@ class XmppCommand:
 
 
     async def _handle_advanced(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Advanced')
             form['instructions'] = 'Extended options'
@@ -1216,6 +1311,10 @@ class XmppCommand:
 
 
     async def _handle_advanced_result(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         match payload['values']['option']:
             case 'activity':
                 # TODO dialog for JID and special dialog for operator
@@ -1225,8 +1324,8 @@ class XmppCommand:
             case 'admin':
                 # NOTE Even though this check is already conducted on previous
                 # form, this check is being done just in case.
-                jid = session['from'].bare
-                if jid == config.get_value('accounts', 'XMPP', 'operator'):
+                jid_bare = session['from'].bare
+                if jid_bare == config.get_value('accounts', 'XMPP', 'operator'):
                     if self.is_component:
                         # NOTE This will be changed with XEP-0222 XEP-0223
                         text_info = ('Subscriber management options are '
@@ -1254,12 +1353,9 @@ class XmppCommand:
                         session['next'] = self._handle_admin_action
                         session['has_next'] = True
                 else:
-                    logging.warning('An unauthorized attempt to access bookmarks has '
-                                    'been detected!\n'
-                                    'Details:\n'
-                                    '   Jabber ID: {}\n'
-                                    '   Timestamp: {}\n'
-                                    .format(jid, dt.timestamp()))
+                    logger.warning('An unauthorized attempt to access '
+                                   'bookmarks has been detected for JID {} at '
+                                   '{}'.format(jid_bare, dt.timestamp()))
                     text_warn = 'This resource is restricted.'
                     session['notes'] = [['warn', text_warn]]
                     session['has_next'] = False
@@ -1320,6 +1416,10 @@ class XmppCommand:
 
 
     async def _handle_about(self, iq, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         form = self['xep_0004'].make_form('form', 'About')
         form['instructions'] = 'Information about Slixfeed and related projects'
         options = form.add_field(var='option',
@@ -1345,6 +1445,10 @@ class XmppCommand:
 
 
     async def _handle_about_result(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         match payload['values']['option']:
             case 'about':
                 title = 'About'
@@ -1424,6 +1528,10 @@ class XmppCommand:
 
 
     async def _handle_motd(self, iq, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         # TODO add functionality to attach image.
         # Here you can add groupchat rules,post schedule, tasks or
         # anything elaborated you might deem fit. Good luck!
@@ -1433,6 +1541,11 @@ class XmppCommand:
 
 
     async def _handle_help(self, iq, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+
         import tomllib
         config_dir = config.get_default_config_directory()
         with open(config_dir + '/' + 'commands.toml', mode="rb") as commands:
@@ -1470,11 +1583,15 @@ class XmppCommand:
 
 
     async def _handle_import_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         form = payload
         url = payload['values']['url']
         if url.startswith('http') and url.endswith('.opml'):
-            jid = session['from'].bare
-            jid_file = jid.replace('/', '_')
+            jid_bare = session['from'].bare
+            jid_file = jid_bare.replace('/', '_')
             db_file = config.get_pathname_to_database(jid_file)
             count = await action.import_opml(db_file, url)
             try:
@@ -1503,22 +1620,26 @@ class XmppCommand:
 
 
     async def _handle_export_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         form = payload
-        jid = session['from'].bare
-        jid_file = jid.replace('/', '_')
+        jid_bare = session['from'].bare
+        jid_file = jid_bare.replace('/', '_')
         # form = self['xep_0004'].make_form('result', 'Done')
         # form['instructions'] = ('✅️ Feeds have been exported')
         exts = payload['values']['filetype']
         for ext in exts:
-            filename = await action.export_feeds(self, jid, jid_file, ext)
-            url = await XmppUpload.start(self, jid, filename)
+            filename = await action.export_feeds(self, jid_bare, jid_file, ext)
+            url = await XmppUpload.start(self, jid_bare, filename)
             url_field = form.add_field(var=ext.upper(),
                                        ftype='text-single',
                                        label=ext,
                                        value=url)
             url_field['validate']['datatype'] = 'xs:anyURI'
-            chat_type = await get_chat_type(self, jid)
-            XmppMessage.send_oob(self, jid, url, chat_type)
+            chat_type = await get_chat_type(self, jid_bare)
+            XmppMessage.send_oob(self, jid_bare, url, chat_type)
         form['type'] = 'result'
         form['title'] = 'Done'
         form['instructions'] = ('Completed successfully!')
@@ -1532,11 +1653,15 @@ class XmppCommand:
     # TODO Attempt to look up for feeds of hostname of JID (i.e. scan
     # jabber.de for feeds for juliet@jabber.de)
     async def _handle_promoted(self, iq, session):
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_full = str(session['from'])
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Subscribe')
             # NOTE Refresh button would be of use
@@ -1595,8 +1720,16 @@ class XmppCommand:
 
 
     async def _handle_admin_action(self, payload, session):
-        jid = session['from'].bare
-        jid_file = jid
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         subscriptions = await sqlite.get_feeds(db_file)
         subscriptions = sorted(subscriptions, key=lambda x: x[0])
@@ -1675,40 +1808,44 @@ class XmppCommand:
 
 
     async def _handle_subscribers_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         values = payload['values']
-        jid = values['jid']
+        jid_bare = values['jid']
         value_subject = values['subject']
         message_subject = value_subject if value_subject else None
         value_message = values['message']
         message_body = value_message if value_message else None
         match values['action']:
             case 'from':
-                XmppPresence.subscription(self, jid, 'subscribe')
+                XmppPresence.subscription(self, jid_bare, 'subscribe')
                 if not message_subject:
                     message_subject = 'System Message'
                 if not message_body:
-                    message_body = ('This user wants to subscribe to your presence'
-                                    '. Click the button labelled "Add/Auth" to '
-                                    'authorize the subscription. This will also '
-                                    'add the person to your contact list if it is '
-                                    'not already there.')
+                    message_body = ('This user wants to subscribe to your '
+                                    'presence. Click the button labelled '
+                                    '"Add/Auth" toauthorize the subscription. '
+                                    'This will also add the person to your '
+                                    'contact list if it is not already there.')
             case 'remove':
-                XmppRoster.remove(self, jid)
+                XmppRoster.remove(self, jid_bare)
                 if not message_subject:
                     message_subject = 'System Message'
                 if not message_body:
                     message_body = 'Your authorization has been removed!'
             case 'to':
-                XmppPresence.subscription(self, jid, 'subscribed')
+                XmppPresence.subscription(self, jid_bare, 'subscribed')
                 if not message_subject:
                     message_subject = 'System Message'
                 if not message_body:
                     message_body = 'Your authorization has been approved!'
         if message_subject:
-            XmppMessage.send_headline(self, jid, message_subject, message_body,
-                                      'chat')
+            XmppMessage.send_headline(self, jid_bare, message_subject,
+                                      message_body, 'chat')
         elif message_body:
-            XmppMessage.send(self, jid, message_body, 'chat')
+            XmppMessage.send(self, jid_bare, message_body, 'chat')
         form = payload
         form['title'] = 'Done'
         form['instructions'] = ('has been completed!')
@@ -1719,19 +1856,23 @@ class XmppCommand:
 
 
     async def _handle_contact_action(self, payload, session):
-        jid = payload['values']['jid']
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = payload['values']['jid']
         form = self['xep_0004'].make_form('form', 'Contacts')
         session['allow_complete'] = True
         roster = await XmppRoster.get_contacts(self)
-        properties = roster[jid]
+        properties = roster[jid_bare]
         match payload['values']['action']:
             case 'edit':
                 form['instructions'] = 'Editing contact'
                 options = form.add_field(var='jid',
                                          ftype='list-single',
                                          label='Jabber ID',
-                                         value=jid)
-                options.addOption(jid, jid)
+                                         value=jid_bare)
+                options.addOption(jid_bare, jid_bare)
                 form.add_field(var='name',
                                ftype='text-single',
                                label='Name',
@@ -1741,7 +1882,7 @@ class XmppCommand:
             case 'view':
                 form['instructions'] = 'Viewing contact'
                 contact_name = properties['name']
-                contact_name = contact_name if contact_name else jid
+                contact_name = contact_name if contact_name else jid_bare
                 form.add_field(var='name',
                                ftype='text-single',
                                label='Name',
@@ -1782,17 +1923,21 @@ class XmppCommand:
 
 
     def _handle_contacts_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         values = payload['values']
-        jid = values['jid']
+        jid_bare = values['jid']
         name = values['name']
-        name_old = XmppRoster.get_contact_name(self, jid)
+        name_old = XmppRoster.get_contact_name(self, jid_bare)
         if name == name_old:
             message = ('No action has been taken.  Reason: New '
                        'name is identical to the current one.')
             session['payload'] = None
             session['notes'] = [['info', message]]
         else:
-            XmppRoster.set_contact_name(self, jid, name)
+            XmppRoster.set_contact_name(self, jid_bare, name)
             form = payload
             form['title'] = 'Done'
             form['instructions'] = ('has been completed!')
@@ -1802,8 +1947,12 @@ class XmppCommand:
 
 
     async def _handle_bookmarks_editor(self, payload, session):
-        jid = payload['values']['jid']
-        properties = await XmppBookmark.properties(self, jid)
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = payload['values']['jid']
+        properties = await XmppBookmark.properties(self, jid_bare)
         form = self['xep_0004'].make_form('form', 'Bookmarks')
         form['instructions'] = 'Editing bookmark'
         jid_split = properties['jid'].split('@')
@@ -1812,8 +1961,8 @@ class XmppCommand:
         options = form.addField(var='jid',
                                 ftype='list-single',
                                 label='Jabber ID',
-                                value=jid)
-        options.addOption(jid, jid)
+                                value=jid_bare)
+        options.addOption(jid_bare, jid_bare)
         form.addField(var='name',
                       ftype='text-single',
                       label='Name',
@@ -1863,6 +2012,10 @@ class XmppCommand:
 
 
     async def _handle_bookmarks_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         # form = self['xep_0004'].make_form('result', 'Done')
         # form['instructions'] = ('✅️ Bookmark has been saved')
         # # In this case (as is typical), the payload is a form
@@ -1894,18 +2047,21 @@ class XmppCommand:
                        session. Additional, custom data may be saved
                        here to persist across handler callbacks.
         """
-        jid = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid)
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        chat_type = await get_chat_type(self, jid_bare)
         if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid, jid_full)
+            moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
-            jid_file = jid
+            jid_file = jid_bare
             db_file = config.get_pathname_to_database(jid_file)
+            setting = Config(db_file)
             form = self['xep_0004'].make_form('form', 'Settings')
             form['instructions'] = 'Editing settings'
-    
-            value = config.get_setting_value(db_file, 'enabled')
+            value = str(setting.enabled)
             value = int(value)
             if value:
                 value = True
@@ -1917,7 +2073,7 @@ class XmppCommand:
                            desc='Enable news updates.',
                            value=value)
     
-            value = config.get_setting_value(db_file, 'media')
+            value = str(setting.media)
             value = int(value)
             if value:
                 value = True
@@ -1929,7 +2085,7 @@ class XmppCommand:
                            label='Display media',
                            value=value)
     
-            value = config.get_setting_value(db_file, 'old')
+            value = str(setting.old)
             value = int(value)
             if value:
                 value = True
@@ -1942,7 +2098,7 @@ class XmppCommand:
                            label='Include old news',
                            value=value)
     
-            value = config.get_setting_value(db_file, 'interval')
+            value = str(setting.interval)
             value = int(value)
             value = value/60
             value = int(value)
@@ -1963,7 +2119,7 @@ class XmppCommand:
                 else:
                     i += 1
     
-            value = config.get_setting_value(db_file, 'quantum')
+            value = str(setting.quantum)
             value = str(value)
             options = form.add_field(var='quantum',
                                      ftype='list-single',
@@ -1978,7 +2134,7 @@ class XmppCommand:
                 options.addOption(x, x)
                 i += 1
     
-            value = config.get_setting_value(db_file, 'archive')
+            value = str(setting.archive)
             value = str(value)
             options = form.add_field(var='archive',
                                      ftype='list-single',
@@ -1998,16 +2154,21 @@ class XmppCommand:
             session['payload'] = form
         else:
             text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid))
+                         .format(jid_bare))
             session['notes'] = [['warn', text_warn]]
         return session
 
 
     async def _handle_settings_complete(self, payload, session):
-        jid = session['from'].bare
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
         form = payload
-        jid_file = jid
+        jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
+        setting = Config(db_file)
         # In this case (as is typical), the payload is a form
         values = payload['values']
         for value in values:
@@ -2020,31 +2181,33 @@ class XmppCommand:
                 val = val * 60
 
             if (key == 'enabled' and val == 1 and
-                config.get_setting_value(db_file, 'enabled') == 0):
-                logging.info('Slixfeed has been enabled for {}'.format(jid))
+                str(setting.enabled) == 0):
+                logger.info('Slixfeed has been enabled for {}'.format(jid_bare))
                 status_type = 'available'
                 status_message = '📫️ Welcome back!'
-                XmppPresence.send(self, jid, status_message,
+                XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 await asyncio.sleep(5)
-                await task.start_tasks_xmpp(self, jid, ['check', 'status',
-                                                        'interval'])
+                key_list = ['check', 'status', 'interval']
+                await task.start_tasks_xmpp(self, jid_bare, key_list)
 
             if (key == 'enabled' and val == 0 and
-                config.get_setting_value(db_file, 'enabled') == 1):
-                logging.info('Slixfeed has been disabled for {}'.format(jid))
-                task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
+                str(setting.enabled) == 1):
+                logger.info('Slixfeed has been disabled for {}'.format(jid_bare))
+                key_list = ['interval', 'status']
+                task.clean_tasks_xmpp(self, jid_bare, key_list)
                 status_type = 'xa'
                 status_message = '📪️ Send "Start" to receive updates'
-                XmppPresence.send(self, jid, status_message,
+                XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
 
+            # These three ilnes (getting value after setting it) might be removed
             await config.set_setting_value(db_file, key, val)
             val = sqlite.get_setting_value(db_file, key)
             val = val[0]
 
             # if key == 'enabled':
-            #     if config.get_setting_value(db_file, 'enabled') == 0:
+            #     if str(setting.enabled) == 0:
             #         status_type = 'available'
             #         status_message = '📫️ Welcome back!'
             #         XmppPresence.send(self, jid, status_message,

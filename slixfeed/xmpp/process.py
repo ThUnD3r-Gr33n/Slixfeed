@@ -28,6 +28,7 @@ import logging
 import os
 import slixfeed.action as action
 import slixfeed.config as config
+# from slixfeed.config import Config
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
@@ -303,6 +304,8 @@ async def message(self, message):
                     if not exist:
                         await sqlite.insert_feed(db_file, url, title)
                         await action.scan(db_file, url)
+                        # setting = Config(db_file)
+                        # old = setting.old
                         old = config.get_setting_value(db_file, "old")
                         if old:
                             # task.clean_tasks_xmpp(self, jid, ['status'])
