@@ -69,7 +69,17 @@ class Config:
         for key in ('operator', 'reconnect_timeout', 'type'):
             value = get_value('accounts', 'XMPP', key)
             settings['xmpp'][key] = value
-        
+
+
+    async def set_setting_value(settings, jid_bare, db_file, key, val):
+        key = key.lower()
+        key_val = [key, val]
+        settings[jid_bare][key] = val
+        if sqlite.is_setting_key(db_file, key):
+            await sqlite.update_setting_value(db_file, key_val)
+        else:
+            await sqlite.set_setting_value(db_file, key_val)
+
         # self.settings = {}
         # initiate an empty dict and the rest would be:
         # settings['account'] = {}
@@ -147,14 +157,6 @@ class ConfigJabberID:
             if value: value = value[0]
             print(value)
             settings[jid_bare][key] = value
-
-
-async def set_setting_value(db_file, key, val):
-    key = key.lower()
-    if sqlite.is_setting_key(db_file, key):
-        await sqlite.update_setting_value(db_file, [key, val])
-    else:
-        await sqlite.set_setting_value(db_file, [key, val])
 
 
 def get_setting_value(db_file, key):

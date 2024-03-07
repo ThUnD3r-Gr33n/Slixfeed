@@ -2752,7 +2752,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                     i += 1
             value = self.settings[jid_bare]['quantum'] or self.settings['default']['quantum']
             value = str(value)
-            value = str(value)
             options = form.add_field(var='quantum',
                                      ftype='list-single',
                                      label='Amount',
@@ -2766,7 +2765,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                 options.addOption(x, x)
                 i += 1
             value = self.settings[jid_bare]['archive'] or self.settings['default']['archive']
-            value = str(value)
             value = str(value)
             options = form.add_field(var='archive',
                                      ftype='list-single',
@@ -2795,7 +2793,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
-                    .format(function_name, jid_full))
+                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         form = payload
         jid_file = jid_bare
@@ -2808,14 +2806,23 @@ class Slixfeed(slixmpp.ClientXMPP):
             key = value
             val = values[value]
 
-            if key == 'interval':
+            if key in ('enabled', 'media', 'old'):
+                if val == True:
+                    val = 1
+                elif val == False:
+                    val = 0
+
+            if key in ('archive', 'interval', 'quantum'):
                 val = int(val)
+
+            if key == 'interval':
                 if val < 1: val = 1
                 val = val * 60
 
             is_enabled = self.settings[jid_bare]['enabled'] or self.settings['default']['enabled']
 
-            if (key == 'enabled' and val == 1 and
+            if (key == 'enabled' and
+                val == 1 and
                 str(is_enabled) == 0):
                 logger.info('Slixfeed has been enabled for {}'.format(jid_bare))
                 status_type = 'available'
@@ -2826,7 +2833,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                 key_list = ['check', 'status', 'interval']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
 
-            if (key == 'enabled' and val == 0 and
+            if (key == 'enabled' and
+                val == 0 and
                 str(is_enabled) == 1):
                 logger.info('Slixfeed has been disabled for {}'.format(jid_bare))
                 key_list = ['interval', 'status']
@@ -2836,10 +2844,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
 
-            # These three ilnes (getting value after setting it) might be removed
-            await config.set_setting_value(db_file, key, val)
-            val = sqlite.get_setting_value(db_file, key)
-            val = val[0]
+            await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+            val = self.settings[jid_bare][key]
 
             # if key == 'enabled':
             #     if str(setting.enabled) == 0:

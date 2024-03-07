@@ -2428,11 +2428,8 @@ async def set_setting_value(db_file, key_value):
                 .format(function_name, db_file, key, val))
 
     if not val:
-        match key:
-            case 'interval':
-                val = 90
-            case 'quantum':
-                val = 3
+        logger.error('Missing value for key "{}" ({}).'.format(key, db_file))
+        return
 
     async with DBLOCK:
         with create_connection(db_file) as conn:

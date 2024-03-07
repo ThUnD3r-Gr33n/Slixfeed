@@ -386,7 +386,7 @@ async def message(self, message):
                             response = 'Value may not be greater than 500.'
                         else:
                             db_file = config.get_pathname_to_database(jid_file)
-                            await config.set_setting_value(db_file, key, val)
+                            await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                             response = ('Maximum archived items has '
                                         'been set to {}.'
                                         .format(val))
@@ -702,7 +702,7 @@ async def message(self, message):
                     try:
                         val = int(val)
                         db_file = config.get_pathname_to_database(jid_file)
-                        await config.set_setting_value(db_file, key, val)
+                        await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                         # NOTE Perhaps this should be replaced by functions
                         # clean and start
                         await task.refresh_task(self, jid_bare, task.task_send,
@@ -736,7 +736,7 @@ async def message(self, message):
                         try:
                             val = int(val)
                             db_file = config.get_pathname_to_database(jid_file)
-                            await config.set_setting_value(db_file, key, val)
+                            await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                             if val == 0: # if not val:
                                 response = 'Summary length limit is disabled.'
                             else:
@@ -780,21 +780,21 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'media'
                 val = 0
-                await config.set_setting_value(db_file, key, val)
+                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                 response = 'Media is disabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'media on':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'media'
                 val = 1
-                await config.set_setting_value(db_file, key, val)
+                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                 response = 'Media is enabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'new':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 0
-                await config.set_setting_value(db_file, key, val)
+                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                 response = 'Only new items of newly added feeds be delivered.'
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('next'):
@@ -809,7 +809,7 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 1
-                await config.set_setting_value(db_file, key, val)
+                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                 response = 'All items of newly added feeds be delivered.'
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('quantum'):
@@ -822,7 +822,7 @@ async def message(self, message):
                         #     'Every update will contain {} news items.'
                         #     ).format(response)
                         db_file = config.get_pathname_to_database(jid_file)
-                        await config.set_setting_value(db_file, key, val)
+                        await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                         response = ('Next update will contain {} news items.'
                                     .format(val))
                     except:
@@ -1019,7 +1019,7 @@ async def message(self, message):
                 key = 'enabled'
                 val = 1
                 db_file = config.get_pathname_to_database(jid_file)
-                await config.set_setting_value(db_file, key, val)
+                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                 status_type = 'available'
                 status_message = '📫️ Welcome back!'
                 XmppPresence.send(self, jid_bare, status_message, status_type=status_type)
@@ -1105,7 +1105,7 @@ async def message(self, message):
                 key = 'enabled'
                 val = 0
                 db_file = config.get_pathname_to_database(jid_file)
-                await config.set_setting_value(db_file, key, val)
+                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                 key_list = ['interval', 'status']
                 task.clean_tasks_xmpp(self, jid_bare, key_list)
                 status_type = 'xa'
