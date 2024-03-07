@@ -80,14 +80,13 @@ import os
 #import slixfeed.matrix
 
 import slixfeed.config as config
-from slixfeed.config import ConfigXMPP
 from slixfeed.version import __version__
 
 # import socks
 # import socket
 
-base = ConfigXMPP()
-xmpp_type = base.setting['type']
+xmpp_type = config.get_value('accounts', 'XMPP', 'type')
+
 
 if not xmpp_type:
     raise Exception('Key type is missing from accounts.ini.')
@@ -100,7 +99,7 @@ match xmpp_type:
         from slixfeed.xmpp.component import SlixfeedComponent
         from slixfeed.config import ConfigComponent as ConfigAccount
 
-account = ConfigAccount()
+account = ConfigAccount() # TODO Delete as soon as posible after is no longer needed
 
 class JabberComponent:
     def __init__(self, jid, secret, hostname, port, alias=None):

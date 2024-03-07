@@ -48,8 +48,29 @@ except:
 # also initiated at same level or at least at event call, then check whether
 # setting_jid.setting_key has value, otherwise resort to setting_default.setting_key.
 class Config:
-    def __init__(self):
-        self.settings = {}
+
+    def add_settings_default(settings):
+        settings['default'] = {}
+        for key in ('archive', 'check', 'enabled', 'filter', 'formatting',
+                    'interval', 'length', 'media', 'old', 'quantum'):
+            value = get_value('settings', 'Settings', key)
+            settings['default'][key] = value
+
+    def add_settings_jid(settings, jid_bare, db_file):
+        settings[jid_bare] = {}
+        for key in ('archive', 'enabled', 'filter', 'formatting', 'interval',
+                    'length', 'media', 'old', 'quantum'):
+            value = sqlite.get_setting_value(db_file, key)
+            if value: value = value[0]
+            settings[jid_bare][key] = value
+
+    def add_settings_xmpp(settings):
+        settings['xmpp'] = {}
+        for key in ('operator', 'reconnect_timeout', 'type'):
+            value = get_value('accounts', 'XMPP', key)
+            settings['xmpp'][key] = value
+        
+        # self.settings = {}
         # initiate an empty dict and the rest would be:
         # settings['account'] = {}
         # settings['default'] = {}
@@ -85,22 +106,6 @@ class Config:
     #     quantum = sqlite.get_setting_value(db_file, 'quantum')
 
 
-class ConfigDefault:
-    def __init__(self):
-        self.setting = {}
-        for key in ('archive', 'check', 'enabled', 'filter', 'formatting',
-                    'interval', 'length', 'media', 'old', 'quantum'):
-            value = get_value('settings', 'Settings', key)
-            self.setting[key] = value
-
-class ConfigNetwork:
-    def __init__(self):
-        self.setting = {}
-        for key in ('http_proxy', 'user_agent'):
-            value = get_value('settings', 'Network', key)
-            self.setting[key] = value
-
-
 class ConfigXMPP:
     def __init__(self):
         self.setting = {}
@@ -117,17 +122,31 @@ class ConfigClient:
             self.setting[key] = value
 
 
+class ConfigDefault:
+    def __init__(self, settings):
+        settings['default'] = {}
+        for key in ('archive', 'check', 'enabled', 'filter', 'formatting',
+                    'interval', 'length', 'media', 'old', 'quantum'):
+            value = get_value('settings', 'Settings', key)
+            settings['default'][key] = value
+
+class ConfigNetwork:
+    def __init__(self, settings):
+        settings['network'] = {}
+        for key in ('http_proxy', 'user_agent'):
+            value = get_value('settings', 'Network', key)
+            settings['network'][key] = value
+
+
 class ConfigJabberID:
-    def __init__(self, jid_bare=None, db_file=None):
-        self.setting = {}
-        if jid_bare and db_file:
-            self.setting[jid_bare] = {}
-            for key in ('archive', 'enabled', 'filter', 'formatting', 'interval',
-                        'length', 'media', 'old', 'quantum'):
-                value = sqlite.get_setting_value(db_file, key)
-                if value: value = value[0]
-                print(value)
-                self.setting[jid_bare][key] = value
+    def __init__(self, settings, jid_bare, db_file):
+        settings[jid_bare] = {}
+        for key in ('archive', 'enabled', 'filter', 'formatting', 'interval',
+                    'length', 'media', 'old', 'quantum'):
+            value = sqlite.get_setting_value(db_file, key)
+            if value: value = value[0]
+            print(value)
+            settings[jid_bare][key] = value
 
 
 async def set_setting_value(db_file, key, val):

@@ -123,8 +123,7 @@ async def xmpp_send_status(self, jid):
     status_text = '📜️ Slixfeed RSS News Bot'
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    setting = Config(db_file)
-    enabled = setting.enabled
+    enabled = self.settings[jid]['enabled'] or self.settings['default']['enabled']
     if not enabled:
         status_mode = 'xa'
         status_text = '📪️ Send "Start" to receive updates'
@@ -176,12 +175,11 @@ async def xmpp_send_update(self, jid, num=None):
     logger.debug('{}: jid: {} num: {}'.format(function_name, jid, num))
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    setting = Config(db_file)
-    enabled = setting.enabled
+    enabled = self.settings[jid]['enabled'] or self.settings['default']['enabled']
     if enabled:
-        show_media = setting.media
+        show_media = self.settings[jid]['media'] or self.settings['default']['media']
         if not num:
-            num = setting.quantum
+            num = self.settings[jid]['quantum'] or self.settings['default']['quantum']
         else:
             num = int(num)
         results = await sqlite.get_unread_entries(db_file, num)
@@ -198,7 +196,7 @@ async def xmpp_send_update(self, jid, num=None):
             date = result[6]
             title_f = sqlite.get_feed_title(db_file, feed_id)
             title_f = title_f[0]
-            news_digest += list_unread_entries(result, title_f, jid_file)
+            news_digest += list_unread_entries(self, result, title_f, jid)
             # print(db_file)
             # print(result[0])
             # breakpoint()
@@ -423,10 +421,10 @@ def is_feed(feed):
     return value
 
 
-def list_unread_entries(result, feed_title, jid_file):
+def list_unread_entries(self, result, feed_title, jid):
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: feed_title: {} jid_file: {}'
-                .format(function_name, feed_title, jid_file))
+    logger.debug('{}: feed_title: {} jid: {}'
+                .format(function_name, feed_title, jid))
     # TODO Add filtering
     # TODO Do this when entry is added to list and mark it as read
     # DONE!
@@ -463,9 +461,7 @@ def list_unread_entries(result, feed_title, jid_file):
     summary = summary.replace('\n', ' ')
     summary = summary.replace('	', ' ')
     summary = summary.replace('  ', ' ')
-    db_file = config.get_pathname_to_database(jid_file)
-    setting = Config(db_file)
-    length = setting.length
+    length = self.settings[jid]['length'] or self.settings['default']['length']
     length = int(length)
     summary = summary[:length] + " […]"
     # summary = summary.strip().split('\n')
@@ -476,7 +472,7 @@ def list_unread_entries(result, feed_title, jid_file):
     link = (replace_hostname(link, "link")) or link
     # news_item = ("\n{}\n{}\n{} [{}]\n").format(str(title), str(link),
     #                                            str(feed_title), str(ix))
-    formatting = setting.formatting
+    formatting = self.settings[jid]['formatting'] or self.settings['default']['formatting']
     news_item = formatting.format(feed_title=feed_title,
                                   title=title,
                                   summary=summary,
@@ -521,9 +517,52 @@ def list_feeds_by_query(db_file, query):
     return message
 
 
+async def list_options(self, jid_bare):
+    """
+    Print options.
+
+    Parameters
+    ----------
+    jid_bare : str
+        Jabber ID.
+
+    Returns
+    -------
+    msg : str
+        Options as message.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: jid: {}'
+                .format(function_name, jid_bare))
+
+    # msg = """You have {} unread news items out of {} from {} news sources.
+    #       """.format(unread_entries, entries, feeds)
+
+    # try:
+    #     value = cur.execute(sql, par).fetchone()[0]
+    # except:
+    #     print("Error for key:", key)
+    #     value = "Default"
+    # values.extend([value])
+
+    message = ("Options:"
+               "\n"
+               "```"
+               "\n"
+               "Items to archive : {}\n"
+               "Update interval  : {}\n"
+               "Items per update : {}\n"
+               "Operation status : {}\n"
+               "```").format(self.settings[jid_bare]['archive'],
+                             self.settings[jid_bare]['interval'],
+                             self.settings[jid_bare]['quantum'],
+                             self.settings[jid_bare]['enabled'])
+    return message
+
+
 async def list_statistics(db_file):
     """
-    Return table statistics.
+    Print statistics.
 
     Parameters
     ----------
@@ -544,11 +583,6 @@ async def list_statistics(db_file):
     entries_all = entries + archive
     feeds_active = await sqlite.get_number_of_feeds_active(db_file)
     feeds_all = await sqlite.get_number_of_items(db_file, 'feeds')
-    setting = Config(db_file)
-    key_archive = setting.archive
-    key_interval = setting.interval
-    key_quantum = setting.quantum
-    key_enabled = setting.enabled
 
     # msg = """You have {} unread news items out of {} from {} news sources.
     #       """.format(unread_entries, entries, feeds)
@@ -560,23 +594,16 @@ async def list_statistics(db_file):
     #     value = "Default"
     # values.extend([value])
 
-    message = ("```"
-               "\nSTATISTICS\n"
+    message = ("Statistics:"
+               "\n"
+               "```"
+               "\n"
                "News items   : {}/{}\n"
                "News sources : {}/{}\n"
-               "\nOPTIONS\n"
-               "Items to archive : {}\n"
-               "Update interval  : {}\n"
-               "Items per update : {}\n"
-               "Operation status : {}\n"
                "```").format(entries_unread,
                              entries_all,
                              feeds_active,
-                             feeds_all,
-                             key_archive,
-                             key_interval,
-                             key_quantum,
-                             key_enabled)
+                             feeds_all)
     return message
 
 
@@ -713,11 +740,10 @@ async def import_opml(db_file, url):
         return difference
 
 
-async def add_feed(db_file, url):
+async def add_feed(self, jid_bare, db_file, url):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} url: {}'
                 .format(function_name, db_file, url))
-    setting = Config(db_file)
     while True:
         exist = await sqlite.get_feed_id_and_name(db_file, url)
         if not exist:
@@ -759,8 +785,8 @@ async def add_feed(db_file, url):
                                              language=language,
                                              status_code=status_code,
                                              updated=updated)
-                    await scan(db_file, url)
-                    old = setting.old
+                    await scan(self, jid_bare, db_file, url)
+                    old = self.settings[jid_bare]['old']
                     feed_id = await sqlite.get_feed_id(db_file, url)
                     feed_id = feed_id[0]
                     if not old:
@@ -809,8 +835,8 @@ async def add_feed(db_file, url):
                                              language=language,
                                              status_code=status_code,
                                              updated=updated)
-                    await scan_json(db_file, url)
-                    old = setting.old
+                    await scan_json(self, jid_bare, db_file, url)
+                    old = self.settings[jid_bare]['old']
                     if not old:
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
@@ -872,7 +898,7 @@ async def add_feed(db_file, url):
     return result_final
 
 
-async def scan_json(db_file, url):
+async def scan_json(self, jid_bare, db_file, url):
     """
     Check feeds for new entries.
 
@@ -895,8 +921,7 @@ async def scan_json(db_file, url):
         if document and status == 200:
             feed = json.loads(document)
             entries = feed["items"]
-            await remove_nonexistent_entries_json(
-                db_file, url, feed)
+            await remove_nonexistent_entries_json(self, jid_bare, db_file, url, feed)
             try:
                 feed_id = await sqlite.get_feed_id(db_file, url)
                 feed_id = feed_id[0]
@@ -966,17 +991,20 @@ async def scan_json(db_file, url):
                         "{} {} {}"
                         ).format(
                             title, summary, pathname)
-                    allow_list = config.is_include_keyword(db_file, "allow",
-                                                           string)
-                    if not allow_list:
-                        reject_list = config.is_include_keyword(db_file, "deny",
-                                                                string)
-                        if reject_list:
-                            read_status = 1
-                            logger.debug('Rejected : {}'
-                                         '\n'
-                                         'Keyword  : {}'
-                                         .format(link, reject_list))
+                    if self.settings['default']['filter']:
+                        print('Filter is now processing data.')
+                        allow_list = config.is_include_keyword(db_file,
+                                                               "allow", string)
+                        if not allow_list:
+                            reject_list = config.is_include_keyword(db_file,
+                                                                    "deny",
+                                                                    string)
+                            if reject_list:
+                                read_status = 1
+                                logger.debug('Rejected : {}'
+                                             '\n'
+                                             'Keyword  : {}'
+                                             .format(link, reject_list))
                     if isinstance(date, int):
                         logger.error('Variable "date" is int: {}'.format(date))
                     media_link = ''
@@ -1156,7 +1184,7 @@ async def view_entry(url, num):
 
 
 # TODO Rename function name (idea: scan_and_populate)
-async def scan(db_file, url):
+async def scan(self, jid_bare, db_file, url):
     """
     Check feeds for new entries.
 
@@ -1184,7 +1212,7 @@ async def scan(db_file, url):
             feed = parse(document)
             entries = feed.entries
             # length = len(entries)
-            await remove_nonexistent_entries(db_file, url, feed)
+            await remove_nonexistent_entries(self, jid_bare, db_file, url, feed)
             try:
                 if feed.bozo:
                     # bozo = (
@@ -1251,20 +1279,22 @@ async def scan(db_file, url):
                         "{} {} {}"
                         ).format(
                             title, summary, pathname)
-                    allow_list = config.is_include_keyword(db_file, "allow",
-                                                           string)
-                    if not allow_list:
-                        reject_list = config.is_include_keyword(db_file, "deny",
-                                                                string)
-                        if reject_list:
-                            read_status = 1
-                            logger.debug('Rejected : {}'
-                                          '\n'
-                                          'Keyword  : {}'.format(link,
-                                                                 reject_list))
+                    if self.settings['default']['filter']:
+                        print('Filter is now processing data.')
+                        allow_list = config.is_include_keyword(db_file,
+                                                               "allow", string)
+                        if not allow_list:
+                            reject_list = config.is_include_keyword(db_file,
+                                                                    "deny",
+                                                                    string)
+                            if reject_list:
+                                read_status = 1
+                                logger.debug('Rejected : {}'
+                                             '\n'
+                                             'Keyword  : {}'
+                                             .format(link, reject_list))
                     if isinstance(date, int):
-                        logger.error('Variable "date" is int: {}'
-                                      .format(date))
+                        logger.error('Variable "date" is int: {}'.format(date))
                     media_link = ''
                     if entry.has_key("links"):
                         for e_link in entry.links:
@@ -1554,7 +1584,7 @@ async def get_magnet(link):
     return torrent
 
 
-async def remove_nonexistent_entries(db_file, url, feed):
+async def remove_nonexistent_entries(self, jid_bare, db_file, url, feed):
     """
     Remove entries that don't exist in a given parsed feed.
     Check the entries returned from feed and delete read non
@@ -1576,8 +1606,7 @@ async def remove_nonexistent_entries(db_file, url, feed):
     feed_id = feed_id[0]
     items = await sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed.entries
-    setting = Config(db_file)
-    limit = setting.archive
+    limit = self.settings[jid_bare]['archive']
     for item in items:
         ix = item[0]
         entry_title = item[1]
@@ -1664,7 +1693,7 @@ async def remove_nonexistent_entries(db_file, url, feed):
 
 
 
-async def remove_nonexistent_entries_json(db_file, url, feed):
+async def remove_nonexistent_entries_json(self, jid_bare, db_file, url, feed):
     """
     Remove entries that don't exist in a given parsed feed.
     Check the entries returned from feed and delete read non
@@ -1686,8 +1715,7 @@ async def remove_nonexistent_entries_json(db_file, url, feed):
     feed_id = feed_id[0]
     items = await sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed["items"]
-    setting = Config(db_file)
-    limit = setting.archive
+    limit = self.settings[jid_bare]['archive']
     for item in items:
         ix = item[0]
         entry_title = item[1]

@@ -59,7 +59,7 @@ import logging
 import os
 import slixfeed.action as action
 import slixfeed.config as config
-from slixfeed.config import ConfigJabberID
+from slixfeed.config import Config
 # from slixfeed.dt import current_time
 import slixfeed.sqlite as sqlite
 # from xmpp import Slixfeed
@@ -109,7 +109,7 @@ await taskhandler.start_tasks(
     )
 
 """
-async def start_tasks_xmpp(self, jid, tasks=None):
+async def start_tasks_xmpp(self, jid_bare, tasks=None):
     """
     NOTE
     
@@ -117,25 +117,25 @@ async def start_tasks_xmpp(self, jid, tasks=None):
     to place task 'interval' as the last to start due to await asyncio.sleep()
     which otherwise would postpone tasks that would be set after task 'interval'
     """
-    if jid == self.boundjid.bare:
+    if jid_bare == self.boundjid.bare:
         return
     try:
-        self.task_manager[jid]
+        self.task_manager[jid_bare]
     except KeyError as e:
-        self.task_manager[jid] = {}
+        self.task_manager[jid_bare] = {}
         logging.debug('KeyError:', str(e))
-        logging.info('Creating new task manager for JID {}'.format(jid))
+        logging.info('Creating new task manager for JID {}'.format(jid_bare))
     if not tasks:
         tasks = ['status', 'check', 'interval']
-    logging.info('Stopping tasks {} for JID {}'.format(tasks, jid))
+    logging.info('Stopping tasks {} for JID {}'.format(tasks, jid_bare))
     for task in tasks:
         # if self.task_manager[jid][task]:
         try:
-            self.task_manager[jid][task].cancel()
+            self.task_manager[jid_bare][task].cancel()
         except:
             logging.info('No task {} for JID {} (start_tasks_xmpp)'
-                         .format(task, jid))
-    logging.info('Starting tasks {} for JID {}'.format(tasks, jid))
+                         .format(task, jid_bare))
+    logging.info('Starting tasks {} for JID {}'.format(tasks, jid_bare))
     for task in tasks:
         # print("task:", task)
         # print("tasks:")
@@ -143,14 +143,14 @@ async def start_tasks_xmpp(self, jid, tasks=None):
         # breakpoint()
         match task:
             case 'check':
-                self.task_manager[jid]['check'] = asyncio.create_task(
-                    check_updates(self, jid))
+                self.task_manager[jid_bare]['check'] = asyncio.create_task(
+                    check_updates(self, jid_bare))
             case 'status':
-                self.task_manager[jid]['status'] = asyncio.create_task(
-                    task_status(self, jid))
+                self.task_manager[jid_bare]['status'] = asyncio.create_task(
+                    task_status(self, jid_bare))
             case 'interval':
-                self.task_manager[jid]['interval'] = asyncio.create_task(
-                    task_send(self, jid))
+                self.task_manager[jid_bare]['interval'] = asyncio.create_task(
+                    task_send(self, jid_bare))
     # for task in self.task_manager[jid].values():
     #     print("task_manager[jid].values()")
     #     print(self.task_manager[jid].values())
@@ -167,11 +167,12 @@ async def task_status(self, jid):
     await refresh_task(self, jid, task_status, 'status', '90')
 
 
-async def task_send(self, jid):
-    jid_file = jid.replace('/', '_')
+async def task_send(self, jid_bare):
+    jid_file = jid_bare.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    setting_custom = ConfigJabberID(db_file)
-    update_interval = setting_custom.interval or self.default.settings_p['interval']
+    if jid_bare not in self.settings:
+        Config.add_settings_jid(self.settings, jid_bare, db_file)
+    update_interval = self.settings[jid_bare]['interval'] or self.settings['default']['interval']
     update_interval = 60 * int(update_interval)
     last_update_time = await sqlite.get_last_update_time(db_file)
     if last_update_time:
@@ -194,9 +195,9 @@ async def task_send(self, jid):
         await sqlite.update_last_update_time(db_file)
     else:
         await sqlite.set_last_update_time(db_file)
-    await action.xmpp_send_update(self, jid)
-    await refresh_task(self, jid, task_send, 'interval')
-    await start_tasks_xmpp(self, jid, ['status'])
+    await action.xmpp_send_update(self, jid_bare)
+    await refresh_task(self, jid_bare, task_send, 'interval')
+    await start_tasks_xmpp(self, jid_bare, ['status'])
 
 
 def clean_tasks_xmpp(self, jid, tasks=None):
@@ -212,7 +213,7 @@ def clean_tasks_xmpp(self, jid, tasks=None):
                           .format(task, jid))
 
 
-async def refresh_task(self, jid, callback, key, val=None):
+async def refresh_task(self, jid_bare, callback, key, val=None):
     """
     Apply new setting at runtime.
 
@@ -225,27 +226,28 @@ async def refresh_task(self, jid, callback, key, val=None):
     val : str, optional
         Value. The default is None.
     """
-    logging.info('Refreshing task {} for JID {}'.format(callback, jid))
+    logging.info('Refreshing task {} for JID {}'.format(callback, jid_bare))
     if not val:
-        jid_file = jid.replace('/', '_')
+        jid_file = jid_bare.replace('/', '_')
         db_file = config.get_pathname_to_database(jid_file)
-        setting_custom = ConfigJabberID(db_file)
-        val = setting_custom.interval or self.default.settings_p[key]
+        if jid_bare not in self.settings:
+            Config.add_settings_jid(self.settings, jid_bare, db_file)
+        val = self.settings[jid_bare][key] or self.settings['default'][key]
     # if self.task_manager[jid][key]:
-    if jid in self.task_manager:
+    if jid_bare in self.task_manager:
         try:
-            self.task_manager[jid][key].cancel()
+            self.task_manager[jid_bare][key].cancel()
         except:
             logging.info('No task of type {} to cancel for '
-                         'JID {} (refresh_task)'.format(key, jid))
+                         'JID {} (refresh_task)'.format(key, jid_bare))
         # self.task_manager[jid][key] = loop.call_at(
         #     loop.time() + 60 * float(val),
         #     loop.create_task,
         #     (callback(self, jid))
         #     # send_update(jid)
         # )
-        self.task_manager[jid][key] = loop.create_task(
-            wait_and_run(self, callback, jid, val)
+        self.task_manager[jid_bare][key] = loop.create_task(
+            wait_and_run(self, callback, jid_bare, val)
         )
         # self.task_manager[jid][key] = loop.call_later(
         #     60 * float(val),
@@ -259,9 +261,9 @@ async def refresh_task(self, jid, callback, key, val=None):
         # )
 
 
-async def wait_and_run(self, callback, jid, val):
+async def wait_and_run(self, callback, jid_bare, val):
     await asyncio.sleep(60 * float(val))
-    await callback(self, jid)
+    await callback(self, jid_bare)
 
 
 # TODO Take this function out of
@@ -281,7 +283,7 @@ async def check_updates(self, jid):
         db_file = config.get_pathname_to_database(jid_file)
         urls = await sqlite.get_active_feeds_url(db_file)
         for url in urls:
-            await action.scan(db_file, url)
+            await action.scan(self, jid, db_file, url)
         val = self.default.setting['check']
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes

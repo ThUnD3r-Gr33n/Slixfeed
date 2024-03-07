@@ -1378,10 +1378,8 @@ async def archive_entry(db_file, ix):
             try:
                 cur.execute(sql, par)
             except:
-                print(
-                    "ERROR DB deleting items from "
-                    "table entries at index", ix
-                    )
+                print('ERROR DB deleting items from table entries at index {} '
+                      'for DB {}', ix, db_file)
 
 
 def get_feed_title(db_file, ix):

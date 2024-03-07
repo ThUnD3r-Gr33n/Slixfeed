@@ -28,7 +28,7 @@ import logging
 import os
 import slixfeed.action as action
 import slixfeed.config as config
-from slixfeed.config import ConfigJabberID
+from slixfeed.config import Config
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
@@ -303,11 +303,10 @@ async def message(self, message):
                     exist = await sqlite.get_feed_id_and_name(db_file, url)
                     if not exist:
                         await sqlite.insert_feed(db_file, url, title)
-                        await action.scan(db_file, url)
-                        # setting = Config(db_file)
-                        # old = setting.old
-                        setting_custom = ConfigJabberID(db_file)
-                        old = setting_custom.old or self.default.settings_p['old']
+                        await action.scan(self, jid_bare, db_file, url)
+                        if jid_bare not in self.settings:
+                            Config.add_settings_jid(self.settings, jid_bare, db_file)
+                        old = self.settings[jid_bare]['old'] or self.settings['default']['old']
                         if old:
                             # task.clean_tasks_xmpp(self, jid, ['status'])
                             # await send_status(jid)
@@ -633,7 +632,7 @@ async def message(self, message):
                 url = (uri.replace_hostname(url, 'feed')) or url
                 db_file = config.get_pathname_to_database(jid_file)
                 # try:
-                result = await action.add_feed(db_file, url)
+                result = await action.add_feed(self, jid_bare, db_file, url)
                 if isinstance(result, list):
                     results = result
                     response = ("Web feeds found for {}\n\n```\n"
