@@ -545,6 +545,11 @@ async def list_options(self, jid_bare):
     #     value = "Default"
     # values.extend([value])
 
+    value_archive = self.settings[jid_bare]['archive'] or self.settings['default']['archive']
+    value_interval = self.settings[jid_bare]['interval'] or self.settings['default']['interval']
+    value_quantum = self.settings[jid_bare]['quantum'] or self.settings['default']['quantum']
+    value_enabled = self.settings[jid_bare]['archive'] or self.settings['default']['enabled']
+
     message = ("Options:"
                "\n"
                "```"
@@ -553,10 +558,8 @@ async def list_options(self, jid_bare):
                "Update interval  : {}\n"
                "Items per update : {}\n"
                "Operation status : {}\n"
-               "```").format(self.settings[jid_bare]['archive'],
-                             self.settings[jid_bare]['interval'],
-                             self.settings[jid_bare]['quantum'],
-                             self.settings[jid_bare]['enabled'])
+               "```").format(value_archive, value_interval, value_quantum,
+                             value_enabled)
     return message
 
 
@@ -786,7 +789,7 @@ async def add_feed(self, jid_bare, db_file, url):
                                              status_code=status_code,
                                              updated=updated)
                     await scan(self, jid_bare, db_file, url)
-                    old = self.settings[jid_bare]['old']
+                    old = self.settings[jid_bare]['old'] or self.settings['default']['old']
                     feed_id = await sqlite.get_feed_id(db_file, url)
                     feed_id = feed_id[0]
                     if not old:
@@ -836,7 +839,7 @@ async def add_feed(self, jid_bare, db_file, url):
                                              status_code=status_code,
                                              updated=updated)
                     await scan_json(self, jid_bare, db_file, url)
-                    old = self.settings[jid_bare]['old']
+                    old = self.settings[jid_bare]['old'] or self.settings['default']['old']
                     if not old:
                         feed_id = await sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
@@ -1606,7 +1609,7 @@ async def remove_nonexistent_entries(self, jid_bare, db_file, url, feed):
     feed_id = feed_id[0]
     items = await sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed.entries
-    limit = self.settings[jid_bare]['archive']
+    limit = self.settings[jid_bare]['archive'] or self.settings['default']['archive']
     for item in items:
         ix = item[0]
         entry_title = item[1]
@@ -1715,7 +1718,7 @@ async def remove_nonexistent_entries_json(self, jid_bare, db_file, url, feed):
     feed_id = feed_id[0]
     items = await sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed["items"]
-    limit = self.settings[jid_bare]['archive']
+    limit = self.settings[jid_bare]['archive'] or self.settings['default']['archive']
     for item in items:
         ix = item[0]
         entry_title = item[1]
