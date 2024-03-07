@@ -257,6 +257,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         message_log = '{}'
         logger.debug(message_log.format(function_name))
         # self.send_presence()
+        bookmarks = await self.plugin['xep_0048'].get_bookmarks()
+        XmppGroupchat.autojoin(self, bookmarks)
+        jid_operator = config.get_value('accounts', 'XMPP', 'operator')
+        if jid_operator:
+            status_message = 'Slixfeed version {}'.format(__version__)
+            XmppPresence.send(self, jid_operator, status_message)
         profile.set_identity(self, 'client')
         # XmppCommand.adhoc_commands(self)
         self.adhoc_commands()
@@ -265,12 +271,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         await self.get_roster()
         await profile.update(self)
         task.task_ping(self)
-        bookmarks = await self.plugin['xep_0048'].get_bookmarks()
-        XmppGroupchat.autojoin(self, bookmarks)
-        jid_operator = config.get_value('accounts', 'XMPP', 'operator')
-        if jid_operator:
-            status_message = 'Slixfeed version {}'.format(__version__)
-            XmppPresence.send(self, jid_operator, status_message)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,

@@ -421,12 +421,14 @@ async def message(self, message):
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('default '):
                 key = message_text[8:]
+                self.settings[jid_bare][key] = None
                 db_file = config.get_pathname_to_database(jid_file)
                 await sqlite.delete_setting(db_file, key)
                 response = ('Setting {} has been restored to default value.'
                             .format(key))
                 XmppMessage.send_reply(self, message, response)
             case 'defaults':
+                del self.settings[jid_bare]
                 db_file = config.get_pathname_to_database(jid_file)
                 await sqlite.delete_settings(db_file)
                 response = 'Default settings have been restored.'

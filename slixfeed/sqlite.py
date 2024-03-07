@@ -1514,7 +1514,7 @@ async def mark_all_as_read(db_file):
         Path to database file.
     """
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} ix: {}'
+    logger.debug('{}: db_file: {}'
                 .format(function_name, db_file))
     async with DBLOCK:
         with create_connection(db_file) as conn:
