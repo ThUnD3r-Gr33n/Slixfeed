@@ -80,12 +80,14 @@ import os
 #import slixfeed.matrix
 
 import slixfeed.config as config
+from slixfeed.config import ConfigXMPP
 from slixfeed.version import __version__
 
-import socks
-import socket
+# import socks
+# import socket
 
-xmpp_type = config.get_value('accounts', 'XMPP', 'type')
+base = ConfigXMPP()
+xmpp_type = base.setting['type']
 
 if not xmpp_type:
     raise Exception('Key type is missing from accounts.ini.')
@@ -93,9 +95,12 @@ if not xmpp_type:
 match xmpp_type:
     case 'client':
         from slixfeed.xmpp.client import Slixfeed
+        from slixfeed.config import ConfigClient as ConfigAccount
     case 'component':
         from slixfeed.xmpp.component import SlixfeedComponent
+        from slixfeed.config import ConfigComponent as ConfigAccount
 
+account = ConfigAccount()
 
 class JabberComponent:
     def __init__(self, jid, secret, hostname, port, alias=None):
@@ -172,10 +177,8 @@ class JabberClient:
 
         # Connect to the XMPP server and start processing XMPP stanzas.
 
-        address = config.get_value('accounts', 'XMPP Client',
-                                   ['hostname', 'port'])
-        if address[0] and address[1]:
-            xmpp.connect(tuple(address))
+        if account.setting['hostname'] and account.setting['port']:
+            xmpp.connect((account.setting['hostname'], account.setting['port']))
         else:
             xmpp.connect()
         xmpp.process()
@@ -240,13 +243,11 @@ def main():
     # logwrn = logger.warning
 
     # Try configuration file
-    key_list = ['alias', 'jid', 'password', 'hostname', 'port']
-    values = config.get_value('accounts', 'XMPP Client', key_list)
-    alias = values[0]
-    jid = values[1]
-    password = values[2]
-    hostname = values[3]
-    port = values[4]
+    alias = account.setting['alias']
+    jid = account.setting['jid']
+    password = account.setting['password']
+    hostname = account.setting['hostname']
+    port = account.setting['port']
 
     # Use arguments if were given
     if args.jid:

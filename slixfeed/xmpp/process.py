@@ -28,7 +28,7 @@ import logging
 import os
 import slixfeed.action as action
 import slixfeed.config as config
-# from slixfeed.config import Config
+from slixfeed.config import ConfigJabberID
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
@@ -306,7 +306,8 @@ async def message(self, message):
                         await action.scan(db_file, url)
                         # setting = Config(db_file)
                         # old = setting.old
-                        old = config.get_setting_value(db_file, "old")
+                        setting_custom = ConfigJabberID(db_file)
+                        old = setting_custom.old or self.default.settings_p['old']
                         if old:
                             # task.clean_tasks_xmpp(self, jid, ['status'])
                             # await send_status(jid)

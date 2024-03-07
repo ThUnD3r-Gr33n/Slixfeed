@@ -3,6 +3,12 @@
 
 """
 
+FIXME
+
+1) Use dict for ConfigDefault
+
+2) Store ConfigJabberID in dicts
+
 TODO
 
 1) Website-specific filter (i.e. audiobookbay).
@@ -42,15 +48,86 @@ except:
 # also initiated at same level or at least at event call, then check whether
 # setting_jid.setting_key has value, otherwise resort to setting_default.setting_key.
 class Config:
-    def __init__(self, db_file):
-        self.archive = get_setting_value(db_file, 'archive')
-        self.enabled = get_setting_value(db_file, 'enabled')
-        self.formatting = get_setting_value(db_file, 'formatting')
-        self.interval = get_setting_value(db_file, 'interval')
-        self.length = get_setting_value(db_file, 'length')
-        self.media = get_setting_value(db_file, 'media')
-        self.old = get_setting_value(db_file, 'old')
-        self.quantum = get_setting_value(db_file, 'quantum')
+    def __init__(self):
+        self.settings = {}
+        # initiate an empty dict and the rest would be:
+        # settings['account'] = {}
+        # settings['default'] = {}
+        # settings['jabber@id'] = {}
+    # def __init__(self, db_file):
+    #     self.archive = get_setting_value(db_file, 'archive')
+    #     self.enabled = get_setting_value(db_file, 'enabled')
+    #     self.formatting = get_setting_value(db_file, 'formatting')
+    #     self.interval = get_setting_value(db_file, 'interval')
+    #     self.length = get_setting_value(db_file, 'length')
+    #     self.media = get_setting_value(db_file, 'media')
+    #     self.old = get_setting_value(db_file, 'old')
+    #     self.quantum = get_setting_value(db_file, 'quantum')
+
+    # def default():
+    #     archive = get_value('settings', 'Settings', 'archive')
+    #     enabled = get_value('settings', 'Settings', 'enabled')
+    #     formatting = get_value('settings', 'Settings', 'formatting')
+    #     interval = get_value('settings', 'Settings', 'interval')
+    #     length = get_value('settings', 'Settings', 'length')
+    #     media = get_value('settings', 'Settings', 'media')
+    #     old = get_value('settings', 'Settings', 'old')
+    #     quantum = get_value('settings', 'Settings', 'quantum')
+
+    # def jid(db_file):
+    #     archive = sqlite.get_setting_value(db_file, 'archive')
+    #     enabled = sqlite.get_setting_value(db_file, 'enabled')
+    #     formatting = sqlite.get_setting_value(db_file, 'formatting')
+    #     interval = sqlite.get_setting_value(db_file, 'interval')
+    #     length = sqlite.get_setting_value(db_file, 'length')
+    #     media = sqlite.get_setting_value(db_file, 'media')
+    #     old = sqlite.get_setting_value(db_file, 'old')
+    #     quantum = sqlite.get_setting_value(db_file, 'quantum')
+
+
+class ConfigDefault:
+    def __init__(self):
+        self.setting = {}
+        for key in ('archive', 'check', 'enabled', 'filter', 'formatting',
+                    'interval', 'length', 'media', 'old', 'quantum'):
+            value = get_value('settings', 'Settings', key)
+            self.setting[key] = value
+
+class ConfigNetwork:
+    def __init__(self):
+        self.setting = {}
+        for key in ('http_proxy', 'user_agent'):
+            value = get_value('settings', 'Network', key)
+            self.setting[key] = value
+
+
+class ConfigXMPP:
+    def __init__(self):
+        self.setting = {}
+        for key in ('operator', 'reconnect_timeout', 'type'):
+            value = get_value('accounts', 'XMPP', key)
+            self.setting[key] = value
+
+
+class ConfigClient:
+    def __init__(self):
+        self.setting = {}
+        for key in ('alias', 'jid', 'operator', 'password', 'hostname', 'port'):
+            value = get_value('accounts', 'XMPP Client', key)
+            self.setting[key] = value
+
+
+class ConfigJabberID:
+    def __init__(self, jid_bare=None, db_file=None):
+        self.setting = {}
+        if jid_bare and db_file:
+            self.setting[jid_bare] = {}
+            for key in ('archive', 'enabled', 'filter', 'formatting', 'interval',
+                        'length', 'media', 'old', 'quantum'):
+                value = sqlite.get_setting_value(db_file, key)
+                if value: value = value[0]
+                print(value)
+                self.setting[jid_bare][key] = value
 
 
 async def set_setting_value(db_file, key, val):

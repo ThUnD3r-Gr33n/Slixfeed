@@ -59,6 +59,7 @@ import logging
 import os
 import slixfeed.action as action
 import slixfeed.config as config
+from slixfeed.config import ConfigJabberID
 # from slixfeed.dt import current_time
 import slixfeed.sqlite as sqlite
 # from xmpp import Slixfeed
@@ -143,7 +144,7 @@ async def start_tasks_xmpp(self, jid, tasks=None):
         match task:
             case 'check':
                 self.task_manager[jid]['check'] = asyncio.create_task(
-                    check_updates(jid))
+                    check_updates(self, jid))
             case 'status':
                 self.task_manager[jid]['status'] = asyncio.create_task(
                     task_status(self, jid))
@@ -169,7 +170,8 @@ async def task_status(self, jid):
 async def task_send(self, jid):
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    update_interval = config.get_setting_value(db_file, 'interval')
+    setting_custom = ConfigJabberID(db_file)
+    update_interval = setting_custom.interval or self.default.settings_p['interval']
     update_interval = 60 * int(update_interval)
     last_update_time = await sqlite.get_last_update_time(db_file)
     if last_update_time:
@@ -227,7 +229,8 @@ async def refresh_task(self, jid, callback, key, val=None):
     if not val:
         jid_file = jid.replace('/', '_')
         db_file = config.get_pathname_to_database(jid_file)
-        val = config.get_setting_value(db_file, key)
+        setting_custom = ConfigJabberID(db_file)
+        val = setting_custom.interval or self.default.settings_p[key]
     # if self.task_manager[jid][key]:
     if jid in self.task_manager:
         try:
@@ -263,7 +266,7 @@ async def wait_and_run(self, callback, jid, val):
 
 # TODO Take this function out of
 # <class 'slixmpp.clientxmpp.ClientXMPP'>
-async def check_updates(jid):
+async def check_updates(self, jid):
     """
     Start calling for update check up.
 
@@ -279,7 +282,7 @@ async def check_updates(jid):
         urls = await sqlite.get_active_feeds_url(db_file)
         for url in urls:
             await action.scan(db_file, url)
-        val = config.get_value('settings', 'Settings', 'check')
+        val = self.default.setting['check']
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes
         # loop.call_at(

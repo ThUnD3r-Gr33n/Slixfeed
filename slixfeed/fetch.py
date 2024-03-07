@@ -92,7 +92,7 @@ def http_response(url):
     """
     user_agent = (
         config.get_value(
-            "settings", "Network", "user-agent")
+            "settings", "Network", "user_agent")
         ) or 'Slixfeed/0.1'
     headers = {
         "User-Agent": user_agent
@@ -121,7 +121,7 @@ async def http(url):
     msg: list or str
         Document or error message.
     """
-    user_agent = (config.get_value("settings", "Network", "user-agent")
+    user_agent = (config.get_value("settings", "Network", "user_agent")
                   or 'Slixfeed/0.1')
     headers = {'User-Agent': user_agent}
     proxy = (config.get_value("settings", "Network", "http_proxy") or '')
