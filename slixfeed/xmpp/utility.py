@@ -7,9 +7,9 @@ import logging
 # class XmppChat
 # class XmppUtility:
 
-def is_moderator(self, jid, jid_full):
+def is_moderator(self, jid_bare, jid_full):
     alias = jid_full[jid_full.index('/')+1:]
-    role = self.plugin['xep_0045'].get_jid_property(jid, alias, 'role')
+    role = self.plugin['xep_0045'].get_jid_property(jid_bare, alias, 'role')
     if role == 'moderator':
         return True
     else:

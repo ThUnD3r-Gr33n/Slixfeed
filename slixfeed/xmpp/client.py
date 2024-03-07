@@ -1145,7 +1145,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             error_count = 0
             exist_count = 0
             for url in urls:
-                result = await action.add_feed(db_file, url)
+                result = await action.add_feed(self, jid_bare, db_file, url)
                 if result['error']:
                     error_count += 1
                 elif result['exist']:
@@ -1169,7 +1169,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         else:
             if isinstance(url, list):
                 url = url[0]
-            result = await action.add_feed(db_file, url)
+            result = await action.add_feed(self, jid_bare, db_file, url)
             if isinstance(result, list):
                 results = result
                 form = self['xep_0004'].make_form('form', 'Subscriptions')

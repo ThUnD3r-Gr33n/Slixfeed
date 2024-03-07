@@ -67,8 +67,8 @@ async def message(self, message):
         how it may be used.
     """
     if message['type'] in ('chat', 'groupchat', 'normal'):
-        jid = message['from'].bare
-        jid_file = jid
+        jid_bare = message['from'].bare
+        jid_file = jid_bare
         message_text = ' '.join(message['body'].split())
         command_time_start = time.time()
 
@@ -82,7 +82,7 @@ async def message(self, message):
             if (message['muc']['nick'] == self.alias):
                 return
             jid_full = str(message['from'])
-            if not is_moderator(self, jid, jid_full):
+            if not is_moderator(self, jid_bare, jid_full):
                 return
 
         # NOTE This is an exceptional case in which we treat
@@ -92,10 +92,11 @@ async def message(self, message):
         if (message_text.lower().startswith('http') and
             message_text.lower().endswith('.opml')):
             url = message_text
-            task.clean_tasks_xmpp(self, jid, ['status'])
+            key_list = ['status']
+            task.clean_tasks_xmpp(self, jid_bare, key_list)
             status_type = 'dnd'
             status_message = '📥️ Procesing request to import feeds...'
-            XmppPresence.send(self, jid, status_message,
+            XmppPresence.send(self, jid_bare, status_message,
                               status_type=status_type)
             db_file = config.get_pathname_to_database(jid_file)
             count = await action.import_opml(db_file, url)
@@ -103,7 +104,8 @@ async def message(self, message):
                 response = 'Successfully imported {} feeds.'.format(count)
             else:
                 response = 'OPML file was not imported.'
-            await task.start_tasks_xmpp(self, jid, ['status'])
+            key_list = ['status']
+            await task.start_tasks_xmpp(self, jid_bare, key_list)
             XmppMessage.send_reply(self, message, response)
             return
 
@@ -116,13 +118,13 @@ async def message(self, message):
                 not message['body'].startswith('!')):
                 return
             # token = await initdb(
-            #     jid,
+            #     jid_bare,
             #     sqlite.get_setting_value,
             #     'token'
             #     )
             # if token == 'accepted':
             #     operator = await initdb(
-            #         jid,
+            #         jid_bare,
             #         sqlite.get_setting_value,
             #         'masters'
             #         )
@@ -131,7 +133,7 @@ async def message(self, message):
             #             return
             # approved = False
             jid_full = str(message['from'])
-            if not is_moderator(self, jid, jid_full):
+            if not is_moderator(self, jid_bare, jid_full):
                 return
             # if role == 'moderator':
             #     approved = True
@@ -142,7 +144,7 @@ async def message(self, message):
             # Changing nickname is fine and consist of no problem.
             # if not approved:
             #     operator = await initdb(
-            #         jid,
+            #         jid_bare,
             #         sqlite.get_setting_value,
             #         'masters'
             #         )
@@ -159,7 +161,7 @@ async def message(self, message):
         # if jid + '.db' not in os.listdir():
         #     await task_jid(jid)
 
-        # await compose.message(self, jid, message)
+        # await compose.message(self, jid_bare, message)
 
         if message['type'] == 'groupchat':
             message_text = message_text[1:]
@@ -170,7 +172,7 @@ async def message(self, message):
         # Support private message via groupchat
         # See https://codeberg.org/poezio/slixmpp/issues/3506
         if message['type'] == 'chat' and message.get_plugin('muc', check=True):
-            jid_bare = message['from'].bare
+            # jid_bare = message['from'].bare
             jid_full = str(message['from'])
             if (jid_bare == jid_full[:jid_full.index('/')]):
                 jid = str(message['from'])
@@ -271,18 +273,18 @@ async def message(self, message):
             #     if message['type'] == 'groupchat':
             #         acode = message[9:]
             #         token = await initdb(
-            #             jid,
+            #             jid_bare,
             #             sqlite.get_setting_value,
             #             'token'
             #             )
             #         if int(acode) == token:
             #             await initdb(
-            #                 jid,
+            #                 jid_bare,
             #                 sqlite.update_setting_value,
             #                 ['masters', nick]
             #                 )
             #             await initdb(
-            #                 jid,
+            #                 jid_bare,
             #                 sqlite.update_setting_value,
             #                 ['token', 'accepted']
             #                 )
@@ -308,9 +310,10 @@ async def message(self, message):
                             Config.add_settings_jid(self.settings, jid_bare, db_file)
                         old = self.settings[jid_bare]['old'] or self.settings['default']['old']
                         if old:
-                            # task.clean_tasks_xmpp(self, jid, ['status'])
+                            # task.clean_tasks_xmpp(self, jid_bare, ['status'])
                             # await send_status(jid)
-                            await task.start_tasks_xmpp(self, jid, ['status'])
+                            key_list = ['status']
+                            await task.start_tasks_xmpp(self, jid_bare, key_list)
                         else:
                             feed_id = await sqlite.get_feed_id(db_file, url)
                             feed_id = feed_id[0]
@@ -397,7 +400,7 @@ async def message(self, message):
                                 'Missing value.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('bookmark +'):
-                if jid == config.get_value('accounts', 'XMPP', 'operator'):
+                if jid_bare == config.get_value('accounts', 'XMPP', 'operator'):
                     muc_jid = message_text[11:]
                     await XmppBookmark.add(self, jid=muc_jid)
                     response = ('Groupchat {} has been added to bookmarks.'
@@ -407,7 +410,7 @@ async def message(self, message):
                                 'Type: adding bookmarks.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('bookmark -'):
-                if jid == config.get_value('accounts', 'XMPP', 'operator'):
+                if jid_bare == config.get_value('accounts', 'XMPP', 'operator'):
                     muc_jid = message_text[11:]
                     await XmppBookmark.remove(self, muc_jid)
                     response = ('Groupchat {} has been removed from bookmarks.'
@@ -435,7 +438,7 @@ async def message(self, message):
                 response = 'Filter {} has been purged.'.format(key)
                 XmppMessage.send_reply(self, message, response)
             case 'bookmarks':
-                if jid == config.get_value('accounts', 'XMPP', 'operator'):
+                if jid_bare == config.get_value('accounts', 'XMPP', 'operator'):
                     response = await action.list_bookmarks(self)
                 else:
                     response = ('This action is restricted. '
@@ -490,18 +493,19 @@ async def message(self, message):
                     status_message = ('📤️ Procesing request to '
                                       'export feeds into {}...'
                                       .format(ext.upper()))
-                    XmppPresence.send(self, jid, status_message,
+                    XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
-                    filename = await action.export_feeds(self, jid, jid_file,
-                                                         ext)
-                    url = await XmppUpload.start(self, jid, filename)
+                    filename = await action.export_feeds(self, jid_bare,
+                                                         jid_file, ext)
+                    url = await XmppUpload.start(self, jid_bare, filename)
                     # response = (
                     #     'Feeds exported successfully to {}.\n{}'
                     #     ).format(ex, url)
                     # XmppMessage.send_oob_reply_message(message, url, response)
-                    chat_type = await get_chat_type(self, jid)
-                    XmppMessage.send_oob(self, jid, url, chat_type)
-                    await task.start_tasks_xmpp(self, jid, ['status'])
+                    chat_type = await get_chat_type(self, jid_bare)
+                    XmppMessage.send_oob(self, jid_bare, url, chat_type)
+                    key_list = ['status']
+                    await task.start_tasks_xmpp(self, jid_bare, key_list)
                 else:
                     response = ('Unsupported filetype.\n'
                                 'Try: md or opml')
@@ -535,7 +539,7 @@ async def message(self, message):
                     status_type = 'dnd'
                     status_message = ('📃️ Procesing request to produce {} '
                                       'document...'.format(ext.upper()))
-                    XmppPresence.send(self, jid, status_message,
+                    XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     db_file = config.get_pathname_to_database(jid_file)
                     cache_dir = config.get_default_cache_directory()
@@ -579,16 +583,18 @@ async def message(self, message):
                                                                     ext.upper(),
                                                                     error))
                                 else:
-                                    url = await XmppUpload.start(self, jid,
+                                    url = await XmppUpload.start(self, jid_bare,
                                                                  filename)
-                                    chat_type = await get_chat_type(self, jid)
-                                    XmppMessage.send_oob(self, jid, url,
+                                    chat_type = await get_chat_type(self,
+                                                                    jid_bare)
+                                    XmppMessage.send_oob(self, jid_bare, url,
                                                          chat_type)
                             else:
                                 response = ('> {}\n'
                                             'Failed to fetch URL.  Reason: {}'
                                             .format(url, code))
-                        await task.start_tasks_xmpp(self, jid, ['status'])
+                        key_list = ['status']
+                        await task.start_tasks_xmpp(self, jid_bare, key_list)
                     else:
                         response = ('No action has been taken.'
                                     '\n'
@@ -604,10 +610,11 @@ async def message(self, message):
             case _ if (message_lowercase.startswith('http')) and(
                 message_lowercase.endswith('.opml')):
                 url = message_text
-                task.clean_tasks_xmpp(self, jid, ['status'])
+                key_list = ['status']
+                task.clean_tasks_xmpp(self, jid_bare, key_list)
                 status_type = 'dnd'
                 status_message = '📥️ Procesing request to import feeds...'
-                XmppPresence.send(self, jid, status_message,
+                XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 db_file = config.get_pathname_to_database(jid_file)
                 count = await action.import_opml(db_file, url)
@@ -616,16 +623,17 @@ async def message(self, message):
                                 .format(count))
                 else:
                     response = 'OPML file was not imported.'
-                await task.start_tasks_xmpp(self, jid, ['status'])
+                key_list = ['status']
+                await task.start_tasks_xmpp(self, jid_bare, key_list)
                 XmppMessage.send_reply(self, message, response)
             case _ if (message_lowercase.startswith('http') or
                        message_lowercase.startswith('feed:')):
                 url = message_text
-                # task.clean_tasks_xmpp(self, jid, ['status'])
+                # task.clean_tasks_xmpp(self, jid_bare, ['status'])
                 status_type = 'dnd'
                 status_message = ('📫️ Processing request to fetch data from {}'
                                   .format(url))
-                XmppPresence.send(self, jid, status_message,
+                XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 if url.startswith('feed:'):
                     url = uri.feed_to_http(url)
@@ -657,8 +665,9 @@ async def message(self, message):
                     response = ('> {}\nNews source "{}" has been '
                                 'added to subscription list.'
                                 .format(result['link'], result['name']))
-                # task.clean_tasks_xmpp(self, jid, ['status'])
-                await task.start_tasks_xmpp(self, jid, ['status'])
+                # task.clean_tasks_xmpp(self, jid_bare, ['status'])
+                key_list = ['status']
+                await task.start_tasks_xmpp(self, jid_bare, key_list)
                 # except:
                 #     response = (
                 #         '> {}\nNews source is in the process '
@@ -681,8 +690,8 @@ async def message(self, message):
                 XmppMessage.send_reply(self, message, response)
             case 'goodbye':
                 if message['type'] == 'groupchat':
-                    XmppGroupchat.leave(self, jid)
-                    await XmppBookmark.remove(self, jid)
+                    XmppGroupchat.leave(self, jid_bare)
+                    await XmppBookmark.remove(self, jid_bare)
                 else:
                     response = 'This command is valid in groupchat only.'
                 XmppMessage.send_reply(self, message, response)
@@ -696,8 +705,8 @@ async def message(self, message):
                         await config.set_setting_value(db_file, key, val)
                         # NOTE Perhaps this should be replaced by functions
                         # clean and start
-                        await task.refresh_task(self, jid, task.task_send, key,
-                                                val)
+                        await task.refresh_task(self, jid_bare, task.task_send,
+                                                key, val)
                         response = ('Updates will be sent every {} minutes.'
                                     .format(val))
                     except:
@@ -711,7 +720,7 @@ async def message(self, message):
                 muc_jid = uri.check_xmpp_uri(message_text[5:])
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
-                    XmppGroupchat.join(self, jid, muc_jid)
+                    XmppGroupchat.join(self, jid_bare, muc_jid)
                     # await XmppBookmark.add(self, jid=muc_jid)
                     response = ('Joined groupchat {}'
                                 .format(message_text))
@@ -747,7 +756,7 @@ async def message(self, message):
             #         val = message_text[11:]
             #         if val:
             #             names = await initdb(
-            #                 jid,
+            #                 jid_bare,
             #                 sqlite.get_setting_value,
             #                 key
             #                 )
@@ -756,7 +765,7 @@ async def message(self, message):
             #                 names
             #                 )
             #             await initdb(
-            #                 jid,
+            #                 jid_bare,
             #                 sqlite.update_setting_valuevv,
             #                 [key, val]
             #                 )
@@ -791,10 +800,11 @@ async def message(self, message):
             case _ if message_lowercase.startswith('next'):
                 num = message_text[5:]
                 if num:
-                    await action.xmpp_send_update(self, jid, num)
+                    await action.xmpp_send_update(self, jid_bare, num)
                 else:
-                    await action.xmpp_send_update(self, jid)
-                await task.start_tasks_xmpp(self, jid, ['status'])
+                    await action.xmpp_send_update(self, jid_bare)
+                key_list = ['status']
+                await task.start_tasks_xmpp(self, jid_bare, key_list)
             case 'old':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
@@ -834,11 +844,12 @@ async def message(self, message):
                 data = data.split()
                 url = data[0]
                 if url:
-                    task.clean_tasks_xmpp(self, jid, ['status'])
+                    key_list = ['status']
+                    task.clean_tasks_xmpp(self, jid_bare, key_list)
                     status_type = 'dnd'
                     status_message = ('📫️ Processing request to fetch data from {}'
                                       .format(url))
-                    XmppPresence.send(self, jid, status_message,
+                    XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     if url.startswith('feed:'):
                         url = uri.feed_to_http(url)
@@ -868,7 +879,8 @@ async def message(self, message):
                                 '\n'
                                 'Missing URL.')
                 XmppMessage.send_reply(self, message, response)
-                await task.start_tasks_xmpp(self, jid, ['status'])
+                key_list = ['status']
+                await task.start_tasks_xmpp(self, jid_bare, key_list)
             case _ if message_lowercase.startswith('recent'):
                 num = message_text[7:]
                 if num:
@@ -925,13 +937,14 @@ async def message(self, message):
                                         .format(url))
                     # await refresh_task(
                     #     self,
-                    #     jid,
+                    #     jid_bare,
                     #     send_status,
                     #     'status',
                     #     20
                     #     )
-                    # task.clean_tasks_xmpp(self, jid, ['status'])
-                    await task.start_tasks_xmpp(self, jid, ['status'])
+                    # task.clean_tasks_xmpp(self, jid_bare, ['status'])
+                    key_list = ['status']
+                    await task.start_tasks_xmpp(self, jid_bare, key_list)
                 else:
                     response = ('No action has been taken.'
                                 '\n'
@@ -941,10 +954,11 @@ async def message(self, message):
             case _ if message_lowercase.startswith('reset'):
                 # TODO Reset also by ID
                 ix_url = message_text[6:]
-                task.clean_tasks_xmpp(self, jid, ['status'])
+                key_list = ['status']
+                task.clean_tasks_xmpp(self, jid_bare, key_list)
                 status_type = 'dnd'
                 status_message = '📫️ Marking entries as read...'
-                XmppPresence.send(self, jid, status_message,
+                XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 db_file = config.get_pathname_to_database(jid_file)
                 if ix_url:
@@ -985,7 +999,8 @@ async def message(self, message):
                     await sqlite.mark_all_as_read(db_file)
                     response = 'All entries have been marked as read.'
                 XmppMessage.send_reply(self, message, response)
-                await task.start_tasks_xmpp(self, jid, ['status'])
+                key_list = ['status']
+                await task.start_tasks_xmpp(self, jid_bare, key_list)
             case _ if message_lowercase.startswith('search'):
                 query = message_text[7:]
                 if query:
@@ -1007,9 +1022,10 @@ async def message(self, message):
                 await config.set_setting_value(db_file, key, val)
                 status_type = 'available'
                 status_message = '📫️ Welcome back!'
-                XmppPresence.send(self, jid, status_message, status_type=status_type)
+                XmppPresence.send(self, jid_bare, status_message, status_type=status_type)
                 await asyncio.sleep(5)
-                await task.start_tasks_xmpp(self, jid, ['check', 'status', 'interval'])
+                key_list = ['check', 'status', 'interval']
+                await task.start_tasks_xmpp(self, jid_bare, key_list)
                 response = 'Updates are enabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'stats':
@@ -1033,7 +1049,8 @@ async def message(self, message):
                                 'No news source with index {}.'
                                 .format(feed_id))
                 XmppMessage.send_reply(self, message, response)
-                await task.start_tasks_xmpp(self, jid, ['status'])
+                key_list = ['status']
+                await task.start_tasks_xmpp(self, jid_bare, key_list)
             case _ if message_lowercase.startswith('rename'):
                 message_text = message_text[7:]
                 feed_id = message_text.split(' ')[0]
@@ -1089,10 +1106,11 @@ async def message(self, message):
                 val = 0
                 db_file = config.get_pathname_to_database(jid_file)
                 await config.set_setting_value(db_file, key, val)
-                task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
+                key_list = ['interval', 'status']
+                task.clean_tasks_xmpp(self, jid_bare, key_list)
                 status_type = 'xa'
                 status_message = '📪️ Send "Start" to receive Jabber updates'
-                XmppPresence.send(self, jid, status_message,
+                XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 response = 'Updates are disabled.'
                 XmppMessage.send_reply(self, message, response)
@@ -1100,8 +1118,8 @@ async def message(self, message):
                 muc_jid = 'slixfeed@chat.woodpeckersnest.space'
                 response = 'Join xmpp:{}?join'.format(muc_jid)
                 XmppMessage.send_reply(self, message, response)
-                if await get_chat_type(self, jid) == 'chat':
-                    self.plugin['xep_0045'].invite(muc_jid, jid)
+                if await get_chat_type(self, jid_bare) == 'chat':
+                    self.plugin['xep_0045'].invite(muc_jid, jid_bare)
             case 'version':
                 response = __version__
                 XmppMessage.send_reply(self, message, response)
@@ -1109,7 +1127,7 @@ async def message(self, message):
                 muc_jid = uri.check_xmpp_uri(message_text)
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
-                    XmppGroupchat.join(self, jid, muc_jid)
+                    XmppGroupchat.join(self, jid_bare, muc_jid)
                     # await XmppBookmark.add(self, jid=muc_jid)
                     response = ('Joined groupchat {}'
                                 .format(message_text))
@@ -1141,15 +1159,15 @@ async def message(self, message):
             os.mkdir(data_dir + '/logs/')
         action.log_to_markdown(
             dt.current_time(), os.path.join(data_dir, 'logs', jid_file),
-            jid, message_text)
+            jid_bare, message_text)
         action.log_to_markdown(
             dt.current_time(), os.path.join(data_dir, 'logs', jid_file),
-            self.boundjid.bare, response)
+            jid_bare, response)
 
         print(
             'Message : {}\n'
             'JID     : {}\n'
             'File    : {}\n'
             '{}\n'
-            .format(message_text, jid, jid_file, response)
+            .format(message_text, jid_bare, jid_file, response)
             )
