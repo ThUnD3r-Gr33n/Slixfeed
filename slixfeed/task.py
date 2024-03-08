@@ -164,7 +164,7 @@ async def start_tasks_xmpp(self, jid_bare, tasks=None):
 
 async def task_status(self, jid):
     await action.xmpp_send_status(self, jid)
-    await refresh_task(self, jid, task_status, 'status', '90')
+    refresh_task(self, jid, task_status, 'status', '90')
 
 
 async def task_send(self, jid_bare):
@@ -174,7 +174,7 @@ async def task_send(self, jid_bare):
         Config.add_settings_jid(self.settings, jid_bare, db_file)
     update_interval = self.settings[jid_bare]['interval'] or self.settings['default']['interval']
     update_interval = 60 * int(update_interval)
-    last_update_time = await sqlite.get_last_update_time(db_file)
+    last_update_time = sqlite.get_last_update_time(db_file)
     if last_update_time:
         last_update_time = float(last_update_time)
         diff = time.time() - last_update_time
@@ -196,7 +196,7 @@ async def task_send(self, jid_bare):
     else:
         await sqlite.set_last_update_time(db_file)
     await action.xmpp_send_update(self, jid_bare)
-    await refresh_task(self, jid_bare, task_send, 'interval')
+    refresh_task(self, jid_bare, task_send, 'interval')
     await start_tasks_xmpp(self, jid_bare, ['status'])
 
 
@@ -213,7 +213,7 @@ def clean_tasks_xmpp(self, jid, tasks=None):
                           .format(task, jid))
 
 
-async def refresh_task(self, jid_bare, callback, key, val=None):
+def refresh_task(self, jid_bare, callback, key, val=None):
     """
     Apply new setting at runtime.
 
@@ -281,7 +281,7 @@ async def check_updates(self, jid):
     while True:
         jid_file = jid.replace('/', '_')
         db_file = config.get_pathname_to_database(jid_file)
-        urls = await sqlite.get_active_feeds_url(db_file)
+        urls = sqlite.get_active_feeds_url(db_file)
         for url in urls:
             await action.scan(self, jid, db_file, url)
         val = self.settings['default']['check']

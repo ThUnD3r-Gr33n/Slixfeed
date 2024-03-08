@@ -302,7 +302,7 @@ async def message(self, message):
                     title = uri.get_hostname(url)
                 if url.startswith('http'):
                     db_file = config.get_pathname_to_database(jid_file)
-                    exist = await sqlite.get_feed_id_and_name(db_file, url)
+                    exist = sqlite.get_feed_id_and_name(db_file, url)
                     if not exist:
                         await sqlite.insert_feed(db_file, url, title)
                         await action.scan(self, jid_bare, db_file, url)
@@ -315,7 +315,7 @@ async def message(self, message):
                             key_list = ['status']
                             await task.start_tasks_xmpp(self, jid_bare, key_list)
                         else:
-                            feed_id = await sqlite.get_feed_id(db_file, url)
+                            feed_id = sqlite.get_feed_id(db_file, url)
                             feed_id = feed_id[0]
                             await sqlite.mark_feed_as_read(db_file, feed_id)
                         response = ('> {}\n'
@@ -687,7 +687,7 @@ async def message(self, message):
                         response = 'Enter at least 4 characters to search'
                 else:
                     db_file = config.get_pathname_to_database(jid_file)
-                    result = await sqlite.get_feeds(db_file)
+                    result = sqlite.get_feeds(db_file)
                     response = action.list_feeds(result)
                 XmppMessage.send_reply(self, message, response)
             case 'goodbye':
@@ -707,8 +707,8 @@ async def message(self, message):
                         await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
                         # NOTE Perhaps this should be replaced by functions
                         # clean and start
-                        await task.refresh_task(self, jid_bare, task.task_send,
-                                                key, val)
+                        task.refresh_task(self, jid_bare, task.task_send, key,
+                                          val)
                         response = ('Updates will be sent every {} minutes.'
                                     .format(val))
                     except:
@@ -892,7 +892,7 @@ async def message(self, message):
                             response = 'Value must be ranged from 1 to 50.'
                         else:
                             db_file = config.get_pathname_to_database(jid_file)
-                            result = await sqlite.last_entries(db_file, num)
+                            result = sqlite.get_last_entries(db_file, num)
                             response = action.list_last_entries(result, num)
                     except:
                         response = ('No action has been taken.'
@@ -924,7 +924,7 @@ async def message(self, message):
                                         .format(ix))
                     except:
                         url = ix_url
-                        feed_id = await sqlite.get_feed_id(db_file, url)
+                        feed_id = sqlite.get_feed_id(db_file, url)
                         if feed_id:
                             feed_id = feed_id[0]
                             await sqlite.remove_feed_by_url(db_file, url)
@@ -937,13 +937,7 @@ async def message(self, message):
                                         # 'No action has been made.'
                                         'News source does not exist. '
                                         .format(url))
-                    # await refresh_task(
-                    #     self,
-                    #     jid_bare,
-                    #     send_status,
-                    #     'status',
-                    #     20
-                    #     )
+                    # refresh_task(self, jid_bare, send_status, 'status', 20)
                     # task.clean_tasks_xmpp(self, jid_bare, ['status'])
                     key_list = ['status']
                     await task.start_tasks_xmpp(self, jid_bare, key_list)
@@ -982,7 +976,7 @@ async def message(self, message):
                                         .format(ix))
                     except:
                         url = ix_url
-                        feed_id = await sqlite.get_feed_id(db_file, url)
+                        feed_id = sqlite.get_feed_id(db_file, url)
                         if feed_id:
                             feed_id = feed_id[0]
                             name = sqlite.get_feed_title(db_file, feed_id)

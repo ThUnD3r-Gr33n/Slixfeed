@@ -256,20 +256,21 @@ class Slixfeed(slixmpp.ClientXMPP):
         function_name = sys._getframe().f_code.co_name
         message_log = '{}'
         logger.debug(message_log.format(function_name))
-        # self.send_presence()
-        bookmarks = await self.plugin['xep_0048'].get_bookmarks()
-        XmppGroupchat.autojoin(self, bookmarks)
         jid_operator = config.get_value('accounts', 'XMPP', 'operator')
         if jid_operator:
-            status_message = 'Slixfeed version {}'.format(__version__)
+            status_message = ('Wait while Slixfeed {} is being loaded...'
+                              .format(__version__))
             XmppPresence.send(self, jid_operator, status_message)
+        await profile.update(self)
         profile.set_identity(self, 'client')
+        await self['xep_0115'].update_caps()
+        # self.send_presence()
+        # await self.get_roster()
+        bookmarks = await self.plugin['xep_0048'].get_bookmarks()
+        XmppGroupchat.autojoin(self, bookmarks)
         # XmppCommand.adhoc_commands(self)
         self.adhoc_commands()
-        self.service_reactions()
-        await self['xep_0115'].update_caps()
-        await self.get_roster()
-        await profile.update(self)
+        # self.service_reactions()
         task.task_ping(self)
         time_end = time.time()
         difference = time_end - time_begin
@@ -721,21 +722,21 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 .format(jid_bare))
         form.add_field(ftype='fixed',
                        value='News')
-        feeds_all = str(await sqlite.get_number_of_items(db_file, 'feeds'))
+        feeds_all = str(sqlite.get_number_of_items(db_file, 'feeds'))
         form.add_field(label='Subscriptions',
                        ftype='text-single',
                        value=feeds_all)
-        feeds_act = str(await sqlite.get_number_of_feeds_active(db_file))
+        feeds_act = str(sqlite.get_number_of_feeds_active(db_file))
         form.add_field(label='Active',
                        ftype='text-single',
                        value=feeds_act)
-        entries = await sqlite.get_number_of_items(db_file, 'entries')
-        archive = await sqlite.get_number_of_items(db_file, 'archive')
+        entries = sqlite.get_number_of_items(db_file, 'entries')
+        archive = sqlite.get_number_of_items(db_file, 'archive')
         entries_all = str(entries + archive)
         form.add_field(label='Items',
                        ftype='text-single',
                        value=entries_all)
-        unread = str(await sqlite.get_number_of_entries_unread(db_file))
+        unread = str(sqlite.get_number_of_entries_unread(db_file))
         form.add_field(label='Unread',
                        ftype='text-single',
                        value=unread)
@@ -779,7 +780,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         update_interval = self.settings[jid_bare]['interval'] or self.settings['default']['interval']
         update_interval = str(update_interval)
         update_interval = 60 * int(update_interval)
-        last_update_time = await sqlite.get_last_update_time(db_file)
+        last_update_time = sqlite.get_last_update_time(db_file)
         if last_update_time:
             last_update_time = float(last_update_time)
             dt_object = datetime.fromtimestamp(last_update_time)
@@ -979,11 +980,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         num = 100
         match payload['values']['action']:
             case 'all':
-                results = await sqlite.get_entries(db_file, num) # FIXME
+                results = sqlite.get_entries(db_file, num) # FIXME
             case 'rejected':
-                results = await sqlite.get_entries_rejected(db_file, num) # FIXME
+                results = sqlite.get_entries_rejected(db_file, num) # FIXME
             case 'unread':
-                results = await sqlite.get_unread_entries(db_file, num)
+                results = sqlite.get_unread_entries(db_file, num)
         if results:
             form = self['xep_0004'].make_form('form', 'Updates')
             form['instructions'] = 'Recent {} updates'.format(num)
@@ -1539,7 +1540,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                          label='Subscription',
                                          desc=('Select a subscription to edit.'),
                                          required=True)
-                subscriptions = await sqlite.get_feeds(db_file)
+                subscriptions = sqlite.get_feeds(db_file)
                 subscriptions = sorted(subscriptions, key=lambda x: x[0])
                 for subscription in subscriptions:
                     title = subscription[0]
@@ -1558,7 +1559,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                          label='Subscriptions',
                                          desc=('Select subscriptions to remove.'),
                                          required=True)
-                subscriptions = await sqlite.get_feeds(db_file)
+                subscriptions = sqlite.get_feeds(db_file)
                 subscriptions = sorted(subscriptions, key=lambda x: x[0])
                 for subscription in subscriptions:
                     title = subscription[0]
@@ -1672,7 +1673,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         #               label='Interval period')
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
-        subscriptions = await sqlite.get_feeds(db_file)
+        subscriptions = sqlite.get_feeds(db_file)
         # subscriptions = set(subscriptions)
         categorized_subscriptions = {}
         for subscription in subscriptions:
@@ -1732,7 +1733,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             # elif isinstance(urls, str):
             else:
                 url = urls
-            feed_id = await sqlite.get_feed_id(db_file, url)
+            feed_id = sqlite.get_feed_id(db_file, url)
             if feed_id:
                 feed_id = feed_id[0]
                 title = sqlite.get_feed_title(db_file, feed_id)
@@ -1812,7 +1813,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         # url = values['url']
-        # feed_id = await sqlite.get_feed_id(db_file, url)
+        # feed_id = sqlite.get_feed_id(db_file, url)
         # feed_id = feed_id[0]
         # if feed_id: feed_id = feed_id[0]
         feed_id = values['id']
@@ -1888,7 +1889,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                  required=True)
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
-        subscriptions = await sqlite.get_feeds(db_file)
+        subscriptions = sqlite.get_feeds(db_file)
         subscriptions = sorted(subscriptions, key=lambda x: x[0])
         for subscription in subscriptions:
             title = subscription[0]
@@ -2361,7 +2362,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
-        subscriptions = await sqlite.get_feeds(db_file)
+        subscriptions = sqlite.get_feeds(db_file)
         subscriptions = sorted(subscriptions, key=lambda x: x[0])
         form = self['xep_0004'].make_form('form', 'Subscriptions')
         match payload['values']['action']:

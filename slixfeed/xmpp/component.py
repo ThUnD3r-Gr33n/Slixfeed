@@ -681,21 +681,21 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                                 .format(jid_bare))
         form.add_field(ftype='fixed',
                        value='News')
-        feeds_all = str(await sqlite.get_number_of_items(db_file, 'feeds'))
+        feeds_all = str(sqlite.get_number_of_items(db_file, 'feeds'))
         form.add_field(label='Subscriptions',
                        ftype='text-single',
                        value=feeds_all)
-        feeds_act = str(await sqlite.get_number_of_feeds_active(db_file))
+        feeds_act = str(sqlite.get_number_of_feeds_active(db_file))
         form.add_field(label='Active',
                        ftype='text-single',
                        value=feeds_act)
-        entries = await sqlite.get_number_of_items(db_file, 'entries')
-        archive = await sqlite.get_number_of_items(db_file, 'archive')
+        entries = sqlite.get_number_of_items(db_file, 'entries')
+        archive = sqlite.get_number_of_items(db_file, 'archive')
         entries_all = str(entries + archive)
         form.add_field(label='Items',
                        ftype='text-single',
                        value=entries_all)
-        unread = str(await sqlite.get_number_of_entries_unread(db_file))
+        unread = str(sqlite.get_number_of_entries_unread(db_file))
         form.add_field(label='Unread',
                        ftype='text-single',
                        value=unread)
@@ -739,7 +739,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         update_interval = self.settings[jid_bare]['interval'] or self.settings['default']['interval']
         update_interval = str(update_interval)
         update_interval = 60 * int(update_interval)
-        last_update_time = await sqlite.get_last_update_time(db_file)
+        last_update_time = sqlite.get_last_update_time(db_file)
         if last_update_time:
             last_update_time = float(last_update_time)
             dt_object = datetime.fromtimestamp(last_update_time)
@@ -939,11 +939,11 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         num = 100
         match payload['values']['action']:
             case 'all':
-                results = await sqlite.get_entries(db_file, num) # FIXME
+                results = sqlite.get_entries(db_file, num) # FIXME
             case 'rejected':
-                results = await sqlite.get_entries_rejected(db_file, num) # FIXME
+                results = sqlite.get_entries_rejected(db_file, num) # FIXME
             case 'unread':
-                results = await sqlite.get_unread_entries(db_file, num)
+                results = sqlite.get_unread_entries(db_file, num)
         if results:
             form = self['xep_0004'].make_form('form', 'Updates')
             form['instructions'] = 'Recent {} updates'.format(num)
@@ -1105,7 +1105,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             error_count = 0
             exist_count = 0
             for url in urls:
-                result = await action.add_feed(db_file, url)
+                result = await action.add_feed(self, jid_bare, db_file, url)
                 if result['error']:
                     error_count += 1
                 elif result['exist']:
@@ -1129,7 +1129,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         else:
             if isinstance(url, list):
                 url = url[0]
-            result = await action.add_feed(db_file, url)
+            result = await action.add_feed(self, jid_bare, db_file, url)
             if isinstance(result, list):
                 results = result
                 form = self['xep_0004'].make_form('form', 'Subscriptions')
@@ -1499,7 +1499,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                                          label='Subscription',
                                          desc=('Select a subscription to edit.'),
                                          required=True)
-                subscriptions = await sqlite.get_feeds(db_file)
+                subscriptions = sqlite.get_feeds(db_file)
                 subscriptions = sorted(subscriptions, key=lambda x: x[0])
                 for subscription in subscriptions:
                     title = subscription[0]
@@ -1518,7 +1518,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                                          label='Subscriptions',
                                          desc=('Select subscriptions to remove.'),
                                          required=True)
-                subscriptions = await sqlite.get_feeds(db_file)
+                subscriptions = sqlite.get_feeds(db_file)
                 subscriptions = sorted(subscriptions, key=lambda x: x[0])
                 for subscription in subscriptions:
                     title = subscription[0]
@@ -1632,7 +1632,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         #               label='Interval period')
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
-        subscriptions = await sqlite.get_feeds(db_file)
+        subscriptions = sqlite.get_feeds(db_file)
         # subscriptions = set(subscriptions)
         categorized_subscriptions = {}
         for subscription in subscriptions:
@@ -1692,7 +1692,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             # elif isinstance(urls, str):
             else:
                 url = urls
-            feed_id = await sqlite.get_feed_id(db_file, url)
+            feed_id = sqlite.get_feed_id(db_file, url)
             if feed_id:
                 feed_id = feed_id[0]
                 title = sqlite.get_feed_title(db_file, feed_id)
@@ -1772,7 +1772,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         # url = values['url']
-        # feed_id = await sqlite.get_feed_id(db_file, url)
+        # feed_id = sqlite.get_feed_id(db_file, url)
         # feed_id = feed_id[0]
         # if feed_id: feed_id = feed_id[0]
         feed_id = values['id']
@@ -1848,7 +1848,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                                  required=True)
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
-        subscriptions = await sqlite.get_feeds(db_file)
+        subscriptions = sqlite.get_feeds(db_file)
         subscriptions = sorted(subscriptions, key=lambda x: x[0])
         for subscription in subscriptions:
             title = subscription[0]
@@ -2321,7 +2321,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         jid_bare = session['from'].bare
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
-        subscriptions = await sqlite.get_feeds(db_file)
+        subscriptions = sqlite.get_feeds(db_file)
         subscriptions = sorted(subscriptions, key=lambda x: x[0])
         form = self['xep_0004'].make_form('form', 'Subscriptions')
         match payload['values']['action']:
@@ -2712,7 +2712,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                     i += 1
             value = self.settings[jid_bare]['quantum'] or self.settings['default']['quantum']
             value = str(value)
-            value = str(value)
             options = form.add_field(var='quantum',
                                      ftype='list-single',
                                      label='Amount',
@@ -2726,7 +2725,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 options.addOption(x, x)
                 i += 1
             value = self.settings[jid_bare]['archive'] or self.settings['default']['archive']
-            value = str(value)
             value = str(value)
             options = form.add_field(var='archive',
                                      ftype='list-single',
@@ -2755,7 +2753,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
-                    .format(function_name, jid_full))
+                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         form = payload
         jid_file = jid_bare
@@ -2768,14 +2766,23 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             key = value
             val = values[value]
 
-            if key == 'interval':
+            if key in ('enabled', 'media', 'old'):
+                if val == True:
+                    val = 1
+                elif val == False:
+                    val = 0
+
+            if key in ('archive', 'interval', 'quantum'):
                 val = int(val)
+
+            if key == 'interval':
                 if val < 1: val = 1
                 val = val * 60
 
             is_enabled = self.settings[jid_bare]['enabled'] or self.settings['default']['enabled']
 
-            if (key == 'enabled' and val == 1 and
+            if (key == 'enabled' and
+                val == 1 and
                 str(is_enabled) == 0):
                 logger.info('Slixfeed has been enabled for {}'.format(jid_bare))
                 status_type = 'available'
@@ -2786,7 +2793,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 key_list = ['check', 'status', 'interval']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
 
-            if (key == 'enabled' and val == 0 and
+            if (key == 'enabled' and
+                val == 0 and
                 str(is_enabled) == 1):
                 logger.info('Slixfeed has been disabled for {}'.format(jid_bare))
                 key_list = ['interval', 'status']
@@ -2796,10 +2804,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
 
-            # These three ilnes (getting value after setting it) might be removed
-            await config.set_setting_value(db_file, key, val)
-            val = sqlite.get_setting_value(db_file, key)
-            val = val[0]
+            await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+            val = self.settings[jid_bare][key]
 
             # if key == 'enabled':
             #     if str(setting.enabled) == 0:

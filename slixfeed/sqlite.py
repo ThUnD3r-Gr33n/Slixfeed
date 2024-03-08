@@ -989,7 +989,7 @@ async def set_new_tag(db_file, tag):
             cur.execute(sql, par)
 
 
-async def get_feed_id_and_name(db_file, url):
+def get_feed_id_and_name(db_file, url):
     """
     Get Id and Name of feed.
     Check whether a feed exists.
@@ -1024,7 +1024,7 @@ async def get_feed_id_and_name(db_file, url):
         return result
 
 
-async def get_number_of_items(db_file, table):
+def get_number_of_items(db_file, table):
     """
     Return number of entries or feeds.
 
@@ -1055,7 +1055,7 @@ async def get_number_of_items(db_file, table):
         return count
 
 
-async def get_number_of_feeds_active(db_file):
+def get_number_of_feeds_active(db_file):
     """
     Return number of active feeds.
 
@@ -1085,7 +1085,7 @@ async def get_number_of_feeds_active(db_file):
         return count
 
 
-async def get_number_of_entries_unread(db_file):
+def get_number_of_entries_unread(db_file):
     """
     Return number of unread items.
 
@@ -1122,7 +1122,7 @@ async def get_number_of_entries_unread(db_file):
         return count
 
 
-async def get_unread_entries(db_file, num):
+def get_unread_entries(db_file, num):
     """
     Extract information from unread entries.
 
@@ -1193,7 +1193,7 @@ def get_feed_id_by_entry_index(db_file, ix):
         return feed_id
 
 
-async def get_feed_id(db_file, url):
+def get_feed_id(db_file, url):
     """
     Get index of given feed.
 
@@ -1572,9 +1572,9 @@ async def update_statistics(cur):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}'.format(function_name))
     stat_dict = {}
-    stat_dict["feeds"] = await get_number_of_items(cur, 'feeds')
-    stat_dict["entries"] = await get_number_of_items(cur, 'entries')
-    stat_dict["unread"] = await get_number_of_entries_unread(cur=cur)
+    stat_dict["feeds"] = get_number_of_items(cur, 'feeds')
+    stat_dict["entries"] = get_number_of_items(cur, 'entries')
+    stat_dict["unread"] = get_number_of_entries_unread(cur=cur)
     for i in stat_dict:
         sql = (
             "SELECT id "
@@ -1959,7 +1959,7 @@ async def maintain_archive(db_file, limit):
 # NOTE Entries that are read from archive are deleted.
 # NOTE Unlike entries from table entries, entries from
 #      table archive are not marked as read.
-async def get_entries_of_feed(db_file, feed_id):
+def get_entries_of_feed(db_file, feed_id):
     """
     Get entries of given feed.
 
@@ -1989,7 +1989,7 @@ async def get_entries_of_feed(db_file, feed_id):
 
 
 # TODO What is this function for? 2024-01-02
-# async def get_feeds(db_file):
+# def get_feeds(db_file):
 #     """
 #     Query table feeds for Title, URL, Categories, Tags.
 
@@ -2014,7 +2014,7 @@ async def get_entries_of_feed(db_file, feed_id):
 
 # TODO select by "feed_id" (of table "status") from
 # "feed" urls that are enabled in table "status"
-async def get_feeds_url(db_file):
+def get_feeds_url(db_file):
     """
     Query table feeds for URLs.
 
@@ -2081,7 +2081,7 @@ def get_feeds_by_enabled_state(db_file, enabled_state):
         return result
 
 
-async def get_active_feeds_url(db_file):
+def get_active_feeds_url(db_file):
     """
     Query table feeds for active URLs.
 
@@ -2141,7 +2141,7 @@ def get_tags(db_file):
         return result
 
 
-async def get_feeds(db_file):
+def get_feeds(db_file):
     """
     Query table feeds and list items.
 
@@ -2175,7 +2175,7 @@ async def get_feeds(db_file):
         return result
 
 
-async def last_entries(db_file, num):
+def get_last_entries(db_file, num):
     """
     Query entries.
 
@@ -2789,25 +2789,26 @@ async def set_last_update_time(db_file):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {}'
                 .format(function_name, db_file))
-    with create_connection(db_file) as conn:
-        cur = conn.cursor()
-        sql = (
-            """
-            INSERT
-            INTO status(
-                key, value)
-            VALUES(
-                :key, :value)
-            """
-            )
-        par = {
-            "key": "last_update",
-            "value": time.time()
-            }
-        cur.execute(sql, par)
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                INSERT
+                INTO status(
+                    key, value)
+                VALUES(
+                    :key, :value)
+                """
+                )
+            par = {
+                "key": "last_update",
+                "value": time.time()
+                }
+            cur.execute(sql, par)
 
 
-async def get_last_update_time(db_file):
+def get_last_update_time(db_file):
     """
     Get value of last_update.
 
@@ -2859,19 +2860,20 @@ async def update_last_update_time(db_file):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {}'
                 .format(function_name, db_file))
-    with create_connection(db_file) as conn:
-        cur = conn.cursor()
-        sql = (
-            """
-            UPDATE status
-            SET value = :value
-            WHERE key = "last_update"
-            """
-            )
-        par = {
-            "value": time.time()
-            }
-        cur.execute(sql, par)
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                UPDATE status
+                SET value = :value
+                WHERE key = "last_update"
+                """
+                )
+            par = {
+                "value": time.time()
+                }
+            cur.execute(sql, par)
 
 ########################################
 
