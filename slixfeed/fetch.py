@@ -10,8 +10,6 @@ FIXME
 
 TODO
 
-0) Improve function http to return sensible value (the list is not good enough)
-
 1) Support Gemini and Gopher.
 
 2) Check also for HTML, not only feed.bozo.

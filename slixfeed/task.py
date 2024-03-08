@@ -284,6 +284,7 @@ async def check_updates(self, jid):
         urls = sqlite.get_active_feeds_url(db_file)
         for url in urls:
             await action.scan(self, jid, db_file, url)
+            await asyncio.sleep(50)
         val = self.settings['default']['check']
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes

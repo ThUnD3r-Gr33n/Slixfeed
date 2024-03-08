@@ -1122,6 +1122,82 @@ def get_number_of_entries_unread(db_file):
         return count
 
 
+def get_entries(db_file, num):
+    """
+    Extract information from entries.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    num : str, optional
+        Number. The default is None.
+
+    Returns
+    -------
+    result : tuple
+        News items.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} num: {}'
+                .format(function_name, db_file, num))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT id, title, link, summary, enclosure, feed_id, timestamp
+            FROM entries
+            UNION ALL
+            SELECT id, title, link, summary, enclosure, feed_id, timestamp
+            FROM archive
+            ORDER BY timestamp DESC
+            LIMIT :num
+            """
+            )
+        par = (num,)
+        result = cur.execute(sql, par).fetchall()
+        return result
+
+
+def get_entries_rejected(db_file, num):
+    """
+    Extract information from rejected entries.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    num : str, optional
+        Number. The default is None.
+
+    Returns
+    -------
+    result : tuple
+        News items.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} num: {}'
+                .format(function_name, db_file, num))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT id, title, link, summary, enclosure, feed_id, timestamp
+            FROM entries
+            WHERE reject = 1
+            UNION ALL
+            SELECT id, title, link, summary, enclosure, feed_id, timestamp
+            FROM archive
+            WHERE reject = 1
+            ORDER BY timestamp DESC
+            LIMIT :num
+            """
+            )
+        par = (num,)
+        result = cur.execute(sql, par).fetchall()
+        return result
+
+
 def get_unread_entries(db_file, num):
     """
     Extract information from unread entries.

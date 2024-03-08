@@ -959,7 +959,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         options.addOption('All news', 'all')
         # options.addOption('News by subscription', 'feed')
         # options.addOption('News by tag', 'tag')
-        options.addOption('Rejected news', 'rejected')
+        options.addOption('Rejected news', 'reject')
         options.addOption('Unread news', 'unread')
         session['allow_prev'] = False # Cheogram changes style if that button - which should not be on this form - is present
         session['has_next'] = True
@@ -980,14 +980,20 @@ class Slixfeed(slixmpp.ClientXMPP):
         num = 100
         match payload['values']['action']:
             case 'all':
-                results = sqlite.get_entries(db_file, num) # FIXME
-            case 'rejected':
-                results = sqlite.get_entries_rejected(db_file, num) # FIXME
+                results = sqlite.get_entries(db_file, num)
+                subtitle = 'Recent {} updates'.format(num)
+                message = 'There are no news'
+            case 'reject':
+                results = sqlite.get_entries_rejected(db_file, num)
+                subtitle = 'Recent {} updates (rejected)'.format(num)
+                message = 'There are no rejected news'
             case 'unread':
                 results = sqlite.get_unread_entries(db_file, num)
+                subtitle = 'Recent {} updates (unread)'.format(num)
+                message = 'There are no unread news.'
         if results:
             form = self['xep_0004'].make_form('form', 'Updates')
-            form['instructions'] = 'Recent {} updates'.format(num)
+            form['instructions'] = subtitle
             options = form.add_field(var='update',
                                      ftype='list-single',
                                      label='News',
@@ -1003,8 +1009,13 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['payload'] = form
             session['prev'] = None # Cheogram works as expected with 'allow_prev' set to False Just in case
         else:
-            text_info = 'There are no unread news.'
+            text_info = message
+            session['allow_prev'] = True
+            session['has_next'] = False
+            session['next'] = None
             session['notes'] = [['info', text_info]]
+            session['payload'] = None
+            session['prev'] = self._handle_recent
         return session
 
 

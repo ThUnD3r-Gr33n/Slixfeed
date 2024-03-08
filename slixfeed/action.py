@@ -290,7 +290,6 @@ def manual(filename, section=None, command=None):
     elif section:
         try:
             cmd_list = []
-            breakpoint()
             for cmd in cmds[section]:
                 cmd_list.extend([cmd])
         except KeyError as e:
