@@ -31,6 +31,7 @@ import slixfeed.task as task
 # from lxml import etree
 
 import slixfeed.config as config
+from slixfeed.config import Config
 from slixfeed.log import Logger
 from slixfeed.version import __version__
 from slixfeed.xmpp.connect import XmppConnect
@@ -48,6 +49,11 @@ from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.utility import get_chat_type
 import sys
 import time
+
+try:
+    import tomllib
+except:
+    import tomli as tomllib
 
 import asyncio
 from datetime import datetime
@@ -918,7 +924,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         options.addOption('All news', 'all')
         # options.addOption('News by subscription', 'feed')
         # options.addOption('News by tag', 'tag')
-        options.addOption('Rejected news', 'rejected')
+        options.addOption('Rejected news', 'reject')
         options.addOption('Unread news', 'unread')
         session['allow_prev'] = False # Cheogram changes style if that button - which should not be on this form - is present
         session['has_next'] = True
@@ -939,14 +945,20 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         num = 100
         match payload['values']['action']:
             case 'all':
-                results = sqlite.get_entries(db_file, num) # FIXME
-            case 'rejected':
-                results = sqlite.get_entries_rejected(db_file, num) # FIXME
+                results = sqlite.get_entries(db_file, num)
+                subtitle = 'Recent {} updates'.format(num)
+                message = 'There are no news'
+            case 'reject':
+                results = sqlite.get_entries_rejected(db_file, num)
+                subtitle = 'Recent {} updates (rejected)'.format(num)
+                message = 'There are no rejected news'
             case 'unread':
                 results = sqlite.get_unread_entries(db_file, num)
+                subtitle = 'Recent {} updates (unread)'.format(num)
+                message = 'There are no unread news.'
         if results:
             form = self['xep_0004'].make_form('form', 'Updates')
-            form['instructions'] = 'Recent {} updates'.format(num)
+            form['instructions'] = subtitle
             options = form.add_field(var='update',
                                      ftype='list-single',
                                      label='News',
@@ -962,8 +974,13 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             session['payload'] = form
             session['prev'] = None # Cheogram works as expected with 'allow_prev' set to False Just in case
         else:
-            text_info = 'There are no unread news.'
+            text_info = message
+            session['allow_prev'] = True
+            session['has_next'] = False
+            session['next'] = None
             session['notes'] = [['info', text_info]]
+            session['payload'] = None
+            session['prev'] = self._handle_recent
         return session
 
 
@@ -2020,18 +2037,13 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                                  ftype='list-single',
                                  label='About',
                                  required=True)
-        options.addOption('Slixfeed', 'about')
-        options.addOption('RSS Task Force', 'rtf')
-        # options.addOption('Manual', 'manual')
-        options.addOption('Tips', 'tips')
-        options.addOption('Services for syndication', 'services')
-        options.addOption('Software for syndication', 'software')
-        options.addOption('Terms and conditions', 'terms')
-        options.addOption('Privacy policy', 'policy')
-        options.addOption('License', 'license')
-        options.addOption('Authors', 'author')
-        options.addOption('Translators', 'translators')
-        options.addOption('Thanks', 'thanks')
+        config_dir = config.get_default_config_directory()
+        with open(config_dir + '/' + 'information.toml', mode="rb") as information:
+            entries = tomllib.load(information)
+        for entry in entries:
+            label = entries[entry][0]['title']
+            options.addOption(label, entry)
+            # options.addOption('Tips', 'tips')
         session['payload'] = form
         session['next'] = self._handle_about_result
         session['has_next'] = True
@@ -2043,71 +2055,49 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        match payload['values']['option']:
-            case 'about':
-                title = 'About'
-                subtitle = 'Slixfeed {}\n\n'.format(__version__)
-                content = action.manual('information.toml', 'about')
-                content += ['\nslixmpp\n']
-                content += action.manual('information.toml', 'slixmpp')
-                content += ['\nSleekXMPP\n']
-                content += action.manual('information.toml', 'sleekxmpp')
-                content += ['\nXMPP\n']
-                content += action.manual('information.toml', 'xmpp')
-            case 'rtf':
-                title = 'About'
-                subtitle = 'RSS Task Force'
-                content = action.manual('information.toml', 'rtf')
-            case 'author':
-                title = 'Authors'
-                subtitle = 'The People Who Made This To Happen'
-                content = action.manual('information.toml', 'authors')
-            # case 'manual':
-            #     title = 'Manual'
-            #     subtitle = 'Slixfeed Manual'
-            #     content = action.manual('information.toml', 'manual')
-            case 'license':
-                title = 'License'
-                subtitle = 'Slixfeed Software License'
-                content = action.manual('information.toml', 'license')
-            case 'policy':
-                title = 'Policies'
-                subtitle = 'Privacy Policy'
-                content = action.manual('information.toml', 'privacy')
-            case 'services':
-                title = 'Services'
-                subtitle = ('Below are online services that extend the '
-                            'syndication experience by means of bookmarking '
-                            'and multimedia, and also enhance it by restoring '
-                            'access to news web feeds.')
-                content = action.manual('information.toml', 'services')
-            case 'software':
-                title = 'Software'
-                subtitle = ('Take back control of your news. With free, high-'
-                            'quality, software for your desktop, home and '
-                            'mobile devices.')
-                content = action.manual('information.toml', 'software')
-            case 'terms':
-                title = 'Policies'
-                subtitle = 'Terms and Conditions'
-                content = action.manual('information.toml', 'terms')
-            case 'thanks':
-                title = 'Thanks'
-                subtitle = 'We are XMPP'
-                content = action.manual('information.toml', 'thanks')
-            case 'tips':
-                # Tips and tricks you might have not known about Slixfeed and XMPP!
-                title = 'Help'
-                subtitle = 'Tips & Tricks'
-                content = 'This page is not yet available.'
-            case 'translators':
-                title = 'Translators'
-                subtitle = 'From all across the world'
-                content = action.manual('information.toml', 'translators')
-        form = self['xep_0004'].make_form('result', title)
-        form['instructions'] = subtitle
-        form.add_field(ftype="text-multi",
-                       value=content)
+        config_dir = config.get_default_config_directory()
+        with open(config_dir + '/' + 'information.toml', mode="rb") as information:
+            entries = tomllib.load(information)
+        entry_key = payload['values']['option']
+            # case 'terms':
+            #     title = 'Policies'
+            #     subtitle = 'Terms and Conditions'
+            #     content = action.manual('information.toml', 'terms')
+            # case 'tips':
+            #     # Tips and tricks you might have not known about Slixfeed and XMPP!
+            #     title = 'Help'
+            #     subtitle = 'Tips & Tricks'
+            #     content = 'This page is not yet available.'
+            # case 'translators':
+            #     title = 'Translators'
+            #     subtitle = 'From all across the world'
+            #     content = action.manual('information.toml', 'translators')
+        # title = entry_key.capitalize()
+        # form = self['xep_0004'].make_form('result', title)
+        for entry in entries[entry_key]:
+            if 'title' in entry:
+                title = entry['title']
+                form = self['xep_0004'].make_form('result', title)
+                subtitle = entry['subtitle']
+                form['instructions'] = subtitle
+                continue
+            for e_key in entry:
+                e_val = entry[e_key]
+                e_key = e_key.capitalize()
+                # form.add_field(ftype='fixed',
+                #                value=e_val)
+                print(type(e_val))
+                if e_key == 'Name':
+                    form.add_field(ftype='fixed',
+                                    value=e_val)
+                    continue
+                if isinstance(e_val, list):
+                    form_type = 'text-multi'
+                else:
+                    form_type = 'text-single'
+                form.add_field(label=e_key,
+                               ftype=form_type,
+                               value=e_val)
         # Gajim displays all form['instructions'] on top
         # Psi ignore the latter form['instructions']
         # form['instructions'] = 'YOU!\n🫵️\n- Join us -'
@@ -2140,7 +2130,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
 
-        import tomllib
         config_dir = config.get_default_config_directory()
         with open(config_dir + '/' + 'commands.toml', mode="rb") as commands:
             cmds = tomllib.load(commands)

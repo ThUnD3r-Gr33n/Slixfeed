@@ -307,8 +307,10 @@ async def message(self, message):
                         await sqlite.insert_feed(db_file, url, title)
                         await action.scan(self, jid_bare, db_file, url)
                         if jid_bare not in self.settings:
-                            Config.add_settings_jid(self.settings, jid_bare, db_file)
-                        old = self.settings[jid_bare]['old'] or self.settings['default']['old']
+                            Config.add_settings_jid(self.settings, jid_bare,
+                                                    db_file)
+                        old = Config.get_setting_value(self.settings, jid_bare,
+                                                       'old')
                         if old:
                             # task.clean_tasks_xmpp(self, jid_bare, ['status'])
                             # await send_status(jid)
@@ -382,14 +384,18 @@ async def message(self, message):
                 val = message_text[8:]
                 if val:
                     try:
-                        if int(val) > 500:
+                        val_new = int(val)
+                        if val_new > 500:
                             response = 'Value may not be greater than 500.'
                         else:
+                            val_old = Config.get_setting_value(
+                                self.settings, jid_bare, key)
                             db_file = config.get_pathname_to_database(jid_file)
-                            await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+                            await Config.set_setting_value(
+                                self.settings, jid_bare, db_file, key, val_new)
                             response = ('Maximum archived items has '
-                                        'been set to {}.'
-                                        .format(val))
+                                        'been set to {} (was: {}).'
+                                        .format(val_new, val_old))
                     except:
                         response = ('No action has been taken.'
                                     '\n'
@@ -581,12 +587,11 @@ async def message(self, message):
                                 if error:
                                     response = ('> {}\n'
                                                 'Failed to export {}.  '
-                                                'Reason: {}'.format(url,
-                                                                    ext.upper(),
-                                                                    error))
+                                                'Reason: {}'.format(
+                                                    url, ext.upper(), error))
                                 else:
-                                    url = await XmppUpload.start(self, jid_bare,
-                                                                 filename)
+                                    url = await XmppUpload.start(
+                                        self, jid_bare, filename)
                                     chat_type = await get_chat_type(self,
                                                                     jid_bare)
                                     XmppMessage.send_oob(self, jid_bare, url,
@@ -661,8 +666,8 @@ async def message(self, message):
                                                   result['name'],
                                                   result['index']))
                 elif result['error']:
-                    response = ('> {}\nFailed to find subscriptions.  Reason: {}'
-                                .format(url, result['code']))
+                    response = ('> {}\nFailed to find subscriptions.  '
+                                'Reason: {}'.format(url, result['code']))
                 else:
                     response = ('> {}\nNews source "{}" has been '
                                 'added to subscription list.'
@@ -702,15 +707,17 @@ async def message(self, message):
                 val = message_text[9:]
                 if val:
                     try:
-                        val = int(val)
+                        val_new = int(val)
+                        val_old = Config.get_setting_value(self.settings, jid_bare, key)
                         db_file = config.get_pathname_to_database(jid_file)
-                        await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+                        await Config.set_setting_value(
+                            self.settings, jid_bare, db_file, key, val_new)
                         # NOTE Perhaps this should be replaced by functions
                         # clean and start
                         task.refresh_task(self, jid_bare, task.task_send, key,
-                                          val)
-                        response = ('Updates will be sent every {} minutes.'
-                                    .format(val))
+                                          val_new)
+                        response = ('Updates will be sent every {} minutes '
+                                    '(was: {}).'.format(val_new, val_old))
                     except:
                         response = ('No action has been taken.'
                                     '\n'
@@ -736,15 +743,19 @@ async def message(self, message):
                     val = message_text[7:]
                     if val:
                         try:
-                            val = int(val)
+                            val_new = int(val)
+                            val_old = Config.get_setting_value(
+                                self.settings, jid_bare, key)
                             db_file = config.get_pathname_to_database(jid_file)
-                            await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
-                            if val == 0: # if not val:
-                                response = 'Summary length limit is disabled.'
+                            await Config.set_setting_value(
+                                self.settings, jid_bare, db_file, key, val_new)
+                            if val_new == 0: # if not val:
+                                response = ('Summary length limit is disabled '
+                                            '(was: {}).'.format(val_old))
                             else:
-                                response = ('Summary maximum length '
-                                            'is set to {} characters.'
-                                            .format(val))
+                                response = ('Summary maximum length is set to '
+                                            '{} characters (was: {}).'
+                                            .format(val_new, val_old))
                         except:
                             response = ('No action has been taken.'
                                         '\n'
@@ -782,21 +793,24 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'media'
                 val = 0
-                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+                await Config.set_setting_value(
+                    self.settings, jid_bare, db_file, key, val)
                 response = 'Media is disabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'media on':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'media'
                 val = 1
-                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+                await Config.set_setting_value(self.settings, jid_bare,
+                                               db_file, key, val)
                 response = 'Media is enabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'new':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 0
-                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+                await Config.set_setting_value(self.settings, jid_bare,
+                                               db_file, key, val)
                 response = 'Only new items of newly added feeds be delivered.'
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('next'):
@@ -811,7 +825,8 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 1
-                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+                await Config.set_setting_value(self.settings, jid_bare,
+                                               db_file, key, val)
                 response = 'All items of newly added feeds be delivered.'
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('quantum'):
@@ -819,14 +834,17 @@ async def message(self, message):
                 val = message_text[8:]
                 if val:
                     try:
-                        val = int(val)
+                        val_new = int(val)
+                        val_old = Config.get_setting_value(self.settings,
+                                                           jid_bare, key)
                         # response = (
                         #     'Every update will contain {} news items.'
                         #     ).format(response)
                         db_file = config.get_pathname_to_database(jid_file)
-                        await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
-                        response = ('Next update will contain {} news items.'
-                                    .format(val))
+                        await Config.set_setting_value(self.settings, jid_bare,
+                                                       db_file, key, val_new)
+                        response = ('Next update will contain {} news items '
+                                    '(was: {}).'.format(val_new, val_old))
                     except:
                         response = ('No action has been taken.'
                                     '\n'
@@ -849,8 +867,8 @@ async def message(self, message):
                     key_list = ['status']
                     task.clean_tasks_xmpp(self, jid_bare, key_list)
                     status_type = 'dnd'
-                    status_message = ('📫️ Processing request to fetch data from {}'
-                                      .format(url))
+                    status_message = ('📫️ Processing request to fetch data '
+                                      'from {}'.format(url))
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     if url.startswith('feed:'):
@@ -1015,10 +1033,12 @@ async def message(self, message):
                 key = 'enabled'
                 val = 1
                 db_file = config.get_pathname_to_database(jid_file)
-                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+                await Config.set_setting_value(self.settings, jid_bare,
+                                               db_file, key, val)
                 status_type = 'available'
                 status_message = '📫️ Welcome back!'
-                XmppPresence.send(self, jid_bare, status_message, status_type=status_type)
+                XmppPresence.send(self, jid_bare, status_message,
+                                  status_type=status_type)
                 await asyncio.sleep(5)
                 key_list = ['check', 'status', 'interval']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
@@ -1064,14 +1084,16 @@ async def message(self, message):
                                             'Input name is identical to the '
                                             'existing name.')
                             else:
-                                await sqlite.set_feed_title(db_file, feed_id, name)
+                                await sqlite.set_feed_title(db_file, feed_id,
+                                                            name)
                                 response = ('> {}'
                                             '\n'
-                                            'Subscription #{} has been renamed to "{}".'
-                                            .format(name_old, feed_id, name))
+                                            'Subscription #{} has been '
+                                            'renamed to "{}".'.format(
+                                                name_old,feed_id, name))
                         else:
-                            response = ('Subscription with Id {} does not exist.'
-                                        .format(feed_id))
+                            response = ('Subscription with Id {} does not '
+                                        'exist.'.format(feed_id))
                     except:
                         response = ('No action has been taken.'
                                     '\n'
@@ -1101,7 +1123,8 @@ async def message(self, message):
                 key = 'enabled'
                 val = 0
                 db_file = config.get_pathname_to_database(jid_file)
-                await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+                await Config.set_setting_value(
+                    self.settings, jid_bare, db_file, key, val)
                 key_list = ['interval', 'status']
                 task.clean_tasks_xmpp(self, jid_bare, key_list)
                 status_type = 'xa'

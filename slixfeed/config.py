@@ -80,6 +80,14 @@ class Config:
         else:
             await sqlite.set_setting_value(db_file, key_val)
 
+    def get_setting_value(settings, jid_bare, key):
+        if key in settings[jid_bare]:
+            value = settings[jid_bare][key]
+        else:
+            value = settings['default'][key]
+        return value
+
+
         # self.settings = {}
         # initiate an empty dict and the rest would be:
         # settings['account'] = {}

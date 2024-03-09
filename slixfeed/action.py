@@ -54,10 +54,14 @@ from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utility import get_chat_type
 import sys
-import tomllib
 from urllib import error
 from urllib.parse import parse_qs, urlsplit
 import xml.etree.ElementTree as ET
+
+try:
+    import tomllib
+except:
+    import tomli as tomllib
 
 logger = Logger(__name__)
 
@@ -655,10 +659,12 @@ def list_feeds(results):
                     .format(len(results)))
     else:
         url = pick_a_feed()
-        message = ('List of subscriptions is empty.  To add a feed, send a URL.'
-                   'Featured feed:\n*{}*\n{}'
-                   .format(url['name'],
-                           url['link']))
+        message = ('List of subscriptions is empty.'
+                   '\n'
+                   'To add a feed, send a URL.'
+                   '\n'
+                   'Featured news:\n*{}*\n{}'
+                   .format(url['name'], url['link']))
     return message
 
 

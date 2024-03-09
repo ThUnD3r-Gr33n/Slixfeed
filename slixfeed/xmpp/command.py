@@ -333,7 +333,7 @@ class XmppCommand:
         options.addOption('All news', 'all')
         # options.addOption('News by subscription', 'feed')
         # options.addOption('News by tag', 'tag')
-        options.addOption('Rejected news', 'rejected')
+        options.addOption('Rejected news', 'reject')
         options.addOption('Unread news', 'unread')
         session['allow_prev'] = False # Cheogram changes style if that button - which should not be on this form - is present
         session['has_next'] = True
@@ -354,14 +354,20 @@ class XmppCommand:
         num = 100
         match payload['values']['action']:
             case 'all':
-                results = sqlite.get_entries(db_file, num) # FIXME
-            case 'rejected':
-                results = sqlite.get_entries_rejected(db_file, num) # FIXME
+                results = sqlite.get_entries(db_file, num)
+                subtitle = 'Recent {} updates'.format(num)
+                message = 'There are no news'
+            case 'reject':
+                results = sqlite.get_entries_rejected(db_file, num)
+                subtitle = 'Recent {} updates (rejected)'.format(num)
+                message = 'There are no rejected news'
             case 'unread':
                 results = sqlite.get_unread_entries(db_file, num)
+                subtitle = 'Recent {} updates (unread)'.format(num)
+                message = 'There are no unread news.'
         if results:
             form = self['xep_0004'].make_form('form', 'Updates')
-            form['instructions'] = 'Recent {} updates'.format(num)
+            form['instructions'] = subtitle
             options = form.add_field(var='update',
                                      ftype='list-single',
                                      label='News',
@@ -377,8 +383,13 @@ class XmppCommand:
             session['payload'] = form
             session['prev'] = None # Cheogram works as expected with 'allow_prev' set to False Just in case
         else:
-            text_info = 'There are no unread news.'
+            text_info = message
+            session['allow_prev'] = True
+            session['has_next'] = False
+            session['next'] = None
             session['notes'] = [['info', text_info]]
+            session['payload'] = None
+            session['prev'] = self._handle_recent
         return session
 
 
@@ -520,7 +531,7 @@ class XmppCommand:
             error_count = 0
             exist_count = 0
             for url in urls:
-                result = await action.add_feed(db_file, url)
+                result = await action.add_feed(self, jid_bare, db_file, url)
                 if result['error']:
                     error_count += 1
                 elif result['exist']:
@@ -544,7 +555,7 @@ class XmppCommand:
         else:
             if isinstance(url, list):
                 url = url[0]
-            result = await action.add_feed(db_file, url)
+            result = await action.add_feed(self, jid_bare, db_file, url)
             if isinstance(result, list):
                 results = result
                 form = self['xep_0004'].make_form('form', 'Subscriptions')
@@ -1435,18 +1446,13 @@ class XmppCommand:
                                  ftype='list-single',
                                  label='About',
                                  required=True)
-        options.addOption('Slixfeed', 'about')
-        options.addOption('RSS Task Force', 'rtf')
-        # options.addOption('Manual', 'manual')
-        options.addOption('Tips', 'tips')
-        options.addOption('Services for syndication', 'services')
-        options.addOption('Software for syndication', 'software')
-        options.addOption('Terms and conditions', 'terms')
-        options.addOption('Privacy policy', 'policy')
-        options.addOption('License', 'license')
-        options.addOption('Authors', 'author')
-        options.addOption('Translators', 'translators')
-        options.addOption('Thanks', 'thanks')
+        config_dir = config.get_default_config_directory()
+        with open(config_dir + '/' + 'information.toml', mode="rb") as information:
+            entries = tomllib.load(information)
+        for entry in entries:
+            label = entries[entry][0]['title']
+            options.addOption(label, entry)
+            # options.addOption('Tips', 'tips')
         session['payload'] = form
         session['next'] = self._handle_about_result
         session['has_next'] = True
@@ -1458,71 +1464,49 @@ class XmppCommand:
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        match payload['values']['option']:
-            case 'about':
-                title = 'About'
-                subtitle = 'Slixfeed {}\n\n'.format(__version__)
-                content = action.manual('information.toml', 'about')
-                content += ['\nslixmpp\n']
-                content += action.manual('information.toml', 'slixmpp')
-                content += ['\nSleekXMPP\n']
-                content += action.manual('information.toml', 'sleekxmpp')
-                content += ['\nXMPP\n']
-                content += action.manual('information.toml', 'xmpp')
-            case 'rtf':
-                title = 'About'
-                subtitle = 'RSS Task Force'
-                content = action.manual('information.toml', 'rtf')
-            case 'author':
-                title = 'Authors'
-                subtitle = 'The People Who Made This To Happen'
-                content = action.manual('information.toml', 'authors')
-            # case 'manual':
-            #     title = 'Manual'
-            #     subtitle = 'Slixfeed Manual'
-            #     content = action.manual('information.toml', 'manual')
-            case 'license':
-                title = 'License'
-                subtitle = 'Slixfeed Software License'
-                content = action.manual('information.toml', 'license')
-            case 'policy':
-                title = 'Policies'
-                subtitle = 'Privacy Policy'
-                content = action.manual('information.toml', 'privacy')
-            case 'services':
-                title = 'Services'
-                subtitle = ('Below are online services that extend the '
-                            'syndication experience by means of bookmarking '
-                            'and multimedia, and also enhance it by restoring '
-                            'access to news web feeds.')
-                content = action.manual('information.toml', 'services')
-            case 'software':
-                title = 'Software'
-                subtitle = ('Take back control of your news. With free, high-'
-                            'quality, software for your desktop, home and '
-                            'mobile devices.')
-                content = action.manual('information.toml', 'software')
-            case 'terms':
-                title = 'Policies'
-                subtitle = 'Terms and Conditions'
-                content = action.manual('information.toml', 'terms')
-            case 'thanks':
-                title = 'Thanks'
-                subtitle = 'We are XMPP'
-                content = action.manual('information.toml', 'thanks')
-            case 'tips':
-                # Tips and tricks you might have not known about Slixfeed and XMPP!
-                title = 'Help'
-                subtitle = 'Tips & Tricks'
-                content = 'This page is not yet available.'
-            case 'translators':
-                title = 'Translators'
-                subtitle = 'From all across the world'
-                content = action.manual('information.toml', 'translators')
-        form = self['xep_0004'].make_form('result', title)
-        form['instructions'] = subtitle
-        form.add_field(ftype="text-multi",
-                       value=content)
+        config_dir = config.get_default_config_directory()
+        with open(config_dir + '/' + 'information.toml', mode="rb") as information:
+            entries = tomllib.load(information)
+        entry_key = payload['values']['option']
+            # case 'terms':
+            #     title = 'Policies'
+            #     subtitle = 'Terms and Conditions'
+            #     content = action.manual('information.toml', 'terms')
+            # case 'tips':
+            #     # Tips and tricks you might have not known about Slixfeed and XMPP!
+            #     title = 'Help'
+            #     subtitle = 'Tips & Tricks'
+            #     content = 'This page is not yet available.'
+            # case 'translators':
+            #     title = 'Translators'
+            #     subtitle = 'From all across the world'
+            #     content = action.manual('information.toml', 'translators')
+        # title = entry_key.capitalize()
+        # form = self['xep_0004'].make_form('result', title)
+        for entry in entries[entry_key]:
+            if 'title' in entry:
+                title = entry['title']
+                form = self['xep_0004'].make_form('result', title)
+                subtitle = entry['subtitle']
+                form['instructions'] = subtitle
+                continue
+            for e_key in entry:
+                e_val = entry[e_key]
+                e_key = e_key.capitalize()
+                # form.add_field(ftype='fixed',
+                #                value=e_val)
+                print(type(e_val))
+                if e_key == 'Name':
+                    form.add_field(ftype='fixed',
+                                    value=e_val)
+                    continue
+                if isinstance(e_val, list):
+                    form_type = 'text-multi'
+                else:
+                    form_type = 'text-single'
+                form.add_field(label=e_key,
+                               ftype=form_type,
+                               value=e_val)
         # Gajim displays all form['instructions'] on top
         # Psi ignore the latter form['instructions']
         # form['instructions'] = 'YOU!\n🫵️\n- Join us -'
@@ -1555,7 +1539,6 @@ class XmppCommand:
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
 
-        import tomllib
         config_dir = config.get_default_config_directory()
         with open(config_dir + '/' + 'commands.toml', mode="rb") as commands:
             cmds = tomllib.load(commands)
@@ -2127,7 +2110,6 @@ class XmppCommand:
                     i += 1
             value = self.settings[jid_bare]['quantum'] or self.settings['default']['quantum']
             value = str(value)
-            value = str(value)
             options = form.add_field(var='quantum',
                                      ftype='list-single',
                                      label='Amount',
@@ -2141,7 +2123,6 @@ class XmppCommand:
                 options.addOption(x, x)
                 i += 1
             value = self.settings[jid_bare]['archive'] or self.settings['default']['archive']
-            value = str(value)
             value = str(value)
             options = form.add_field(var='archive',
                                      ftype='list-single',
@@ -2170,7 +2151,7 @@ class XmppCommand:
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
-                    .format(function_name, jid_full))
+                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         form = payload
         jid_file = jid_bare
@@ -2183,14 +2164,23 @@ class XmppCommand:
             key = value
             val = values[value]
 
-            if key == 'interval':
+            if key in ('enabled', 'media', 'old'):
+                if val == True:
+                    val = 1
+                elif val == False:
+                    val = 0
+
+            if key in ('archive', 'interval', 'quantum'):
                 val = int(val)
+
+            if key == 'interval':
                 if val < 1: val = 1
                 val = val * 60
 
             is_enabled = self.settings[jid_bare]['enabled'] or self.settings['default']['enabled']
 
-            if (key == 'enabled' and val == 1 and
+            if (key == 'enabled' and
+                val == 1 and
                 str(is_enabled) == 0):
                 logger.info('Slixfeed has been enabled for {}'.format(jid_bare))
                 status_type = 'available'
@@ -2201,7 +2191,8 @@ class XmppCommand:
                 key_list = ['check', 'status', 'interval']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
 
-            if (key == 'enabled' and val == 0 and
+            if (key == 'enabled' and
+                val == 0 and
                 str(is_enabled) == 1):
                 logger.info('Slixfeed has been disabled for {}'.format(jid_bare))
                 key_list = ['interval', 'status']
@@ -2211,10 +2202,8 @@ class XmppCommand:
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
 
-            # These three ilnes (getting value after setting it) might be removed
-            await config.set_setting_value(db_file, key, val)
-            val = sqlite.get_setting_value(db_file, key)
-            val = val[0]
+            await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+            val = self.settings[jid_bare][key]
 
             # if key == 'enabled':
             #     if str(setting.enabled) == 0:

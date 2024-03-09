@@ -78,6 +78,12 @@ tags = ["europe ,germany ,history ,literature ,war"]
 
 [[feeds]]
 lang = "de-de"
+name = "Die Unbestechlichen"
+link = "https://dieunbestechlichen.com/feed/"
+tags = ["culture", "germany", "local", "news"]
+
+[[feeds]]
+lang = "de-de"
 name = "Digitalcourage"
 link = "https://digitalcourage.de/rss.xml"
 tags = ["culture", "digital", "germany"]
@@ -288,6 +294,12 @@ tags = ["computer", "technology"]
 
 [[feeds]]
 lang = "en-us"
+name = "Delta Chat - Messenger based on e-mail"
+link = "https://delta.chat/feed.xml"
+tags = ["email", "telecommunication"]
+
+[[feeds]]
+lang = "en-us"
 name = "Disroot Blog"
 link = "https://disroot.org/en/blog.atom"
 tags = ["decentralization", "privacy"]
@@ -480,6 +492,12 @@ tags = ["gemini", "internet"]
 
 [[feeds]]
 lang = "en-us"
+name = "Public Intelligence Blog"
+link = "https://phibetaiota.net/feed/"
+tags = ["cia", "conspiracy", "health", "government", "war"]
+
+[[feeds]]
+lang = "en-us"
 name = "PUNCH"
 link = "https://punchdrink.com/feed/"
 tags = ["beverage", "drink", "recipe"]
@@ -578,13 +596,7 @@ tags = ["3d", "architecture", "design", "game"]
 lang = "en-us"
 name = "Take Back Our Tech"
 link = "https://takebackourtech.org/rss/"
-tags = ["internet", "privacy", "surveillance"]
-
-[[feeds]]
-lang = "en-us"
-name = "The Bald Brothers"
-link = "https://thebaldbrothers.com/feed/"
-tags = ["lifestyle", "men"]
+tags = ["computer", "internet", "privacy", "surveillance"]
 
 [[feeds]]
 lang = "en-us"
@@ -594,9 +606,21 @@ tags = ["webring"]
 
 [[feeds]]
 lang = "en-us"
+name = "The Bald Brothers"
+link = "https://thebaldbrothers.com/feed/"
+tags = ["lifestyle", "men"]
+
+[[feeds]]
+lang = "en-us"
 name = "The Conscious Resistance Network"
 link = "https://theconsciousresistance.com/feed/"
 tags = ["culture", "government", "podcast", "politics", "privacy", "surveillance", "usa"]
+
+[[feeds]]
+lang = "en-us"
+name = "Lazy Reading | The Cyber Vanguard"
+link = "https://cyber.dabamos.de/blog/feed.rss"
+tags = ["computer", "internet", "linux", "software", "telecommunication"]
 
 [[feeds]]
 lang = "en-us"
