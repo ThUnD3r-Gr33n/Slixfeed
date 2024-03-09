@@ -2126,7 +2126,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                 e_key = e_key.capitalize()
                 # form.add_field(ftype='fixed',
                 #                value=e_val)
-                print(type(e_val))
                 if e_key == 'Name':
                     form.add_field(ftype='fixed',
                                     value=e_val)

@@ -1190,6 +1190,7 @@ async def view_entry(url, num):
     return response
 
 
+# TODO get all active feeds of active accounts and scan the feed with the earliest scanned time
 # TODO Rename function name (idea: scan_and_populate)
 async def scan(self, jid_bare, db_file, url):
     """

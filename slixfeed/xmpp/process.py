@@ -829,6 +829,19 @@ async def message(self, message):
                                                db_file, key, val)
                 response = 'All items of newly added feeds be delivered.'
                 XmppMessage.send_reply(self, message, response)
+            case 'options':
+                response = 'Options:\n```'
+                for key in self.settings[jid_bare]:
+                    val = self.settings[jid_bare][key] or self.settings['default'][key]
+                    # val = Config.get_setting_value(self.settings, jid_bare, key)
+                    steps = 11 - len(key)
+                    pulse = ''
+                    for step in range(steps):
+                        pulse += ' '
+                    response += '\n' + key + pulse + ': ' + str(val)
+                    print(response)
+                response += '\n```'
+                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('quantum'):
                 key = message_text[:7]
                 val = message_text[8:]

@@ -203,6 +203,12 @@ stop
 Disable bot and stop updates.
 """
 
+[options]
+options = """
+options
+List options.
+"""
+
 [preview]
 read = """
 read <url>
