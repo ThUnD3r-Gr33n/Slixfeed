@@ -155,7 +155,7 @@ url = "https://alixandercourt.com"
 name = "Arne-Brün Vogelsang"
 country = "Germany"
 project = "monocles"
-url = "https://monocles.de"
+url = "https://monocles.eu/more"
 
 [[thanks]]
 name = "Chris Farrell"
@@ -494,7 +494,7 @@ url = "https://conversejs.org"
 [[clients]]
 name = "monocles chat"
 info = "XMPP client for mobile"
-url = "https://monocles.eu"
+url = "https://monocles.chat"
 
 [[clients]]
 name = "Movim"
