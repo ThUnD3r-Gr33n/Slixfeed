@@ -74,12 +74,26 @@ An XMPP bot which posts to a MUC (groupchat) if there is an update in newsfeeds.
 url = "https://salsa.debian.org/mdosch/feed-to-muc"
 
 [[friends]]
-name = "JabRSS"
+name = "JabRSS (fork)"
 info = ["""
 Never miss a headline again! JabRSS is a simple RSS (RDF Site Summary) \
 headline notification service for Jabber.
+
+It is based on jabrss@cmeerw.net from Christof.
+
+It was restructured and offers additional features (see help, help filter and \
+show plugins).
 """]
 url = "http://www.jotwewe.de/de/xmpp/jabrss/jabrss_en.htm"
+
+[[friends]]
+name = "JabRSS"
+info = ["""
+A simple RSS (RDF Site Summary) headline notification service for Jabber/XMPP.
+
+A public instance of the bot is available via xmpp:jabrss@cmeerw.net
+"""]
+url = "https://dev.cmeerw.org/Projects/jabrss"
 
 [[friends]]
 name = "Morbot"
