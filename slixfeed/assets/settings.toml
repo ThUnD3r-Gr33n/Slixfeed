@@ -37,7 +37,7 @@ tor = ""
 yggdrasil = ""
 
 [network]
-#http_proxy = "http://localhost:8118"
+http_proxy = ""
 user_agent = "Slixfeed/0.1"
 clearnet = 0  # Enable policed DNS system (not recommended)
 i2p = 1       # Enable I2P mixnet system (safer)
