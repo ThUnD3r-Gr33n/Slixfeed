@@ -1,0 +1,818 @@
+[[about]]
+title = "About"
+subtitle = "Slixfeed, slixmpp and more"
+
+[[about]]
+name = "Slixfeed"
+about = "XMPP news bot"
+info = ["""
+Slixfeed is a news broker bot for syndicated news which aims to be \
+an easy to use and fully-featured news aggregating bot.
+
+Slixfeed provides a convenient access to Blogs, News websites and \
+even Fediverse instances (provided they provide syndication feeds), \
+along with filtering and other privacy driven functionalities.
+
+Slixfeed is designed primarily for the XMPP communication network \
+(aka Jabber). Visit https://xmpp.org/software/ for more information.
+
+You can run your own Slixfeed instance as a client or Jabber server \
+component, from your own computer, server, and even from a Linux phone \
+(i.e. Droidian, Kupfer, Mobian, NixOS, postmarketOS), as well as from Termux.
+
+All you need is one of the above and an XMPP account to connect \
+Slixfeed with.
+
+Good luck!
+"""]
+
+filetypes = "Atom, JSON, RDF, RSS, XML."
+platforms = "XMPP"
+# platforms = "ActivityPub, Briar, DeltaChat, Email, IRC, LXMF, MQTT, Nostr, Session, Tox."
+comment = "For ideal experience, we recommend using XMPP." # Nostr, Session or DeltaChat
+url = "https://gitgud.io/sjehuda/slixfeed"
+
+[[about]]
+name = "slixmpp"
+about = "Slixmpp XMPP Library"
+info = ["""
+Slixmpp is an MIT licensed XMPP library for Python 3.7+. It is a fork of \
+SleekXMPP.
+
+Slixmpp's goals is to only rewrite the core of the SleekXMPP library \
+(the low level socket handling, the timers, the events dispatching) \
+in order to remove all threads.
+"""]
+url = "https://codeberg.org/poezio/slixmpp"
+
+[[about]]
+name = "SleekXMPP"
+about = "SleekXMPP XMPP Library"
+info = ["""
+SleekXMPP is an MIT licensed XMPP library for Python 2.6/3.1+, and is \
+featured in examples in the book XMPP: The Definitive Guide by Kevin Smith, \
+Remko Tronçon, and Peter Saint-Andre.
+"""]
+url = "https://codeberg.org/fritzy/SleekXMPP"
+
+[[about]]
+name = "XMPP"
+about = "Previously known as Jabber"
+info = ["""
+XMPP is the Extensible Messaging and Presence Protocol, a set of open \
+technologies for instant messaging, presence, multi-party chat, voice and \
+video calls, collaboration, lightweight middleware, content syndication, and \
+generalized routing of XML data.
+"""]
+url = "https://xmpp.org/about"
+
+[[about]]
+name = "RSS Task Force"
+about = "Swiss Organization"
+info = ["""
+The RSS Task Force (previously known as The Syndication Society) is an \
+international organization headquartered in Switzerland.
+
+It was originally formed to maintain, serve and improve data flow to and \
+from small and medium enterprises, namely rural farms and long distance \
+taxi drivers from Austria, Germany, Italy and Switzerland.
+
+Thanks to a joint effort of transport and travel companies, in 2021 we have \
+expanded our cause towards all entities of all types and sorts.
+
+The RSS Task Force was founded by two taxicab drivers in 2018.
+"""]
+
+[[authors]]
+title = "Authors"
+subtitle = "The people who have made Slixfeed"
+
+[[authors]]
+name = "Schimon Zackary"
+role = "Author and Creator"
+info = ["""
+A middle eastern cowboy, farmer, pianist and lawyer who engages in criminal \
+and corporate law, and who took a decision to make a syndication bot for XMPP.
+"""]
+url = "http://schimon.i2p"
+
+[[authors]]
+name = "Laura Lapina"
+alias = "lauranna"
+role = "Co-Author, Instructor and Mentor"
+info = ["""
+The woman who instructed the author during a period of a couple of years, \
+and who has made progress possible, once again, after a hiatus of 6 months \
+made by the author.
+
+She is responsible for many parts of the project, with significant help in \
+important core parts, amongst these are:
+* AsyncIO;
+* AsyncIO lock mechanism for SQLite; and
+* SQLite.
+"""]
+
+[[contributors]]
+title = "Contributors"
+subtitle = "People who have contributed to Slixfeed"
+
+[[contributors]]
+name = "grym from #python"
+role = "Contributor"
+info = ["""
+Correcting code structure to be better prepared for packaging 18c93083.
+"""]
+
+[[contributors]]
+name = "Guus der Kinderen"
+role = "XMPP server administrator"
+info = ["""
+Providing OpenFire server for testing various of features.
+
+XEP-0060: Publish-Subscribe
+XEP-0114: Jabber Component Protocol
+XEP-0472: Pubsub Social Feed
+"""]
+url = "http://goodbytes.im"
+
+[[contributors]]
+name = "Stephen Paul Weber"
+role = "Contributor and forms coordinator"
+info = ["""
+Coordinating and enhancing appearance of forms with Cheogram.
+
+XEP-0004: Data Forms
+XEP-0050: Ad-Hoc Commands
+XEP-0122: Data Forms Validation
+"""]
+
+[[friends]]
+title = "Similar Projects"
+subtitle = """
+From Argentina to Germany. Syndication bots made by our counterparts. \
+It is obvious that Slixfeed may not be as useful as other news bots, as \
+each project is formed namely by peculiar design and political principles. \
+You are encouraged to review the following projects and pick the one that \
+fits best to you.
+"""
+
+[[friends]]
+name = "Morbot"
+info = ["""
+Morbo is a simple Slixmpp bot that will take new articles from listed RSS \
+feeds and send them to assigned XMPP MUCs (groupchats).
+"""]
+interface = "Groupchat"
+url = "https://codeberg.org/TheCoffeMaker/Morbot"
+
+[[friends]]
+name = "feed-to-muc"
+info = ["""
+An XMPP bot which posts to a MUC (groupchat) if there is an update in \
+newsfeeds.
+"""]
+interface = "Groupchat"
+url = "https://salsa.debian.org/mdosch/feed-to-muc"
+
+[[friends]]
+name = "JabRSS by Christof"
+info = ["""
+A simple RSS (RDF Site Summary) headline notification service for Jabber/XMPP.
+"""]
+interface = "Chat"
+instance = "xmpp:jabrss@cmeerw.net?message"
+url = "https://dev.cmeerw.org/Projects/jabrss"
+
+[[friends]]
+name = "JabRSS by Jens W. Wulf"
+info = ["""
+Never miss a headline again! JabRSS is a simple RSS (RDF Site Summary) \
+headline notification service for Jabber.
+
+The code is based on jabrss@cmeerw.net from Christof. It was restructured \
+and offers additional features (see help, help filter and show plugins).
+"""]
+interface = "Chat"
+instance = "xmpp:jabrss@jotwewe.de?message"
+url = "http://www.jotwewe.de/de/xmpp/jabrss/jabrss_en.htm"
+
+[[friends]]
+name = "AtomToPubsub"
+info = ["""
+AtomToPubsub is a simple Python script that parses Atom + RSS feeds and \
+pushes the entries to a designated XMPP PubSub Node.
+"""]
+interface = "Publish-Subscribe"
+url = "https://github.com/imattau/atomtopubsub"
+
+[[friends]]
+name = "err-rssreader (Errbot plugin)"
+info = ["""
+A port of old Brutal's RSS Reader for Errbot.
+"""]
+url = "https://github.com/errbotters/err-rssreader"
+
+[[friends]]
+name = "XMPP Bot"
+info = ["""
+XMPP Bot is a tiny little bot making the link between XMPP conversations \
+and webhooks.
+
+User ⇄ XMPP client ⇄ XMPP Server ⇄ XMPP Bot ⇄ REST API
+"""]
+interface = "Groupchat"
+url = "https://github.com/nioc/xmpp-bot"
+
+[[legal]]
+title = "Legal"
+subtitle = "Legal Notice"
+
+[[legal]]
+info = ["""
+Slixfeed is free software; you can redistribute it and/or modify it under the \
+terms of the MIT License.
+
+Slixfeed is distributed in the hope that it will be useful, but WITHOUT ANY \
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR \
+A PARTICULAR PURPOSE.  See the MIT License for more details.
+"""]
+link = "https://gitgud.io/sjehuda/slixfeed"
+
+[[license]]
+title = "License"
+subtitle = "MIT License"
+
+[[license]]
+info = ["""
+Copyright 2022 - 2024 Schimon Jehudah Zackary
+
+Permission is hereby granted, free of charge, to any person obtaining a copy \
+of this software and associated documentation files (the “Software”), to deal \
+in the Software without restriction, including without limitation the rights \
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell \
+copies of the Software, and to permit persons to whom the Software is \
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in \
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR \
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, \
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE \
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER \
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING \
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS \
+IN THE SOFTWARE.
+"""]
+owner = "Schimon Zackary"
+
+[[support]]
+title = "Support"
+subtitle = "Slixfeed Support Groupchat"
+
+[[support]]
+jid = "xmpp:slixfeed@chat.woodpeckersnest.space?join"
+lang = "de, en, fr, nl"
+
+[[thanks]]
+title = "Thanks"
+subtitle = """
+From SalixOS to Gajim. A journey of 15 years. \
+The people who have made all this possible.
+"""
+
+[[thanks]]
+name = "Alixander Court"
+country = "Utah"
+url = "https://alixandercourt.com"
+
+[[thanks]]
+name = "Arne-Brün Vogelsang"
+country = "Germany"
+project = "monocles"
+url = "https://monocles.eu/more"
+
+[[thanks]]
+name = "Chris Farrell"
+alias = "timcowchip"
+country = "Oregon"
+project = "SalixOS"
+
+[[thanks]]
+name = "Christian Dersch"
+alias = "christian"
+project = "SalixOS"
+
+[[thanks]]
+name = "Cyrille Pontvieux"
+alias = "JRD"
+country = "France"
+project = "SalixOS"
+url = "http://animeka.com http://enialis.net"
+jabber = "xmpp:jrd@jabber.cz?message"
+
+[[thanks]]
+name = "Denis Fomin"
+alias = "Dicson"
+country = "Russia"
+project = "Gajim"
+url = "https://juick.com/dicson"
+
+[[thanks]]
+name = "Dimitris Tzemos"
+alias = "djemos"
+country = "Greece"
+projects = "SalixOS, Slackel"
+url = "http://slackel.gr"
+jabber = "xmpp:djemos@jabber.org?message"
+
+[[thanks]]
+name = "Emmanuel Gil Peyrot"
+alias = "Link mauve"
+country = "France"
+projects = "Poezio, slixmpp"
+jabber = "xmpp:linkmauve@linkmauve.fr?message"
+url = "https://linkmauve.fr"
+
+[[thanks]]
+name = "Florent Le Coz"
+alias = "louiz"
+country = "France"
+projects = "Poezio, slixmpp"
+jabber = "xmpp:louiz@louiz.org?message"
+url = "https://louiz.org"
+
+[[thanks]]
+name = "George Vlahavas"
+alias = "gapan"
+country = "Greece"
+project = "SalixOS"
+url = "https://salixos.org https://vlahavas.com"
+
+[[thanks]]
+name = "Guus der Kinderen"
+country = "Netherlands"
+project = "Openfire"
+url = "https://igniterealtime.org"
+
+[[thanks]]
+name = "habnabit_"
+alias = "habnabit_"
+irc = "irc://irc.libera.chat/#python"
+
+[[thanks]]
+name = "Imar van Erven Dorens"
+country = "Netherlands"
+project = "SalixOS"
+url = "https://simplicit.nl"
+
+[[thanks]]
+name = "imattau"
+alias = "imattau"
+project = "atomtopubsub"
+
+[[thanks]]
+name = "Jaussoin Timothée"
+alias = "edhelas"
+country = "France"
+projects = "atomtopubsub, Movim"
+url = "https://mov.im"
+
+[[thanks]]
+name = "Justin Karneges"
+country = "California"
+project = "Psi"
+url = "https://jblog.andbit.net https://psi-im.org"
+
+[[thanks]]
+name = "Kevin Smith"
+alias = "Kev"
+country = "Wales"
+projects = "Psi, SleekXMPP, Swift IM"
+url = "http://kismith.co.uk https://isode.com https://swift.im"
+
+[[thanks]]
+name = "Lars Windolf"
+alias = "lwindolf"
+country = "Germany"
+project = "Liferea"
+url = "https://lzone.de"
+
+[[thanks]]
+name = "Luis Henrique Mello"
+alias = "lmello"
+country = "Brazil"
+project = "SalixOS"
+
+[[thanks]]
+name = "magicfelix"
+alias = "magicfelix"
+
+[[thanks]]
+name = "Markus Muttilainen"
+alias = "stillborn"
+project = "SalixOS"
+
+[[thanks]]
+name = "Martin"
+alias = "debacle"
+country = "Germany"
+projects = "Debian, sms4you"
+email = "mailto:debacle@debian.org"
+
+[[thanks]]
+name = "Mathieu Pasquet"
+alias = "mathieui"
+country = "France"
+project = "slixmpp"
+jabber = "xmpp:mathieui@mathieui.net?message"
+url = "https://blog.mathieui.net"
+
+[[thanks]]
+name = "Maxime Buquet"
+alias = "pep"
+country = "France"
+project = "slixmpp"
+jabber = "xmpp:pep@bouah.net?message"
+url = "https://bouah.net"
+
+[[thanks]]
+name = "mirux"
+alias = "mirux"
+country = "Germany"
+
+[[thanks]]
+name = "Phillip Watkins"
+alias = "pwatk"
+country = "England"
+project = "SalixOS"
+
+[[thanks]]
+name = "Pierrick Le Brun"
+alias = "akuna"
+country = "France"
+project = "SalixOS"
+url = "https://mossieur-ballon.com"
+
+[[thanks]]
+name = "Raphael Groner"
+alias = "rapgro"
+country = "Germany"
+project = "Fedora"
+
+[[thanks]]
+name = "Remko Tronçon"
+country = "Belgium"
+projects = "Psi, SleekXMPP, Swift IM"
+url = "http://el-tramo.be https://mko.re https://psi-im.org"
+
+[[thanks]]
+name = "Richard Lapointe"
+alias = "laprjns"
+country = "Connecticut"
+projects = "SalixOS, Zenwalk"
+
+[[thanks]]
+name = "Simone Canaletti"
+alias = "roughnecks"
+country = "Italy"
+url = "https://woodpeckersnest.space"
+
+[[thanks]]
+name = "Stephen Paul Weber"
+alias = "singpolyma"
+projects = "Cheogram, JMP, Sopranica"
+url = "https://singpolyma.net"
+
+[[thanks]]
+name = "Strix from Loqi"
+alias = "Strix"
+
+[[thanks]]
+name = "Thibaud Guerin"
+alias = "guth"
+project = "SalixOS"
+
+[[thanks]]
+name = "Thorsten Fröhlich"
+country = "France"
+
+[[thanks]]
+name = "Thorsten Mühlfelder"
+alias = "thenktor"
+country = "Germany"
+project = "SalixOS"
+
+[[thanks]]
+name = "Tim Beech"
+alias = "mimosa"
+country = "Brazil"
+project = "SalixOS"
+url = "https://apipucos.wordpress.com"
+
+[[thanks]]
+name = "Tomoki Tsuchiya"
+alias = "tsuren"
+project = "SalixOS"
+
+[[thanks]]
+name = "Yann Leboulanger"
+alias = "asterix"
+country = "France"
+project = "Gajim"
+jabber = "xmpp:asterix@jabber.lagaule.org?message"
+url = "https://gajim.org"
+
+[[thanks]]
+name = "#python"
+info = "IRC Channel"
+note = "Thank you gentlemen for your help and support!"
+irc = "irc://irc.libera.chat/#python"
+
+[[thanks]]
+name = "The Salix Team"
+info = ["""
+Previously part of the Zenwalk team.
+
+The stubbornness of the Salix OS team members, and their determination to the \
+cause, no matter whether popular or else, you are the people who have lead \
+the creator of this software to the XMPP network.
+
+It may well be said, that without you, gentlemen, and without your kind \
+honesty, sincerity and even the arguments however difficult these arguments \
+were, Slixfeed would have never been existed today.
+
+All this from an XMPP groupchat that started out from 5 to 8 participants, \
+fifteen years ago (2009).
+
+Thank you.
+"""]
+irc = "irc://irc.libera.chat/#salix"
+jabber = "xmpp:salix@chat.meticul.eu?join"
+url = "https://docs.salixos.org/wiki/Salix_OS:Team"
+
+[[thanks]]
+name = "The XMPP Community"
+info = ["""
+For over a couple of decades, the people of XMPP form a strong community \
+which strives to provide you and your loved ones, private, secure and \
+stable communication experience.
+
+While we are for private property and high standard of living, in the XMPP \
+realm we cooperate and we compete together to provide you with the best \
+communication platform in the world.
+
+With governments and intelligence agencies around the world making an \
+extensive - and sometimes exclusive - use of XMPP, you can be rest assured \
+that you can never be wrong by making XMPP your prime and premier choice \
+for communications.
+
+We are XMPP.
+Join us!
+"""]
+
+[[operators]]
+title = "Operators"
+subtitle = "Slixfeed Operators"
+
+[[operators]]
+name = "Mr. Operator"
+info = "No operator was specified for this instance."
+
+[[policies]]
+title = "Policies"
+subtitle = "Terms of service"
+
+[[policies]]
+name = "Terms and Conditions"
+info = ["""
+You are bound to these terms.
+"""]
+
+[[policies]]
+name = "Privacy Policy"
+info = ["""
+All your data belongs to us.
+"""]
+
+[[clients]]
+title = "Recommended Clients"
+subtitle = """
+As a chat bot, Slixfeed works with any XMPP messenger, yet we have deemed it \
+appropriate to list the software that work best with Slixfeed, namely those \
+that provide support for XEP-0050: Ad-Hoc Commands.
+"""
+
+[[clients]]
+name = "Cheogram"
+info = "XMPP client for mobile"
+url = "https://cheogram.com"
+
+# [[clients]]
+# name = "Conversations"
+# info = "XMPP client for mobile"
+# url = "https://conversations.im"
+
+[[clients]]
+name = "Converse"
+info = "XMPP client for desktop and mobile"
+url = "https://conversejs.org"
+
+# [[clients]]
+# name = "Gajim"
+# info = "XMPP client for desktop"
+# url = "https://gajim.org"
+
+# [[clients]]
+# name = "Monal IM"
+# info = "XMPP client for desktop and mobile"
+# url = "https://monal-im.org"
+
+[[clients]]
+name = "monocles chat"
+info = "XMPP client for mobile"
+url = "https://monocles.chat"
+
+[[clients]]
+name = "Movim"
+info = "XMPP client for desktop and mobile"
+url = "https://mov.im"
+
+# [[clients]]
+# name = "Moxxy"
+# info = "XMPP client for mobile"
+# url = "https://moxxy.org"
+
+[[clients]]
+name = "Poezio"
+info = "XMPP client for console"
+url = "https://poez.io"
+
+# [[clients]]
+# name = "Psi"
+# info = "XMPP client for desktop"
+# url = "https://psi-im.org"
+
+# [[clients]]
+# name = "Psi+"
+# info = "XMPP client for desktop"
+# url = "https://psi-plus.com"
+
+# [[clients]]
+# name = "Swift"
+# info = "XMPP client for desktop"
+# url = "https://swift.im"
+
+# [[clients]]
+# name = "yaxim"
+# info = "XMPP client for mobile"
+# url = "https://yaxim.org"
+
+[[services]]
+title = "Recommended News Services"
+subtitle = ["""
+Below are online services that extend the syndication experience by means \
+of bookmarking and multimedia, and also enhance it by restoring access to \
+news web feeds.
+"""]
+
+[[services]]
+name = "Feed Creator"
+info = ["""
+Feed Creator is a service that creates feeds from HTML pages. \
+It generates RSS and JSON feeds from a set of links or other HTML elements.
+"""]
+link = "https://www.fivefilters.org/feed-creator/"
+
+[[services]]
+name = "Kill the Newsletter"
+info = "Kill the Newsletter converts email newsletters into Web feeds."
+link = "https://kill-the-newsletter.com"
+
+[[services]]
+name = "Open RSS"
+info = ["""
+Open RSS is a nonprofit organization that provides free RSS feeds for \
+websites and applications that don't already provide them, so RSS feeds can \
+continue to be a reliable way for people to stay up-to-date with content \
+anywhere on the internet.
+"""]
+link = "https://openrss.org"
+
+[[services]]
+name = "RSS-Bridge"
+info = ["""
+RSS-Bridge is free and open source software for generating Atom or RSS \
+feeds from websites which don’t have one. It is written in PHP and intended \
+to run on a Web server.
+"""]
+link = "https://rss-bridge.org/bridge01/"
+
+[[services]]
+name = "RSSHub"
+info = ["""
+RSSHub is an open source, easy to use, and extensible RSS feed generator. \
+It's capable of generating RSS feeds from pretty much everything.
+"""]
+link = "https://docs.rsshub.app"
+
+[[software]]
+title = "Recommended News Software"
+subtitle = ["""
+Take back control of your news. With free, quality, software for your \
+desktop, home and mobile devices.
+"""]
+
+[[software]]
+name = "CommaFeed"
+info = ["""
+A self-hosted RSS reader, based on Dropwizard and React/TypeScript.
+"""]
+link = "https://commafeed.com"
+os = "Any (HTML)"
+
+[[software]]
+name = "FreshRSS"
+info = ["""
+FreshRSS is a self-hosted RSS and Atom feed aggregator.
+It is lightweight, easy to work with, powerful, and customizable.
+"""]
+link = "https://freshrss.org"
+os = "Any (HTML)"
+
+[[software]]
+name = "Liferea"
+info = ["""
+Liferea is a feed reader/news aggregator that brings together all of the \
+content from your favorite subscriptions into a simple interface that makes \
+it easy to organize and browse feeds. Its GUI is similar to a desktop \
+mail/news client, with an embedded web browser.
+"""]
+link = "https://lzone.de/liferea/"
+os = "FreeBSD and Linux"
+
+[[software]]
+name = "NetNewsWire"
+info = ["""
+NetNewsWire shows you articles from your favorite blogs and news sites and \
+keeps track of what you’ve read.
+
+This means you can stop going from page to page in your browser looking for \
+new articles to read. Do it the easy way instead: let NetNewsWire bring you \
+the news.
+
+And, if you’ve been getting your news via the commercial Social Networks — \
+with their ads, algorithms, user tracking, outrage, and misinformation — you \
+can switch to NetNewsWire to get news directly and more reliably from the \
+sites you trust.
+"""]
+link = "https://netnewswire.com"
+os = "MacOS"
+
+[[software]]
+name = "Newsboat"
+info = ["""
+Newsboat is an RSS/Atom feed reader for the text console. It’s an actively \
+maintained fork of Newsbeuter
+"""]
+link = "https://newsboat.org"
+os = "Any"
+
+[[software]]
+name = "Spot-On"
+info = ["""
+Spot-On is a software carnival which brings chat, email, news, newsgroups, \
+search and other forms of communications into a single communications \
+orchestra.
+"""]
+link = "https://textbrowser.github.io/spot-on/"
+os = "Any"
+
+[[software]]
+name = "Vienna RSS"
+info = ["""
+Vienna is an RSS/Atom reader for macOS, packed with powerful features that \
+help you make sense of the flood of information that is distributed via \
+these formats today.
+"""]
+link = "https://vienna-rss.com"
+os = "MacOS"
+
+[[resources]]
+title = "Useful Resources"
+subtitle = "Technologies which Slixfeed is based upon"
+
+[[resources]]
+name = "feedparser"
+info = "Syndication Library"
+url = "https://pythonhosted.org/feedparser"
+
+[[resources]]
+name = "Slixmpp"
+info = "XMPP Library"
+url = "https://slixmpp.readthedocs.io"
+
+[[resources]]
+name = "XMPP"
+info = "Messaging Protocol"
+url = "https://xmpp.org/about"
