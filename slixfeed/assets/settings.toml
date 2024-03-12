@@ -1,0 +1,47 @@
+# This file lists default settings per database.
+# See file /usr/share/slixfeed/settings.toml
+
+[default]
+archive = 50   # Maximum items to archive (0 - 500)
+check = 120    # Source check interval (recommended 90; minimum 10)
+enabled = 1    # Work status (Value 0 to disable)
+interval = 300 # Update interval (Minimum value 10)
+length = 300   # Maximum length of summary (Value 0 to disable)
+media = 0      # Display media (audio, image, video) when available
+old = 0        # Mark entries of newly added entries as unread
+quantum = 3    # Amount of entries per update
+random = 0     # Pick random item from database
+
+# Message styling is not to be modified from bot
+# * title = Title of item
+# * summary = Summary of item
+# * link = Link of item
+# * feed_title = Title of news source
+# * ix = Index of item
+formatting = """
+{title}
+> {summary}
+{link}
+{feed_title} [{ix}]
+
+
+"""
+
+# Utilized in case of missing protocol support.
+[bridge]
+gopher = ""
+i2p = ""
+ipfs = ""
+nostr = ""
+tor = ""
+yggdrasil = ""
+
+[network]
+http_proxy = "http://localhost:8118"
+user_agent = "Slixfeed/0.1"
+clearnet = 0  # Enable policed DNS system (not recommended)
+i2p = 1       # Enable I2P mixnet system (safer)
+ipfs = 1      # Enable IPFS DHT system (safer)
+loki = 1      # Enable Loki mixnet system (safer)
+tor = 1       # Enable Tor semi-mixnet system (semi-safer)
+yggdrasil = 1 # Enable Yggdrasil mixnet system (safer)

@@ -42,8 +42,10 @@ class XmppGroupchat:
                     conference["nick"] = self.alias
                     logging.error('Alias (i.e. Nicknname) is missing for '
                                   'bookmark {}'.format(conference['name']))
+                # jid_from = str(self.boundjid) if self.is_component else None
                 self.plugin['xep_0045'].join_muc(conference["jid"],
                                                  conference["nick"],
+                                                 # pfrom=jid_from,
                                                  # If a room password is needed, use:
                                                  # password=the_room_password,
                                                  )
@@ -83,8 +85,10 @@ class XmppGroupchat:
                      'JID     : {}\n'
                      'Inviter : {}\n'
                      .format(jid, inviter))
+        jid_from = str(self.boundjid) if self.is_component else None
         self.plugin['xep_0045'].join_muc(jid,
                                          self.alias,
+                                         pfrom=jid_from
                                          # If a room password is needed, use:
                                          # password=the_room_password,
                                          )

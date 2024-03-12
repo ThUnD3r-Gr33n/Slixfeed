@@ -26,7 +26,8 @@ TODO
 """
 
 import glob
-from slixfeed.config import get_value, get_default_config_directory
+from slixfeed.config import Config
+import slixfeed.config as config
 # from slixmpp.exceptions import IqTimeout, IqError
 # import logging
 import os
@@ -42,7 +43,7 @@ async def update(self):
 
 
 async def set_avatar(self):
-    config_dir = get_default_config_directory()
+    config_dir = config.get_default_config_directory()
     if not os.path.isdir(config_dir):
         config_dir = '/usr/share/slixfeed/'
     filename = glob.glob(config_dir + '/image.*')
@@ -89,18 +90,8 @@ def set_identity(self, category):
 
 async def set_vcard(self):
     vcard = self.plugin['xep_0054'].make_vcard()
-    fields = {
-        'BDAY': 'birthday',
-        'DESC': 'description',
-        'FN': 'name',
-        'NICKNAME': 'nickname',
-        'NOTE': 'note',
-        'ORG': 'organization',
-        'ROLE': 'role',
-        'TITLE': 'title',
-        'URL': 'url',
-        }
-    for key in fields:
-        vcard[key] = get_value('accounts', 'XMPP Profile', fields[key])
+    profile = config.get_values('accounts.toml', 'xmpp')['profile']
+    for key in profile:
+        vcard[key] = profile[key]
     await self.plugin['xep_0054'].publish_vcard(vcard)
 

@@ -85,21 +85,24 @@ from slixfeed.version import __version__
 # import socks
 # import socket
 
-xmpp_type = config.get_value('accounts', 'XMPP', 'type')
+account = config.get_values('accounts.toml', 'xmpp')
 
+if not 'mode' in account['settings']:
+    account_mode = 'client'
+    print('Key "mode" was not found.\nSetting value to "client".')
+    # raise Exception('Key type is missing from accounts.toml.')
+else:
+    account_mode = 'component'
 
-if not xmpp_type:
-    raise Exception('Key type is missing from accounts.ini.')
-
-match xmpp_type:
+match account_mode:
     case 'client':
         from slixfeed.xmpp.client import Slixfeed
-        from slixfeed.config import ConfigClient as ConfigAccount
+        # from slixfeed.config import ConfigClient as ConfigAccount
     case 'component':
         from slixfeed.xmpp.component import SlixfeedComponent
-        from slixfeed.config import ConfigComponent as ConfigAccount
+        # from slixfeed.config import ConfigComponent as ConfigAccount
 
-account = ConfigAccount() # TODO Delete as soon as posible after is no longer needed
+# account = ConfigAccount() # TODO Delete as soon as posible after is no longer needed
 
 class JabberComponent:
     def __init__(self, jid, secret, hostname, port, alias=None):
@@ -175,9 +178,8 @@ class JabberClient:
         #     xmpp.proxy = {'socks5': ('localhost', 9050)}
 
         # Connect to the XMPP server and start processing XMPP stanzas.
-
-        if account.setting['hostname'] and account.setting['port']:
-            xmpp.connect((account.setting['hostname'], account.setting['port']))
+        if hostname and port:
+            xmpp.connect((hostname, port))
         else:
             xmpp.connect()
         xmpp.process()
@@ -200,7 +202,7 @@ def main():
     #     # socket.socket = socks.socksocket
 
     # Setup the command line arguments.
-    match xmpp_type:
+    match account_mode:
         case 'client':
             parser = ArgumentParser(description=Slixfeed.__doc__)
         case 'component':
@@ -242,11 +244,11 @@ def main():
     # logwrn = logger.warning
 
     # Try configuration file
-    alias = account.setting['alias']
-    jid = account.setting['jid']
-    password = account.setting['password']
-    hostname = account.setting['hostname']
-    port = account.setting['port']
+    jid = account[account_mode]['jid']
+    password = account[account_mode]['password']
+    alias = account[account_mode]['alias'] if 'alias' in account[account_mode] else None
+    hostname = account[account_mode]['hostname'] if 'hostname' in account[account_mode] else None
+    port = account[account_mode]['port'] if 'port' in account[account_mode] else None
 
     # Use arguments if were given
     if args.jid:
@@ -268,7 +270,7 @@ def main():
     if not alias:
         alias = (input('Alias: ')) or 'Slixfeed'
 
-    match xmpp_type:
+    match account_mode:
         case 'client':
             JabberClient(jid, password, hostname=hostname, port=port, alias=alias)
         case 'component':

@@ -3,6 +3,13 @@
 
 """
 
+FIXME
+
+Message from OpenFire server log.
+
+2024.03.12 14:21:22.518 ERROR [nioEventLoopGroup-3-2]: org.jivesoftware.openfire.IQRouter - Unable to process a stanza that has no 'from' attribute, addressed to a remote entity. Stanza is being dropped: <iq id="8e4e60ae0d894b40a2fc465268d46d0b" type="get" to="rss.simon.goodbytes.im"><ping xmlns="urn:xmpp:ping"></ping></iq>
+
+
 TODO
 
 1) Check interval, and if no connection is establish after 30 seconds
@@ -38,21 +45,23 @@ class XmppConnect:
         None.
 
         """
+        jid_from = str(self.boundjid) if self.is_component else None
         if not jid:
             jid = self.boundjid.bare
         while True:
             rtt = None
             try:
-                rtt = await self['xep_0199'].ping(jid, timeout=10)
+                rtt = await self['xep_0199'].ping(jid,
+                                                  ifrom=jid_from,
+                                                  timeout=10)
                 logging.info('Success! RTT: %s', rtt)
             except IqError as e:
-                logging.info('Error pinging %s: %s',
-                             jid,
-                             e.iq['error']['condition'])
+                logging.error('Error pinging %s: %s', jid,
+                              e.iq['error']['condition'])
             except IqTimeout:
-                logging.info('No response from %s', jid)
+                logging.warning('No response from %s', jid)
             if not rtt:
-                logging.info('Disconnecting...')
+                logging.warning('Disconnecting...')
                 self.disconnect()
                 break
             await asyncio.sleep(60 * 1)
@@ -68,7 +77,7 @@ class XmppConnect:
         #     print(current_time(),"Maximum connection attempts exceeded.")
         #     logging.error("Maximum connection attempts exceeded.")
         print(current_time(), 'Attempt number', self.connection_attempts)
-        seconds = (get_value('accounts', 'XMPP', 'reconnect_timeout')) or 30
+        seconds = self.reconnect_timeout or 30
         seconds = int(seconds)
         print(current_time(), 'Next attempt within', seconds, 'seconds')
         # NOTE asyncio.sleep doesn't interval as expected

@@ -23,6 +23,9 @@ TODO
 
 """
 
+from slixfeed.xmpp.publish import XmppPubsub
+from slixfeed.xmpp.iq import XmppIQ
+
 import asyncio
 import logging
 import os
@@ -40,8 +43,13 @@ from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.upload import XmppUpload
-from slixfeed.xmpp.utility import get_chat_type, is_moderator
+from slixfeed.xmpp.utility import get_chat_type, is_moderator, is_operator
 import time
+
+try:
+    import tomllib
+except:
+    import tomli as tomllib
 
 
     # for task in main_task:
@@ -181,7 +189,7 @@ async def message(self, message):
         response = None
         match message_lowercase:
             # case 'breakpoint':
-            #     if jid == get_value('accounts', 'XMPP', 'operator'):
+            #     if is_operator(self, jid_bare):
             #         breakpoint()
             #         print('task_manager[jid]')
             #         print(task_manager[jid])
@@ -244,21 +252,25 @@ async def message(self, message):
                                 'or command key & name')
                 XmppMessage.send_reply(self, message, response)
             case 'info':
-                command_list = action.manual('information.toml')
+                config_dir = config.get_default_config_directory()
+                with open(config_dir + '/' + 'information.toml', mode="rb") as information:
+                    entries = tomllib.load(information)
                 response = ('Available command options:\n'
                             '```\n{}\n```\n'
                             'Usage: `info <option>`'
-                            .format(command_list))
+                            .format(', '.join(entries)))
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('info'):
-                command = message_text[5:].lower()
-                command_list = action.manual('information.toml', command)
-                if command_list:
+                entry = message_text[5:].lower()
+                config_dir = config.get_default_config_directory()
+                with open(config_dir + '/' + 'information.toml', mode="rb") as information:
+                    entries = tomllib.load(information)
+                if entry in entries:
                     # command_list = '\n'.join(command_list)
-                    response = (command_list)
+                    response = (entries[entry]['info'])
                 else:
                     response = ('KeyError for {}'
-                                .format(command))
+                                .format(entry))
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase in ['greetings', 'hallo', 'hello',
                                             'hey', 'hi', 'hola', 'holla',
@@ -293,7 +305,7 @@ async def message(self, message):
             #             response = 'Activation code is not valid.'
             #     else:
             #         response = 'This command is valid for groupchat only.'
-            case _ if message_lowercase.startswith('add'):
+            case _ if message_lowercase.startswith('add '):
                 # Add given feed without validity check.
                 message_text = message_text[4:]
                 url = message_text.split(' ')[0]
@@ -338,7 +350,7 @@ async def message(self, message):
                                 'Missing URL.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('allow +'):
-                    key = message_text[:5]
+                    key = message_text[:5].lower()
                     val = message_text[7:]
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
@@ -359,7 +371,7 @@ async def message(self, message):
                                     'Missing keywords.')
                     XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('allow -'):
-                    key = message_text[:5]
+                    key = message_text[:5].lower()
                     val = message_text[7:]
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
@@ -379,8 +391,8 @@ async def message(self, message):
                                     '\n'
                                     'Missing keywords.')
                     XmppMessage.send_reply(self, message, response)
-            case _ if message_lowercase.startswith('archive'):
-                key = message_text[:7]
+            case _ if message_lowercase.startswith('archive '):
+                key = message_text[:7].lower()
                 val = message_text[8:]
                 if val:
                     try:
@@ -406,7 +418,7 @@ async def message(self, message):
                                 'Missing value.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('bookmark +'):
-                if jid_bare == config.get_value('accounts', 'XMPP', 'operator'):
+                if is_operator(self, jid_bare):
                     muc_jid = message_text[11:]
                     await XmppBookmark.add(self, jid=muc_jid)
                     response = ('Groupchat {} has been added to bookmarks.'
@@ -416,7 +428,7 @@ async def message(self, message):
                                 'Type: adding bookmarks.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('bookmark -'):
-                if jid_bare == config.get_value('accounts', 'XMPP', 'operator'):
+                if is_operator(self, jid_bare):
                     muc_jid = message_text[11:]
                     await XmppBookmark.remove(self, muc_jid)
                     response = ('Groupchat {} has been removed from bookmarks.'
@@ -446,14 +458,14 @@ async def message(self, message):
                 response = 'Filter {} has been purged.'.format(key)
                 XmppMessage.send_reply(self, message, response)
             case 'bookmarks':
-                if jid_bare == config.get_value('accounts', 'XMPP', 'operator'):
+                if is_operator(self, jid_bare):
                     response = await action.list_bookmarks(self)
                 else:
                     response = ('This action is restricted. '
                                 'Type: viewing bookmarks.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('deny +'):
-                    key = message_text[:4]
+                    key = message_text[:4].lower()
                     val = message_text[6:]
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
@@ -474,7 +486,7 @@ async def message(self, message):
                                     'Missing keywords.')
                     XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('deny -'):
-                    key = message_text[:4]
+                    key = message_text[:4].lower()
                     val = message_text[6:]
                     if val:
                         db_file = config.get_pathname_to_database(jid_file)
@@ -494,7 +506,7 @@ async def message(self, message):
                                     '\n'
                                     'Missing keywords.')
                     XmppMessage.send_reply(self, message, response)
-            case _ if message_lowercase.startswith('export'):
+            case _ if message_lowercase.startswith('export '):
                 ext = message_text[7:]
                 if ext in ('md', 'opml'): # html xbel
                     status_type = 'dnd'
@@ -687,7 +699,8 @@ async def message(self, message):
                 if query:
                     if len(query) > 3:
                         db_file = config.get_pathname_to_database(jid_file)
-                        response = action.list_feeds_by_query(db_file, query)
+                        result = sqlite.search_feeds(db_file, query)
+                        response = action.list_feeds_by_query(query, result)
                     else:
                         response = 'Enter at least 4 characters to search'
                 else:
@@ -702,8 +715,8 @@ async def message(self, message):
                 else:
                     response = 'This command is valid in groupchat only.'
                 XmppMessage.send_reply(self, message, response)
-            case _ if message_lowercase.startswith('interval'):
-                key = message_text[:8]
+            case _ if message_lowercase.startswith('interval '):
+                key = message_text[:8].lower()
                 val = message_text[9:]
                 if val:
                     try:
@@ -738,8 +751,8 @@ async def message(self, message):
                                 'XMPP URI is not valid.'
                                 .format(message_text))
                 XmppMessage.send_reply(self, message, response)
-            case _ if message_lowercase.startswith('length'):
-                    key = message_text[:6]
+            case _ if message_lowercase.startswith('length '):
+                    key = message_text[:6].lower()
                     val = message_text[7:]
                     if val:
                         try:
@@ -832,7 +845,7 @@ async def message(self, message):
             case 'options':
                 response = 'Options:\n```'
                 for key in self.settings[jid_bare]:
-                    val = self.settings[jid_bare][key] or self.settings['default'][key]
+                    val = Config.get_setting_value(self.settings, jid_bare, key)
                     # val = Config.get_setting_value(self.settings, jid_bare, key)
                     steps = 11 - len(key)
                     pulse = ''
@@ -842,8 +855,8 @@ async def message(self, message):
                     print(response)
                 response += '\n```'
                 XmppMessage.send_reply(self, message, response)
-            case _ if message_lowercase.startswith('quantum'):
-                key = message_text[:7]
+            case _ if message_lowercase.startswith('quantum '):
+                key = message_text[:7].lower()
                 val = message_text[8:]
                 if val:
                     try:
@@ -872,7 +885,7 @@ async def message(self, message):
                 # NOTE sqlitehandler.get_entry_unread
                 response = 'Updates will be sent by random order.'
                 XmppMessage.send_reply(self, message, response)
-            case _ if message_lowercase.startswith('read'):
+            case _ if message_lowercase.startswith('read '):
                 data = message_text[5:]
                 data = data.split()
                 url = data[0]
@@ -914,7 +927,7 @@ async def message(self, message):
                 XmppMessage.send_reply(self, message, response)
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
-            case _ if message_lowercase.startswith('recent'):
+            case _ if message_lowercase.startswith('recent '):
                 num = message_text[7:]
                 if num:
                     try:
@@ -934,50 +947,53 @@ async def message(self, message):
                                 '\n'
                                 'Missing value.')
                 XmppMessage.send_reply(self, message, response)
-            case _ if message_lowercase.startswith('remove'):
+            case _ if message_lowercase.startswith('remove '):
                 ix_url = message_text[7:]
+                ix_url = ix_url.split(' ')
                 if ix_url:
-                    db_file = config.get_pathname_to_database(jid_file)
-                    try:
-                        ix = int(ix_url)
-                        url = sqlite.get_feed_url(db_file, ix)
-                        if url:
-                            url = url[0]
-                            name = sqlite.get_feed_title(db_file, ix)
-                            name = name[0]
-                            await sqlite.remove_feed_by_index(db_file, ix)
-                            response = ('> {}\n'
-                                        'News source "{}" has been '
-                                        'removed from subscription list.'
-                                        .format(url, name))
-                        else:
-                            response = ('No news source with index {}.'
-                                        .format(ix))
-                    except:
-                        url = ix_url
-                        feed_id = sqlite.get_feed_id(db_file, url)
-                        if feed_id:
-                            feed_id = feed_id[0]
-                            await sqlite.remove_feed_by_url(db_file, url)
-                            response = ('> {}\n'
-                                        'News source has been removed '
-                                        'from subscription list.'
-                                        .format(url))
-                        else:
-                            response = ('> {}\n'
-                                        # 'No action has been made.'
-                                        'News source does not exist. '
-                                        .format(url))
-                    # refresh_task(self, jid_bare, send_status, 'status', 20)
-                    # task.clean_tasks_xmpp(self, jid_bare, ['status'])
-                    key_list = ['status']
-                    await task.start_tasks_xmpp(self, jid_bare, key_list)
+                    for i in ix_url:
+                        if i:
+                            db_file = config.get_pathname_to_database(jid_file)
+                            try:
+                                ix = int(i)
+                                url = sqlite.get_feed_url(db_file, ix)
+                                if url:
+                                    url = url[0]
+                                    name = sqlite.get_feed_title(db_file, ix)
+                                    name = name[0]
+                                    await sqlite.remove_feed_by_index(db_file, ix)
+                                    response = ('> {}\n'
+                                                'News source "{}" has been '
+                                                'removed from subscription list.'
+                                                .format(url, name))
+                                else:
+                                    response = ('No news source with index {}.'
+                                                .format(ix))
+                            except:
+                                url = i
+                                feed_id = sqlite.get_feed_id(db_file, url)
+                                if feed_id:
+                                    feed_id = feed_id[0]
+                                    await sqlite.remove_feed_by_url(db_file, url)
+                                    response = ('> {}\n'
+                                                'News source has been removed '
+                                                'from subscription list.'
+                                                .format(url))
+                                else:
+                                    response = ('> {}\n'
+                                                # 'No action has been made.'
+                                                'News source does not exist. '
+                                                .format(url))
+                            # refresh_task(self, jid_bare, send_status, 'status', 20)
+                            # task.clean_tasks_xmpp(self, jid_bare, ['status'])
+                            key_list = ['status']
+                            await task.start_tasks_xmpp(self, jid_bare, key_list)
+                            XmppMessage.send_reply(self, message, response)
                 else:
                     response = ('No action has been taken.'
                                 '\n'
                                 'Missing argument. '
                                 'Enter feed URL or index number.')
-                XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('reset'):
                 # TODO Reset also by ID
                 ix_url = message_text[6:]
@@ -1028,7 +1044,7 @@ async def message(self, message):
                 XmppMessage.send_reply(self, message, response)
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
-            case _ if message_lowercase.startswith('search'):
+            case _ if message_lowercase.startswith('search '):
                 query = message_text[7:]
                 if query:
                     if len(query) > 1:
@@ -1080,7 +1096,7 @@ async def message(self, message):
                 XmppMessage.send_reply(self, message, response)
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
-            case _ if message_lowercase.startswith('rename'):
+            case _ if message_lowercase.startswith('rename '):
                 message_text = message_text[7:]
                 feed_id = message_text.split(' ')[0]
                 name = ' '.join(message_text.split(' ')[1:])
@@ -1117,7 +1133,7 @@ async def message(self, message):
                                 'Missing argument. '
                                 'Enter subscription Id and name.')
                 XmppMessage.send_reply(self, message, response)
-            case _ if message_lowercase.startswith('enable'):
+            case _ if message_lowercase.startswith('enable '):
                 feed_id = message_text[7:]
                 db_file = config.get_pathname_to_database(jid_file)
                 try:

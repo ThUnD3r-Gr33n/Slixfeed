@@ -7,13 +7,24 @@ import logging
 # class XmppChat
 # class XmppUtility:
 
+
+def is_operator(self, jid_bare):
+    result = False
+    for operator in self.operators:
+        if jid_bare == operator['jid']:
+            result = True
+            # operator_name = operator['name']
+            break
+    return result
+
 def is_moderator(self, jid_bare, jid_full):
     alias = jid_full[jid_full.index('/')+1:]
     role = self.plugin['xep_0045'].get_jid_property(jid_bare, alias, 'role')
     if role == 'moderator':
-        return True
+        result = True
     else:
-        return False
+        result = False
+    return result
 
 
 # TODO Rename to get_jid_type

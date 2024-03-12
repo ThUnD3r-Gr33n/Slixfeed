@@ -2243,7 +2243,7 @@ def get_feeds(db_file):
         cur = conn.cursor()
         sql = (
             """
-            SELECT name, url, id
+            SELECT id, name, url
             FROM feeds
             """
             )

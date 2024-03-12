@@ -50,26 +50,21 @@ except:
 class Config:
 
     def add_settings_default(settings):
-        settings['default'] = {}
-        for key in ('archive', 'check', 'enabled', 'filter', 'formatting',
-                    'interval', 'length', 'media', 'old', 'quantum'):
-            value = get_value('settings', 'Settings', key)
-            settings['default'][key] = value
+        settings_default = get_values('settings.toml', 'settings')
+        settings['default'] = settings_default
 
+    # TODO Open SQLite file once
     def add_settings_jid(settings, jid_bare, db_file):
         settings[jid_bare] = {}
         for key in ('archive', 'enabled', 'filter', 'formatting', 'interval',
                     'length', 'media', 'old', 'quantum'):
             value = sqlite.get_setting_value(db_file, key)
-            if value: value = value[0]
-            settings[jid_bare][key] = value
+            if value: settings[jid_bare][key] = value[0]
 
-    def add_settings_xmpp(settings):
-        settings['xmpp'] = {}
-        for key in ('operator', 'reconnect_timeout', 'type'):
-            value = get_value('accounts', 'XMPP', key)
-            settings['xmpp'][key] = value
-
+    def get_settings_xmpp(key=None):
+        result = get_values('accounts.toml', 'xmpp')
+        result = result[key] if key else result
+        return result
 
     async def set_setting_value(settings, jid_bare, db_file, key, val):
         key = key.lower()
@@ -81,72 +76,11 @@ class Config:
             await sqlite.set_setting_value(db_file, key_val)
 
     def get_setting_value(settings, jid_bare, key):
-        if key in settings[jid_bare]:
+        if jid_bare in settings and key in settings[jid_bare]:
             value = settings[jid_bare][key]
         else:
             value = settings['default'][key]
         return value
-
-
-        # self.settings = {}
-        # initiate an empty dict and the rest would be:
-        # settings['account'] = {}
-        # settings['default'] = {}
-        # settings['jabber@id'] = {}
-    # def __init__(self, db_file):
-    #     self.archive = get_setting_value(db_file, 'archive')
-    #     self.enabled = get_setting_value(db_file, 'enabled')
-    #     self.formatting = get_setting_value(db_file, 'formatting')
-    #     self.interval = get_setting_value(db_file, 'interval')
-    #     self.length = get_setting_value(db_file, 'length')
-    #     self.media = get_setting_value(db_file, 'media')
-    #     self.old = get_setting_value(db_file, 'old')
-    #     self.quantum = get_setting_value(db_file, 'quantum')
-
-    # def default():
-    #     archive = get_value('settings', 'Settings', 'archive')
-    #     enabled = get_value('settings', 'Settings', 'enabled')
-    #     formatting = get_value('settings', 'Settings', 'formatting')
-    #     interval = get_value('settings', 'Settings', 'interval')
-    #     length = get_value('settings', 'Settings', 'length')
-    #     media = get_value('settings', 'Settings', 'media')
-    #     old = get_value('settings', 'Settings', 'old')
-    #     quantum = get_value('settings', 'Settings', 'quantum')
-
-    # def jid(db_file):
-    #     archive = sqlite.get_setting_value(db_file, 'archive')
-    #     enabled = sqlite.get_setting_value(db_file, 'enabled')
-    #     formatting = sqlite.get_setting_value(db_file, 'formatting')
-    #     interval = sqlite.get_setting_value(db_file, 'interval')
-    #     length = sqlite.get_setting_value(db_file, 'length')
-    #     media = sqlite.get_setting_value(db_file, 'media')
-    #     old = sqlite.get_setting_value(db_file, 'old')
-    #     quantum = sqlite.get_setting_value(db_file, 'quantum')
-
-
-class ConfigXMPP:
-    def __init__(self):
-        self.setting = {}
-        for key in ('operator', 'reconnect_timeout', 'type'):
-            value = get_value('accounts', 'XMPP', key)
-            self.setting[key] = value
-
-
-class ConfigClient:
-    def __init__(self):
-        self.setting = {}
-        for key in ('alias', 'jid', 'operator', 'password', 'hostname', 'port'):
-            value = get_value('accounts', 'XMPP Client', key)
-            self.setting[key] = value
-
-
-class ConfigDefault:
-    def __init__(self, settings):
-        settings['default'] = {}
-        for key in ('archive', 'check', 'enabled', 'filter', 'formatting',
-                    'interval', 'length', 'media', 'old', 'quantum'):
-            value = get_value('settings', 'Settings', key)
-            settings['default'][key] = value
 
 class ConfigNetwork:
     def __init__(self, settings):
@@ -166,6 +100,19 @@ class ConfigJabberID:
             print(value)
             settings[jid_bare][key] = value
 
+
+def get_values(filename, key=None):
+    config_dir = get_default_config_directory()
+    if not os.path.isdir(config_dir):
+        config_dir = '/usr/share/slixfeed/'
+    if not os.path.isdir(config_dir):
+        config_dir = os.path.dirname(__file__) + "/assets"
+    config_file = os.path.join(config_dir, filename)
+    with open(config_file, mode="rb") as defaults:
+        result = tomllib.load(defaults)
+    values = result[key] if key else result
+    return values
+    
 
 def get_setting_value(db_file, key):
     value = sqlite.get_setting_value(db_file, key)
@@ -299,9 +246,7 @@ def get_value(filename, section, keys):
             for key in keys:
                 if key in section_res:
                     value = section_res[key]
-                    logging.debug(
-                        "Found value {} for key {}".format(value, key)
-                        )
+                    logging.debug("Found value {} for key {}".format(value, key))
                 else:
                     value = ''
                     logging.debug("Missing key:", key)
@@ -310,9 +255,7 @@ def get_value(filename, section, keys):
             key = keys
             if key in section_res:
                 result = section_res[key]
-                logging.debug(
-                    "Found value {} for key {}".format(result, key)
-                    )
+                logging.debug("Found value {} for key {}".format(result, key))
             else:
                 result = ''
                 # logging.error("Missing key:", key)

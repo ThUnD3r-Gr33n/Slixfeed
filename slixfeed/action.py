@@ -113,6 +113,27 @@ async def export_feeds(self, jid, jid_file, ext):
         #     response = 'Not yet implemented.'
     return filename
 
+
+"""
+TODO
+
+Consider to append text to remind to share presence
+'✒️ Share online status to receive updates'
+
+# TODO Request for subscription
+if (await get_chat_type(self, jid_bare) == 'chat' and
+    not self.client_roster[jid_bare]['to']):
+    XmppPresence.subscription(self, jid_bare, 'subscribe')
+    await XmppRoster.add(self, jid_bare)
+    status_message = '✒️ Share online status to receive updates'
+    XmppPresence.send(self, jid_bare, status_message)
+    message_subject = 'RSS News Bot'
+    message_body = 'Share online status to receive updates.'
+    XmppMessage.send_headline(self, jid_bare, message_subject,
+                              message_body, 'chat')
+
+"""
+
 async def xmpp_send_status(self, jid):
     """
     Send status message.
@@ -127,7 +148,7 @@ async def xmpp_send_status(self, jid):
     status_text = '📜️ Slixfeed RSS News Bot'
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    enabled = self.settings[jid]['enabled'] or self.settings['default']['enabled']
+    enabled = Config.get_setting_value(self.settings, jid, 'enabled')
     if not enabled:
         status_mode = 'xa'
         status_text = '📪️ Send "Start" to receive updates'
@@ -179,11 +200,11 @@ async def xmpp_send_update(self, jid, num=None):
     logger.debug('{}: jid: {} num: {}'.format(function_name, jid, num))
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    enabled = self.settings[jid]['enabled'] or self.settings['default']['enabled']
+    enabled = Config.get_setting_value(self.settings, jid, 'enabled')
     if enabled:
-        show_media = self.settings[jid]['media'] or self.settings['default']['media']
+        show_media = Config.get_setting_value(self.settings, jid, 'media')
         if not num:
-            num = self.settings[jid]['quantum'] or self.settings['default']['quantum']
+            num = Config.get_setting_value(self.settings, jid, 'quantum')
         else:
             num = int(num)
         results = sqlite.get_unread_entries(db_file, num)
@@ -465,7 +486,7 @@ def list_unread_entries(self, result, feed_title, jid):
     summary = summary.replace('\n', ' ')
     summary = summary.replace('	', ' ')
     summary = summary.replace('  ', ' ')
-    length = self.settings[jid]['length'] or self.settings['default']['length']
+    length = Config.get_setting_value(self.settings, jid, 'length')
     length = int(length)
     summary = summary[:length] + " […]"
     # summary = summary.strip().split('\n')
@@ -476,13 +497,13 @@ def list_unread_entries(self, result, feed_title, jid):
     link = (replace_hostname(link, "link")) or link
     # news_item = ("\n{}\n{}\n{} [{}]\n").format(str(title), str(link),
     #                                            str(feed_title), str(ix))
-    formatting = self.settings[jid]['formatting'] or self.settings['default']['formatting']
+    formatting = Config.get_setting_value(self.settings, jid, 'formatting')
     news_item = formatting.format(feed_title=feed_title,
                                   title=title,
                                   summary=summary,
                                   link=link,
                                   ix=ix)
-    news_item = news_item.replace('\\n', '\n')
+    # news_item = news_item.replace('\\n', '\n')
     return news_item
 
 
@@ -502,11 +523,9 @@ def list_search_results(query, results):
     return message
 
 
-def list_feeds_by_query(db_file, query):
+def list_feeds_by_query(query, results):
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} query: {}'
-                .format(function_name, db_file, query))
-    results = sqlite.search_feeds(db_file, query)
+    logger.debug('{}'.format(function_name))
     message = ('Feeds containing "{}":\n\n```'
                .format(query))
     for result in results:
@@ -549,10 +568,10 @@ async def list_options(self, jid_bare):
     #     value = "Default"
     # values.extend([value])
 
-    value_archive = self.settings[jid_bare]['archive'] or self.settings['default']['archive']
-    value_interval = self.settings[jid_bare]['interval'] or self.settings['default']['interval']
-    value_quantum = self.settings[jid_bare]['quantum'] or self.settings['default']['quantum']
-    value_enabled = self.settings[jid_bare]['archive'] or self.settings['default']['enabled']
+    value_archive = Config.get_setting_value(self.settings, jid_bare, 'archive')
+    value_interval = Config.get_setting_value(self.settings, jid_bare, 'interval')
+    value_quantum = Config.get_setting_value(self.settings, jid_bare, 'quantum')
+    value_enabled = Config.get_setting_value(self.settings, jid_bare, 'enabled')
 
     message = ("Options:"
                "\n"
@@ -647,13 +666,10 @@ def list_feeds(results):
     logger.debug('{}'.format(function_name))
     message = "\nList of subscriptions:\n\n```\n"
     for result in results:
-        message += ("Name : {}\n"
-                    "URL  : {}\n"
-                    # "Updated : {}\n"
-                    # "Status  : {}\n"
-                    "ID   : {}\n"
-                    "\n"
-                    .format(str(result[0]), str(result[1]), str(result[2])))
+        message += ("{} [{}]\n"
+                    "{}\n"
+                    "\n\n"
+                    .format(str(result[1]), str(result[0]), str(result[2])))
     if len(results):
         message += ('```\nTotal of {} subscriptions.\n'
                     .format(len(results)))
@@ -793,7 +809,7 @@ async def add_feed(self, jid_bare, db_file, url):
                                              status_code=status_code,
                                              updated=updated)
                     await scan(self, jid_bare, db_file, url)
-                    old = self.settings[jid_bare]['old'] or self.settings['default']['old']
+                    old = Config.get_setting_value(self.settings, jid_bare, 'old')
                     feed_id = sqlite.get_feed_id(db_file, url)
                     feed_id = feed_id[0]
                     if not old:
@@ -804,9 +820,6 @@ async def add_feed(self, jid_bare, db_file, url):
                                     'code' : status_code,
                                     'error' : False,
                                     'exist' : False}
-                    response = ('> {}\nNews source "{}" has been '
-                                'added to subscription list.'
-                                .format(url, title))
                     break
                 # NOTE This elif statement be unnecessary
                 # when feedparser be supporting json feed.
@@ -843,7 +856,7 @@ async def add_feed(self, jid_bare, db_file, url):
                                              status_code=status_code,
                                              updated=updated)
                     await scan_json(self, jid_bare, db_file, url)
-                    old = self.settings[jid_bare]['old'] or self.settings['default']['old']
+                    old = Config.get_setting_value(self.settings, jid_bare, 'old')
                     if not old:
                         feed_id = sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
@@ -854,9 +867,6 @@ async def add_feed(self, jid_bare, db_file, url):
                                     'code' : status_code,
                                     'error' : False,
                                     'exist' : False}
-                    response = ('> {}\nNews source "{}" has been '
-                                'added to subscription list.'
-                                .format(url, title))
                     break
                 else:
                     # NOTE Do not be tempted to return a compact dictionary.
@@ -886,8 +896,6 @@ async def add_feed(self, jid_bare, db_file, url):
                                 'code' : status_code,
                                 'error' : True,
                                 'exist' : False}
-                response = ('> {}\nFailed to load URL.  Reason: {}'
-                            .format(url, status_code))
                 break
         else:
             ix = exist[0]
@@ -898,9 +906,6 @@ async def add_feed(self, jid_bare, db_file, url):
                             'code' : None,
                             'error' : False,
                             'exist' : True}
-            response = ('> {}\nNews source "{}" is already '
-                        'listed in the subscription list at '
-                        'index {}'.format(url, name, ix))
             break
     return result_final
 
@@ -1254,7 +1259,7 @@ async def scan(self, jid_bare, db_file, url):
                 return
             # new_entry = 0
             for entry in entries:
-                logger.debug('{}: entry: {}'.format(function_name, entry.title))
+                logger.debug('{}: entry: {}'.format(function_name, entry.link))
                 if entry.has_key("published"):
                     date = entry.published
                     date = dt.rfc2822_to_iso8601(date)
@@ -1481,6 +1486,7 @@ async def extract_image_from_html(url):
                 'contains(@src, "emoji") or '
                 'contains(@src, "icon") or '
                 'contains(@src, "logo") or '
+                'contains(@src, "letture") or '
                 'contains(@src, "search") or '
                 'contains(@src, "share") or '
                 'contains(@src, "smiley")'
@@ -1614,7 +1620,7 @@ async def remove_nonexistent_entries(self, jid_bare, db_file, url, feed):
     feed_id = feed_id[0]
     items = sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed.entries
-    limit = self.settings[jid_bare]['archive'] or self.settings['default']['archive']
+    limit = Config.get_setting_value(self.settings, jid_bare, 'archive')
     for item in items:
         ix = item[0]
         entry_title = item[1]
@@ -1723,7 +1729,7 @@ async def remove_nonexistent_entries_json(self, jid_bare, db_file, url, feed):
     feed_id = feed_id[0]
     items = sqlite.get_entries_of_feed(db_file, feed_id)
     entries = feed["items"]
-    limit = self.settings[jid_bare]['archive'] or self.settings['default']['archive']
+    limit = Config.get_setting_value(self.settings, jid_bare, 'archive')
     for item in items:
         ix = item[0]
         entry_title = item[1]

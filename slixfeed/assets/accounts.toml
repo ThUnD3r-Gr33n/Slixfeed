@@ -1,0 +1,108 @@
+# Settings to tell the bot to which accounts to connect
+# and also from which accounts it receives instructions.
+
+[xmpp.settings]
+#mode = "component"
+reconnect_timeout = 30
+
+[[xmpp.operators]]
+name = "Mr. Operator"
+jid = ""
+
+[[xmpp.operators]]
+name = "Mrs. Operator"
+jid = ""
+
+[xmpp.proxy.socks5]
+#host = "127.0.0.1"
+#port = 9050
+#username = ""
+#password = ""
+
+[xmpp.profile]
+FN = "Slixfeed"
+NICKNAME = "Slixfeed"
+ROLE = "Syndication News Bot"
+ORG = "RSS Task Force"
+URL = "https://gitgud.io/sjehuda/slixfeed"
+NOTE = """
+This is a syndication news bot powered by Slixfeed.
+This bot can read Atom, JSON, RDF and RSS feeds.
+This bot can communicate to 1:1 chats and groupchats as one.
+You are welcome to join our groupchat at:
+xmpp:slixfeed@chat.woodpeckersnest.space?join
+"""
+BDAY = "21 June 2022"
+TITLE = "XMPP News Bot"
+DESC = "Syndication bot made for XMPP."
+
+[xmpp.client]
+alias = "Slixfeed"
+jid = "slixfeed@your.server/slixfeed"
+password = ""
+#hostname = 
+#port = 
+
+[xmpp.component]
+alias = "Slixfeed"
+jid = "rss.your.server"
+password = ""
+hostname = "your.server"
+#port = 
+
+[activitypub]
+username = ""
+password = ""
+operator =  ""
+
+[activitypub.profile]
+user_agent = "Slixfeed"
+
+[email]
+recipient_emails = ""
+sender_emails = ""
+
+[email.imap]
+username = ""
+password = ""
+#port = 993
+
+[email.smtp]
+host = ""
+#port = 465
+
+[irc]
+username = ""
+password = ""
+#port = 6667
+operator = ""
+
+[deltachat]
+username = ""
+password = ""
+operator = ""
+
+[lxmf]
+username = ""
+password = ""
+operator =  ""
+
+[nostr]
+username = ""
+password = ""
+operator = ""
+
+[session]
+username = ""
+password = ""
+operator = ""
+
+[sip]
+username = ""
+password = ""
+operator = ""
+
+[tox]
+username = ""
+password = ""
+operator = ""

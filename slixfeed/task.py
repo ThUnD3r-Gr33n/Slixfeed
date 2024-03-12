@@ -172,7 +172,7 @@ async def task_send(self, jid_bare):
     db_file = config.get_pathname_to_database(jid_file)
     if jid_bare not in self.settings:
         Config.add_settings_jid(self.settings, jid_bare, db_file)
-    update_interval = self.settings[jid_bare]['interval'] or self.settings['default']['interval']
+    update_interval = Config.get_setting_value(self.settings, jid_bare, 'interval')
     update_interval = 60 * int(update_interval)
     last_update_time = sqlite.get_last_update_time(db_file)
     if last_update_time:
@@ -232,7 +232,7 @@ def refresh_task(self, jid_bare, callback, key, val=None):
         db_file = config.get_pathname_to_database(jid_file)
         if jid_bare not in self.settings:
             Config.add_settings_jid(self.settings, jid_bare, db_file)
-        val = self.settings[jid_bare][key] or self.settings['default'][key]
+        val = Config.get_setting_value(self.settings, jid_bare, key)
     # if self.task_manager[jid][key]:
     if jid_bare in self.task_manager:
         try:
@@ -268,7 +268,7 @@ async def wait_and_run(self, callback, jid_bare, val):
 
 # TODO Take this function out of
 # <class 'slixmpp.clientxmpp.ClientXMPP'>
-async def check_updates(self, jid):
+async def check_updates(self, jid_bare):
     """
     Start calling for update check up.
 
@@ -277,15 +277,15 @@ async def check_updates(self, jid):
     jid : str
         Jabber ID.
     """
-    logging.info('Scanning for updates for JID {}'.format(jid))
+    logging.info('Scanning for updates for JID {}'.format(jid_bare))
     while True:
-        jid_file = jid.replace('/', '_')
+        jid_file = jid_bare.replace('/', '_')
         db_file = config.get_pathname_to_database(jid_file)
         urls = sqlite.get_active_feeds_url(db_file)
         for url in urls:
-            await action.scan(self, jid, db_file, url)
+            await action.scan(self, jid_bare, db_file, url)
             await asyncio.sleep(50)
-        val = self.settings['default']['check']
+        val = Config.get_setting_value(self.settings, jid_bare, 'check')
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes
         # loop.call_at(

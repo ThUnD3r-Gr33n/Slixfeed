@@ -34,15 +34,17 @@ class XmppMessage:
 
 
     def send(self, jid, message_body, chat_type):
+        jid_from = str(self.boundjid) if self.is_component else None
         self.send_message(mto=jid,
-                          mfrom=self.boundjid.bare,
+                          mfrom=jid_from,
                           mbody=message_body,
                           mtype=chat_type)
 
 
     def send_headline(self, jid, message_subject, message_body, chat_type):
+        jid_from = str(self.boundjid) if self.is_component else None
         self.send_message(mto=jid,
-                          mfrom=self.boundjid.bare,
+                          mfrom=jid_from,
                           # mtype='headline',
                           msubject=message_subject,
                           mbody=message_body,
@@ -58,13 +60,14 @@ class XmppMessage:
     # }
     # return saxutils.escape(raw_string, escape_map)
     def send_oob(self, jid, url, chat_type):
+        jid_from = str(self.boundjid) if self.is_component else None
         url = saxutils.escape(url)
         # try:
         html = (
             f'<body xmlns="http://www.w3.org/1999/xhtml">'
             f'<a href="{url}">{url}</a></body>')
         message = self.make_message(mto=jid,
-                                    mfrom=self.boundjid.bare,
+                                    mfrom=jid_from,
                                     mbody=url,
                                     mhtml=html,
                                     mtype=chat_type)
