@@ -122,7 +122,7 @@ class JabberComponent:
         xmpp.register_plugin('xep_0115') # Entity Capabilities
         xmpp.register_plugin('xep_0122') # Data Forms Validation
         xmpp.register_plugin('xep_0153') # vCard-Based Avatars
-        xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
+        xmpp.register_plugin('xep_0199') # XMPP Ping
         xmpp.register_plugin('xep_0203') # Delayed Delivery
         xmpp.register_plugin('xep_0249') # Direct MUC Invitations
         xmpp.register_plugin('xep_0297') # Stanza Forwarding

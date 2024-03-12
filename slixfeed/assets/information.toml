@@ -14,7 +14,7 @@ https://gitgud.io/sjehuda/slixfeed
 """
 
 [note]
-note = """
+info = """
 You can run your own Slixfeed instance as a client, from your own \
 computer, server, and even from a Linux phone (i.e. Droidian, Kupfer, \
 Mobian, NixOS, postmarketOS), as well as from Termux.

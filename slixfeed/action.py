@@ -1003,7 +1003,7 @@ async def scan_json(self, jid_bare, db_file, url):
                         "{} {} {}"
                         ).format(
                             title, summary, pathname)
-                    if int(self.settings['default']['filter']):
+                    if self.settings['default']['filter']:
                         print('Filter is now processing data.')
                         allow_list = config.is_include_keyword(db_file,
                                                                "allow", string)
@@ -1292,7 +1292,7 @@ async def scan(self, jid_bare, db_file, url):
                         "{} {} {}"
                         ).format(
                             title, summary, pathname)
-                    if int(self.settings['default']['filter']):
+                    if self.settings['default']['filter']:
                         print('Filter is now processing data.')
                         allow_list = config.is_include_keyword(db_file,
                                                                "allow", string)

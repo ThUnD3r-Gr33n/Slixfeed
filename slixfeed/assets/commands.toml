@@ -1,3 +1,9 @@
+[all]
+all = """
+all
+Show all options.
+"""
+
 [action]
 url = """
 <url>
