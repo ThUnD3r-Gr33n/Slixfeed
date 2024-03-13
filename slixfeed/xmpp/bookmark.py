@@ -40,9 +40,6 @@ class XmppBookmark:
         result = await self.plugin['xep_0048'].get_bookmarks()
         conferences = result['private']['bookmarks']['conferences']
         groupchats = []
-        for conference in conferences:
-            if conference['jid'] != properties['jid']:
-                groupchats.extend([conference])
         if properties:
             properties['jid'] = properties['room'] + '@' + properties['host']
             if not properties['alias']: properties['alias'] = self.alias
@@ -54,6 +51,9 @@ class XmppBookmark:
                 'autojoin' : True,
                 'password' : None,
                 }
+        for conference in conferences:
+            if conference['jid'] != properties['jid']:
+                groupchats.extend([conference])
         # FIXME Ad-hoc bookmark form is stuck
         # if jid not in groupchats:
         if properties['jid'] not in groupchats:

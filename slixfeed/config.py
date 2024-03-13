@@ -67,8 +67,6 @@ class Config:
         return result
 
     async def set_setting_value(settings, jid_bare, db_file, key, val):
-        print('key and val (inside)')
-        print(key, val)
         key = key.lower()
         key_val = [key, val]
         settings[jid_bare][key] = val

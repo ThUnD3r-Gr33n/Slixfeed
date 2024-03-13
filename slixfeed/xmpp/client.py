@@ -294,7 +294,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         # self.send_presence()
         profile.set_identity(self, 'client')
         self['xep_0115'].update_caps()
-        XmppGroupchat.autojoin(self)
+        bookmarks = await self.plugin['xep_0048'].get_bookmarks()
+        XmppGroupchat.autojoin(self, bookmarks)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,

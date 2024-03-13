@@ -822,7 +822,6 @@ async def message(self, message):
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
                 val = 0
-                print('key and val (outside)')
                 await Config.set_setting_value(self.settings, jid_bare,
                                                db_file, key, val)
                 response = 'Only new items of newly added feeds be delivered.'
