@@ -286,7 +286,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                                                  difference))
 
 
-    def on_session_resumed(self, event):
+    async def on_session_resumed(self, event):
         time_begin = time.time()
         function_name = sys._getframe().f_code.co_name
         message_log = '{}'
