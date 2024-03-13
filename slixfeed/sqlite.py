@@ -2503,8 +2503,14 @@ async def set_setting_value(db_file, key_value):
     logger.debug('{}: db_file: {} key: {} val: {}'
                 .format(function_name, db_file, key, val))
 
-    if not val:
-        raise Exception('Missing value for key "{}" ({}).'.format(key, db_file))
+    # NOTE This is not a good practice!
+    # When INI file was used, all values were strings.
+    # When TOML is now used, integers are integers, which means that
+    # statement "if not val" is equivalent to "if not 0" which is not so to
+    # statement "if not '0'"
+
+    # if not val:
+    #     raise Exception('Missing value for key "{}" ({}).'.format(key, db_file))
         # logger.error('Missing value for key "{}" ({}).'.format(key, db_file))
         # return
 
