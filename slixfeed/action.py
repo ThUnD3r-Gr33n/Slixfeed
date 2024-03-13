@@ -880,6 +880,7 @@ async def add_feed(self, jid_bare, db_file, url):
                                         'name' : None,
                                         'code' : status_code,
                                         'error' : True,
+                                        'message': result['message'],
                                         'exist' : False}
                         break
                     elif isinstance(result, list):
@@ -895,6 +896,7 @@ async def add_feed(self, jid_bare, db_file, url):
                                 'name' : None,
                                 'code' : status_code,
                                 'error' : True,
+                                'message': result['message'],
                                 'exist' : False}
                 break
         else:
@@ -905,6 +907,7 @@ async def add_feed(self, jid_bare, db_file, url):
                             'name' : name,
                             'code' : None,
                             'error' : False,
+                            'message': result['message'],
                             'exist' : True}
             break
     return result_final

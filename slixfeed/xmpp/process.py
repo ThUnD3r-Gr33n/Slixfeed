@@ -679,7 +679,9 @@ async def message(self, message):
                                                   result['index']))
                 elif result['error']:
                     response = ('> {}\nFailed to find subscriptions.  '
-                                'Reason: {}'.format(url, result['code']))
+                                'Reason: {} (status code: {})'
+                                .format(url, result['message'],
+                                        result['code']))
                 else:
                     response = ('> {}\nNews source "{}" has been '
                                 'added to subscription list.'
