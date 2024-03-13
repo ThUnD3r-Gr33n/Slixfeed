@@ -2504,8 +2504,9 @@ async def set_setting_value(db_file, key_value):
                 .format(function_name, db_file, key, val))
 
     if not val:
-        logger.error('Missing value for key "{}" ({}).'.format(key, db_file))
-        return
+        raise Exception('Missing value for key "{}" ({}).'.format(key, db_file))
+        # logger.error('Missing value for key "{}" ({}).'.format(key, db_file))
+        # return
 
     async with DBLOCK:
         with create_connection(db_file) as conn:
