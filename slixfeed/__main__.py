@@ -190,6 +190,9 @@ def main():
     config_dir = config.get_default_config_directory()
     logging.info('Reading configuration from {}'.format(config_dir))
     print('Reading configuration from {}'.format(config_dir))
+    network_settings = config.get_values('settings.toml', 'network')
+    print('User agent:', network_settings['user_agent'] or 'Slixfeed/0.1')
+    if network_settings['http_proxy']: print('HTTP Proxy:', network_settings['http_proxy'])
 
     # values = config.get_value('accounts', 'XMPP Proxy',
     #                           ['socks5_host', 'socks5_port'])

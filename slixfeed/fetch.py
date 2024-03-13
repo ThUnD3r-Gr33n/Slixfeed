@@ -119,11 +119,10 @@ async def http(url):
     msg: list or str
         Document or error message.
     """
-    user_agent = (config.get_values('settings.toml', 'network')['user_agent']
-                  or 'Slixfeed/0.1')
+    network_settings = config.get_values('settings.toml', 'network')
+    user_agent = (network_settings['user_agent'] or 'Slixfeed/0.1')
     headers = {'User-Agent': user_agent}
-    proxy = (config.get_values('settings.toml', 'network')['http_proxy']
-             or None)
+    proxy = (network_settings['http_proxy'] or None)
     timeout = ClientTimeout(total=10)
     async with ClientSession(headers=headers) as session:
     # async with ClientSession(trust_env=True) as session:
