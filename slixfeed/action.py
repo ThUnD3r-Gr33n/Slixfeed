@@ -770,11 +770,11 @@ async def add_feed(self, jid_bare, db_file, url):
     while True:
         exist = sqlite.get_feed_id_and_name(db_file, url)
         if not exist:
-            status_code = None
             result = await fetch.http(url)
+            message = result['message']
+            status_code = result['status_code']
             if not result['error']:
                 document = result['content']
-                status_code = result['status_code']
                 feed = parse(document)
                 # if is_feed(url, feed):
                 if is_feed(feed):
@@ -880,7 +880,7 @@ async def add_feed(self, jid_bare, db_file, url):
                                         'name' : None,
                                         'code' : status_code,
                                         'error' : True,
-                                        'message': result['message'],
+                                        'message': message,
                                         'exist' : False}
                         break
                     elif isinstance(result, list):
@@ -896,18 +896,19 @@ async def add_feed(self, jid_bare, db_file, url):
                                 'name' : None,
                                 'code' : status_code,
                                 'error' : True,
-                                'message': result['message'],
+                                'message': message,
                                 'exist' : False}
                 break
         else:
             ix = exist[0]
             name = exist[1]
+            message = 'URL already exist.'
             result_final = {'link' : url,
                             'index' : ix,
                             'name' : name,
                             'code' : None,
                             'error' : False,
-                            'message': result['message'],
+                            'message': message,
                             'exist' : True}
             break
     return result_final

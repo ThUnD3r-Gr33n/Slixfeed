@@ -1210,8 +1210,9 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 session['payload'] = form
                 # session['prev'] = self._handle_subscription_add
             elif result['error']:
-                response = ('Failed to load URL <{}>  Reason: {}'
-                            .format(url, result['code']))
+                response = ('Failed to load URL <{}>  Reason: {} '
+                            '(status code: {})'
+                            .format(url, result['message'], result['code']))
                 session['allow_prev'] = True
                 session['next'] = None
                 session['notes'] = [['error', response]]

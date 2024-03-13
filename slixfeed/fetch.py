@@ -123,7 +123,7 @@ async def http(url):
                   or 'Slixfeed/0.1')
     headers = {'User-Agent': user_agent}
     proxy = (config.get_values('settings.toml', 'network')['http_proxy']
-             or '')
+             or None)
     timeout = ClientTimeout(total=10)
     async with ClientSession(headers=headers) as session:
     # async with ClientSession(trust_env=True) as session:
@@ -159,18 +159,18 @@ async def http(url):
                               'response_url': response.url}
         except ClientError as e:
             result = {'error': True,
-                      'message': 'Error:' + str(e),
+                      'message': 'Error:' + str(e) if e else 'ClientError',
                       'original_url': url,
                       'status_code': None}
         except TimeoutError as e:
             result = {'error': True,
-                      'message': 'Timeout:' + str(e),
+                      'message': 'Timeout:' + str(e) if e else 'TimeoutError',
                       'original_url': url,
                       'status_code': None}
         except Exception as e:
             logging.error(e)
             result = {'error': True,
-                      'message': 'Error:' + str(e),
+                      'message': 'Error:' + str(e) if e else 'Error',
                       'original_url': url,
                       'status_code': None}
     return result
