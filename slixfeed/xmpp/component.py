@@ -681,23 +681,36 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
     async def _handle_publish(self, iq, session):
         form = self['xep_0004'].make_form('form', 'Publish')
-        form['instructions'] = ('In order to publish via Pubsub Social Feed '
-                                '(XEP-0472), you will have to choose a '
-                                'Publish-Subscribe (XEP-0060) hostname and '
-                                'be permitted to publish into it.')
+        form['instructions'] = ('In order to publish via PubSub, you will '
+                                'have to choose a PubSub hostname and '
+                                'have a privilege to publish into it.')
         # TODO Select from list-multi
-        form.add_field(var='subscription',
+        form.add_field(var='url',
                        ftype='text-single',
                        label='URL',
                        desc='Enter subscription URL.',
                        value='http://',
                        required=True)
-        form.add_field(var='subscription',
+        form.add_field(var='pubsub',
                        ftype='text-single',
                        label='PubSub',
                        desc='Enter a PubSub URL.',
                        value='pubsub.' + self.boundjid.host,
                        required=True)
+        form.add_field(var='node',
+                       ftype='text-single',
+                       label='Node',
+                       desc='Node to publish at.',
+                       required=False)
+        options = form.add_field(var='xep',
+                                 ftype='list-single',
+                                 label='Type',
+                                 desc='Select XEP.',
+                                 value='0060',
+                                 required=True)
+        options.addOption('XEP-0060: Publish-Subscribe', '0060')
+        options.addOption('XEP-0277: Microblogging over XMPP', '0277')
+        options.addOption('XEP-0472: Pubsub Social Feed', '0472')
         session['allow_prev'] = False
         session['has_next'] = True
         session['next'] = self._handle_preview
@@ -710,7 +723,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        text_note = ('XEP-0472: Pubsub Social Feed will be available soon.')
+        text_note = ('PubSub support will be available soon.')
         session['notes'] = [['info', text_note]]
         session['payload'] = None
         return session
@@ -827,6 +840,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
+        moderator = None
         if chat_type == 'groupchat':
             moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
@@ -918,6 +932,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
+        moderator = None
         if chat_type == 'groupchat':
             moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
@@ -1518,6 +1533,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
+        moderator = None
         if chat_type == 'groupchat':
             moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
@@ -1939,6 +1955,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
+        moderator = None
         if chat_type == 'groupchat':
             moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
@@ -2290,6 +2307,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         jid_bare = session['from'].bare
         jid_full = str(session['from'])
         chat_type = await get_chat_type(self, jid_bare)
+        moderator = None
+        moderator = None
         if chat_type == 'groupchat':
             moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
@@ -2679,6 +2698,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
+        moderator = None
         if chat_type == 'groupchat':
             moderator = is_moderator(self, jid_bare, jid_full)
         if chat_type == 'chat' or moderator:
