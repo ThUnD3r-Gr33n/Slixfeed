@@ -41,11 +41,11 @@ class XmppBookmark:
         conferences = result['private']['bookmarks']['conferences']
         groupchats = []
         for conference in conferences:
-            groupchats.extend([conference])
+            if conference['jid'] != properties['jid']:
+                groupchats.extend([conference])
         if properties:
             properties['jid'] = properties['room'] + '@' + properties['host']
             if not properties['alias']: properties['alias'] = self.alias
-                
         else:
             properties = {
                 'jid' : jid,
@@ -62,7 +62,7 @@ class XmppBookmark:
                 # if groupchat['jid'] == groupchat['name']:
                 #     groupchat['name'] = groupchat['name'].split('@')[0]
                 bookmarks.add_conference(groupchat['jid'],
-                                         groupchat['alias'],
+                                         groupchat['nick'],
                                          name=groupchat['name'],
                                          autojoin=groupchat['autojoin'],
                                          password=groupchat['password'])
@@ -71,7 +71,8 @@ class XmppBookmark:
                                      name=properties['name'],
                                      autojoin=properties['autojoin'],
                                      password=properties['password'])
-            await self.plugin['xep_0048'].set_bookmarks(bookmarks)
+            # await self.plugin['xep_0048'].set_bookmarks(bookmarks)
+            self.plugin['xep_0048'].set_bookmarks(bookmarks)
         # bookmarks = Bookmarks()
         # await self.plugin['xep_0048'].set_bookmarks(bookmarks)
         # print(await self.plugin['xep_0048'].get_bookmarks())

@@ -3,13 +3,6 @@
 
 """
 
-FIXME
-
-Message from OpenFire server log.
-
-2024.03.12 14:21:22.518 ERROR [nioEventLoopGroup-3-2]: org.jivesoftware.openfire.IQRouter - Unable to process a stanza that has no 'from' attribute, addressed to a remote entity. Stanza is being dropped: <iq id="8e4e60ae0d894b40a2fc465268d46d0b" type="get" to="rss.simon.goodbytes.im"><ping xmlns="urn:xmpp:ping"></ping></iq>
-
-
 TODO
 
 1) Check interval, and if no connection is establish after 30 seconds

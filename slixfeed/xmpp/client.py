@@ -1985,16 +1985,17 @@ class Slixfeed(slixmpp.ClientXMPP):
             options = form.add_field(var='option',
                                      ftype='list-single',
                                      label='Choose',
-                                     required=True)
+                                     required=True,
+                                     value='admin')
+            jid = session['from'].bare
+            if is_operator(self, jid):
+                options.addOption('Administration', 'admin')
             # options.addOption('Activity', 'activity')
             # options.addOption('Filters', 'filter')
             # options.addOption('Statistics', 'statistics')
             # options.addOption('Scheduler', 'scheduler')
             options.addOption('Import', 'import')
             options.addOption('Export', 'export')
-            jid = session['from'].bare
-            if is_operator(self, jid):
-                options.addOption('Administration', 'admin')
             session['payload'] = form
             session['next'] = self._handle_advanced_result
             session['has_next'] = True
@@ -2626,6 +2627,11 @@ class Slixfeed(slixmpp.ClientXMPP):
                                 label='Jabber ID',
                                 value=jid_bare)
         options.addOption(jid_bare, jid_bare)
+        form.addField(var='alias',
+                      ftype='text-single',
+                      label='Alias',
+                      value=properties['nick'],
+                      required=True)
         form.addField(var='name',
                       ftype='text-single',
                       label='Name',
@@ -2640,11 +2646,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                       ftype='text-single',
                       label='Host',
                       value=host,
-                      required=True)
-        form.addField(var='alias',
-                      ftype='text-single',
-                      label='Alias',
-                      value=properties['nick'],
                       required=True)
         form.addField(var='password',
                       ftype='text-private',
@@ -2679,24 +2680,24 @@ class Slixfeed(slixmpp.ClientXMPP):
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        # form = self['xep_0004'].make_form('result', 'Done')
-        # form['instructions'] = ('✅️ Bookmark has been saved')
-        # # In this case (as is typical), the payload is a form
+        form = self['xep_0004'].make_form('result', 'Done')
+        form['instructions'] = ('Bookmark has been saved')
         values = payload['values']
         await XmppBookmark.add(self, properties=values)
-        # for value in values:
-        #     key = str(value)
-        #     val = str(values[value])
-        #     if not val: val = 'None' # '(empty)'
-        #     form.add_field(var=key,
-        #                     ftype='text-single',
-        #                     label=key.capitalize(),
-        #                     value=val)
-        form = payload
-        form['title'] = 'Done'
-        form['instructions'] = 'has been completed!'
+        for i in values:
+            key = str(i)
+            val = str(values[i])
+            if val and key == 'password': val = '**********'
+            # if not val: val = 'None'
+            # form_type = 'text-single' if key != 'password' else 'text-private'
+            if val:
+                form.add_field(var=key,
+                                ftype='text-single',
+                                label=key.capitalize(),
+                                value=val)
         session['next'] = None
         session['payload'] = form
+        # session['notes'] = [['warn', text_warn]]
         return session
 
 

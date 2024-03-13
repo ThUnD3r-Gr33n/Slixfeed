@@ -4,8 +4,8 @@
 [default]
 archive = 50   # Maximum items to archive (0 - 500)
 check = 120    # Source check interval (recommended 90; minimum 10)
-enabled = 1# Work status (Value 0 to disable)
-filter = 0    # Enable filters (Value 1 to enable)
+enabled = 1    # Work status (Value 0 to disable)
+filter = 0     # Enable filters (Value 1 to enable)
 interval = 300 # Update interval (Minimum value 10)
 length = 300   # Maximum length of summary (Value 0 to disable)
 media = 0      # Display media (audio, image, video) when available
@@ -25,7 +25,6 @@ formatting = """
 {link}
 {feed_title} [{ix}]
 
-
 """
 
 # Utilized in case of missing protocol support.
@@ -38,7 +37,7 @@ tor = ""
 yggdrasil = ""
 
 [network]
-http_proxy = "http://localhost:8118"
+http_proxy = ""
 user_agent = "Slixfeed/0.1"
 clearnet = 0  # Enable policed DNS system (not recommended)
 i2p = 1       # Enable I2P mixnet system (safer)
