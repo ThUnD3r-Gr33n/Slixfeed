@@ -1410,7 +1410,9 @@ def generate_document(data, url, ext, filename, readability=False):
         content = data
     match ext:
         case "epub":
-            filename = filename.replace('.epub', '')
+            filename = filename.split('.')
+            filename.pop()
+            filename = '.'.join(filename)
             error = generate_epub(content, filename)
             if error:
                 logger.error(error)
