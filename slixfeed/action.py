@@ -1410,6 +1410,7 @@ def generate_document(data, url, ext, filename, readability=False):
         content = data
     match ext:
         case "epub":
+            filename = filename.replace('.epub', '')
             error = generate_epub(content, filename)
             if error:
                 logger.error(error)
@@ -1502,14 +1503,14 @@ async def extract_image_from_html(url):
             return image_url
 
 
-def generate_epub(text, pathname):
+def generate_epub(text, filename):
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: text: {} pathname: {}'.format(function_name, text, pathname))
+    logger.debug('{}: text: {} pathname: {}'.format(function_name, text, filename))
     ## create an empty eBook
-    pathname_list = pathname.split("/")
-    filename = pathname_list.pop()
-    directory = "/".join(pathname_list)
-    book = xml2epub.Epub(filename)
+    filename_list = filename.split("/")
+    file_title = filename_list.pop()
+    directory = "/".join(filename_list)
+    book = xml2epub.Epub(file_title)
     ## create chapters by url
     # chapter0 = xml2epub.create_chapter_from_string(text, title=filename, strict=False)
     chapter0 = xml2epub.create_chapter_from_string(text, strict=False)
@@ -1522,10 +1523,7 @@ def generate_epub(text, pathname):
         # book.add_chapter(chapter1)
         # book.add_chapter(chapter2)
         ## generate epub file
-        filename_tmp = "slixfeedepub"
-        book.create_epub(directory, epub_name=filename_tmp)
-        pathname_tmp = os.path.join(directory, filename_tmp) + ".epub"
-        os.rename(pathname_tmp, pathname)
+        book.create_epub(directory, absolute_location=filename)
     except ValueError as error:
         return error
         

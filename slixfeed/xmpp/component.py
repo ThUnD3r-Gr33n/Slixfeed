@@ -1055,6 +1055,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         title = sqlite.get_entry_title(db_file, ix)
         title = title[0] if title else 'Untitled'
         form = self['xep_0004'].make_form('form', 'Article')
+        form['instructions'] = title
         url = sqlite.get_entry_url(db_file, ix)
         url = url[0]
         logger.debug('Original URL: {}'.format(url))
@@ -1069,7 +1070,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         else:
             summary = 'No content to show.'
         form.add_field(ftype="text-multi",
-                       label=title,
+                       label='Article',
                        value=summary)
         field_url = form.add_field(var='url',
                                    ftype='hidden',
@@ -1099,7 +1100,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         options.addOption('Markdown', 'md')
         options.addOption('PDF', 'pdf')
         options.addOption('Plain Text', 'txt')
-        form['instructions'] = 'Proceed to download article.'
         session['allow_complete'] = False
         session['allow_prev'] = True
         session['has_next'] = True
@@ -1148,6 +1148,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 session['notes'] = [['error', text_error]]
             else:
                 url = await XmppUpload.start(self, jid_bare, filename)
+                chat_type = await get_chat_type(self, jid_bare)
+                XmppMessage.send_oob(self, jid_bare, url, chat_type)
                 form = self['xep_0004'].make_form('result', 'Download')
                 form['instructions'] = ('Download {} document.'
                                         .format(ext.upper()))
@@ -1225,8 +1227,13 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 session['payload'] = form
                 # session['prev'] = self._handle_subscription_add
             elif result['error']:
-                response = ('Failed to load URL <{}>  Reason: {} '
-                            '(status code: {})'
+                response = ('Failed to load resource.'
+                            '\n'
+                            'URL {}'
+                            '\n'
+                            'Reason: {}'
+                            '\n'
+                            'Code: {}'
                             .format(url, result['message'], result['code']))
                 session['allow_prev'] = True
                 session['next'] = None
@@ -1244,10 +1251,10 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 form['instructions'] = ('Subscription is already assigned at index {}.'
                                         '\n'
                                         '{}'
+                                        '\n'
+                                        '\n'
+                                        'Proceed to edit this subscription'
                                         .format(result['index'], result['name']))
-                form.add_field(ftype='boolean',
-                               var='edit',
-                               label='Would you want to edit this subscription?')
                 form.add_field(var='subscription',
                                ftype='hidden',
                                value=result['link'])
@@ -1273,10 +1280,10 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 form['instructions'] = ('New subscription'
                                         '\n'
                                         '"{}"'
+                                        '\n'
+                                        '\n'
+                                        'Proceed to edit this subscription'
                                         .format(result['name']))
-                form.add_field(ftype='boolean',
-                               var='edit',
-                               label='Continue to edit subscription?')
                 form.add_field(var='subscription',
                                ftype='hidden',
                                value=result['link'])
@@ -1753,10 +1760,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         jid_bare = session['from'].bare
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
-        if 'edit' in payload['values'] and not payload['values']['edit']:
-            session['payload'] = None
-            session['next'] = None
-            return session
         if 'subscription' in payload['values']:
             urls = payload['values']['subscription']
         elif 'subscriptions' in payload['values']:
@@ -2280,13 +2283,13 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         for ext in exts:
             filename = await action.export_feeds(self, jid_bare, jid_file, ext)
             url = await XmppUpload.start(self, jid_bare, filename)
+            chat_type = await get_chat_type(self, jid_bare)
+            XmppMessage.send_oob(self, jid_bare, url, chat_type)
             url_field = form.add_field(var=ext.upper(),
                                        ftype='text-single',
                                        label=ext,
                                        value=url)
             url_field['validate']['datatype'] = 'xs:anyURI'
-            chat_type = await get_chat_type(self, jid_bare)
-            XmppMessage.send_oob(self, jid_bare, url, chat_type)
         form['type'] = 'result'
         form['title'] = 'Done'
         form['instructions'] = ('Completed successfully!')
@@ -2307,7 +2310,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         jid_bare = session['from'].bare
         jid_full = str(session['from'])
         chat_type = await get_chat_type(self, jid_bare)
-        moderator = None
         moderator = None
         if chat_type == 'groupchat':
             moderator = is_moderator(self, jid_bare, jid_full)
