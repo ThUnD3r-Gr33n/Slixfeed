@@ -111,6 +111,9 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # Handler for tasks
         self.task_manager = {}
 
+        # Handler for task messages
+        self.pending_tasks = {}
+
         # Handler for ping
         self.task_ping_instance = {}
 
@@ -308,6 +311,10 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             #     self.send_raw(str(presence_probe))
             #     presence_probe.send()
 
+            if jid_bare not in self.pending_tasks:
+                self.pending_tasks[jid_bare] = {}
+            # if jid_full not in self.pending_tasks:
+            #     self.pending_tasks[jid_full] = {}
             await process.message(self, message)
         # chat_type = message["type"]
         # message_body = message["body"]
@@ -2709,7 +2716,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             if jid_bare not in self.settings:
                 Config.add_settings_jid(self.settings, jid_bare, db_file)
             form = self['xep_0004'].make_form('form', 'Settings')
-            form['instructions'] = 'Editing settings'
+            form['instructions'] = 'Editing settings of {}'.format(jid_bare)
             value = Config.get_setting_value(self.settings, jid_bare, 'enabled')
             value = str(value)
             value = int(value)

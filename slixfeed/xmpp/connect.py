@@ -14,7 +14,6 @@ TODO
 """
 
 import asyncio
-from slixfeed.config import get_value
 from slixfeed.dt import current_time
 from slixmpp.exceptions import IqTimeout, IqError
 from time import sleep
@@ -36,7 +35,6 @@ class XmppConnect:
         Returns
         -------
         None.
-
         """
         jid_from = str(self.boundjid) if self.is_component else None
         if not jid:

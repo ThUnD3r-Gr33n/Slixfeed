@@ -46,6 +46,8 @@ from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utility import get_chat_type, is_moderator, is_operator
 import time
 
+from random import randrange
+
 try:
     import tomllib
 except:
@@ -104,6 +106,9 @@ async def message(self, message):
             task.clean_tasks_xmpp(self, jid_bare, key_list)
             status_type = 'dnd'
             status_message = '📥️ Procesing request to import feeds...'
+            # pending_tasks_num = len(self.pending_tasks[jid_bare])
+            pending_tasks_num = randrange(10000, 99999)
+            self.pending_tasks[jid_bare][pending_tasks_num] = status_message
             XmppPresence.send(self, jid_bare, status_message,
                               status_type=status_type)
             db_file = config.get_pathname_to_database(jid_file)
@@ -112,6 +117,7 @@ async def message(self, message):
                 response = 'Successfully imported {} feeds.'.format(count)
             else:
                 response = 'OPML file was not imported.'
+            del self.pending_tasks[jid_bare][pending_tasks_num]
             key_list = ['status']
             await task.start_tasks_xmpp(self, jid_bare, key_list)
             XmppMessage.send_reply(self, message, response)
@@ -280,6 +286,13 @@ async def message(self, message):
                             'Send "help" for further instructions.\n'
                             .format(self.alias))
                 XmppMessage.send_reply(self, message, response)
+                
+                title = message_lowercase
+                summary = message_text
+                # from random import randrange
+                node = str(randrange(10000, 99999))
+                iq = XmppPubsub.create(self, title, summary, node)
+                await XmppIQ.send(self, iq)
     
             # case _ if message_lowercase.startswith('activate'):
             #     if message['type'] == 'groupchat':
@@ -513,6 +526,9 @@ async def message(self, message):
                     status_message = ('📤️ Procesing request to '
                                       'export feeds into {}...'
                                       .format(ext.upper()))
+                    # pending_tasks_num = len(self.pending_tasks[jid_bare])
+                    pending_tasks_num = randrange(10000, 99999)
+                    self.pending_tasks[jid_bare][pending_tasks_num] = status_message
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     filename = await action.export_feeds(self, jid_bare,
@@ -524,6 +540,7 @@ async def message(self, message):
                     # XmppMessage.send_oob_reply_message(message, url, response)
                     chat_type = await get_chat_type(self, jid_bare)
                     XmppMessage.send_oob(self, jid_bare, url, chat_type)
+                    del self.pending_tasks[jid_bare][pending_tasks_num]
                     key_list = ['status']
                     await task.start_tasks_xmpp(self, jid_bare, key_list)
                 else:
@@ -559,6 +576,9 @@ async def message(self, message):
                     status_type = 'dnd'
                     status_message = ('📃️ Procesing request to produce {} '
                                       'document...'.format(ext.upper()))
+                    # pending_tasks_num = len(self.pending_tasks[jid_bare])
+                    pending_tasks_num = randrange(10000, 99999)
+                    self.pending_tasks[jid_bare][pending_tasks_num] = status_message
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     db_file = config.get_pathname_to_database(jid_file)
@@ -612,8 +632,6 @@ async def message(self, message):
                                 response = ('> {}\n'
                                             'Failed to fetch URL.  Reason: {}'
                                             .format(url, code))
-                        key_list = ['status']
-                        await task.start_tasks_xmpp(self, jid_bare, key_list)
                     else:
                         response = ('No action has been taken.'
                                     '\n'
@@ -623,6 +641,9 @@ async def message(self, message):
                     response = ('Unsupported filetype.\n'
                                 'Try: epub, html, md (markdown), '
                                 'pdf, or txt (text)')
+                del self.pending_tasks[jid_bare][pending_tasks_num]
+                key_list = ['status']
+                await task.start_tasks_xmpp(self, jid_bare, key_list)
                 if response:
                     logging.warning('Error for URL {}: {}'.format(url, error))
                     XmppMessage.send_reply(self, message, response)
@@ -633,6 +654,9 @@ async def message(self, message):
                 task.clean_tasks_xmpp(self, jid_bare, key_list)
                 status_type = 'dnd'
                 status_message = '📥️ Procesing request to import feeds...'
+                # pending_tasks_num = len(self.pending_tasks[jid_bare])
+                pending_tasks_num = randrange(10000, 99999)
+                self.pending_tasks[jid_bare][pending_tasks_num] = status_message
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 db_file = config.get_pathname_to_database(jid_file)
@@ -642,6 +666,7 @@ async def message(self, message):
                                 .format(count))
                 else:
                     response = 'OPML file was not imported.'
+                del self.pending_tasks[jid_bare][pending_tasks_num]
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
                 XmppMessage.send_reply(self, message, response)
@@ -652,6 +677,10 @@ async def message(self, message):
                 status_type = 'dnd'
                 status_message = ('📫️ Processing request to fetch data from {}'
                                   .format(url))
+                # pending_tasks_num = len(self.pending_tasks[jid_bare])
+                pending_tasks_num = randrange(10000, 99999)
+                self.pending_tasks[jid_bare][pending_tasks_num] = status_message
+                print(self.pending_tasks)
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 if url.startswith('feed:'):
@@ -687,6 +716,9 @@ async def message(self, message):
                                 'added to subscription list.'
                                 .format(result['link'], result['name']))
                 # task.clean_tasks_xmpp(self, jid_bare, ['status'])
+                print(self.pending_tasks)
+                del self.pending_tasks[jid_bare][pending_tasks_num]
+                print(self.pending_tasks)
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
                 # except:
@@ -897,6 +929,8 @@ async def message(self, message):
                     status_type = 'dnd'
                     status_message = ('📫️ Processing request to fetch data '
                                       'from {}'.format(url))
+                    
+                    self.pending_tasks[jid_bare][pending_tasks_num] = status_message
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     if url.startswith('feed:'):
@@ -927,6 +961,7 @@ async def message(self, message):
                                 '\n'
                                 'Missing URL.')
                 XmppMessage.send_reply(self, message, response)
+                del self.pending_tasks[jid_bare][pending_tasks_num]
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
             case _ if message_lowercase.startswith('recent '):
@@ -1003,6 +1038,9 @@ async def message(self, message):
                 task.clean_tasks_xmpp(self, jid_bare, key_list)
                 status_type = 'dnd'
                 status_message = '📫️ Marking entries as read...'
+                # pending_tasks_num = len(self.pending_tasks[jid_bare])
+                pending_tasks_num = randrange(10000, 99999)
+                self.pending_tasks[jid_bare][pending_tasks_num] = status_message
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 db_file = config.get_pathname_to_database(jid_file)
@@ -1044,6 +1082,7 @@ async def message(self, message):
                     await sqlite.mark_all_as_read(db_file)
                     response = 'All entries have been marked as read.'
                 XmppMessage.send_reply(self, message, response)
+                del self.pending_tasks[jid_bare][pending_tasks_num]
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
             case _ if message_lowercase.startswith('search '):

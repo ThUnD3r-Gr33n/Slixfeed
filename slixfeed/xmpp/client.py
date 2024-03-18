@@ -120,6 +120,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         # Handler for tasks
         self.task_manager = {}
 
+        # Handler for task messages
+        self.pending_tasks = {}
+
         # Handler for ping
         self.task_ping_instance = {}
 
@@ -349,6 +352,11 @@ class Slixfeed(slixmpp.ClientXMPP):
             #     message_body = 'Share online status to receive updates.'
             #     XmppMessage.send_headline(self, jid_bare, message_subject,
             #                               message_body, 'chat')
+            
+            if jid_bare not in self.pending_tasks:
+                self.pending_tasks[jid_bare] = {}
+            # if jid_full not in self.pending_tasks:
+            #     self.pending_tasks[jid_full] = {}
             await process.message(self, message)
         # chat_type = message["type"]
         # message_body = message["body"]
@@ -2749,7 +2757,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             if jid_bare not in self.settings:
                 Config.add_settings_jid(self.settings, jid_bare, db_file)
             form = self['xep_0004'].make_form('form', 'Settings')
-            form['instructions'] = 'Editing settings'
+            form['instructions'] = 'Editing settings of {}'.format(jid_bare)
             value = Config.get_setting_value(self.settings, jid_bare, 'enabled')
             value = str(value)
             value = int(value)

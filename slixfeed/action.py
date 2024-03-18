@@ -153,25 +153,30 @@ async def xmpp_send_status(self, jid):
         status_mode = 'xa'
         status_text = '📪️ Send "Start" to receive updates'
     else:
-        feeds = sqlite.get_number_of_items(db_file, 'feeds')
-        # print(await current_time(), jid, "has", feeds, "feeds")
-        if not feeds:
-            status_mode = 'available'
-            status_text = '📪️ Send a URL from a blog or a news website'
+        jid_task = self.pending_tasks[jid]
+        if len(jid_task):
+            status_mode = 'dnd'
+            status_text = jid_task[list(jid_task.keys())[0]]
         else:
-            unread = sqlite.get_number_of_entries_unread(db_file)
-            if unread:
-                status_mode = 'chat'
-                status_text = '📬️ There are {} news items'.format(str(unread))
-                # status_text = (
-                #     "📰 News items: {}"
-                #     ).format(str(unread))
-                # status_text = (
-                #     "📰 You have {} news items"
-                #     ).format(str(unread))
-            else:
+            feeds = sqlite.get_number_of_items(db_file, 'feeds')
+            # print(await current_time(), jid, "has", feeds, "feeds")
+            if not feeds:
                 status_mode = 'available'
-                status_text = '📭️ No news'
+                status_text = '📪️ Send a URL from a blog or a news website'
+            else:
+                unread = sqlite.get_number_of_entries_unread(db_file)
+                if unread:
+                    status_mode = 'chat'
+                    status_text = '📬️ There are {} news items'.format(str(unread))
+                    # status_text = (
+                    #     "📰 News items: {}"
+                    #     ).format(str(unread))
+                    # status_text = (
+                    #     "📰 You have {} news items"
+                    #     ).format(str(unread))
+                else:
+                    status_mode = 'available'
+                    status_text = '📭️ No news'
 
     # breakpoint()
     # print(await current_time(), status_text, "for", jid)
