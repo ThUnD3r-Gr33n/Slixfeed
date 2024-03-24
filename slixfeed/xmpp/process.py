@@ -23,14 +23,13 @@ TODO
 
 """
 
-from slixfeed.xmpp.publish import XmppPubsub
-from slixfeed.xmpp.iq import XmppIQ
-
 import asyncio
+from feedparser import parse
 import logging
 import os
 import slixfeed.action as action
 import slixfeed.config as config
+import slixfeed.crawl as crawl
 from slixfeed.config import Config
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
@@ -109,15 +108,19 @@ async def message(self, message):
             # pending_tasks_num = len(self.pending_tasks[jid_bare])
             pending_tasks_num = randrange(10000, 99999)
             self.pending_tasks[jid_bare][pending_tasks_num] = status_message
+            # self.pending_tasks_counter += 1
+            # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
             XmppPresence.send(self, jid_bare, status_message,
                               status_type=status_type)
             db_file = config.get_pathname_to_database(jid_file)
-            count = await action.import_opml(db_file, url)
+            result = await fetch.http(url)
+            count = await action.import_opml(db_file, result)
             if count:
                 response = 'Successfully imported {} feeds.'.format(count)
             else:
                 response = 'OPML file was not imported.'
             del self.pending_tasks[jid_bare][pending_tasks_num]
+            # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
             key_list = ['status']
             await task.start_tasks_xmpp(self, jid_bare, key_list)
             XmppMessage.send_reply(self, message, response)
@@ -286,13 +289,6 @@ async def message(self, message):
                             'Send "help" for further instructions.\n'
                             .format(self.alias))
                 XmppMessage.send_reply(self, message, response)
-                
-                title = message_lowercase
-                summary = message_text
-                # from random import randrange
-                node = str(randrange(10000, 99999))
-                iq = XmppPubsub.create(self, title, summary, node)
-                await XmppIQ.send(self, iq)
     
             # case _ if message_lowercase.startswith('activate'):
             #     if message['type'] == 'groupchat':
@@ -529,6 +525,8 @@ async def message(self, message):
                     # pending_tasks_num = len(self.pending_tasks[jid_bare])
                     pending_tasks_num = randrange(10000, 99999)
                     self.pending_tasks[jid_bare][pending_tasks_num] = status_message
+                    # self.pending_tasks_counter += 1
+                    # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     filename = await action.export_feeds(self, jid_bare,
@@ -541,6 +539,7 @@ async def message(self, message):
                     chat_type = await get_chat_type(self, jid_bare)
                     XmppMessage.send_oob(self, jid_bare, url, chat_type)
                     del self.pending_tasks[jid_bare][pending_tasks_num]
+                    # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                     key_list = ['status']
                     await task.start_tasks_xmpp(self, jid_bare, key_list)
                 else:
@@ -579,6 +578,8 @@ async def message(self, message):
                     # pending_tasks_num = len(self.pending_tasks[jid_bare])
                     pending_tasks_num = randrange(10000, 99999)
                     self.pending_tasks[jid_bare][pending_tasks_num] = status_message
+                    # self.pending_tasks_counter += 1
+                    # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     db_file = config.get_pathname_to_database(jid_file)
@@ -642,6 +643,7 @@ async def message(self, message):
                                 'Try: epub, html, md (markdown), '
                                 'pdf, or txt (text)')
                 del self.pending_tasks[jid_bare][pending_tasks_num]
+                # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
                 if response:
@@ -657,16 +659,20 @@ async def message(self, message):
                 # pending_tasks_num = len(self.pending_tasks[jid_bare])
                 pending_tasks_num = randrange(10000, 99999)
                 self.pending_tasks[jid_bare][pending_tasks_num] = status_message
+                # self.pending_tasks_counter += 1
+                # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 db_file = config.get_pathname_to_database(jid_file)
-                count = await action.import_opml(db_file, url)
+                result = await fetch.http(url)
+                count = await action.import_opml(db_file, result)
                 if count:
                     response = ('Successfully imported {} feeds.'
                                 .format(count))
                 else:
                     response = 'OPML file was not imported.'
                 del self.pending_tasks[jid_bare][pending_tasks_num]
+                # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
                 XmppMessage.send_reply(self, message, response)
@@ -680,7 +686,8 @@ async def message(self, message):
                 # pending_tasks_num = len(self.pending_tasks[jid_bare])
                 pending_tasks_num = randrange(10000, 99999)
                 self.pending_tasks[jid_bare][pending_tasks_num] = status_message
-                print(self.pending_tasks)
+                # self.pending_tasks_counter += 1
+                # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 if url.startswith('feed:'):
@@ -716,8 +723,8 @@ async def message(self, message):
                                 'added to subscription list.'
                                 .format(result['link'], result['name']))
                 # task.clean_tasks_xmpp(self, jid_bare, ['status'])
-                print(self.pending_tasks)
                 del self.pending_tasks[jid_bare][pending_tasks_num]
+                # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                 print(self.pending_tasks)
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
@@ -929,7 +936,7 @@ async def message(self, message):
                     status_type = 'dnd'
                     status_message = ('📫️ Processing request to fetch data '
                                       'from {}'.format(url))
-                    
+                    pending_tasks_num = randrange(10000, 99999)
                     self.pending_tasks[jid_bare][pending_tasks_num] = status_message
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
@@ -939,7 +946,36 @@ async def message(self, message):
                     match len(data):
                         case 1:
                             if url.startswith('http'):
-                                response = await action.view_feed(url)
+                                while True:
+                                    result = await fetch.http(url)
+                                    if not result['error']:
+                                        document = result['content']
+                                        status = result['status_code']
+                                        feed = parse(document)
+                                        # if is_feed(url, feed):
+                                        if action.is_feed(feed):
+                                            response = action.view_feed(url, feed)
+                                            break
+                                        else:
+                                            result = await crawl.probe_page(url, document)
+                                            if isinstance(result, list):
+                                                results = result
+                                                response = ("Web feeds found for {}\n\n```\n"
+                                                            .format(url))
+                                                for result in results:
+                                                    response += ("Title : {}\n"
+                                                                 "Link  : {}\n"
+                                                                 "\n"
+                                                                 .format(result['name'], result['link']))
+                                                response += ('```\nTotal of {} feeds.'
+                                                            .format(len(results)))
+                                                break
+                                            else:
+                                                url = result[0]
+                                    else:
+                                        response = ('> {}\nFailed to load URL.  Reason: {}'
+                                                    .format(url, status))
+                                        break
                             else:
                                 response = ('No action has been taken.'
                                             '\n'
@@ -947,7 +983,36 @@ async def message(self, message):
                         case 2:
                             num = data[1]
                             if url.startswith('http'):
-                                response = await action.view_entry(url, num)
+                                while True:
+                                    result = await fetch.http(url)
+                                    if not result['error']:
+                                        document = result['content']
+                                        status = result['status_code']
+                                        feed = parse(document)
+                                        # if is_feed(url, feed):
+                                        if action.is_feed(feed):
+                                            response = action.view_entry(url, feed, num)
+                                            break
+                                        else:
+                                            result = await crawl.probe_page(url, document)
+                                            if isinstance(result, list):
+                                                results = result
+                                                response = ("Web feeds found for {}\n\n```\n"
+                                                            .format(url))
+                                                for result in results:
+                                                    response += ("Title : {}\n"
+                                                                 "Link  : {}\n"
+                                                                 "\n"
+                                                                 .format(result['name'], result['link']))
+                                                response += ('```\nTotal of {} feeds.'
+                                                            .format(len(results)))
+                                                break
+                                            else:
+                                                url = result[0]
+                                    else:
+                                        response = ('> {}\nFailed to load URL.  Reason: {}'
+                                                    .format(url, status))
+                                        break
                             else:
                                 response = ('No action has been taken.'
                                             '\n'
@@ -1041,6 +1106,8 @@ async def message(self, message):
                 # pending_tasks_num = len(self.pending_tasks[jid_bare])
                 pending_tasks_num = randrange(10000, 99999)
                 self.pending_tasks[jid_bare][pending_tasks_num] = status_message
+                # self.pending_tasks_counter += 1
+                # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 db_file = config.get_pathname_to_database(jid_file)
@@ -1083,6 +1150,7 @@ async def message(self, message):
                     response = 'All entries have been marked as read.'
                 XmppMessage.send_reply(self, message, response)
                 del self.pending_tasks[jid_bare][pending_tasks_num]
+                # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                 key_list = ['status']
                 await task.start_tasks_xmpp(self, jid_bare, key_list)
             case _ if message_lowercase.startswith('search '):

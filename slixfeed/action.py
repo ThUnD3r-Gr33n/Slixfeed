@@ -745,11 +745,10 @@ def export_to_opml(jid, filename, results):
     tree.write(filename)
 
 
-async def import_opml(db_file, url):
+async def import_opml(db_file, result):
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} url: {}'
-                .format(function_name, db_file, url))
-    result = await fetch.http(url)
+    logger.debug('{}: db_file: {}'
+                .format(function_name, db_file))
     if not result['error']:
         document = result['content']
         root = ET.fromstring(document)
@@ -1070,137 +1069,97 @@ async def scan_json(self, jid_bare, db_file, url):
                                                           new_entries)
 
 
-async def view_feed(url):
+def view_feed(url, feed):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: url: {}'
                  .format(function_name, url))
-    while True:
-        result = await fetch.http(url)
-        if not result['error']:
-            document = result['content']
-            status = result['status_code']
-            feed = parse(document)
-            # if is_feed(url, feed):
-            if is_feed(feed):
-                if "title" in feed["feed"].keys():
-                    title = feed["feed"]["title"]
-                else:
-                    title = urlsplit(url).netloc
-                entries = feed.entries
-                response = "Preview of {}:\n\n```\n".format(title)
-                counter = 0
-                for entry in entries:
-                    counter += 1
-                    if entry.has_key("title"):
-                        title = entry.title
-                    else:
-                        title = "*** No title ***"
-                    if entry.has_key("link"):
-                        # link = complete_url(source, entry.link)
-                        link = join_url(url, entry.link)
-                        link = trim_url(link)
-                    else:
-                        link = "*** No link ***"
-                    if entry.has_key("published"):
-                        date = entry.published
-                        date = dt.rfc2822_to_iso8601(date)
-                    elif entry.has_key("updated"):
-                        date = entry.updated
-                        date = dt.rfc2822_to_iso8601(date)
-                    else:
-                        date = "*** No date ***"
-                    response += ("Title : {}\n"
-                                 "Date  : {}\n"
-                                 "Link  : {}\n"
-                                 "Count : {}\n"
-                                 "\n"
-                                 .format(title, date, link, counter))
-                    if counter > 4:
-                        break
-                response += (
-                    "```\nSource: {}"
-                    ).format(url)
-                break
-            else:
-                result = await crawl.probe_page(url, document)
-                if isinstance(result, str):
-                    response = result
-                    break
-                else:
-                    url = result[0]
+    if "title" in feed["feed"].keys():
+        title = feed["feed"]["title"]
+    else:
+        title = urlsplit(url).netloc
+    entries = feed.entries
+    response = "Preview of {}:\n\n```\n".format(title)
+    counter = 0
+    for entry in entries:
+        counter += 1
+        if entry.has_key("title"):
+            title = entry.title
         else:
-            response = ('> {}\nFailed to load URL.  Reason: {}'
-                        .format(url, status))
+            title = "*** No title ***"
+        if entry.has_key("link"):
+            # link = complete_url(source, entry.link)
+            link = join_url(url, entry.link)
+            link = trim_url(link)
+        else:
+            link = "*** No link ***"
+        if entry.has_key("published"):
+            date = entry.published
+            date = dt.rfc2822_to_iso8601(date)
+        elif entry.has_key("updated"):
+            date = entry.updated
+            date = dt.rfc2822_to_iso8601(date)
+        else:
+            date = "*** No date ***"
+        response += ("Title : {}\n"
+                     "Date  : {}\n"
+                     "Link  : {}\n"
+                     "Count : {}\n"
+                     "\n"
+                     .format(title, date, link, counter))
+        if counter > 4:
             break
+    response += (
+        "```\nSource: {}"
+        ).format(url)
     return response
 
 
-async def view_entry(url, num):
+def view_entry(url, feed, num):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: url: {} num: {}'
                 .format(function_name, url, num))
-    while True:
-        result = await fetch.http(url)
-        if not result['error']:
-            document = result['content']
-            status = result['status_code']
-            feed = parse(document)
-            # if is_feed(url, feed):
-            if is_feed(feed):
-                if "title" in feed["feed"].keys():
-                    title = feed["feed"]["title"]
-                else:
-                    title = urlsplit(url).netloc
-                entries = feed.entries
-                num = int(num) - 1
-                entry = entries[num]
-                response = "Preview of {}:\n\n```\n".format(title)
-                if entry.has_key("title"):
-                    title = entry.title
-                else:
-                    title = "*** No title ***"
-                if entry.has_key("published"):
-                    date = entry.published
-                    date = dt.rfc2822_to_iso8601(date)
-                elif entry.has_key("updated"):
-                    date = entry.updated
-                    date = dt.rfc2822_to_iso8601(date)
-                else:
-                    date = "*** No date ***"
-                if entry.has_key("summary"):
-                    summary = entry.summary
-                    # Remove HTML tags
-                    summary = BeautifulSoup(summary, "lxml").text
-                    # TODO Limit text length
-                    summary = summary.replace("\n\n\n", "\n\n")
-                else:
-                    summary = "*** No summary ***"
-                if entry.has_key("link"):
-                    # link = complete_url(source, entry.link)
-                    link = join_url(url, entry.link)
-                    link = trim_url(link)
-                else:
-                    link = "*** No link ***"
-                response = ("{}\n"
-                            "\n"
-                            # "> {}\n"
-                            "{}\n"
-                            "\n"
-                            "{}\n"
-                            "\n"
-                            .format(title, summary, link))
-                break
-            else:
-                result = await crawl.probe_page(url, document)
-                if isinstance(result, str):
-                    response = result
-                    break
-                else:
-                    url = result[0]
-        else:
-            response = ('> {}\nFailed to load URL.  Reason: {}'
-                        .format(url, status))
-            break
+    if "title" in feed["feed"].keys():
+        title = feed["feed"]["title"]
+    else:
+        title = urlsplit(url).netloc
+    entries = feed.entries
+    num = int(num) - 1
+    entry = entries[num]
+    response = "Preview of {}:\n\n```\n".format(title)
+    if entry.has_key("title"):
+        title = entry.title
+    else:
+        title = "*** No title ***"
+    if entry.has_key("published"):
+        date = entry.published
+        date = dt.rfc2822_to_iso8601(date)
+    elif entry.has_key("updated"):
+        date = entry.updated
+        date = dt.rfc2822_to_iso8601(date)
+    else:
+        date = "*** No date ***"
+    if entry.has_key("summary"):
+        summary = entry.summary
+        # Remove HTML tags
+        summary = BeautifulSoup(summary, "lxml").text
+        # TODO Limit text length
+        summary = summary.replace("\n\n\n", "\n\n")
+    else:
+        summary = "*** No summary ***"
+    if entry.has_key("link"):
+        # link = complete_url(source, entry.link)
+        link = join_url(url, entry.link)
+        link = trim_url(link)
+    else:
+        link = "*** No link ***"
+    response = ("{}\n"
+                "\n"
+                # "> {}\n"
+                "{}\n"
+                "\n"
+                "{}\n"
+                "\n"
+                .format(title, summary, link))
     return response
 
 

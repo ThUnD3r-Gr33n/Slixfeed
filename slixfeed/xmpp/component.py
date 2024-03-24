@@ -37,9 +37,11 @@ from slixfeed.version import __version__
 from slixfeed.xmpp.connect import XmppConnect
 # NOTE MUC is possible for component
 from slixfeed.xmpp.muc import XmppGroupchat
+from slixfeed.xmpp.iq import XmppIQ
 from slixfeed.xmpp.message import XmppMessage
 import slixfeed.xmpp.process as process
 import slixfeed.xmpp.profile as profile
+from slixfeed.xmpp.publish import XmppPubsub
 # from slixfeed.xmpp.roster import XmppRoster
 # import slixfeed.xmpp.service as service
 from slixfeed.xmpp.presence import XmppPresence
@@ -113,6 +115,9 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
         # Handler for task messages
         self.pending_tasks = {}
+
+        # Handler for task messages counter
+        # self.pending_tasks_counter = 0
 
         # Handler for ping
         self.task_ping_instance = {}
@@ -643,15 +648,18 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
 
         # NOTE https://codeberg.org/poezio/slixmpp/issues/3515
         # if is_operator(self, jid_bare):
-        self['xep_0050'].add_command(node='recent',
-                                     name='📰️ Browse',
-                                     handler=self._handle_recent)
         self['xep_0050'].add_command(node='subscription',
                                      name='🪶️ Subscribe',
                                      handler=self._handle_subscription_add)
         self['xep_0050'].add_command(node='publish',
-                                     name='📣️ Publish',
-                                     handler=self._handle_publish)
+                                     name='📻 Publish',
+                                     handler=self._handle_pubsub_add)
+        self['xep_0050'].add_command(node='post',
+                                     name='📣️ Post',
+                                     handler=self._handle_post)
+        self['xep_0050'].add_command(node='recent',
+                                     name='📰️ Browse',
+                                     handler=self._handle_recent)
         self['xep_0050'].add_command(node='subscriptions',
                                      name='🎫️ Subscriptions',
                                      handler=self._handle_subscriptions)
@@ -686,33 +694,56 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
     # Special interface
     # http://jabber.org/protocol/commands#actions
 
-    async def _handle_publish(self, iq, session):
-        form = self['xep_0004'].make_form('form', 'Publish')
-        form['instructions'] = ('In order to publish via PubSub, you will '
-                                'have to choose a PubSub hostname and '
-                                'have a privilege to publish into it.')
-        # TODO Select from list-multi
+    async def _handle_post(self, iq, session):
+        jid_bare = session['from'].bare
+        if not is_operator(self, jid_bare):
+            text_warn = 'PubSub is not available.'
+            session['notes'] = [['warn', text_warn]]
+            return session
+        form = self['xep_0004'].make_form('form', 'Post')
+        form['instructions'] = ('In order to post to PubSub, you will have to '
+                                'choose a PubSub Jabber ID (e.g. {}) and '
+                                'Slixfeed has to be allowed to publish into '
+                                'it.'
+                                .format(self.boundjid.bare))
         form.add_field(var='url',
                        ftype='text-single',
                        label='URL',
-                       desc='Enter subscription URL.',
+                       desc='Enter a subscription URL.',
                        value='http://',
                        required=True)
-        form.add_field(var='pubsub',
+        # options = form.add_field(var='jid',
+        #                          ftype='list-single',
+        #                          label='PubSub',
+        #                          desc='Select a PubSub Jabber ID.',
+        #                          value=self.boundjid.bare,
+        #                          required=True)
+        # iq = await self['xep_0030'].get_items(jid=self.boundjid.domain)
+        # for item in iq['disco_items']['items']:
+        #     jid = item[0]
+        #     if item[1]: name = item[1]
+        #     elif item[2]: name = item[2]
+        #     else: name = jid
+        #     options.addOption(jid, name)
+        form.add_field(var='jid',
                        ftype='text-single',
                        label='PubSub',
-                       desc='Enter a PubSub URL.',
-                       value='pubsub.' + self.boundjid.host,
+                       desc='Enter a PubSub Jabber ID.',
+                       value=self.boundjid.bare,
+                       # value='pubsub.' + self.boundjid.host,
                        required=True)
         form.add_field(var='node',
                        ftype='text-single',
                        label='Node',
-                       desc='Node to publish at.',
+                       desc=('Enter a node to publish to (The default value '
+                             'is "urn:xmpp:microblog:0" which is allocated to '
+                             'each Jabber ID in the Movim system).'),
+                       value='urn:xmpp:microblog:0',
                        required=False)
         options = form.add_field(var='xep',
                                  ftype='list-single',
-                                 label='Type',
-                                 desc='Select XEP.',
+                                 label='Protocol',
+                                 desc='Select XMPP Extension Protocol.',
                                  value='0060',
                                  required=True)
         options.addOption('XEP-0060: Publish-Subscribe', '0060')
@@ -725,14 +756,176 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         session['payload'] = form
         return session
     
-    def _handle_preview(self, payload, session):
+    async def _handle_preview(self, payload, session):
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        text_note = ('PubSub support will be available soon.')
-        session['notes'] = [['info', text_note]]
-        session['payload'] = None
+        values = payload['values']
+        jid = values['jid']
+        jid_bare = session['from'].bare
+        if jid != jid_bare and not is_operator(self, jid_bare):
+                text_warn = ('Posting to {} is restricted to operators only.'
+                             .format(jid_bare))
+                session['allow_prev'] = False
+                session['has_next'] = False
+                session['next'] = None
+                session['notes'] = [['warn', text_warn]]
+                session['prev'] = None
+                session['payload'] = None
+                return session
+        node = values['node']
+        url = values['url']
+        xep = values['xep']
+        form = self['xep_0004'].make_form('form', 'Publish')
+        while True:
+            result = await fetch.http(url)
+            status = result['status_code']
+            if not result['error']:
+                document = result['content']
+                feed = parse(document)
+                # if is_feed(url, feed):
+                if action.is_feed(feed):
+                    form['instructions'] = 'Select entries to publish.'
+                    options = form.add_field(var='entries',
+                                             ftype='list-multi',
+                                             label='Titles',
+                                             desc='Select entries to post.',
+                                             required=True)
+                    if "title" in feed["feed"].keys():
+                        title = feed["feed"]["title"]
+                    else:
+                        title = url
+                    entries = feed.entries
+                    entry_ix = 0
+                    for entry in entries:
+                        if entry.has_key("title"):
+                            title = entry.title
+                        else:
+                            if entry.has_key("published"):
+                                title = entry.published
+                                title = dt.rfc2822_to_iso8601(title)
+                            elif entry.has_key("updated"):
+                                title = entry.updated
+                                title = dt.rfc2822_to_iso8601(title)
+                            else:
+                                title = "*** No title ***"
+                        options.addOption(title, str(entry_ix))
+                        entry_ix += 1
+                        if entry_ix > 9:
+                            break
+                    session['allow_prev'] = True
+                    session['has_next'] = True
+                    session['next'] = self._handle_post_complete
+                    session['prev'] = self._handle_post
+                    session['payload'] = form
+                    break
+                else:
+                    result = await crawl.probe_page(url, document)
+                    if isinstance(result, list):
+                        form['instructions'] = ('Discovered {} subscriptions '
+                                                'from the given URL. Please '
+                                                'choose a subscription.'
+                                                .format(len(result)))
+                        options = form.add_field(var='url',
+                                                 ftype='list-single',
+                                                 label='Feeds',
+                                                 desc='Select a feed.',
+                                                 required=True)
+                        results = result
+                        for result in results:
+                            title = result['name']
+                            url = result['link']
+                            title = title if title else url
+                            options.addOption(title, url)
+                        session['allow_prev'] = True
+                        session['has_next'] = True
+                        session['next'] = self._handle_preview
+                        session['prev'] = self._handle_post
+                        session['payload'] = form
+                        break
+                    else:
+                        url = result['link']
+            else:
+                text_error = ('Failed to load URL {}'
+                              '\n\n'
+                              'Reason: {}'
+                              .format(url, status))
+                session['notes'] = [['error', text_error]]
+                session['payload'] = None
+                break
+        form.add_field(var='node',
+                       ftype='hidden',
+                       value=node)
+        form.add_field(var='jid',
+                       ftype='hidden',
+                       value=jid)
+        # It is essential to place URL at the end, because it might mutate
+        # For example http://blacklistednews.com would change
+        # to https://www.blacklistednews.com/rss.php
+        form.add_field(var='url',
+                       ftype='hidden',
+                       value=url)
+        form.add_field(var='xep',
+                       ftype='hidden',
+                       value=xep)
+        return session
+    
+    async def _handle_post_complete(self, payload, session):
+        values = payload['values']
+        entries = values['entries']
+        # It might not be good to pass feed object as its size might be too big
+        # Consider a handler self.feeds[url][feed] or self.feeds[jid][url][feed]
+        # It is not possible to assign non-str to transfer.
+        # feed = values['feed']
+        node = values['node'][0]
+        jid = values['jid'][0]
+        url = values['url'][0]
+        xep = values['xep'][0]
+        result = await fetch.http(url)
+        if 'content' in result:
+            document = result['content']
+            feed = parse(document)
+            if feed.feed.has_key('title'):
+                feed_title = feed.feed.title
+            if feed.feed.has_key('description'):
+                feed_summary = feed.feed.description
+            elif feed.feed.has_key('subtitle'):
+                feed_summary = feed.feed.subtitle
+            else:
+                feed_summary = None
+            iq_create_node = XmppPubsub.create_node(
+                self, jid, node, xep, feed_title, feed_summary)
+            await XmppIQ.send(self, iq_create_node)
+            feed_version = feed.version
+            for entry in entries:
+                entry = int(entry)
+                feed_entry = feed.entries[entry]
+                # if feed.entries[entry].has_key("title"):
+                #     title = feed.entries[entry].title
+                # else:
+                #     if feed.entries[entry].has_key("published"):
+                #         title = feed.entries[entry].published
+                #         title = dt.rfc2822_to_iso8601(title)
+                #     elif feed.entries[entry].has_key("updated"):
+                #         title = feed.entries[entry].updated
+                #         title = dt.rfc2822_to_iso8601(title)
+                #     else:
+                #         title = "*** No title ***"
+                # if feed.entries[entry].has_key("summary"):
+                #     summary = feed.entries[entry].summary
+                iq_create_entry = XmppPubsub.create_entry(
+                    self, jid, node, feed_entry, feed_version)
+                await XmppIQ.send(self, iq_create_entry)
+                text_info = 'Posted {} entries.'.format(len(entries))
+                session['allow_prev'] = False
+                session['has_next'] = False
+                session['next'] = None
+                session['notes'] = [['info', text_info]]
+                session['prev'] = None
+                session['payload'] = None
+        else:
+            session['payload'] = payload
         return session
 
     async def _handle_profile(self, iq, session):
@@ -909,9 +1102,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         db_file = config.get_pathname_to_database(jid_file)
         # In this case (as is typical), the payload is a form
         values = payload['values']
-        for value in values:
-            key = value
-            val = values[value]
+        for key in values:
+            val = values[key]
             # NOTE We might want to add new keywords from
             #      an empty form instead of editing a form.
             # keywords = sqlite.get_filter_value(db_file, key)
@@ -929,6 +1121,80 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # session["has_next"] = False
         session['next'] = None
         session['payload'] = form
+        return session
+
+
+    async def _handle_pubsub_add(self, iq, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        jid_bare = session['from'].bare
+        if not is_operator(self, jid_bare):
+            text_warn = 'PubSub is not available.'
+            session['notes'] = [['warn', text_warn]]
+            return session
+        chat_type = await get_chat_type(self, jid_bare)
+        moderator = None
+        if chat_type == 'groupchat':
+            moderator = is_moderator(self, jid_bare, jid_full)
+        if chat_type == 'chat' or moderator:
+            form = self['xep_0004'].make_form('form', 'Publish')
+            form['instructions'] = ('In order to publish via PubSub, you will '
+                                    'have to choose a PubSub Jabber ID (e.g. '
+                                    '{}) and Slixfeed has to be allowed to '
+                                    'publish into it.'
+                                    .format('pubsub.' + self.boundjid.host))
+            form.add_field(var='subscription',
+                           # TODO Make it possible to add several subscriptions at once;
+                           #      Similarly to BitTorrent trackers list
+                           # ftype='text-multi',
+                           # label='Subscription URLs',
+                           # desc=('Add subscriptions one time per '
+                           #       'subscription.'),
+                           ftype='text-single',
+                           label='URL',
+                           desc='Enter a subscription URL.',
+                           value='http://',
+                           required=True)
+            form.add_field(var='jid',
+                           ftype='text-single',
+                           label='PubSub',
+                           desc='Enter a PubSub Jabber ID.',
+                           value=self.boundjid.bare,
+                           required=True)
+            form.add_field(var='node',
+                           ftype='text-single',
+                           label='Node',
+                           desc=('Enter a node to publish to (The default '
+                                 'value is "urn:xmpp:microblog:0" which '
+                                 'is allocated to each Jabber ID in the '
+                                 'Movim system).'),
+                           value='urn:xmpp:microblog:0',
+                           required=False)
+            options = form.add_field(var='xep',
+                                     ftype='list-single',
+                                     label='Protocol',
+                                     desc='Select XMPP Extension Protocol.',
+                                     value='0060',
+                                     required=True)
+            options.addOption('XEP-0060: Publish-Subscribe', '0060')
+            options.addOption('XEP-0277: Microblogging over XMPP', '0277')
+            options.addOption('XEP-0472: Pubsub Social Feed', '0472')
+            # form.add_field(var='scan',
+            #                ftype='boolean',
+            #                label='Scan',
+            #                desc='Scan URL for validity (recommended).',
+            #                value=True)
+            session['allow_prev'] = False
+            session['has_next'] = True
+            session['next'] = self._handle_subscription_new
+            session['prev'] = None
+            session['payload'] = form
+        else:
+            text_warn = ('This resource is restricted to moderators of {}.'
+                         .format(jid_bare))
+            session['notes'] = [['warn', text_warn]]
         return session
 
 
@@ -954,9 +1220,18 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                            #       'subscription.'),
                            ftype='text-single',
                            label='URL',
-                           desc='Enter subscription URL.',
+                           desc='Enter a subscription URL.',
                            value='http://',
                            required=True)
+            if is_operator(self, jid_bare):
+                form.add_field(ftype='fixed',
+                               label='Subscriber')
+                form.add_field(var='jid',
+                               ftype='text-single',
+                               label='Jabber ID',
+                               desc=('Enter a Jabber ID to add the '
+                                     'subscription to (The default Jabber ID '
+                                     'is your own).'))
             # form.add_field(var='scan',
             #                ftype='boolean',
             #                label='Scan',
@@ -1975,7 +2250,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                                      ftype='list-single',
                                      label='Choose',
                                      required=True,
-                                     value='admin')
+                                     value='export')
             jid = session['from'].bare
             if is_operator(self, jid):
                 options.addOption('Administration', 'admin')
@@ -2250,7 +2525,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             jid_bare = session['from'].bare
             jid_file = jid_bare.replace('/', '_')
             db_file = config.get_pathname_to_database(jid_file)
-            count = await action.import_opml(db_file, url)
+            result = await fetch.http(url)
+            count = await action.import_opml(db_file, result)
             try:
                 int(count)
                 # form = self['xep_0004'].make_form('result', 'Done')
@@ -2827,9 +3103,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             Config.add_settings_jid(self.settings, jid_bare, db_file)
         # In this case (as is typical), the payload is a form
         values = payload['values']
-        for value in values:
-            key = value
-            val = values[value]
+        for key in values:
+            val = values[key]
 
             if key in ('enabled', 'media', 'old'):
                 if val == True:
