@@ -92,7 +92,7 @@ except ImportError:
                  'Arc90 Lab algorithm is disabled.')
 
 
-async def export_feeds(self, jid, jid_file, ext):
+def export_feeds(self, jid, jid_file, ext):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: jid: {}: jid_file: {}: ext: {}'.format(function_name, jid, jid_file, ext))
     cache_dir = config.get_default_cache_directory()
@@ -757,7 +757,7 @@ def export_to_markdown(jid, filename, results):
         file.write('# Subscriptions for {}\n'.format(jid))
         file.write('## Set of feeds exported with Slixfeed\n')
         for result in results:
-            file.write('- [{}]({})\n'.format(result[0], result[1]))
+            file.write('- [{}]({})\n'.format(result[1], result[2]))
         file.write('\n\n* * *\n\nThis list was saved on {} from xmpp:{} using '
                    '[Slixfeed](https://gitgud.io/sjehuda/slixfeed)\n'
                    .format(dt.current_date(), jid))
@@ -765,6 +765,7 @@ def export_to_markdown(jid, filename, results):
 
 # TODO Consider adding element jid as a pointer of import
 def export_to_opml(jid, filename, results):
+    print(jid, filename, results)
     function_name = sys._getframe().f_code.co_name
     logger.debug('{} jid: {} filename: {}'
                 .format(function_name, jid, filename))
@@ -783,8 +784,8 @@ def export_to_opml(jid, filename, results):
     body = ET.SubElement(root, "body")
     for result in results:
         outline = ET.SubElement(body, "outline")
-        outline.set("text", result[0])
-        outline.set("xmlUrl", result[1])
+        outline.set("text", result[1])
+        outline.set("xmlUrl", result[2])
         # outline.set("type", result[2])
     tree = ET.ElementTree(root)
     tree.write(filename)

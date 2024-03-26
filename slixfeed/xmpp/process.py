@@ -538,8 +538,7 @@ async def message(self, message):
                     # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
-                    filename = await action.export_feeds(self, jid_bare,
-                                                         jid_file, ext)
+                    filename = action.export_feeds(self, jid_bare, jid_file, ext)
                     url = await XmppUpload.start(self, jid_bare, filename)
                     # response = (
                     #     'Feeds exported successfully to {}.\n{}'

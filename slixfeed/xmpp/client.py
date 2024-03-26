@@ -277,6 +277,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         message_log = '{}'
         logger.debug(message_log.format(function_name))
         status_message = 'Slixfeed version {}'.format(__version__)
+        self.adhoc_commands()
         for operator in self.operators:
             XmppPresence.send(self, operator['jid'], status_message)
         await profile.update(self)
@@ -294,7 +295,6 @@ class Slixfeed(slixmpp.ClientXMPP):
                 Config.add_settings_jid(self.settings, jid_bare, db_file)
             await task.start_tasks_xmpp_pubsub(self, jid_bare)
         # XmppCommand.adhoc_commands(self)
-        self.adhoc_commands()
         # self.service_reactions()
         task.task_ping(self)
         time_end = time.time()
@@ -2589,7 +2589,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         # form['instructions'] = ('✅️ Feeds have been exported')
         exts = payload['values']['filetype']
         for ext in exts:
-            filename = await action.export_feeds(self, jid_bare, jid_file, ext)
+            filename = action.export_feeds(self, jid_bare, jid_file, ext)
             url = await XmppUpload.start(self, jid_bare, filename)
             chat_type = await get_chat_type(self, jid_bare)
             XmppMessage.send_oob(self, jid_bare, url, chat_type)
