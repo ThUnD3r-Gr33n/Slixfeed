@@ -2189,14 +2189,14 @@ class XmppCommand:
                                   status_type=status_type)
                 await asyncio.sleep(5)
                 key_list = ['check', 'status', 'interval']
-                await task.start_tasks_xmpp(self, jid_bare, key_list)
+                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
 
             if (key == 'enabled' and
                 val == 0 and
                 str(is_enabled) == 1):
                 logger.info('Slixfeed has been disabled for {}'.format(jid_bare))
                 key_list = ['interval', 'status']
-                task.clean_tasks_xmpp(self, jid_bare, key_list)
+                task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
                 status_type = 'xa'
                 status_message = '📪️ Send "Start" to receive updates'
                 XmppPresence.send(self, jid_bare, status_message,
@@ -2212,10 +2212,10 @@ class XmppCommand:
             #         XmppPresence.send(self, jid, status_message,
             #                           status_type=status_type)
             #         await asyncio.sleep(5)
-            #         await task.start_tasks_xmpp(self, jid, ['check', 'status',
+            #         await task.start_tasks_xmpp_chat(self, jid, ['check', 'status',
             #                                                 'interval'])
             #     else:
-            #         task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
+            #         task.clean_tasks_xmpp_chat(self, jid, ['interval', 'status'])
             #         status_type = 'xa'
             #         status_message = '📪️ Send "Start" to receive Jabber updates'
             #         XmppPresence.send(self, jid, status_message,

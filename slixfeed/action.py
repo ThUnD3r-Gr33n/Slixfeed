@@ -49,8 +49,10 @@ from slixfeed.url import (
     )
 import slixfeed.task as task
 from slixfeed.xmpp.bookmark import XmppBookmark
+from slixfeed.xmpp.iq import XmppIQ
 from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
+from slixfeed.xmpp.publish import XmppPubsub
 from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utility import get_chat_type
 import sys
@@ -134,7 +136,7 @@ if (await get_chat_type(self, jid_bare) == 'chat' and
 
 """
 
-async def xmpp_send_status(self, jid):
+async def xmpp_send_status_message(self, jid):
     """
     Send status message.
 
@@ -190,7 +192,50 @@ async def xmpp_send_status(self, jid):
     # )
 
 
-async def xmpp_send_update(self, jid, num=None):
+async def xmpp_send_pubsub(self, jid_bare):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: jid_bare: {}'.format(function_name, jid_bare))
+    jid_file = jid_bare.replace('/', '_')
+    db_file = config.get_pathname_to_database(jid_file)
+    enabled = Config.get_setting_value(self.settings, jid_bare, 'enabled')
+    if enabled:
+        subscriptions = sqlite.get_active_feeds_url(db_file)
+        for url in subscriptions:
+            url = url[0]
+            feed_id = sqlite.get_feed_id(db_file, url)
+            feed_id = feed_id[0]
+            feed_title = sqlite.get_feed_title(db_file, feed_id)
+            feed_title = feed_title[0]
+            feed_summary = None
+            node = sqlite.get_node_name(db_file, feed_id)
+            node = node[0]
+            xep = None
+            iq_create_node = XmppPubsub.create_node(
+                self, jid_bare, node, xep, feed_title, feed_summary)
+            await XmppIQ.send(self, iq_create_node)
+            entries = sqlite.get_unread_entries_of_feed(db_file, feed_id)
+            feed_properties = sqlite.get_feed_properties(db_file, feed_id)
+            feed_version = feed_properties[2]
+            for entry in entries:
+                feed_entry = {'author'      : None,
+                              'authors'     : None,
+                              'category'    : None,
+                              'content'     : None,
+                              'description' : entry[3],
+                              'href'        : entry[2],
+                              'links'       : entry[4],
+                              'tags'        : None,
+                              'title'       : entry[1],
+                              'type'        : None,
+                              'updated'     : entry[7]}
+                iq_create_entry = XmppPubsub.create_entry(
+                    self, jid_bare, node, feed_entry, feed_version)
+                await XmppIQ.send(self, iq_create_entry)
+                ix = entry[0]
+                await sqlite.mark_as_read(db_file, ix)
+
+
+async def xmpp_send_message(self, jid, num=None):
     """
     Send news items as messages.
 
@@ -272,7 +317,7 @@ async def xmpp_send_update(self, jid, num=None):
         # TODO Do not refresh task before
         # verifying that it was completed.
 
-        # await start_tasks_xmpp(self, jid, ['status'])
+        # await start_tasks_xmpp_chat(self, jid, ['status'])
         # await refresh_task(self, jid, send_update, 'interval')
 
     # interval = await initdb(
@@ -767,145 +812,164 @@ async def import_opml(db_file, result):
         return difference
 
 
-async def add_feed(self, jid_bare, db_file, url):
+async def add_feed(self, jid_bare, db_file, url, node):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} url: {}'
                 .format(function_name, db_file, url))
     while True:
-        exist = sqlite.get_feed_id_and_name(db_file, url)
-        if not exist:
-            result = await fetch.http(url)
-            message = result['message']
-            status_code = result['status_code']
-            if not result['error']:
-                document = result['content']
-                feed = parse(document)
-                # if is_feed(url, feed):
-                if is_feed(feed):
-                    if "title" in feed["feed"].keys():
-                        title = feed["feed"]["title"]
-                    else:
-                        title = urlsplit(url).netloc
-                    if "language" in feed["feed"].keys():
-                        language = feed["feed"]["language"]
-                    else:
-                        language = ''
-                    if "encoding" in feed.keys():
-                        encoding = feed["encoding"]
-                    else:
-                        encoding = ''
-                    if "updated_parsed" in feed["feed"].keys():
-                        updated = feed["feed"]["updated_parsed"]
-                        try:
-                            updated = dt.convert_struct_time_to_iso8601(updated)
-                        except:
+        exist_feed = sqlite.get_feed_id_and_name(db_file, url)
+        if not exist_feed:
+            exist_node = sqlite.check_node_exist(db_file, node)
+            if not exist_node:
+                result = await fetch.http(url)
+                message = result['message']
+                status_code = result['status_code']
+                if not result['error']:
+                    document = result['content']
+                    feed = parse(document)
+                    # if is_feed(url, feed):
+                    if is_feed(feed):
+                        if "title" in feed["feed"].keys():
+                            title = feed["feed"]["title"]
+                        else:
+                            title = urlsplit(url).netloc
+                        if "language" in feed["feed"].keys():
+                            language = feed["feed"]["language"]
+                        else:
+                            language = ''
+                        if "encoding" in feed.keys():
+                            encoding = feed["encoding"]
+                        else:
+                            encoding = ''
+                        if "updated_parsed" in feed["feed"].keys():
+                            updated = feed["feed"]["updated_parsed"]
+                            try:
+                                updated = dt.convert_struct_time_to_iso8601(updated)
+                            except:
+                                updated = ''
+                        else:
                             updated = ''
-                    else:
-                        updated = ''
-                    version = feed["version"]
-                    entries = len(feed["entries"])
-                    await sqlite.insert_feed(db_file, url,
-                                             title=title,
-                                             entries=entries,
-                                             version=version,
-                                             encoding=encoding,
-                                             language=language,
-                                             status_code=status_code,
-                                             updated=updated)
-                    await scan(self, jid_bare, db_file, url)
-                    old = Config.get_setting_value(self.settings, jid_bare, 'old')
-                    feed_id = sqlite.get_feed_id(db_file, url)
-                    feed_id = feed_id[0]
-                    if not old:
-                        await sqlite.mark_feed_as_read(db_file, feed_id)
-                    result_final = {'link' : url,
-                                    'index' : feed_id,
-                                    'name' : title,
-                                    'code' : status_code,
-                                    'error' : False,
-                                    'exist' : False}
-                    break
-                # NOTE This elif statement be unnecessary
-                # when feedparser be supporting json feed.
-                elif is_feed_json(document):
-                    feed = json.loads(document)
-                    if "title" in feed.keys():
-                        title = feed["title"]
-                    else:
-                        title = urlsplit(url).netloc
-                    if "language" in feed.keys():
-                        language = feed["language"]
-                    else:
-                        language = ''
-                    if "encoding" in feed.keys():
-                        encoding = feed["encoding"]
-                    else:
-                        encoding = ''
-                    if "date_published" in feed.keys():
-                        updated = feed["date_published"]
-                        try:
-                            updated = dt.convert_struct_time_to_iso8601(updated)
-                        except:
-                            updated = ''
-                    else:
-                        updated = ''
-                    version = 'json' + feed["version"].split('/').pop()
-                    entries = len(feed["items"])
-                    await sqlite.insert_feed(db_file, url,
-                                             title=title,
-                                             entries=entries,
-                                             version=version,
-                                             encoding=encoding,
-                                             language=language,
-                                             status_code=status_code,
-                                             updated=updated)
-                    await scan_json(self, jid_bare, db_file, url)
-                    old = Config.get_setting_value(self.settings, jid_bare, 'old')
-                    if not old:
+                        version = feed["version"]
+                        entries = len(feed["entries"])
+                        await sqlite.insert_feed(db_file, url, title, node,
+                                                 entries=entries,
+                                                 version=version,
+                                                 encoding=encoding,
+                                                 language=language,
+                                                 status_code=status_code,
+                                                 updated=updated)
+                        await scan(self, jid_bare, db_file, url)
+                        old = Config.get_setting_value(self.settings, jid_bare, 'old')
                         feed_id = sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
-                        await sqlite.mark_feed_as_read(db_file, feed_id)
-                    result_final = {'link' : url,
-                                    'index' : feed_id,
-                                    'name' : title,
-                                    'code' : status_code,
-                                    'error' : False,
-                                    'exist' : False}
-                    break
-                else:
-                    # NOTE Do not be tempted to return a compact dictionary.
-                    #      That is, dictionary within dictionary
-                    #      Return multiple dictionaries in a list or tuple.
-                    result = await crawl.probe_page(url, document)
-                    if not result:
-                        # Get out of the loop with dict indicating error.
+                        if not old:
+                            await sqlite.mark_feed_as_read(db_file, feed_id)
                         result_final = {'link' : url,
-                                        'index' : None,
-                                        'name' : None,
+                                        'index' : feed_id,
+                                        'name' : title,
                                         'code' : status_code,
-                                        'error' : True,
+                                        'error' : False,
                                         'message': message,
-                                        'exist' : False}
+                                        'exist' : False,
+                                        'node' : None}
                         break
-                    elif isinstance(result, list):
-                        # Get out of the loop and deliver a list of dicts.
-                        result_final = result
+                    # NOTE This elif statement be unnecessary
+                    # when feedparser be supporting json feed.
+                    elif is_feed_json(document):
+                        feed = json.loads(document)
+                        if "title" in feed.keys():
+                            title = feed["title"]
+                        else:
+                            title = urlsplit(url).netloc
+                        if "language" in feed.keys():
+                            language = feed["language"]
+                        else:
+                            language = ''
+                        if "encoding" in feed.keys():
+                            encoding = feed["encoding"]
+                        else:
+                            encoding = ''
+                        if "date_published" in feed.keys():
+                            updated = feed["date_published"]
+                            try:
+                                updated = dt.convert_struct_time_to_iso8601(updated)
+                            except:
+                                updated = ''
+                        else:
+                            updated = ''
+                        version = 'json' + feed["version"].split('/').pop()
+                        entries = len(feed["items"])
+                        await sqlite.insert_feed(db_file, url, title, node,
+                                                 entries=entries,
+                                                 version=version,
+                                                 encoding=encoding,
+                                                 language=language,
+                                                 status_code=status_code,
+                                                 updated=updated)
+                        await scan_json(self, jid_bare, db_file, url)
+                        old = Config.get_setting_value(self.settings, jid_bare, 'old')
+                        if not old:
+                            feed_id = sqlite.get_feed_id(db_file, url)
+                            feed_id = feed_id[0]
+                            await sqlite.mark_feed_as_read(db_file, feed_id)
+                        result_final = {'link' : url,
+                                        'index' : feed_id,
+                                        'name' : title,
+                                        'code' : status_code,
+                                        'error' : False,
+                                        'message': message,
+                                        'exist' : False,
+                                        'node' : None}
                         break
                     else:
-                        # Go back up to the while loop and try again.
-                        url = result['link']
+                        # NOTE Do not be tempted to return a compact dictionary.
+                        #      That is, dictionary within dictionary
+                        #      Return multiple dictionaries in a list or tuple.
+                        result = await crawl.probe_page(url, document)
+                        if not result:
+                            # Get out of the loop with dict indicating error.
+                            result_final = {'link' : url,
+                                            'index' : None,
+                                            'name' : None,
+                                            'code' : status_code,
+                                            'error' : True,
+                                            'message': message,
+                                            'exist' : False,
+                                            'node' : None}
+                            break
+                        elif isinstance(result, list):
+                            # Get out of the loop and deliver a list of dicts.
+                            result_final = result
+                            break
+                        else:
+                            # Go back up to the while loop and try again.
+                            url = result['link']
+                else:
+                    result_final = {'link' : url,
+                                    'index' : None,
+                                    'name' : None,
+                                    'code' : status_code,
+                                    'error' : True,
+                                    'message': message,
+                                    'exist' : False,
+                                    'node' : None}
+                    break
             else:
+                ix = exist_node[1]
+                node = exist_node[2]
+                message = 'Node is already allocated.'
                 result_final = {'link' : url,
-                                'index' : None,
+                                'index' : ix,
                                 'name' : None,
-                                'code' : status_code,
-                                'error' : True,
+                                'code' : None,
+                                'error' : False,
                                 'message': message,
-                                'exist' : False}
+                                'exist' : False,
+                                'node' : node}
                 break
         else:
-            ix = exist[0]
-            name = exist[1]
+            ix = exist_feed[0]
+            name = exist_feed[1]
             message = 'URL already exist.'
             result_final = {'link' : url,
                             'index' : ix,
@@ -913,7 +977,8 @@ async def add_feed(self, jid_bare, db_file, url):
                             'code' : None,
                             'error' : False,
                             'message': message,
-                            'exist' : True}
+                            'exist' : True,
+                            'node' : None}
             break
     return result_final
 

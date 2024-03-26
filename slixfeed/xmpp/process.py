@@ -102,7 +102,7 @@ async def message(self, message):
             message_text.lower().endswith('.opml')):
             url = message_text
             key_list = ['status']
-            task.clean_tasks_xmpp(self, jid_bare, key_list)
+            task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
             status_type = 'dnd'
             status_message = '📥️ Procesing request to import feeds...'
             # pending_tasks_num = len(self.pending_tasks[jid_bare])
@@ -122,7 +122,7 @@ async def message(self, message):
             del self.pending_tasks[jid_bare][pending_tasks_num]
             # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
             key_list = ['status']
-            await task.start_tasks_xmpp(self, jid_bare, key_list)
+            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
             XmppMessage.send_reply(self, message, response)
             return
 
@@ -321,11 +321,20 @@ async def message(self, message):
                 title = ' '.join(message_text.split(' ')[1:])
                 if not title:
                     title = uri.get_hostname(url)
+                counter = 0
+                hostname = uri.get_hostname(url)
+                node = hostname + ':' + str(counter)
+                while True:
+                    if sqlite.check_node_exist(db_file, node):
+                        counter += 1
+                        node = hostname + ':' + str(counter)
+                    else:
+                        break
                 if url.startswith('http'):
                     db_file = config.get_pathname_to_database(jid_file)
                     exist = sqlite.get_feed_id_and_name(db_file, url)
                     if not exist:
-                        await sqlite.insert_feed(db_file, url, title)
+                        await sqlite.insert_feed(db_file, url, title, node)
                         await action.scan(self, jid_bare, db_file, url)
                         if jid_bare not in self.settings:
                             Config.add_settings_jid(self.settings, jid_bare,
@@ -333,10 +342,10 @@ async def message(self, message):
                         old = Config.get_setting_value(self.settings, jid_bare,
                                                        'old')
                         if old:
-                            # task.clean_tasks_xmpp(self, jid_bare, ['status'])
+                            # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
                             # await send_status(jid)
                             key_list = ['status']
-                            await task.start_tasks_xmpp(self, jid_bare, key_list)
+                            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
                         else:
                             feed_id = sqlite.get_feed_id(db_file, url)
                             feed_id = feed_id[0]
@@ -541,7 +550,7 @@ async def message(self, message):
                     del self.pending_tasks[jid_bare][pending_tasks_num]
                     # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                     key_list = ['status']
-                    await task.start_tasks_xmpp(self, jid_bare, key_list)
+                    await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
                 else:
                     response = ('Unsupported filetype.\n'
                                 'Try: md or opml')
@@ -645,7 +654,7 @@ async def message(self, message):
                 del self.pending_tasks[jid_bare][pending_tasks_num]
                 # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                 key_list = ['status']
-                await task.start_tasks_xmpp(self, jid_bare, key_list)
+                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
                 if response:
                     logging.warning('Error for URL {}: {}'.format(url, error))
                     XmppMessage.send_reply(self, message, response)
@@ -653,7 +662,7 @@ async def message(self, message):
                 message_lowercase.endswith('.opml')):
                 url = message_text
                 key_list = ['status']
-                task.clean_tasks_xmpp(self, jid_bare, key_list)
+                task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
                 status_type = 'dnd'
                 status_message = '📥️ Procesing request to import feeds...'
                 # pending_tasks_num = len(self.pending_tasks[jid_bare])
@@ -674,12 +683,109 @@ async def message(self, message):
                 del self.pending_tasks[jid_bare][pending_tasks_num]
                 # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                 key_list = ['status']
-                await task.start_tasks_xmpp(self, jid_bare, key_list)
+                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+                XmppMessage.send_reply(self, message, response)
+            # TODO Handle node error
+            # sqlite3.IntegrityError: UNIQUE constraint failed: feeds_pubsub.node
+            # ERROR:slixmpp.basexmpp:UNIQUE constraint failed: feeds_pubsub.node
+            case _ if message_lowercase.startswith('send '):
+                if is_operator(self, jid_bare):
+                    info = message_text[5:].split(' ')
+                    if len(info) > 1:
+                        jid = info[0]
+                        if '/' not in jid:
+                            url = info[1]
+                            db_file = config.get_pathname_to_database(jid)
+                            if len(info) > 2:
+                                node = info[2]
+                            else:
+                                counter = 0
+                                hostname = uri.get_hostname(url)
+                                node = hostname + ':' + str(counter)
+                                while True:
+                                    if sqlite.check_node_exist(db_file, node):
+                                        counter += 1
+                                        node = hostname + ':' + str(counter)
+                                    else:
+                                        break
+                            # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
+                            status_type = 'dnd'
+                            status_message = ('📫️ Processing request to fetch data from {}'
+                                              .format(url))
+                            # pending_tasks_num = len(self.pending_tasks[jid_bare])
+                            pending_tasks_num = randrange(10000, 99999)
+                            self.pending_tasks[jid_bare][pending_tasks_num] = status_message
+                            # self.pending_tasks_counter += 1
+                            # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
+                            XmppPresence.send(self, jid_bare, status_message,
+                                              status_type=status_type)
+                            if url.startswith('feed:'):
+                                url = uri.feed_to_http(url)
+                            url = (uri.replace_hostname(url, 'feed')) or url
+                            result = await action.add_feed(self, jid_bare, db_file, url, node)
+                            if isinstance(result, list):
+                                results = result
+                                response = ("Web feeds found for {}\n\n```\n"
+                                            .format(url))
+                                for result in results:
+                                    response += ("Title : {}\n"
+                                                 "Link  : {}\n"
+                                                 "\n"
+                                                 .format(result['name'], result['link']))
+                                response += ('```\nTotal of {} feeds.'
+                                            .format(len(results)))
+                            elif result['exist']:
+                                response = ('> {}\nNews source "{}" is already '
+                                            'listed in the subscription list at '
+                                            'index {}'
+                                            .format(result['link'],
+                                                    result['name'],
+                                                    result['index']))
+                            elif result['node']:
+                                response = ('> {}\nNode "{}" is already '
+                                            'allocated to index {}'
+                                            .format(result['link'],
+                                                    result['node'],
+                                                    result['index']))
+                            elif result['error']:
+                                response = ('> {}\nFailed to find subscriptions.  '
+                                            'Reason: {} (status code: {})'
+                                            .format(url, result['message'],
+                                                    result['code']))
+                            else:
+                                response = ('> {}\nNews source "{}" has been '
+                                            'added to subscription list.'
+                                            .format(result['link'], result['name']))
+                            # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
+                            del self.pending_tasks[jid_bare][pending_tasks_num]
+                            # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
+                            print(self.pending_tasks)
+                            key_list = ['status']
+                            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+                            # except:
+                            #     response = (
+                            #         '> {}\nNews source is in the process '
+                            #         'of being added to the subscription '
+                            #         'list.'.format(url)
+                            #         )
+                        else:
+                            response = ('No action has been taken.'
+                                        '\n'
+                                        'JID Must not include "/".')
+                    else:
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Missing argument. '
+                                    'Enter PubSub JID and subscription URL '
+                                    '(and optionally: NodeName).')
+                else:
+                    response = ('This action is restricted. '
+                                'Type: adding node.')
                 XmppMessage.send_reply(self, message, response)
             case _ if (message_lowercase.startswith('http') or
                        message_lowercase.startswith('feed:')):
                 url = message_text
-                # task.clean_tasks_xmpp(self, jid_bare, ['status'])
+                # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
                 status_type = 'dnd'
                 status_message = ('📫️ Processing request to fetch data from {}'
                                   .format(url))
@@ -694,8 +800,17 @@ async def message(self, message):
                     url = uri.feed_to_http(url)
                 url = (uri.replace_hostname(url, 'feed')) or url
                 db_file = config.get_pathname_to_database(jid_file)
+                counter = 0
+                hostname = uri.get_hostname(url)
+                node = hostname + ':' + str(counter)
+                while True:
+                    if sqlite.check_node_exist(db_file, node):
+                        counter += 1
+                        node = hostname + ':' + str(counter)
+                    else:
+                        break
                 # try:
-                result = await action.add_feed(self, jid_bare, db_file, url)
+                result = await action.add_feed(self, jid_bare, db_file, url, node)
                 if isinstance(result, list):
                     results = result
                     response = ("Web feeds found for {}\n\n```\n"
@@ -722,12 +837,12 @@ async def message(self, message):
                     response = ('> {}\nNews source "{}" has been '
                                 'added to subscription list.'
                                 .format(result['link'], result['name']))
-                # task.clean_tasks_xmpp(self, jid_bare, ['status'])
+                # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
                 del self.pending_tasks[jid_bare][pending_tasks_num]
                 # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                 print(self.pending_tasks)
                 key_list = ['status']
-                await task.start_tasks_xmpp(self, jid_bare, key_list)
+                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
                 # except:
                 #     response = (
                 #         '> {}\nNews source is in the process '
@@ -768,8 +883,8 @@ async def message(self, message):
                             self.settings, jid_bare, db_file, key, val_new)
                         # NOTE Perhaps this should be replaced by functions
                         # clean and start
-                        task.refresh_task(self, jid_bare, task.task_send, key,
-                                          val_new)
+                        task.refresh_task(self, jid_bare,
+                                          task.task_message, key, val_new)
                         response = ('Updates will be sent every {} minutes '
                                     '(was: {}).'.format(val_new, val_old))
                     except:
@@ -870,11 +985,11 @@ async def message(self, message):
             case _ if message_lowercase.startswith('next'):
                 num = message_text[5:]
                 if num:
-                    await action.xmpp_send_update(self, jid_bare, num)
+                    await action.xmpp_send_message(self, jid_bare, num)
                 else:
-                    await action.xmpp_send_update(self, jid_bare)
+                    await action.xmpp_send_message(self, jid_bare)
                 key_list = ['status']
-                await task.start_tasks_xmpp(self, jid_bare, key_list)
+                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
             case 'old':
                 db_file = config.get_pathname_to_database(jid_file)
                 key = 'old'
@@ -932,7 +1047,7 @@ async def message(self, message):
                 url = data[0]
                 if url:
                     key_list = ['status']
-                    task.clean_tasks_xmpp(self, jid_bare, key_list)
+                    task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
                     status_type = 'dnd'
                     status_message = ('📫️ Processing request to fetch data '
                                       'from {}'.format(url))
@@ -1028,7 +1143,7 @@ async def message(self, message):
                 XmppMessage.send_reply(self, message, response)
                 del self.pending_tasks[jid_bare][pending_tasks_num]
                 key_list = ['status']
-                await task.start_tasks_xmpp(self, jid_bare, key_list)
+                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
             case _ if message_lowercase.startswith('recent '):
                 num = message_text[7:]
                 if num:
@@ -1087,20 +1202,20 @@ async def message(self, message):
                                                 'News source does not exist. '
                                                 .format(url))
                             # refresh_task(self, jid_bare, send_status, 'status', 20)
-                            # task.clean_tasks_xmpp(self, jid_bare, ['status'])
+                            # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
                             key_list = ['status']
-                            await task.start_tasks_xmpp(self, jid_bare, key_list)
+                            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
                             XmppMessage.send_reply(self, message, response)
                 else:
                     response = ('No action has been taken.'
                                 '\n'
                                 'Missing argument. '
-                                'Enter feed URL or index number.')
+                                'Enter subscription URL or index number.')
             case _ if message_lowercase.startswith('reset'):
                 # TODO Reset also by ID
                 ix_url = message_text[6:]
                 key_list = ['status']
-                task.clean_tasks_xmpp(self, jid_bare, key_list)
+                task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
                 status_type = 'dnd'
                 status_message = '📫️ Marking entries as read...'
                 # pending_tasks_num = len(self.pending_tasks[jid_bare])
@@ -1152,7 +1267,7 @@ async def message(self, message):
                 del self.pending_tasks[jid_bare][pending_tasks_num]
                 # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                 key_list = ['status']
-                await task.start_tasks_xmpp(self, jid_bare, key_list)
+                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
             case _ if message_lowercase.startswith('search '):
                 query = message_text[7:]
                 if query:
@@ -1179,7 +1294,7 @@ async def message(self, message):
                                   status_type=status_type)
                 await asyncio.sleep(5)
                 key_list = ['check', 'status', 'interval']
-                await task.start_tasks_xmpp(self, jid_bare, key_list)
+                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
                 response = 'Updates are enabled.'
                 XmppMessage.send_reply(self, message, response)
             case 'stats':
@@ -1204,7 +1319,7 @@ async def message(self, message):
                                 .format(feed_id))
                 XmppMessage.send_reply(self, message, response)
                 key_list = ['status']
-                await task.start_tasks_xmpp(self, jid_bare, key_list)
+                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
             case _ if message_lowercase.startswith('rename '):
                 message_text = message_text[7:]
                 feed_id = message_text.split(' ')[0]
@@ -1264,7 +1379,7 @@ async def message(self, message):
                 await Config.set_setting_value(
                     self.settings, jid_bare, db_file, key, val)
                 key_list = ['interval', 'status']
-                task.clean_tasks_xmpp(self, jid_bare, key_list)
+                task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
                 status_type = 'xa'
                 status_message = '📪️ Send "Start" to receive Jabber updates'
                 XmppPresence.send(self, jid_bare, status_message,

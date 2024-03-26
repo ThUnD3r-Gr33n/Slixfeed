@@ -60,6 +60,18 @@ tags = ["event", "germany", "xmpp"]
 
 [[feeds]]
 lang = "de-de"
+name = "blog | hasecke"
+link = "https://www.hasecke.eu/index.xml"
+tags = ["linux", "p2p", "software", "technology"]
+
+[[feeds]]
+lang = "de-de"
+name = "heise online News"
+link = "https://www.heise.de/rss/heise-atom.xml"
+tags = ["computer", "industry", "electronics", "technology"]
+
+[[feeds]]
+lang = "de-de"
 name = "CCC Event Blog"
 link = "https://events.ccc.de/feed"
 tags = ["ccc", "club", "event"]
@@ -213,6 +225,12 @@ lang = "en-gb"
 name = "La Quadrature du Net"
 link = "https://www.laquadrature.net/en/feed/"
 tags = ["news", "politics", "privacy", "surveillance"]
+
+[[feeds]]
+lang = "en-gb"
+name = "op-co.de blog"
+link = "https://op-co.de/blog/index.rss"
+tags = ["code", "germany", "jabber", "mastodon", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "en-gb"
@@ -408,15 +426,21 @@ tags = ["health"]
 
 [[feeds]]
 lang = "en-us"
-name = "Monal IM"
-link = "https://monal-im.org/index.xml"
-tags = ["iphone", "xmpp"]
+name = "modernity"
+link = "https://modernity.news/feed/"
+tags = ["culture", "news", "politics", "usa"]
 
 [[feeds]]
 lang = "en-us"
 name = "Mom on a Mission"
 link = "https://www.mom-on-a-mission.blog/all-posts?format=rss"
 tags = ["family", "farming", "food", "gardening", "survival"]
+
+[[feeds]]
+lang = "en-us"
+name = "Monal IM"
+link = "https://monal-im.org/index.xml"
+tags = ["iphone", "xmpp"]
 
 [[feeds]]
 lang = "en-us"
@@ -780,18 +804,6 @@ tags = ["news", "politics"]
 
 [[feeds]]
 lang = "it-it"
-name = "Diggita / Prima Pagina"
-link = "https://diggita.com/rss.php"
-tags = ["computer", "culture", "food", "technology"]
-
-[[feeds]]
-lang = "it-it"
-name = "Feddit.it"
-link = "https://feddit.it/feeds/local.xml?sort=Active"
-tags = ["fediverse", "forum"]
-
-[[feeds]]
-lang = "it-it"
 name = "A sysadmin's (mis)adventures"
 link = "https://blog.woodpeckersnest.space/feed/"
 tags = ["computer", "internet", "people", "technology", "xmpp"]
@@ -804,9 +816,27 @@ tags = ["law"]
 
 [[feeds]]
 lang = "it-it"
+name = "Diggita / Prima Pagina"
+link = "https://diggita.com/rss.php"
+tags = ["computer", "culture", "food", "technology"]
+
+[[feeds]]
+lang = "it-it"
 name = "Disroot Blog"
 link = "https://disroot.org/it/blog.atom"
 tags = ["decentralization", "privacy"]
+
+[[feeds]]
+lang = "it-it"
+name = "Feddit.it"
+link = "https://feddit.it/feeds/local.xml?sort=Active"
+tags = ["fediverse", "forum"]
+
+[[feeds]]
+lang = "it-it"
+name = "Italian XMPP Happy Hour - Podcast"
+link = "https://podcast.xmpp-it.net/api/v1/channels/xmpphappyhour/rss"
+tags = ["decentralization", "privacy", "technology", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "it-it"

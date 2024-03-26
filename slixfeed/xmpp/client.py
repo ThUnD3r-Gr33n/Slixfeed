@@ -217,7 +217,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         inviter = message['from'].bare
         muc_jid = message['groupchat_invite']['jid']
         await XmppBookmark.add(self, muc_jid)
-        XmppGroupchat.join(self, inviter, muc_jid)
+        await XmppGroupchat.join(self, inviter, muc_jid)
         message_body = ('Greetings! I am {}, the news anchor.\n'
                         'My job is to bring you the latest '
                         'news from sources you provide me with.\n'
@@ -240,7 +240,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         inviter = message['from'].bare
         muc_jid = message['groupchat_invite']['jid']
         await XmppBookmark.add(self, muc_jid)
-        XmppGroupchat.join(self, inviter, muc_jid)
+        await XmppGroupchat.join(self, inviter, muc_jid)
         message_body = ('Greetings! I am {}, the news anchor.\n'
                         'My job is to bring you the latest '
                         'news from sources you provide me with.\n'
@@ -285,7 +285,14 @@ class Slixfeed(slixmpp.ClientXMPP):
         # self.send_presence()
         await self.get_roster()
         bookmarks = await self.plugin['xep_0048'].get_bookmarks()
-        XmppGroupchat.autojoin(self, bookmarks)
+        await XmppGroupchat.autojoin(self, bookmarks)
+        jids = await XmppPubsub.get_pubsub_services(self)
+        for jid_bare in jids:
+            if jid_bare not in self.settings:
+                jid_file = jid_bare
+                db_file = config.get_pathname_to_database(jid_file)
+                Config.add_settings_jid(self.settings, jid_bare, db_file)
+            await task.start_tasks_xmpp_pubsub(self, jid_bare)
         # XmppCommand.adhoc_commands(self)
         self.adhoc_commands()
         # self.service_reactions()
@@ -305,7 +312,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         profile.set_identity(self, 'client')
         self['xep_0115'].update_caps()
         bookmarks = await self.plugin['xep_0048'].get_bookmarks()
-        XmppGroupchat.autojoin(self, bookmarks)
+        await XmppGroupchat.autojoin(self, bookmarks)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -386,9 +393,9 @@ class Slixfeed(slixmpp.ClientXMPP):
             return
         if presence['show'] in ('away', 'dnd', 'xa'):
             key_list = ['interval']
-            task.clean_tasks_xmpp(self, jid_bare, key_list)
+            task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
             key_list = ['status', 'check']
-            await task.start_tasks_xmpp(self, jid_bare, key_list)
+            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -455,7 +462,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         # FIXME TODO Find out what is the source responsible for a couple presences with empty message
         # NOTE This is a temporary solution
         await asyncio.sleep(10)
-        await task.start_tasks_xmpp(self, jid_bare)
+        await task.start_tasks_xmpp_chat(self, jid_bare)
         self.add_event_handler("presence_unavailable",
                                self.on_presence_unavailable)
         time_end = time.time()
@@ -494,7 +501,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         logger.debug(message_log.format(function_name, jid_full))
         jid_bare = presence['from'].bare
         # await task.stop_tasks(self, jid)
-        task.clean_tasks_xmpp(self, jid_bare)
+        task.clean_tasks_xmpp_chat(self, jid_bare)
 
         # NOTE Albeit nice to ~have~ see, this would constantly
         #      send presence messages to server to no end.
@@ -521,7 +528,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         jid_bare = presence["from"].bare
-        task.clean_tasks_xmpp(self, jid_bare)
+        task.clean_tasks_xmpp_chat(self, jid_bare)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -546,10 +553,10 @@ class Slixfeed(slixmpp.ClientXMPP):
             # NOTE: Required for Cheogram
             # await self['xep_0115'].update_caps(jid=jid)
             # self.send_presence(pto=jid)
-            # task.clean_tasks_xmpp(self, jid, ['status'])
+            # task.clean_tasks_xmpp_chat(self, jid, ['status'])
             await asyncio.sleep(5)
             key_list = ['status']
-            await task.start_tasks_xmpp(self, jid_bare, key_list)
+            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 10: logger.warning('{} (time: {})'.format(function_name,
@@ -567,7 +574,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             # NOTE: Required for Cheogram
             # await self['xep_0115'].update_caps(jid=jid)
             # self.send_presence(pto=jid)
-            # task.clean_tasks_xmpp(self, jid, ['status'])
+            # task.clean_tasks_xmpp_chat(self, jid, ['status'])
             await asyncio.sleep(5)
             status_message = ('💡 Send "help" for manual, or "info" for '
                               'information.')
@@ -588,9 +595,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         if jid_bare in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
-            # task.clean_tasks_xmpp(self, jid, ['status'])
+            # task.clean_tasks_xmpp_chat(self, jid, ['status'])
             key_list = ['status']
-            await task.start_tasks_xmpp(self, jid_bare, key_list)
+            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -607,9 +614,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         if jid_bare in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
-            # task.clean_tasks_xmpp(self, jid, ['status'])
+            # task.clean_tasks_xmpp_chat(self, jid, ['status'])
             key_list = ['status']
-            await task.start_tasks_xmpp(self, jid_bare, key_list)
+            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -626,9 +633,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         if jid_bare in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
-            # task.clean_tasks_xmpp(self, jid, ['status'])
+            # task.clean_tasks_xmpp_chat(self, jid, ['status'])
             key_list = ['status']
-            await task.start_tasks_xmpp(self, jid_bare, key_list)
+            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -695,11 +702,8 @@ class Slixfeed(slixmpp.ClientXMPP):
                                      name='🪶️ Subscribe',
                                      handler=self._handle_subscription_add)
         self['xep_0050'].add_command(node='publish',
-                                     name='📻 Publish',
-                                     handler=self._handle_pubsub_add)
-        self['xep_0050'].add_command(node='post',
-                                     name='📣️ Post',
-                                     handler=self._handle_post)
+                                     name='📣️ Publish',
+                                     handler=self._handle_publish)
         self['xep_0050'].add_command(node='recent',
                                      name='📰️ Browse',
                                      handler=self._handle_recent)
@@ -737,66 +741,155 @@ class Slixfeed(slixmpp.ClientXMPP):
     # Special interface
     # http://jabber.org/protocol/commands#actions
 
-    async def _handle_post(self, iq, session):
+    async def _handle_publish(self, iq, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        if not is_operator(self, jid_bare):
-            text_warn = 'PubSub is not available.'
+        if is_operator(self, jid_bare):
+            form = self['xep_0004'].make_form('form', 'PubSub')
+            form['instructions'] = 'Manage nodes and publish news into nodes.'
+            options = form.add_field(desc=('Send a set of selected posts or '
+                                           'set a new subscription.'),
+                                     ftype='list-single',
+                                     label='Choose',
+                                     required=True,
+                                     var='option')
+            # options.addOption('Manage nodes', 'nodes')
+            # options.addOption('Manage subscriptions', 'manage')
+            options.addOption('Post a selection', 'post')
+            options.addOption('Publish a subscription', 'publish')
+            session['allow_prev'] = False
+            session['has_next'] = True
+            session['next'] = self._handle_publish_select
+            session['prev'] = None
+            session['payload'] = form
+        else:
+            text_warn = 'This resource is restricted to operators.'
             session['notes'] = [['warn', text_warn]]
-            return session
-        form = self['xep_0004'].make_form('form', 'Post')
-        form['instructions'] = ('In order to post to PubSub, you will have to '
-                                'choose a PubSub Jabber ID (e.g. {}) and '
-                                'Slixfeed has to be allowed to publish into '
-                                'it.'
-                                .format(self.boundjid.bare))
-        form.add_field(var='url',
-                       ftype='text-single',
-                       label='URL',
-                       desc='Enter a subscription URL.',
-                       value='http://',
-                       required=True)
-        # options = form.add_field(var='jid',
-        #                          ftype='list-single',
-        #                          label='PubSub',
-        #                          desc='Select a PubSub Jabber ID.',
-        #                          value=self.boundjid.bare,
-        #                          required=True)
-        # iq = await self['xep_0030'].get_items(jid=self.boundjid.domain)
-        # for item in iq['disco_items']['items']:
-        #     jid = item[0]
-        #     if item[1]: name = item[1]
-        #     elif item[2]: name = item[2]
-        #     else: name = jid
-        #     options.addOption(jid, name)
-        form.add_field(var='jid',
-                       ftype='text-single',
-                       label='PubSub',
-                       desc='Enter a PubSub Jabber ID.',
-                       value=self.boundjid.bare,
-                       # value='pubsub.' + self.boundjid.host,
-                       required=True)
-        form.add_field(var='node',
-                       ftype='text-single',
-                       label='Node',
-                       desc=('Enter a node to publish to (The default value '
-                             'is "urn:xmpp:microblog:0" which is allocated to '
-                             'each Jabber ID in the Movim system).'),
-                       value='urn:xmpp:microblog:0',
-                       required=False)
-        options = form.add_field(var='xep',
-                                 ftype='list-single',
-                                 label='Protocol',
-                                 desc='Select XMPP Extension Protocol.',
-                                 value='0060',
-                                 required=True)
-        options.addOption('XEP-0060: Publish-Subscribe', '0060')
-        options.addOption('XEP-0277: Microblogging over XMPP', '0277')
-        options.addOption('XEP-0472: Pubsub Social Feed', '0472')
-        session['allow_prev'] = False
+        return session
+
+    async def _handle_publish_select(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        values = payload['values']
+        match values['option']:
+            case 'publish':
+                form = self['xep_0004'].make_form('form', 'Publish')
+                form['instructions'] = ('Choose a PubSub Jabber ID and verify '
+                                        'that Slixfeed has the necessary '
+                                        'permissions to publish into it.')
+                form.add_field(var='subscription',
+                               # TODO Make it possible to add several subscriptions at once;
+                               #      Similarly to BitTorrent trackers list
+                               # ftype='text-multi',
+                               # label='Subscription URLs',
+                               # desc=('Add subscriptions one time per '
+                               #       'subscription.'),
+                               ftype='text-single',
+                               label='URL',
+                               desc='Enter a subscription URL.',
+                               value='http://',
+                               required=True)
+                options = form.add_field(var='jid',
+                                          ftype='list-single',
+                                          label='PubSub',
+                                          desc='Select a PubSub Service.',
+                                          value=self.boundjid.bare,
+                                          required=True)
+                options.addOption(self.boundjid.bare, self.boundjid.bare)
+                iq = await self['xep_0030'].get_items(jid=self.boundjid.domain)
+                items = iq['disco_items']['items']
+                for item in items:
+                    iq = await self['xep_0030'].get_info(jid=item[0])
+                    identities = iq['disco_info']['identities']
+                    for identity in identities:
+                        if identity[0] == 'pubsub' and identity[1] == 'service':
+                            jid = item[0]
+                            if item[1]: name = item[1]
+                            elif item[2]: name = item[2]
+                            else: name = jid
+                            options.addOption(jid, name)
+                # form.add_field(var='jid',
+                #                ftype='text-single',
+                #                label='PubSub',
+                #                desc='Enter a PubSub Jabber ID.',
+                #                value=self.boundjid.bare,
+                #                # value='pubsub.' + self.boundjid.host,
+                #                required=True)
+                form.add_field(var='node',
+                               ftype='text-single',
+                               label='Node',
+                               desc='Enter a node to publish to.')
+                # options = form.add_field(var='xep',
+                #                          ftype='list-single',
+                #                          label='Protocol',
+                #                          desc='Select XMPP Extension Protocol.',
+                #                          value='0060',
+                #                          required=True)
+                # options.addOption('XEP-0060: Publish-Subscribe', '0060')
+                # options.addOption('XEP-0277: Microblogging over XMPP', '0277')
+                # options.addOption('XEP-0472: Pubsub Social Feed', '0472')
+                session['next'] = self._handle_subscription_new
+                session['payload'] = form
+            case 'post':
+                form = self['xep_0004'].make_form('form', 'Post')
+                form['instructions'] = ('Choose a PubSub Jabber ID and verify '
+                                        'that Slixfeed has the necessary '
+                                        'permissions to publish into it.')
+                form.add_field(var='url',
+                               ftype='text-single',
+                               label='URL',
+                               desc='Enter a subscription URL.',
+                               value='http://',
+                               required=True)
+                options = form.add_field(var='jid',
+                                          ftype='list-single',
+                                          label='PubSub',
+                                          desc='Select a PubSub Service.',
+                                          value=self.boundjid.bare,
+                                          required=True)
+                options.addOption(self.boundjid.bare, self.boundjid.bare)
+                iq = await self['xep_0030'].get_items(jid=self.boundjid.domain)
+                items = iq['disco_items']['items']
+                for item in items:
+                    iq = await self['xep_0030'].get_info(jid=item[0])
+                    identities = iq['disco_info']['identities']
+                    for identity in identities:
+                        if identity[0] == 'pubsub' and identity[1] == 'service':
+                            jid = item[0]
+                            if item[1]: name = item[1]
+                            elif item[2]: name = item[2]
+                            else: name = jid
+                            options.addOption(jid, name)
+                # form.add_field(var='jid',
+                #                ftype='text-single',
+                #                label='PubSub',
+                #                desc='Enter a PubSub Jabber ID.',
+                #                value=self.boundjid.bare,
+                #                # value='pubsub.' + self.boundjid.host,
+                #                required=True)
+                form.add_field(var='node',
+                               ftype='text-single',
+                               label='Node',
+                               desc='Enter a node to publish to.')
+                # options = form.add_field(var='xep',
+                #                          ftype='list-single',
+                #                          label='Protocol',
+                #                          desc='Select XMPP Extension Protocol.',
+                #                          value='0060',
+                #                          required=True)
+                # options.addOption('XEP-0060: Publish-Subscribe', '0060')
+                # options.addOption('XEP-0277: Microblogging over XMPP', '0277')
+                # options.addOption('XEP-0472: Pubsub Social Feed', '0472')
+                session['next'] = self._handle_preview
+                session['payload'] = form
+        session['allow_prev'] = True
         session['has_next'] = True
-        session['next'] = self._handle_preview
-        session['prev'] = None
-        session['payload'] = form
+        session['prev'] = self._handle_publish
         return session
     
     async def _handle_preview(self, payload, session):
@@ -820,6 +913,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         node = values['node']
         url = values['url']
         xep = values['xep']
+        if not node:
+            if jid == self.boundjid.bare:
+                node = 'urn:xmpp:microblog:0'
+            else:
+                node = uri.get_hostname(url)
         form = self['xep_0004'].make_form('form', 'Publish')
         while True:
             result = await fetch.http(url)
@@ -838,7 +936,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     if "title" in feed["feed"].keys():
                         title = feed["feed"]["title"]
                     else:
-                        title = url
+                        title = uri.get_hostname(url)
                     entries = feed.entries
                     entry_ix = 0
                     for entry in entries:
@@ -860,22 +958,21 @@ class Slixfeed(slixmpp.ClientXMPP):
                     session['allow_prev'] = True
                     session['has_next'] = True
                     session['next'] = self._handle_post_complete
-                    session['prev'] = self._handle_post
+                    session['prev'] = self._handle_publish
                     session['payload'] = form
                     break
                 else:
                     result = await crawl.probe_page(url, document)
                     if isinstance(result, list):
+                        results = result
                         form['instructions'] = ('Discovered {} subscriptions '
-                                                'from the given URL. Please '
-                                                'choose a subscription.'
-                                                .format(len(result)))
+                                                'for {}'
+                                                .format(len(results), url))
                         options = form.add_field(var='url',
                                                  ftype='list-single',
                                                  label='Feeds',
                                                  desc='Select a feed.',
                                                  required=True)
-                        results = result
                         for result in results:
                             title = result['name']
                             url = result['link']
@@ -884,7 +981,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         session['allow_prev'] = True
                         session['has_next'] = True
                         session['next'] = self._handle_preview
-                        session['prev'] = self._handle_post
+                        session['prev'] = self._handle_publish
                         session['payload'] = form
                         break
                     else:
@@ -985,7 +1082,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         form['instructions'] = ('Displaying information\nJabber ID {}'
                                 .format(jid_bare))
         form.add_field(ftype='fixed',
-                       value='News')
+                       label='News')
         feeds_all = str(sqlite.get_number_of_items(db_file, 'feeds'))
         form.add_field(label='Subscriptions',
                        ftype='text-single',
@@ -1005,7 +1102,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                        ftype='text-single',
                        value=unread)
         form.add_field(ftype='fixed',
-                       value='Options')
+                       label='Options')
         key_archive = Config.get_setting_value(self.settings, jid_bare, 'archive')
         key_archive = str(key_archive)
         form.add_field(label='Archive',
@@ -1059,7 +1156,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             last_update = 'n/a'
             next_update = 'n/a'
         form.add_field(ftype='fixed',
-                       value='Schedule')
+                       label='Schedule')
         form.add_field(label='Last update',
                        ftype='text-single',
                        value=last_update)
@@ -1167,80 +1264,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
-    async def _handle_pubsub_add(self, iq, session):
-        jid_full = str(session['from'])
-        function_name = sys._getframe().f_code.co_name
-        logger.debug('{}: jid_full: {}'
-                    .format(function_name, jid_full))
-        jid_bare = session['from'].bare
-        if not is_operator(self, jid_bare):
-            text_warn = 'PubSub is not available.'
-            session['notes'] = [['warn', text_warn]]
-            return session
-        chat_type = await get_chat_type(self, jid_bare)
-        moderator = None
-        if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid_bare, jid_full)
-        if chat_type == 'chat' or moderator:
-            form = self['xep_0004'].make_form('form', 'Publish')
-            form['instructions'] = ('In order to publish via PubSub, you will '
-                                    'have to choose a PubSub Jabber ID (e.g. '
-                                    '{}) and Slixfeed has to be allowed to '
-                                    'publish into it.'
-                                    .format('pubsub.' + self.boundjid.host))
-            form.add_field(var='subscription',
-                           # TODO Make it possible to add several subscriptions at once;
-                           #      Similarly to BitTorrent trackers list
-                           # ftype='text-multi',
-                           # label='Subscription URLs',
-                           # desc=('Add subscriptions one time per '
-                           #       'subscription.'),
-                           ftype='text-single',
-                           label='URL',
-                           desc='Enter a subscription URL.',
-                           value='http://',
-                           required=True)
-            form.add_field(var='jid',
-                           ftype='text-single',
-                           label='PubSub',
-                           desc='Enter a PubSub Jabber ID.',
-                           value=self.boundjid.bare,
-                           required=True)
-            form.add_field(var='node',
-                           ftype='text-single',
-                           label='Node',
-                           desc=('Enter a node to publish to (The default '
-                                 'value is "urn:xmpp:microblog:0" which '
-                                 'is allocated to each Jabber ID in the '
-                                 'Movim system).'),
-                           value='urn:xmpp:microblog:0',
-                           required=False)
-            options = form.add_field(var='xep',
-                                     ftype='list-single',
-                                     label='Protocol',
-                                     desc='Select XMPP Extension Protocol.',
-                                     value='0060',
-                                     required=True)
-            options.addOption('XEP-0060: Publish-Subscribe', '0060')
-            options.addOption('XEP-0277: Microblogging over XMPP', '0277')
-            options.addOption('XEP-0472: Pubsub Social Feed', '0472')
-            # form.add_field(var='scan',
-            #                ftype='boolean',
-            #                label='Scan',
-            #                desc='Scan URL for validity (recommended).',
-            #                value=True)
-            session['allow_prev'] = False
-            session['has_next'] = True
-            session['next'] = self._handle_subscription_new
-            session['prev'] = None
-            session['payload'] = form
-        else:
-            text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid_bare))
-            session['notes'] = [['warn', text_warn]]
-        return session
-
-
     async def _handle_subscription_add(self, iq, session):
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
@@ -1269,12 +1292,12 @@ class Slixfeed(slixmpp.ClientXMPP):
             if is_operator(self, jid_bare):
                 form.add_field(ftype='fixed',
                                label='Subscriber')
-                form.add_field(var='jid',
+                form.add_field(desc=('Enter a Jabber ID to add the '
+                                     'subscription to (The default Jabber ID '
+                                     'is your own).'),
                                ftype='text-single',
                                label='Jabber ID',
-                               desc=('Enter a Jabber ID to add the '
-                                     'subscription to (The default Jabber ID '
-                                     'is your own).'))
+                               var='jid')
             # form.add_field(var='scan',
             #                ftype='boolean',
             #                label='Scan',
@@ -1495,11 +1518,51 @@ class Slixfeed(slixmpp.ClientXMPP):
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
+        form = self['xep_0004'].make_form('form', 'Subscription')
+        # scan = values['scan']
+        values = payload['values']
+        node = values['node'] if 'node' in values else None
+        url = values['subscription']
+        jid = values['jid']
         jid_bare = session['from'].bare
-        jid_file = jid_bare
+        if is_operator(self, jid_bare) and jid:
+            jid_file = jid[0] if isinstance(jid, list) else jid
+            form.add_field(var='jid',
+                           ftype='hidden',
+                           value=jid)
+        else:
+            jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
-        # scan = payload['values']['scan']
-        url = payload['values']['subscription']
+        if node and sqlite.check_node_exist(db_file, node):
+            form['title'] = 'Conflict'
+            form['instructions'] = ('Name "{}" already exists. Choose a '
+                                    'different name.')
+            form.add_field(desc='Enter a node to publish to.',
+                           ftype='text-single',
+                           label='Node',
+                           value=node,
+                           var='node')
+            form.add_field(var='subscription',
+                           ftype='hidden',
+                           value=url)
+            form.add_field(var='node',
+                           ftype='hidden',
+                           value=node)
+            session['allow_prev'] = False
+            session['next'] = self._handle_subscription_new
+            # session['payload'] = None
+            session['prev'] = None
+        # elif not node:
+        #     counter = 0
+        #     hostname = uri.get_hostname(url)
+        #     node = hostname + ':' + str(counter)
+        #     while True:
+        #         if sqlite.check_node_exist(db_file, node):
+        #             counter += 1
+        #             node = hostname + ':' + str(counter)
+        #         else:
+        #             break
+        # Several URLs to subscribe
         if isinstance(url, list) and len(url) > 1:
             url_count = len(url)
             urls = url
@@ -1507,14 +1570,22 @@ class Slixfeed(slixmpp.ClientXMPP):
             error_count = 0
             exist_count = 0
             for url in urls:
-                result = await action.add_feed(self, jid_bare, db_file, url)
+                counter = 0
+                hostname = uri.get_hostname(url)
+                node = hostname + ':' + str(counter)
+                while True:
+                    if sqlite.check_node_exist(db_file, node):
+                        counter += 1
+                        node = hostname + ':' + str(counter)
+                    else:
+                        break
+                result = await action.add_feed(self, jid_bare, db_file, url, node)
                 if result['error']:
                     error_count += 1
                 elif result['exist']:
                     exist_count += 1
                 else:
                     agree_count += 1
-            form = self['xep_0004'].make_form('form', 'Subscription')
             if agree_count:
                 response = ('Added {} new subscription(s) out of {}'
                             .format(agree_count, url_count))
@@ -1531,16 +1602,25 @@ class Slixfeed(slixmpp.ClientXMPP):
         else:
             if isinstance(url, list):
                 url = url[0]
-            result = await action.add_feed(self, jid_bare, db_file, url)
+            counter = 0
+            hostname = uri.get_hostname(url)
+            node = hostname + ':' + str(counter)
+            while True:
+                if sqlite.check_node_exist(db_file, node):
+                    counter += 1
+                    node = hostname + ':' + str(counter)
+                else:
+                    break
+            result = await action.add_feed(self, jid_bare, db_file, url, node)
+            # URL is not a feed and URL has returned to feeds
             if isinstance(result, list):
                 results = result
-                form = self['xep_0004'].make_form('form', 'Subscriptions')
                 form['instructions'] = ('Discovered {} subscriptions for {}'
                                         .format(len(results), url))
                 options = form.add_field(var='subscription',
                                          ftype='list-multi',
                                          label='Subscribe',
-                                         desc=('Select subscriptions to add.'),
+                                         desc='Select subscriptions to add.',
                                          required=True)
                 for result in results:
                     options.addOption(result['name'], result['link'])
@@ -1566,23 +1646,32 @@ class Slixfeed(slixmpp.ClientXMPP):
                 session['payload'] = None
                 session['prev'] = self._handle_subscription_add
             elif result['exist']:
-                # response = ('News source "{}" is already listed '
-                #             'in the subscription list at index '
-                #             '{}.\n{}'.format(result['name'], result['index'],
-                #                              result['link']))
-                # session['notes'] = [['warn', response]] # Not supported by Gajim
-                # session['notes'] = [['info', response]]
-                form = self['xep_0004'].make_form('form', 'Subscription')
-                form['instructions'] = ('Subscription is already assigned at index {}.'
-                                        '\n'
-                                        '{}'
-                                        '\n'
-                                        '\n'
-                                        'Proceed to edit this subscription'
-                                        .format(result['index'], result['name']))
+                name = result['name']
+                form['instructions'] = ('Subscription "{}" already exist. '
+                                        'Proceed to edit this subscription.'
+                                        .format(name))
+                url = result['link']
+                feed_id = str(result['index'])
+                entries = sqlite.get_entries_of_feed(db_file, feed_id)
+                last_renewed = sqlite.get_status_information_of_feed(db_file,
+                                                                     feed_id)
+                last_renewed = str(last_renewed[5])
+                options = form.add_field(desc='Recent titles from subscription',
+                                         ftype='list-multi',
+                                         label='Preview')
+                for entry in entries:
+                    options.addOption(entry[1], entry[2])
+                form.add_field(ftype='fixed',
+                               label='Information')
+                form.add_field(ftype='text-single',
+                               label='Renewed',
+                               value=last_renewed)
+                form.add_field(ftype='text-single',
+                               label='ID #',
+                               value=feed_id)
                 form.add_field(var='subscription',
                                ftype='hidden',
-                               value=result['link'])
+                               value=url)
                 # NOTE Should we allow "Complete"?
                 # Do all clients provide button "Cancel".
                 session['allow_complete'] = False
@@ -1590,28 +1679,35 @@ class Slixfeed(slixmpp.ClientXMPP):
                 session['next'] = self._handle_subscription_editor
                 session['payload'] = form
                 # session['has_next'] = False
+            # Single URL to subscribe
             else:
-                # response = ('News source "{}" has been '
-                #             'added to subscription list.\n{}'
-                #             .format(result['name'], result['link']))
-                # session['notes'] = [['info', response]]
-                form = self['xep_0004'].make_form('form', 'Subscription')
-                # form['instructions'] = ('✅️ News source "{}" has been added to '
-                #                         'subscription list as index {}'
-                #                         '\n\n'
-                #                         'Choose next to continue to subscription '
-                #                         'editor.'
-                #                         .format(result['name'], result['index']))
-                form['instructions'] = ('New subscription'
-                                        '\n'
-                                        '"{}"'
-                                        '\n'
-                                        '\n'
-                                        'Proceed to edit this subscription'
-                                        .format(result['name']))
+                print(result)
+                name = result['name']
+                form['instructions'] = ('Subscription "{}" has been added. '
+                                        'Proceed to edit this subscription.'
+                                        .format(name))
+                url = result['link']
+                feed_id = str(result['index'])
+                entries = sqlite.get_entries_of_feed(db_file, feed_id)
+                last_updated = sqlite.get_status_information_of_feed(db_file,
+                                                                     feed_id)
+                last_updated = str(last_updated[3])
+                options = form.add_field(desc='Recent titles from subscription',
+                                         ftype='list-multi',
+                                         label='Preview')
+                for entry in entries:
+                    options.addOption(entry[1], entry[2])
+                form.add_field(ftype='fixed',
+                               label='Information')
+                form.add_field(ftype='text-single',
+                               label='Updated',
+                               value=last_updated)
+                form.add_field(ftype='text-single',
+                               label='ID #',
+                               value=feed_id)
                 form.add_field(var='subscription',
                                ftype='hidden',
-                               value=result['link'])
+                               value=url)
                 session['allow_complete'] = False
                 session['has_next'] = True
                 # session['allow_prev'] = False
@@ -1623,71 +1719,27 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
-    async def _handle_subscription_enable(self, payload, session):
+    async def _handle_subscription_toggle(self, payload, session):
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        form = payload
         jid_bare = session['from'].bare
-        jid_file = jid_bare
+        values = payload['values']
+        if is_operator(self, jid_bare) and 'jid' in values:
+            jid = values['jid'][0]
+            jid_file = jid
+            del values['jid']
+        else:
+            jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
-        ixs = payload['values']['subscriptions']
-        form.add_field(ftype='fixed',
-                       value='Modified subscriptions')
-        for ix in ixs:
-            name = sqlite.get_feed_title(db_file, ix)
-            url = sqlite.get_feed_url(db_file, ix)
-            await sqlite.set_enabled_status(db_file, ix, 1)
-            # text = (ix,) + name + url
-            # text = ' - '.join(text)
-            name = name[0] if name else 'Subscription #{}'.format(ix)
-            url = url[0]
-            text = '{} <{}>'.format(name, url)
-            form.add_field(var=ix,
-                           ftype='text-single',
-                           label=url,
-                           value=text)
-        form['type'] = 'result'
-        form['title'] = 'Done'
-        form['instructions'] = ('Completed successfully!')
-        session["has_next"] = False
+        for key in values:
+            value = 1 if values[key] else 0
+            await sqlite.set_enabled_status(db_file, key, value)
+        text_note = 'Done.'
         session['next'] = None
-        session['payload'] = form
-        return session
-
-
-    async def _handle_subscription_disable(self, payload, session):
-        jid_full = str(session['from'])
-        function_name = sys._getframe().f_code.co_name
-        logger.debug('{}: jid_full: {}'
-                    .format(function_name, jid_full))
-        form = payload
-        jid_bare = session['from'].bare
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
-        ixs = payload['values']['subscriptions']
-        form.add_field(ftype='fixed',
-                       value='Modified subscriptions')
-        for ix in ixs:
-            name = sqlite.get_feed_title(db_file, ix)
-            url = sqlite.get_feed_url(db_file, ix)
-            await sqlite.set_enabled_status(db_file, ix, 0)
-            # text = (ix,) + name + url
-            # text = ' - '.join(text)
-            name = name[0] if name else 'Subscription #{}'.format(ix)
-            url = url[0]
-            text = '{} <{}>'.format(name, url)
-            form.add_field(var=ix,
-                           ftype='text-single',
-                           label=url,
-                           value=text)
-        form['type'] = 'result'
-        form['title'] = 'Done'
-        form['instructions'] = ('Completed successfully!')
-        session["has_next"] = False
-        session['next'] = None
-        session['payload'] = form
+        session['notes'] = [['info', text_note]]
+        session['payload'] = None
         return session
 
 
@@ -1696,32 +1748,29 @@ class Slixfeed(slixmpp.ClientXMPP):
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        form = payload
         jid_bare = session['from'].bare
-        jid_file = jid_bare
+        values = payload['values']
+        if is_operator(self, jid_bare) and 'jid' in values:
+            jid = values['jid'][0]
+            jid_file = jid
+            del values['jid']
+        else:
+            jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
+        subscriptions =''
         ixs = payload['values']['subscriptions']
-        form.add_field(ftype='fixed',
-                       value='Deleted subscriptions')
         for ix in ixs:
             name = sqlite.get_feed_title(db_file, ix)
             url = sqlite.get_feed_url(db_file, ix)
-            await sqlite.remove_feed_by_index(db_file, ix)
-            # text = (ix,) + name + url
-            # text = ' - '.join(text)
             name = name[0] if name else 'Subscription #{}'.format(ix)
             url = url[0]
-            text = '{} <{}>'.format(name, url)
-            form.add_field(var=ix,
-                           ftype='text-single',
-                           label=url,
-                           value=text)
-        form['type'] = 'result'
-        form['title'] = 'Done'
-        form['instructions'] = ('Completed successfully!')
-        session["has_next"] = False
+            await sqlite.remove_feed_by_index(db_file, ix)
+            subscriptions += '{}. {}\n{}\n\n'.format(ix, name, url)
+        text_note = ('The following subscriptions have been deleted:\n\n{}'
+                     .format(subscriptions))
         session['next'] = None
-        session['payload'] = form
+        session['notes'] = [['info', text_note]]
+        session['payload'] = None
         return session
 
 
@@ -1878,10 +1927,18 @@ class Slixfeed(slixmpp.ClientXMPP):
                                      required=True,
                                      value='browse')
             options.addOption('Browse subscriptions', 'browse')
-            options.addOption('Browse subscriptions by tag', 'tag')
-            options.addOption('Enable subscriptions', 'enable')
-            options.addOption('Disable subscriptions', 'disable')
+            options.addOption('Browse tags', 'tag')
             options.addOption('Remove subscriptions', 'delete')
+            options.addOption('Toggle subscriptions', 'toggle')
+            if is_operator(self, jid_bare):
+                form.add_field(ftype='fixed',
+                               label='Subscriber')
+                form.add_field(desc=('Enter a Jabber ID to add the '
+                                     'subscription to (The default Jabber ID '
+                                     'is your own).'),
+                               ftype='text-single',
+                               label='Jabber ID',
+                               var='jid')
             session['payload'] = form
             session['next'] = self._handle_subscriptions_result
             session['has_next'] = True
@@ -1897,11 +1954,19 @@ class Slixfeed(slixmpp.ClientXMPP):
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
+        values = payload['values']
+        jid = values['jid']
         jid_bare = session['from'].bare
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
         form = self['xep_0004'].make_form('form', 'Subscriptions')
-        match payload['values']['action']:
+        if is_operator(self, jid_bare) and jid:
+            jid_file = jid
+            form.add_field(ftype='hidden',
+                           value=jid,
+                           var='jid')
+        else:
+            jid_file = jid_bare
+        db_file = config.get_pathname_to_database(jid_file)
+        match values['action']:
             case 'browse':
                 form['instructions'] = 'Editing subscriptions'
                 options = form.add_field(var='subscriptions',
@@ -1911,7 +1976,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                          desc=('Select a subscription to edit.'),
                                          required=True)
                 subscriptions = sqlite.get_feeds(db_file)
-                subscriptions = sorted(subscriptions, key=lambda x: x[1])
+                # subscriptions = sorted(subscriptions, key=lambda x: x[1])
                 for subscription in subscriptions:
                     title = subscription[1]
                     url = subscription[2]
@@ -1930,7 +1995,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                          desc=('Select subscriptions to remove.'),
                                          required=True)
                 subscriptions = sqlite.get_feeds(db_file)
-                subscriptions = sorted(subscriptions, key=lambda x: x[1])
+                # subscriptions = sorted(subscriptions, key=lambda x: x[1])
                 for subscription in subscriptions:
                     title = subscription[1]
                     ix = str(subscription[0])
@@ -1940,39 +2005,24 @@ class Slixfeed(slixmpp.ClientXMPP):
                 # TODO Refer to confirmation dialog which would display feeds selected
                 session['next'] = self._handle_subscription_del_complete
                 session['allow_complete'] = True
-            case 'disable':
-                form['instructions'] = 'Disabling subscriptions'
-                options = form.add_field(var='subscriptions',
-                                         ftype='list-multi',
-                                         label='Subscriptions',
-                                         desc=('Select subscriptions to disable.'),
-                                         required=True)
-                subscriptions = sqlite.get_feeds_by_enabled_state(db_file, True)
-                subscriptions = sorted(subscriptions, key=lambda x: x[1])
+            case 'toggle':
+                form['instructions'] = 'Toggling subscriptions'
+                subscriptions = sqlite.get_feeds_and_enabled_state(db_file)
+                # subscriptions = sorted(subscriptions, key=lambda x: x[1])
                 for subscription in subscriptions:
-                    title = subscription[1]
                     ix = str(subscription[0])
-                    options.addOption(title, ix)
+                    title = subscription[1]
+                    url = subscription[2]
+                    enabled_state = True if subscription[3] else False
+                    enabled_state = subscription[3]
+                    form.add_field(ftype='boolean',
+                                   label=title,
+                                   desc=url,
+                                   value=enabled_state,
+                                   var=ix)
                 session['cancel'] = self._handle_cancel
                 session['has_next'] = False
-                session['next'] = self._handle_subscription_disable
-                session['allow_complete'] = True
-            case 'enable':
-                form['instructions'] = 'Enabling subscriptions'
-                options = form.add_field(var='subscriptions',
-                                         ftype='list-multi',
-                                         label='Subscriptions',
-                                         desc=('Select subscriptions to enable.'),
-                                         required=True)
-                subscriptions = sqlite.get_feeds_by_enabled_state(db_file, False)
-                subscriptions = sorted(subscriptions, key=lambda x: x[1])
-                for subscription in subscriptions:
-                    title = subscription[1]
-                    ix = str(subscription[0])
-                    options.addOption(title, ix)
-                session['cancel'] = self._handle_cancel
-                session['has_next'] = False
-                session['next'] = self._handle_subscription_enable
+                session['next'] = self._handle_subscription_toggle
                 session['allow_complete'] = True
             case 'tag':
                 form['instructions'] = 'Browsing tags'
@@ -1982,7 +2032,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                          desc=('Select a tag to browse.'),
                                          required=True)
                 tags = sqlite.get_tags(db_file)
-                tags = sorted(tags, key=lambda x: x[0])
+                # tags = sorted(tags, key=lambda x: x[0])
                 for tag in tags:
                     name = tag[0]
                     ix = str(tag[1])
@@ -2001,12 +2051,20 @@ class Slixfeed(slixmpp.ClientXMPP):
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        jid_bare = session['from'].bare
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
-        tag_id = payload['values']['tag']
-        tag_name = sqlite.get_tag_name(db_file, tag_id)[0]
         form = self['xep_0004'].make_form('form', 'Subscriptions')
+        jid_bare = session['from'].bare
+        values = payload['values']
+        if is_operator(self, jid_bare) and 'jid' in values:
+            jid = values['jid'][0]
+            jid_file = jid
+            form.add_field(ftype='hidden',
+                           value=jid,
+                           var='jid')
+        else:
+            jid_file = jid_bare
+        db_file = config.get_pathname_to_database(jid_file)
+        tag_id = values['tag']
+        tag_name = sqlite.get_tag_name(db_file, tag_id)[0]
         form['instructions'] = 'Subscriptions tagged with "{}"'.format(tag_name)
         options = form.add_field(var='subscriptions',
                                  # ftype='list-multi', # TODO To be added soon
@@ -2015,7 +2073,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                  desc=('Select a subscription to edit.'),
                                  required=True)
         subscriptions = sqlite.get_feeds_by_tag_id(db_file, tag_id)
-        subscriptions = sorted(subscriptions, key=lambda x: x[1])
+        # subscriptions = sorted(subscriptions, key=lambda x: x[1])
         for subscription in subscriptions:
             title = subscription[1]
             url = subscription[2]
@@ -2029,68 +2087,28 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
-    # FIXME There are feeds that are missing (possibly because of sortings)
-    async def _handle_subscription(self, iq, session):
-        jid_full = str(session['from'])
-        function_name = sys._getframe().f_code.co_name
-        logger.debug('{}: jid_full: {}'
-                    .format(function_name, jid_full))
-        jid_bare = session['from'].bare
-        form = self['xep_0004'].make_form('form', 'Subscription editor')
-        form['instructions'] = '📰️ Edit subscription preferences and properties'
-        # form.addField(var='interval',
-        #               ftype='text-single',
-        #               label='Interval period')
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
-        subscriptions = sqlite.get_feeds(db_file)
-        # subscriptions = set(subscriptions)
-        categorized_subscriptions = {}
-        for subscription in subscriptions:
-            title = subscription[1]
-            url = subscription[2]
-            try:
-                letter = title[0].capitalize()
-                if letter not in categorized_subscriptions:
-                    categorized_subscriptions[letter] = [subscription]
-                        # title[0].capitalize()] = [subscription]
-                else:
-                    categorized_subscriptions[letter].append(subscription)
-                        # title[0].capitalize()].append(subscription)
-            except Exception as e:
-                logger.warning('Title might be empty:', str(e))
-        for category in sorted(categorized_subscriptions):
-            options = form.add_field(var=category,
-                                     ftype='list-single',
-                                     label=category.capitalize(),
-                                     desc='Select a subscription to view.')
-            subscriptions_ = categorized_subscriptions[category]
-            subscriptions_ = sorted(subscriptions_, key=lambda x: x[0])
-            for subscription_ in subscriptions_:
-            # for subscription in categorized_subscriptions[category]:
-                title = subscription_[0]
-                url = subscription_[1]
-                options.addOption(title, url)
-        session['payload'] = form
-        session['next'] = self._handle_subscription_editor
-        session['has_next'] = True
-        return session
-
-
     async def _handle_subscription_editor(self, payload, session):
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        jid_bare = session['from'].bare
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
-        if 'subscription' in payload['values']:
-            urls = payload['values']['subscription']
-        elif 'subscriptions' in payload['values']:
-            urls = payload['values']['subscriptions']
-        url_count = len(urls)
         form = self['xep_0004'].make_form('form', 'Subscription')
+        jid_bare = session['from'].bare
+        values = payload['values']
+        if is_operator(self, jid_bare) and 'jid' in values:
+            jid = values['jid'][0]
+            jid_file = jid
+            form.add_field(ftype='hidden',
+                           value=jid,
+                           var='jid')
+        else:
+            jid_file = jid_bare
+        db_file = config.get_pathname_to_database(jid_file)
+        if 'subscription' in values:
+            urls = values['subscription']
+        elif 'subscriptions' in values:
+            urls = values['subscriptions']
+        url_count = len(urls)
         if isinstance(urls, list) and url_count > 1:
             form['instructions'] = 'Editing {} subscriptions'.format(url_count)
         else:
@@ -2105,15 +2123,17 @@ class Slixfeed(slixmpp.ClientXMPP):
                 title = sqlite.get_feed_title(db_file, feed_id)
                 title = title[0]
                 tags_result = sqlite.get_tags_by_feed_id(db_file, feed_id)
-                tags_sorted = sorted(x[0] for x in tags_result)
-                tags = ', '.join(tags_sorted)
+                # tags_sorted = sorted(x[0] for x in tags_result)
+                # tags = ', '.join(tags_sorted)
+                tags = ''
+                for tag in tags_result: tags += tag[0] + ', '
                 form['instructions'] = 'Editing subscription #{}'.format(feed_id)
             else:
                 form['instructions'] = 'Adding subscription'
                 title = ''
                 tags = '' # TODO Suggest tags by element "categories"
             form.add_field(ftype='fixed',
-                           value='Properties')
+                           label='Properties')
             form.add_field(var='name',
                            ftype='text-single',
                            label='Name',
@@ -2121,7 +2141,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                            required=True)
             # NOTE This does not look good in Gajim
             # url = form.add_field(ftype='fixed',
-            #                      value=url)
+            #                      label=url)
             #url['validate']['datatype'] = 'xs:anyURI'
             options = form.add_field(var='url',
                                      ftype='list-single',
@@ -2143,7 +2163,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                            ftype='hidden',
                            value=tags)
         form.add_field(ftype='fixed',
-                       value='Options')
+                       label='Options')
         options = form.add_field(var='priority',
                                  ftype='list-single',
                                  label='Priority',
@@ -2176,7 +2196,11 @@ class Slixfeed(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         values = payload['values']
-        jid_file = jid_bare
+        if is_operator(self, jid_bare) and 'jid' in values:
+            jid = values['jid'][0]
+            jid_file = jid
+        else:
+            jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         # url = values['url']
         # feed_id = sqlite.get_feed_id(db_file, url)
@@ -2234,48 +2258,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
-    async def _handle_subscription_selector(self, payload, session):
-        jid_full = str(session['from'])
-        function_name = sys._getframe().f_code.co_name
-        logger.debug('{}: jid_full: {}'
-                    .format(function_name, jid_full))
-        jid_bare = session['from'].bare
-        form = self['xep_0004'].make_form('form', 'Add Subscription')
-        form['instructions'] = ('📰️ Select a subscription to add\n'
-                                'Subsciptions discovered for {}'
-                                .format(url))
-        # form.addField(var='interval',
-        #               ftype='text-single',
-        #               label='Interval period')
-        options = form.add_field(var='subscriptions',
-                                 ftype='list-multi',
-                                 label='Subscriptions',
-                                 desc=('Select subscriptions to perform '
-                                       'actions upon.'),
-                                 required=True)
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
-        subscriptions = sqlite.get_feeds(db_file)
-        subscriptions = sorted(subscriptions, key=lambda x: x[1])
-        for subscription in subscriptions:
-            title = subscription[1]
-            url = subscription[2]
-            options.addOption(title, url)
-        # options = form.add_field(var='action',
-        #                          ftype='list-single',
-        #                          label='Action',
-        #                          value='none')
-        # options.addOption('None', 'none')
-        # options.addOption('Reset', 'reset')
-        # options.addOption('Enable', 'enable')
-        # options.addOption('Disable', 'disable')
-        # options.addOption('Delete', 'delete')
-        session['payload'] = form
-        session['next'] = self._handle_subscription_editor
-        session['has_next'] = True
-        return session
-
-
     async def _handle_advanced(self, iq, session):
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
@@ -2289,11 +2271,10 @@ class Slixfeed(slixmpp.ClientXMPP):
         if chat_type == 'chat' or moderator:
             form = self['xep_0004'].make_form('form', 'Advanced')
             form['instructions'] = 'Extended options'
-            options = form.add_field(var='option',
-                                     ftype='list-single',
+            options = form.add_field(ftype='list-single',
                                      label='Choose',
                                      required=True,
-                                     value='export')
+                                     var='option')
             jid = session['from'].bare
             if is_operator(self, jid):
                 options.addOption('Administration', 'admin')
@@ -2351,6 +2332,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                                  required=True)
                         options.addOption('Bookmarks', 'bookmarks')
                         options.addOption('Contacts', 'roster')
+                        options.addOption('PubSub', 'pubsub')
                         options.addOption('Subscribers', 'subscribers')
                         session['payload'] = form
                         session['next'] = self._handle_admin_action
@@ -2478,10 +2460,10 @@ class Slixfeed(slixmpp.ClientXMPP):
                 e_val = entry[e_key]
                 e_key = e_key.capitalize()
                 # form.add_field(ftype='fixed',
-                #                value=e_val)
+                #                label=e_val)
                 if e_key == 'Name':
                     form.add_field(ftype='fixed',
-                                    value=e_val)
+                                   label=e_val)
                     continue
                 if isinstance(e_val, list):
                     form_type = 'text-multi'
@@ -2544,7 +2526,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             name = cmd.capitalize()
             form.add_field(var='title',
                            ftype='fixed',
-                           value=name)
+                           label=name)
             elements = cmds[cmd]
             for key, value in elements.items():
                 key = key.replace('_', ' ')
@@ -2701,16 +2683,10 @@ class Slixfeed(slixmpp.ClientXMPP):
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        jid_bare = session['from'].bare
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
-        subscriptions = sqlite.get_feeds(db_file)
-        subscriptions = sorted(subscriptions, key=lambda x: x[1])
-        form = self['xep_0004'].make_form('form', 'Subscriptions')
         match payload['values']['action']:
             case 'bookmarks':
                 form = self['xep_0004'].make_form('form', 'Bookmarks')
-                form['instructions'] = 'Bookmarks'
+                form['instructions'] = 'Managing bookmarks'
                 options = form.add_field(var='jid',
                                          ftype='list-single',
                                          label='Jabber ID',
@@ -2723,7 +2699,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 session['next'] = self._handle_bookmarks_editor
             case 'roster':
                 form = self['xep_0004'].make_form('form', 'Contacts')
-                form['instructions'] = 'Organize contacts'
+                form['instructions'] = 'Organizing contacts'
                 options = form.add_field(var='jid',
                                          ftype='list-single',
                                          label='Contact',
@@ -2774,9 +2750,69 @@ class Slixfeed(slixmpp.ClientXMPP):
                 session['allow_complete'] = True
                 session['has_next'] = False
                 session['next'] = self._handle_subscribers_complete
+            case 'pubsub':
+                form = self['xep_0004'].make_form('form', 'PubSub')
+                form['instructions'] = ('Designate Publish-Subscribe services '
+                                        'for IoT updates, news publishing, '
+                                        'and even for microblogging on '
+                                        'platforms such as Libervia and Movim.')
+                form.add_field(desc='Select PubSub services to designate.',
+                               ftype='fixed',
+                               label='Jabber ID')
+                # jid_bare = self.boundjid.bare
+                # enabled_state = Config.get_setting_value(self.settings, jid_bare, 'enabled')
+                # form.add_field(ftype='boolean',
+                #                label=jid_bare,
+                #                value=enabled_state,
+                #                var=jid_bare)
+                iq = await self['xep_0030'].get_items(jid=self.boundjid.domain)
+                items = iq['disco_items']['items']
+                for item in items:
+                    iq = await self['xep_0030'].get_info(jid=item[0])
+                    identities = iq['disco_info']['identities']
+                    for identity in identities:
+                        if identity[0] == 'pubsub' and identity[1] == 'service':
+                            jid_bare = item[0]
+                            if item[1]: name = item[1]
+                            elif item[2]: name = item[2]
+                            else: name = jid_bare
+                            enabled_state = Config.get_setting_value(self.settings, jid_bare, 'enabled')
+                            form.add_field(desc=jid_bare,
+                                           ftype='boolean',
+                                           label=name,
+                                           value=enabled_state,
+                                           var=jid_bare)
+                            print(Config.get_setting_value(self.settings, jid_bare, 'enabled'))
+                session['allow_complete'] = True
+                session['has_next'] = False
+                session['next'] = self._handle_pubsubs_complete
         session['allow_prev'] = True
         session['payload'] = form
         session['prev'] = self._handle_advanced
+        return session
+
+
+    async def _handle_pubsubs_complete(self, payload, session):
+        jid_full = str(session['from'])
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_full: {}'
+                    .format(function_name, jid_full))
+        values = payload['values']
+        print(self.settings)
+        for key in values:
+            if key:
+                jid_bare = key
+                value = values[key]
+                jid_file = jid_bare
+                db_file = config.get_pathname_to_database(jid_file)
+                if jid_bare not in self.settings:
+                    Config.add_settings_jid(self.settings, jid_bare, db_file)
+                await Config.set_setting_value(self.settings, jid_bare, db_file, 'enabled', value)
+        print(self.settings)
+        text_note = 'Done.'
+        session['next'] = None
+        session['notes'] = [['info', text_note]]
+        session['payload'] = None
         return session
 
 
@@ -3139,7 +3175,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                      .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        form = payload
         jid_file = jid_bare
         db_file = config.get_pathname_to_database(jid_file)
         if jid_bare not in self.settings:
@@ -3174,14 +3209,14 @@ class Slixfeed(slixmpp.ClientXMPP):
                                   status_type=status_type)
                 await asyncio.sleep(5)
                 key_list = ['check', 'status', 'interval']
-                await task.start_tasks_xmpp(self, jid_bare, key_list)
+                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
 
             if (key == 'enabled' and
                 val == 0 and
                 str(is_enabled) == 1):
                 logger.info('Slixfeed has been disabled for {}'.format(jid_bare))
                 key_list = ['interval', 'status']
-                task.clean_tasks_xmpp(self, jid_bare, key_list)
+                task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
                 status_type = 'xa'
                 status_message = '📪️ Send "Start" to receive updates'
                 XmppPresence.send(self, jid_bare, status_message,
@@ -3197,10 +3232,10 @@ class Slixfeed(slixmpp.ClientXMPP):
             #         XmppPresence.send(self, jid, status_message,
             #                           status_type=status_type)
             #         await asyncio.sleep(5)
-            #         await task.start_tasks_xmpp(self, jid, ['check', 'status',
+            #         await task.start_tasks_xmpp_chat(self, jid, ['check', 'status',
             #                                                 'interval'])
             #     else:
-            #         task.clean_tasks_xmpp(self, jid, ['interval', 'status'])
+            #         task.clean_tasks_xmpp_chat(self, jid, ['interval', 'status'])
             #         status_type = 'xa'
             #         status_message = '📪️ Send "Start" to receive Jabber updates'
             #         XmppPresence.send(self, jid, status_message,
@@ -3228,7 +3263,8 @@ class Slixfeed(slixmpp.ClientXMPP):
 
             # form.add_field(var=key,
             #                 ftype='fixed',
-            #                 value=result)
+            #                 label=result)
+        form = payload
         form['title'] = 'Done'
         form['instructions'] = 'has been completed!'
         # session['allow_complete'] = True

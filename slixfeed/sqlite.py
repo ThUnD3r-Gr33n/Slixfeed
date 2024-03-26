@@ -167,6 +167,19 @@ def create_tables(db_file):
               );
             """
             )
+        feeds_pubsub_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS feeds_pubsub (
+                id INTEGER NOT NULL,
+                feed_id INTEGER NOT NULL UNIQUE,
+                node TEXT NOT NULL UNIQUE,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY (id)
+              );
+            """
+            )
         feeds_rules_table_sql = (
             """
             CREATE TABLE IF NOT EXISTS feeds_rules (
@@ -287,6 +300,7 @@ def create_tables(db_file):
         cur.execute(feeds_table_sql)
         cur.execute(feeds_state_table_sql)
         cur.execute(feeds_properties_table_sql)
+        cur.execute(feeds_pubsub_table_sql)
         cur.execute(feeds_rules_table_sql)
         cur.execute(feeds_tags_table_sql)
         cur.execute(filters_table_sql)
@@ -390,6 +404,7 @@ async def add_metadata(db_file):
                 feed_id = ix[0]
                 insert_feed_status(cur, feed_id)
                 insert_feed_properties(cur, feed_id)
+                insert_feed_pubsub(cur, feed_id)
 
 
 def insert_feed_status(cur, feed_id):
@@ -452,7 +467,37 @@ def insert_feed_properties(cur, feed_id):
         logger.error(e)
 
 
-async def insert_feed(db_file, url, title=None, entries=None, version=None,
+def insert_feed_pubsub(cur, feed_id):
+    """
+    Set feed pubsub.
+
+    Parameters
+    ----------
+    cur : object
+        Cursor object.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: feed_id: {}'
+                .format(function_name, feed_id))
+    sql = (
+        """
+        INSERT
+        INTO feeds_pubsub(
+            feed_id)
+        VALUES(
+            ?)
+        """
+        )
+    par = (feed_id,)
+    try:
+        cur.execute(sql, par)
+    except IntegrityError as e:
+        logger.warning(
+            "Skipping feed_id {} for table feeds_pubsub".format(feed_id))
+        logger.error(e)
+
+
+async def insert_feed(db_file, url, title, node, entries=None, version=None,
                       encoding=None, language=None, status_code=None,
                       updated=None):
     """
@@ -464,8 +509,10 @@ async def insert_feed(db_file, url, title=None, entries=None, version=None,
         Path to database file.
     url : str
         URL.
-    title : str, optional
-        Feed title. The default is None.
+    title : str
+        Feed title.
+    node : str
+        Feed Node.
     entries : int, optional
         Number of entries. The default is None.
     version : str, optional
@@ -531,6 +578,19 @@ async def insert_feed(db_file, url, title=None, entries=None, version=None,
                 )
             par = (
                 feed_id, entries, version, encoding, language
+                )
+            cur.execute(sql, par)
+            sql = (
+                """
+                INSERT
+                INTO feeds_pubsub(
+                    feed_id, node)
+                VALUES(
+                    ?, ?)
+                """
+                )
+            par = (
+                feed_id, node
                 )
             cur.execute(sql, par)
 
@@ -699,7 +759,8 @@ def get_feeds_by_tag_id(db_file, tag_id):
             FROM feeds
             INNER JOIN feeds_tags ON feeds.id = feeds_tags.feed_id
             INNER JOIN tags ON tags.id = feeds_tags.tag_id
-            WHERE tags.id = ?;
+            WHERE tags.id = ?
+            ORDER BY feeds.name;
             """
             )
         par = (tag_id,)
@@ -734,7 +795,8 @@ def get_tags_by_feed_id(db_file, feed_id):
             FROM tags
             INNER JOIN feeds_tags ON tags.id = feeds_tags.tag_id
             INNER JOIN feeds ON feeds.id = feeds_tags.feed_id
-            WHERE feeds.id = ?;
+            WHERE feeds.id = ?
+            ORDER BY tags.tag;
             """
             )
         par = (feed_id,)
@@ -775,6 +837,109 @@ async def set_feed_id_and_tag_id(db_file, feed_id, tag_id):
                 "tag_id": tag_id
                 }
             cur.execute(sql, par)
+
+
+def get_feed_properties(db_file, feed_id):
+    """
+    Get properties of given feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Feed ID.
+
+    Returns
+    -------
+    node : str
+        Node name.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} feed_id: {}'
+                .format(function_name, db_file, feed_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT *
+            FROM feeds_properties
+            WHERE feed_id = ?
+            """
+            )
+        par = (feed_id,)
+        name = cur.execute(sql, par).fetchone()
+    return name
+
+
+def get_node_name(db_file, feed_id):
+    """
+    Get name of given node.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Feed ID.
+
+    Returns
+    -------
+    node : str
+        Node name.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} feed_id: {}'
+                .format(function_name, db_file, feed_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT node
+            FROM feeds_pubsub
+            WHERE feed_id = ?
+            """
+            )
+        par = (feed_id,)
+        name = cur.execute(sql, par).fetchone()
+    return name
+
+
+def check_node_exist(db_file, node_name):
+    """
+    Check whether node exist.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    node_name : str
+        Node name.
+
+    Returns
+    -------
+    id : str
+        ID.
+    feed_id : str
+        Feed ID.
+    node : str
+        Node name.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} node_name: {}'
+                .format(function_name, db_file, node_name))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT id, feed_id, node
+            FROM feeds_pubsub
+            WHERE node = ?
+            """
+            )
+        par = (node_name,)
+        name = cur.execute(sql, par).fetchone()
+    return name
 
 
 def get_tag_id(db_file, tag_name):
@@ -1325,6 +1490,62 @@ async def mark_entry_as_read(cur, ix):
         )
     par = (ix,)
     cur.execute(sql, par)
+
+
+def get_status_information_of_feed(db_file, feed_id):
+    """
+    Get status information of given feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Feed Id.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} feed_id: {}'
+                .format(function_name, db_file, feed_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT *
+            FROM feeds_state
+            WHERE feed_id = ?
+            """
+            )
+        par = (feed_id,)
+        count = cur.execute(sql, par).fetchone()
+        return count
+
+
+def get_unread_entries_of_feed(db_file, feed_id):
+    """
+    Get entries of given feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Feed Id.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} feed_id: {}'
+                .format(function_name, db_file, feed_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT *
+            FROM entries
+            WHERE read = 0 AND feed_id = ?
+            """
+            )
+        par = (feed_id,)
+        count = cur.execute(sql, par).fetchall()
+        return count
 
 
 def get_number_of_unread_entries_by_feed(db_file, feed_id):
@@ -2157,6 +2378,37 @@ def get_feeds_by_enabled_state(db_file, enabled_state):
         return result
 
 
+def get_feeds_and_enabled_state(db_file):
+    """
+    Select table feeds and join column enabled.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    result : tuple
+        List of URLs.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {}'
+                .format(function_name, db_file))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT feeds.*, feeds_state.enabled
+            FROM feeds
+            INNER JOIN feeds_state ON feeds.id = feeds_state.feed_id
+            ORDER BY feeds.name ASC
+            """
+            )
+        result = cur.execute(sql).fetchall()
+        return result
+
+
 def get_active_feeds_url(db_file):
     """
     Query table feeds for active URLs.
@@ -2211,6 +2463,7 @@ def get_tags(db_file):
             """
             SELECT tag, id
             FROM tags
+            ORDER BY tag
             """
             )
         result = cur.execute(sql).fetchall()
@@ -2245,6 +2498,7 @@ def get_feeds(db_file):
             """
             SELECT id, name, url
             FROM feeds
+            ORDER BY name
             """
             )
         result = cur.execute(sql).fetchall()

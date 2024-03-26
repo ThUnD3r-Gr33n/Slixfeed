@@ -3,6 +3,19 @@
 
 """
 
+IMPORTANT CONSIDERATION
+
+This file appears to be redundant and may be replaced by a dict handler that
+would match task keyword to functions.
+
+Or use it as a class Task
+
+tasks_xmpp_chat =  {"check" : check_updates,
+                    "status" : task_status_message,
+                    "interval" : task_message}
+tasks_xmpp_pubsub =  {"check" : check_updates,
+                      "pubsub" : task_pubsub}
+
 TODO
 
 1) Deprecate "add" (see above) and make it interactive.
@@ -86,6 +99,17 @@ loop = asyncio.get_event_loop()
 #     task_ping = asyncio.create_task(ping(self, jid=None))
 
 
+class Task:
+
+    def start(self, jid_full, tasks=None):
+        asyncio.create_task()
+
+    def cancel(self, jid_full, tasks=None):
+        pass
+
+
+
+
 def task_ping(self):
     # global task_ping_instance
     try:
@@ -109,7 +133,49 @@ await taskhandler.start_tasks(
     )
 
 """
-async def start_tasks_xmpp(self, jid_bare, tasks=None):
+async def start_tasks_xmpp_pubsub(self, jid_bare, tasks=None):
+    try:
+        self.task_manager[jid_bare]
+    except KeyError as e:
+        self.task_manager[jid_bare] = {}
+        logging.debug('KeyError:', str(e))
+        logging.info('Creating new task manager for JID {}'.format(jid_bare))
+    if not tasks:
+        tasks = ['check', 'publish']
+    logging.info('Stopping tasks {} for JID {}'.format(tasks, jid_bare))
+    for task in tasks:
+        # if self.task_manager[jid][task]:
+        try:
+            self.task_manager[jid_bare][task].cancel()
+        except:
+            logging.info('No task {} for JID {} (start_tasks_xmpp_chat)'
+                         .format(task, jid_bare))
+    logging.info('Starting tasks {} for JID {}'.format(tasks, jid_bare))
+    for task in tasks:
+        # print("task:", task)
+        # print("tasks:")
+        # print(tasks)
+        # breakpoint()
+        match task:
+            case 'publish':
+                self.task_manager[jid_bare]['publish'] = asyncio.create_task(
+                    task_publish(self, jid_bare))
+            case 'check':
+                self.task_manager[jid_bare]['check'] = asyncio.create_task(
+                    check_updates(self, jid_bare))
+
+
+async def task_publish(self, jid_bare):
+    jid_file = jid_bare.replace('/', '_')
+    db_file = config.get_pathname_to_database(jid_file)
+    if jid_bare not in self.settings:
+        Config.add_settings_jid(self.settings, jid_bare, db_file)
+    while True:
+        await action.xmpp_send_pubsub(self, jid_bare)
+        await asyncio.sleep(60 * 180)
+
+
+async def start_tasks_xmpp_chat(self, jid_bare, tasks=None):
     """
     NOTE
     
@@ -133,7 +199,7 @@ async def start_tasks_xmpp(self, jid_bare, tasks=None):
         try:
             self.task_manager[jid_bare][task].cancel()
         except:
-            logging.info('No task {} for JID {} (start_tasks_xmpp)'
+            logging.info('No task {} for JID {} (start_tasks_xmpp_chat)'
                          .format(task, jid_bare))
     logging.info('Starting tasks {} for JID {}'.format(tasks, jid_bare))
     for task in tasks:
@@ -147,10 +213,10 @@ async def start_tasks_xmpp(self, jid_bare, tasks=None):
                     check_updates(self, jid_bare))
             case 'status':
                 self.task_manager[jid_bare]['status'] = asyncio.create_task(
-                    task_status(self, jid_bare))
+                    task_status_message(self, jid_bare))
             case 'interval':
                 self.task_manager[jid_bare]['interval'] = asyncio.create_task(
-                    task_send(self, jid_bare))
+                    task_message(self, jid_bare))
     # for task in self.task_manager[jid].values():
     #     print("task_manager[jid].values()")
     #     print(self.task_manager[jid].values())
@@ -162,12 +228,12 @@ async def start_tasks_xmpp(self, jid_bare, tasks=None):
     #     await task
 
 
-async def task_status(self, jid):
-    await action.xmpp_send_status(self, jid)
-    refresh_task(self, jid, task_status, 'status', '90')
+async def task_status_message(self, jid):
+    await action.xmpp_send_status_message(self, jid)
+    refresh_task(self, jid, task_status_message, 'status', '90')
 
 
-async def task_send(self, jid_bare):
+async def task_message(self, jid_bare):
     jid_file = jid_bare.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
     if jid_bare not in self.settings:
@@ -195,12 +261,12 @@ async def task_send(self, jid_bare):
         await sqlite.update_last_update_time(db_file)
     else:
         await sqlite.set_last_update_time(db_file)
-    await action.xmpp_send_update(self, jid_bare)
-    refresh_task(self, jid_bare, task_send, 'interval')
-    await start_tasks_xmpp(self, jid_bare, ['status'])
+    await action.xmpp_send_message(self, jid_bare)
+    refresh_task(self, jid_bare, task_message, 'interval')
+    await start_tasks_xmpp_chat(self, jid_bare, ['status'])
 
 
-def clean_tasks_xmpp(self, jid, tasks=None):
+def clean_tasks_xmpp_chat(self, jid, tasks=None):
     if not tasks:
         tasks = ['interval', 'status', 'check']
     logging.info('Stopping tasks {} for JID {}'.format(tasks, jid))

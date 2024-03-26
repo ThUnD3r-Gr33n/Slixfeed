@@ -45,7 +45,9 @@ from urllib.parse import (
 
 def get_hostname(url):
     parted_url = urlsplit(url)
-    return parted_url.netloc
+    hostname = parted_url.netloc
+    if hostname.startswith('www.'): hostname = hostname.replace('www.', '')
+    return hostname
 
 
 def replace_hostname(url, url_type):

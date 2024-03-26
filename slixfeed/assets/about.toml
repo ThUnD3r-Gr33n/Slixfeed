@@ -175,6 +175,16 @@ interface = "Groupchat"
 url = "https://salsa.debian.org/mdosch/feed-to-muc"
 
 [[friends]]
+name = "Jabber RSS Transport"
+info = ["""
+Jabber RSS Transport is one of the possibilities to read news in Jabber \
+via RSS, which allows you not to use a separate program, but to receive \
+them directly in your favorite Jabber client.
+"""]
+interface = "Chat"
+url = "https://jabberworld.info/Jabber_RSS_Transport"
+
+[[friends]]
 name = "JabRSS by Christof"
 info = ["""
 A simple RSS (RDF Site Summary) headline notification service for Jabber/XMPP.
@@ -648,15 +658,15 @@ name = "Poezio"
 info = "XMPP client for console"
 url = "https://poez.io"
 
-# [[clients]]
-# name = "Psi"
-# info = "XMPP client for desktop"
-# url = "https://psi-im.org"
+[[clients]]
+name = "Psi"
+info = "XMPP client for desktop"
+url = "https://psi-im.org"
 
-# [[clients]]
-# name = "Psi+"
-# info = "XMPP client for desktop"
-# url = "https://psi-plus.com"
+[[clients]]
+name = "Psi+"
+info = "XMPP client for desktop"
+url = "https://psi-plus.com"
 
 # [[clients]]
 # name = "Swift"

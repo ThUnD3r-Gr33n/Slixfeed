@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# TODO Implement XEP-0472: Pubsub Social Feed
+"""
+
+Functions create_node and create_entry are derived from project atomtopubsub.
+
+"""
 
 import hashlib
 import slixmpp.plugins.xep_0060.stanza.pubsub as pubsub
@@ -10,7 +14,21 @@ from slixmpp.xmlstream import ET
 class XmppPubsub:
 
 
-    # TODO Make use of var "xep" with match/case
+    async def get_pubsub_services(self):
+        jids = [self.boundjid.bare]
+        iq = await self['xep_0030'].get_items(jid=self.boundjid.domain)
+        items = iq['disco_items']['items']
+        for item in items:
+            iq = await self['xep_0030'].get_info(jid=item[0])
+            identities = iq['disco_info']['identities']
+            for identity in identities:
+                if identity[0] == 'pubsub' and identity[1] == 'service':
+                    jid = item[0]
+                    jids.extend([jid])
+        return jids
+
+
+    # TODO Make use of var "xep" with match/case (XEP-0060, XEP-0277, XEP-0472)
     def create_node(self, jid, node, xep ,title, summary=None):
         jid_from = str(self.boundjid) if self.is_component else None
         iq = self.Iq(stype='set',
@@ -61,7 +79,7 @@ class XmppPubsub:
         # It provides nicer urls.
         
         # Respond to atomtopubsub:
-        # I think it would be a good idea to use md5 checksum of Url as Id for
+        # I think it would be beneficial to use md5 checksum of Url as Id for
         # cross reference, and namely - in another project to utilize PubSub as
         # links sharing system (see del.icio.us) - to share node entries.
 
@@ -76,10 +94,10 @@ class XmppPubsub:
         node_entry.set('xmlns', 'http://www.w3.org/2005/Atom')
 
         title = ET.SubElement(node_entry, "title")
-        title.text = entry.title
+        title.text = entry['title']
 
         updated = ET.SubElement(node_entry, "updated")
-        updated.text = entry.updated
+        updated.text = entry['updated']
 
         # Content
         if version == 'atom3':
