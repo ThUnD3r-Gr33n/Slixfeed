@@ -1484,7 +1484,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         values = payload['values']
         node = values['node'] if 'node' in values else None
         url = values['subscription']
-        jid = values['jid']
+        jid = values['jid'] if 'jid' in values else None
         jid_bare = session['from'].bare
         if is_operator(self, jid_bare) and jid:
             jid_file = jid[0] if isinstance(jid, list) else jid
@@ -2771,6 +2771,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 await Config.set_setting_value(self.settings, jid_bare, db_file, 'enabled', value)
         print(self.settings)
         text_note = 'Done.'
+        session['has_next'] = False
         session['next'] = None
         session['notes'] = [['info', text_note]]
         session['payload'] = None
