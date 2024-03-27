@@ -152,10 +152,6 @@ async def start_tasks_xmpp_pubsub(self, jid_bare, tasks=None):
                          .format(task, jid_bare))
     logging.info('Starting tasks {} for JID {}'.format(tasks, jid_bare))
     for task in tasks:
-        # print("task:", task)
-        # print("tasks:")
-        # print(tasks)
-        # breakpoint()
         match task:
             case 'publish':
                 self.task_manager[jid_bare]['publish'] = asyncio.create_task(

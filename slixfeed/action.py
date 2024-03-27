@@ -49,6 +49,7 @@ from slixfeed.url import (
     )
 import slixfeed.task as task
 from slixfeed.xmpp.bookmark import XmppBookmark
+from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.iq import XmppIQ
 from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
@@ -114,6 +115,28 @@ def export_feeds(self, jid, jid_file, ext):
         # case 'xbel':
         #     response = 'Not yet implemented.'
     return filename
+
+
+async def xmpp_muc_autojoin(self, bookmarks):
+    for bookmark in bookmarks:
+        if bookmark["jid"] and bookmark["autojoin"]:
+            if not bookmark["nick"]:
+                bookmark["nick"] = self.alias
+                logger.error('Alias (i.e. Nicknname) is missing for '
+                              'bookmark {}'.format(bookmark['name']))
+            alias = bookmark["nick"]
+            muc_jid = bookmark["jid"]
+            await XmppGroupchat.join(self, muc_jid, alias)
+            logger.info('Autojoin groupchat\n'
+                         'Name  : {}\n'
+                         'JID   : {}\n'
+                         'Alias : {}\n'
+                         .format(bookmark["name"],
+                                 bookmark["jid"],
+                                 bookmark["nick"]))
+        elif not bookmark["jid"]:
+            logger.error('JID is missing for bookmark {}'
+                          .format(bookmark['name']))
 
 
 """
@@ -192,23 +215,30 @@ async def xmpp_send_status_message(self, jid):
     # )
 
 
-async def xmpp_send_pubsub(self, jid_bare):
+async def xmpp_send_pubsub(self, jid_bare, num=None):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: jid_bare: {}'.format(function_name, jid_bare))
     jid_file = jid_bare.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
     enabled = Config.get_setting_value(self.settings, jid_bare, 'enabled')
     if enabled:
+        if num: counter = 0
+        report = {}
         subscriptions = sqlite.get_active_feeds_url(db_file)
         for url in subscriptions:
             url = url[0]
             feed_id = sqlite.get_feed_id(db_file, url)
             feed_id = feed_id[0]
-            feed_title = sqlite.get_feed_title(db_file, feed_id)
-            feed_title = feed_title[0]
+            feed_title = None
             feed_summary = None
-            node = sqlite.get_node_name(db_file, feed_id)
-            node = node[0]
+            if jid_bare == self.boundjid.bare:
+                node = 'urn:xmpp:microblog:0'
+            else:
+                feed_title = sqlite.get_feed_title(db_file, feed_id)
+                feed_title = feed_title[0]
+                feed_summary = None
+                node = sqlite.get_node_name(db_file, feed_id)
+                node = node[0]
             xep = None
             iq_create_node = XmppPubsub.create_node(
                 self, jid_bare, node, xep, feed_title, feed_summary)
@@ -216,13 +246,17 @@ async def xmpp_send_pubsub(self, jid_bare):
             entries = sqlite.get_unread_entries_of_feed(db_file, feed_id)
             feed_properties = sqlite.get_feed_properties(db_file, feed_id)
             feed_version = feed_properties[2]
+            print('xmpp_send_pubsub',jid_bare)
+            print(node)
+            # if num and counter < num:
+            report[url] = len(entries)
             for entry in entries:
                 feed_entry = {'author'      : None,
                               'authors'     : None,
                               'category'    : None,
                               'content'     : None,
                               'description' : entry[3],
-                              'href'        : entry[2],
+                              'link'        : entry[2],
                               'links'       : entry[4],
                               'tags'        : None,
                               'title'       : entry[1],
@@ -233,6 +267,9 @@ async def xmpp_send_pubsub(self, jid_bare):
                 await XmppIQ.send(self, iq_create_entry)
                 ix = entry[0]
                 await sqlite.mark_as_read(db_file, ix)
+                    # counter += 1
+                    # if num and counter > num: break
+        return report
 
 
 async def xmpp_send_message(self, jid, num=None):

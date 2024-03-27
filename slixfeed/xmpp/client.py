@@ -214,10 +214,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
-        inviter = message['from'].bare
         muc_jid = message['groupchat_invite']['jid']
         await XmppBookmark.add(self, muc_jid)
-        await XmppGroupchat.join(self, inviter, muc_jid)
+        await XmppGroupchat.join(self, muc_jid)
         message_body = ('Greetings! I am {}, the news anchor.\n'
                         'My job is to bring you the latest '
                         'news from sources you provide me with.\n'
@@ -237,10 +236,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
-        inviter = message['from'].bare
         muc_jid = message['groupchat_invite']['jid']
         await XmppBookmark.add(self, muc_jid)
-        await XmppGroupchat.join(self, inviter, muc_jid)
+        await XmppGroupchat.join(self, muc_jid)
         message_body = ('Greetings! I am {}, the news anchor.\n'
                         'My job is to bring you the latest '
                         'news from sources you provide me with.\n'
@@ -285,9 +283,10 @@ class Slixfeed(slixmpp.ClientXMPP):
         await self['xep_0115'].update_caps()
         # self.send_presence()
         await self.get_roster()
-        bookmarks = await self.plugin['xep_0048'].get_bookmarks()
-        await XmppGroupchat.autojoin(self, bookmarks)
+        bookmarks = await XmppBookmark.get(self)
+        await action.xmpp_muc_autojoin(self, bookmarks)
         jids = await XmppPubsub.get_pubsub_services(self)
+        print(jids)
         for jid_bare in jids:
             if jid_bare not in self.settings:
                 jid_file = jid_bare
@@ -311,8 +310,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         # self.send_presence()
         profile.set_identity(self, 'client')
         self['xep_0115'].update_caps()
-        bookmarks = await self.plugin['xep_0048'].get_bookmarks()
-        await XmppGroupchat.autojoin(self, bookmarks)
+        bookmarks = await XmppBookmark.get(self)
+        await action.xmpp_muc_autojoin(self, bookmarks)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -782,7 +781,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 form['instructions'] = ('Choose a PubSub Jabber ID and verify '
                                         'that Slixfeed has the necessary '
                                         'permissions to publish into it.')
-                form.add_field(var='subscription',
+                form.add_field(var='url',
                                # TODO Make it possible to add several subscriptions at once;
                                #      Similarly to BitTorrent trackers list
                                # ftype='text-multi',
@@ -833,7 +832,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 # options.addOption('XEP-0060: Publish-Subscribe', '0060')
                 # options.addOption('XEP-0277: Microblogging over XMPP', '0277')
                 # options.addOption('XEP-0472: Pubsub Social Feed', '0472')
-                session['next'] = self._handle_subscription_new
+                session['next'] = self._handle_preview
                 session['payload'] = form
             case 'post':
                 form = self['xep_0004'].make_form('form', 'Post')
@@ -912,7 +911,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 return session
         node = values['node']
         url = values['url']
-        xep = values['xep']
+        # xep = values['xep']
         if not node:
             if jid == self.boundjid.bare:
                 node = 'urn:xmpp:microblog:0'
@@ -958,6 +957,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     session['allow_prev'] = True
                     session['has_next'] = True
                     session['next'] = self._handle_post_complete
+                    session['notes'] = None
                     session['prev'] = self._handle_publish
                     session['payload'] = form
                     break
@@ -981,6 +981,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                         session['allow_prev'] = True
                         session['has_next'] = True
                         session['next'] = self._handle_preview
+                        session['notes'] = None
                         session['prev'] = self._handle_publish
                         session['payload'] = form
                         break
@@ -1006,9 +1007,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         form.add_field(var='url',
                        ftype='hidden',
                        value=url)
-        form.add_field(var='xep',
-                       ftype='hidden',
-                       value=xep)
+        # form.add_field(var='xep',
+        #                ftype='hidden',
+        #                value=xep)
         return session
     
     async def _handle_post_complete(self, payload, session):
@@ -1021,7 +1022,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         node = values['node'][0]
         jid = values['jid'][0]
         url = values['url'][0]
-        xep = values['xep'][0]
+        # xep = values['xep'][0]
+        xep = None
         result = await fetch.http(url)
         if 'content' in result:
             document = result['content']
@@ -1054,7 +1056,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                 #         title = "*** No title ***"
                 # if feed.entries[entry].has_key("summary"):
                 #     summary = feed.entries[entry].summary
-                iq_create_entry = XmppPubsub.create_entry(
+                iq_create_entry = XmppPubsub._create_entry(
                     self, jid, node, feed_entry, feed_version)
                 await XmppIQ.send(self, iq_create_entry)
                 text_info = 'Posted {} entries.'.format(len(entries))

@@ -28,8 +28,23 @@ class XmppPubsub:
         return jids
 
 
+    def delete_node(self, jid, node):
+        jid_from = str(self.boundjid) if self.is_component else None
+        self.plugin['xep_0060'].delete_node(jid, node, ifrom=jid_from)
+
+
+    def purge_node(self, jid, node):
+        jid_from = str(self.boundjid) if self.is_component else None
+        self.plugin['xep_0060'].purge(jid, node, ifrom=jid_from)
+        # iq = self.Iq(stype='set',
+        #              sto=jid,
+        #              sfrom=jid_from)
+        # iq['pubsub']['purge']['node'] = node
+        # return iq
+
+
     # TODO Make use of var "xep" with match/case (XEP-0060, XEP-0277, XEP-0472)
-    def create_node(self, jid, node, xep ,title, summary=None):
+    def create_node(self, jid, node, xep ,title=None, summary=None):
         jid_from = str(self.boundjid) if self.is_component else None
         iq = self.Iq(stype='set',
                      sto=jid,
@@ -85,7 +100,7 @@ class XmppPubsub:
 
         # NOTE Warning: Entry might not have a link
         # TODO Handle situation error
-        url_encoded = entry.link.encode()
+        url_encoded = entry['link'].encode()
         url_hashed = hashlib.md5(url_encoded)
         url_digest = url_hashed.hexdigest()
         item['id'] = url_digest
@@ -98,6 +113,53 @@ class XmppPubsub:
 
         updated = ET.SubElement(node_entry, "updated")
         updated.text = entry['updated']
+
+        # Content
+        content = ET.SubElement(node_entry, "content")
+        content.set('type', 'text/html')
+        content.text = entry['description']
+
+        # Links
+        link = ET.SubElement(node_entry, "link")
+        link.set('href', entry['link'])
+
+        item['payload'] = node_entry
+
+        iq['pubsub']['publish'].append(item)
+
+        return iq
+
+
+    def _create_entry(self, jid, node, entry, version):
+        iq = self.Iq(stype="set", sto=jid)
+        iq['pubsub']['publish']['node'] = node
+
+        item = pubsub.Item()
+
+        # From atomtopubsub:
+        # character / is causing a bug in movim. replacing : and , with - in id.
+        # It provides nicer urls.
+        
+        # Respond to atomtopubsub:
+        # I think it would be beneficial to use md5 checksum of Url as Id for
+        # cross reference, and namely - in another project to utilize PubSub as
+        # links sharing system (see del.icio.us) - to share node entries.
+
+        # NOTE Warning: Entry might not have a link
+        # TODO Handle situation error
+        url_encoded = entry.link.encode()
+        url_hashed = hashlib.md5(url_encoded)
+        url_digest = url_hashed.hexdigest()
+        item['id'] = url_digest + '_html'
+
+        node_entry = ET.Element("entry")
+        node_entry.set('xmlns', 'http://www.w3.org/2005/Atom')
+
+        title = ET.SubElement(node_entry, "title")
+        title.text = entry.title
+
+        updated = ET.SubElement(node_entry, "updated")
+        updated.text = entry.updated
 
         # Content
         if version == 'atom3':

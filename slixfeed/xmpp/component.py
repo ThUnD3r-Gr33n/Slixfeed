@@ -743,7 +743,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 form['instructions'] = ('Choose a PubSub Jabber ID and verify '
                                         'that Slixfeed has the necessary '
                                         'permissions to publish into it.')
-                form.add_field(var='subscription',
+                form.add_field(var='url',
                                # TODO Make it possible to add several subscriptions at once;
                                #      Similarly to BitTorrent trackers list
                                # ftype='text-multi',
@@ -794,7 +794,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 # options.addOption('XEP-0060: Publish-Subscribe', '0060')
                 # options.addOption('XEP-0277: Microblogging over XMPP', '0277')
                 # options.addOption('XEP-0472: Pubsub Social Feed', '0472')
-                session['next'] = self._handle_subscription_new
+                session['next'] = self._handle_preview
                 session['payload'] = form
             case 'post':
                 form = self['xep_0004'].make_form('form', 'Post')
@@ -873,7 +873,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 return session
         node = values['node']
         url = values['url']
-        xep = values['xep']
+        # xep = values['xep']
         if not node:
             if jid == self.boundjid.bare:
                 node = 'urn:xmpp:microblog:0'
@@ -919,6 +919,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                     session['allow_prev'] = True
                     session['has_next'] = True
                     session['next'] = self._handle_post_complete
+                    session['notes'] = None
                     session['prev'] = self._handle_publish
                     session['payload'] = form
                     break
@@ -942,6 +943,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                         session['allow_prev'] = True
                         session['has_next'] = True
                         session['next'] = self._handle_preview
+                        session['notes'] = None
                         session['prev'] = self._handle_publish
                         session['payload'] = form
                         break
@@ -967,9 +969,9 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         form.add_field(var='url',
                        ftype='hidden',
                        value=url)
-        form.add_field(var='xep',
-                       ftype='hidden',
-                       value=xep)
+        # form.add_field(var='xep',
+        #                ftype='hidden',
+        #                value=xep)
         return session
     
     async def _handle_post_complete(self, payload, session):
@@ -982,7 +984,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         node = values['node'][0]
         jid = values['jid'][0]
         url = values['url'][0]
-        xep = values['xep'][0]
+        # xep = values['xep'][0]
+        xep = None
         result = await fetch.http(url)
         if 'content' in result:
             document = result['content']
@@ -1015,7 +1018,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 #         title = "*** No title ***"
                 # if feed.entries[entry].has_key("summary"):
                 #     summary = feed.entries[entry].summary
-                iq_create_entry = XmppPubsub.create_entry(
+                iq_create_entry = XmppPubsub._create_entry(
                     self, jid, node, feed_entry, feed_version)
                 await XmppIQ.send(self, iq_create_entry)
                 text_info = 'Posted {} entries.'.format(len(entries))

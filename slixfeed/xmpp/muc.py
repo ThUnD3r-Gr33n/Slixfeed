@@ -34,32 +34,7 @@ class XmppGroupchat:
         self.join(self, inviter, jid)
 
 
-    async def autojoin(self, bookmarks):
-        jid_from = str(self.boundjid) if self.is_component else None
-        conferences = bookmarks["private"]["bookmarks"]["conferences"]
-        for conference in conferences:
-            if conference["jid"] and conference["autojoin"]:
-                if not conference["nick"]:
-                    conference["nick"] = self.alias
-                    logging.error('Alias (i.e. Nicknname) is missing for '
-                                  'bookmark {}'.format(conference['name']))
-                await self.plugin['xep_0045'].join_muc_wait(conference["jid"],
-                                                            conference["nick"],
-                                                            presence_options = {"pfrom" : jid_from},
-                                                            password=None)
-                logging.info('Autojoin groupchat\n'
-                             'Name  : {}\n'
-                             'JID   : {}\n'
-                             'Alias : {}\n'
-                             .format(conference["name"],
-                                     conference["jid"],
-                                     conference["nick"]))
-            elif not conference["jid"]:
-                logging.error('JID is missing for bookmark {}'
-                              .format(conference['name']))
-
-
-    async def join(self, inviter, jid):
+    async def join(self, jid, alias=None, password=None):
         # token = await initdb(
         #     muc_jid,
         #     sqlite.get_setting_value,
@@ -81,13 +56,13 @@ class XmppGroupchat:
         #         )
         logging.info('Joining groupchat\n'
                      'JID     : {}\n'
-                     'Inviter : {}\n'
-                     .format(jid, inviter))
+                     .format(jid))
         jid_from = str(self.boundjid) if self.is_component else None
+        if alias == None: self.alias
         await self.plugin['xep_0045'].join_muc_wait(jid,
-                                                    self.alias,
+                                                    alias,
                                                     presence_options = {"pfrom" : jid_from},
-                                                    password=None)
+                                                    password=password)
 
 
     def leave(self, jid):

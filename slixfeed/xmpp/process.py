@@ -897,7 +897,7 @@ async def message(self, message):
                 muc_jid = uri.check_xmpp_uri(message_text[5:])
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
-                    XmppGroupchat.join(self, jid_bare, muc_jid)
+                    XmppGroupchat.join(self, muc_jid)
                     # await XmppBookmark.add(self, jid=muc_jid)
                     response = ('Joined groupchat {}'
                                 .format(message_text))
@@ -980,6 +980,60 @@ async def message(self, message):
                 await Config.set_setting_value(self.settings, jid_bare,
                                                db_file, key, val)
                 response = 'Only new items of newly added feeds be delivered.'
+                XmppMessage.send_reply(self, message, response)
+            case _ if message_lowercase.startswith('pubsub delete '):
+                if is_operator(self, jid_bare):
+                    info = message_text[14:]
+                    info = info.split(' ')
+                    jid = info[0]
+                    nid = info[1]
+                    if jid:
+                        from slixfeed.xmpp.publish import XmppPubsub
+                        XmppPubsub.delete_node(self, jid, nid)
+                        response = 'Deleted node: ' + nid
+                    else:
+                        response = 'PubSub JID is missing. Enter PubSub JID.'
+                else:
+                    response = ('This action is restricted. '
+                                'Type: sending news to PubSub.')
+                XmppMessage.send_reply(self, message, response)
+            case _ if message_lowercase.startswith('pubsub purge '):
+                if is_operator(self, jid_bare):
+                    info = message_text[13:]
+                    info = info.split(' ')
+                    jid = info[0]
+                    nid = info[1]
+                    if jid:
+                        from slixfeed.xmpp.publish import XmppPubsub
+                        XmppPubsub.purge_node(self, jid, nid)
+                        response = 'Purged node: ' + nid
+                    else:
+                        response = 'PubSub JID is missing. Enter PubSub JID.'
+                else:
+                    response = ('This action is restricted. '
+                                'Type: sending news to PubSub.')
+                XmppMessage.send_reply(self, message, response)
+            case _ if message_lowercase.startswith('pubsub flash '):
+                if is_operator(self, jid_bare):
+                    info = message_text[13:]
+                    info = info.split(' ')
+                    jid = info[0]
+                    num = int(info[1])
+                    if jid:
+                        if num:
+                            report = await action.xmpp_send_pubsub(self, jid,
+                                                                   num)
+                        else:
+                            report = await action.xmpp_send_pubsub(self, jid)
+                        response = ''
+                        for url in report:
+                            if report[url]:
+                                response += url + ' : ' + str(report[url]) + '\n'
+                    else:
+                        response = 'PubSub JID is missing. Enter PubSub JID.'
+                else:
+                    response = ('This action is restricted. '
+                                'Type: sending news to PubSub.')
                 XmppMessage.send_reply(self, message, response)
             case _ if message_lowercase.startswith('next'):
                 num = message_text[5:]
@@ -1398,7 +1452,7 @@ async def message(self, message):
                 muc_jid = uri.check_xmpp_uri(message_text)
                 if muc_jid:
                     # TODO probe JID and confirm it's a groupchat
-                    XmppGroupchat.join(self, jid_bare, muc_jid)
+                    XmppGroupchat.join(self, muc_jid)
                     # await XmppBookmark.add(self, jid=muc_jid)
                     response = ('Joined groupchat {}'
                                 .format(message_text))
