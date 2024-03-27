@@ -136,6 +136,16 @@ XEP-0472: Pubsub Social Feed
 url = "http://goodbytes.im"
 
 [[contributors]]
+name = "Simone (roughnecks) Canaletti"
+role = "XMPP server administrator"
+info = ["""
+Providing Prosody server and Movim instance for testing PubSub.
+
+XEP-0472: Pubsub Social Feed
+"""]
+url = "https://woodpeckersnest.space"
+
+[[contributors]]
 name = "Stephen Paul Weber"
 role = "Contributor and forms coordinator"
 info = ["""
