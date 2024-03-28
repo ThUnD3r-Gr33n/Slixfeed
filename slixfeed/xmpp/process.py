@@ -985,14 +985,20 @@ async def message(self, message):
                 if is_operator(self, jid_bare):
                     info = message_text[14:]
                     info = info.split(' ')
-                    jid = info[0]
-                    nid = info[1]
-                    if jid:
-                        from slixfeed.xmpp.publish import XmppPubsub
-                        XmppPubsub.delete_node(self, jid, nid)
-                        response = 'Deleted node: ' + nid
+                    if len(info) > 2:
+                        jid = info[0]
+                        nid = info[1]
+                        if jid:
+                            from slixfeed.xmpp.publish import XmppPubsub
+                            XmppPubsub.delete_node(self, jid, nid)
+                            response = 'Deleted node: ' + nid
+                        else:
+                            response = 'PubSub JID is missing. Enter PubSub JID.'
                     else:
-                        response = 'PubSub JID is missing. Enter PubSub JID.'
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Missing argument. '
+                                    'Enter JID and Node name.')
                 else:
                     response = ('This action is restricted. '
                                 'Type: sending news to PubSub.')
@@ -1001,14 +1007,20 @@ async def message(self, message):
                 if is_operator(self, jid_bare):
                     info = message_text[13:]
                     info = info.split(' ')
-                    jid = info[0]
-                    nid = info[1]
-                    if jid:
-                        from slixfeed.xmpp.publish import XmppPubsub
-                        XmppPubsub.purge_node(self, jid, nid)
-                        response = 'Purged node: ' + nid
+                    if len(info) > 1:
+                        jid = info[0]
+                        nid = info[1]
+                        if jid:
+                            from slixfeed.xmpp.publish import XmppPubsub
+                            XmppPubsub.purge_node(self, jid, nid)
+                            response = 'Purged node: ' + nid
+                        else:
+                            response = 'PubSub JID is missing. Enter PubSub JID.'
                     else:
-                        response = 'PubSub JID is missing. Enter PubSub JID.'
+                        response = ('No action has been taken.'
+                                    '\n'
+                                    'Missing argument. '
+                                    'Enter JID and Node name.')
                 else:
                     response = ('This action is restricted. '
                                 'Type: sending news to PubSub.')

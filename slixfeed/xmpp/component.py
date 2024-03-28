@@ -246,9 +246,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         profile.set_identity(self, 'service')
         await self['xep_0115'].update_caps()
         # self.send_presence()
-        # bookmarks = await self.plugin['xep_0048'].get_bookmarks()
-        # XmppGroupchat.autojoin(self, bookmarks)
-        # await XmppGroupchat.autojoin(self, bookmarks)
+        # bookmarks = await XmppBookmark.get(self)
+        # await action.xmpp_muc_autojoin(self, bookmarks)
         jids = await XmppPubsub.get_pubsub_services(self)
         for jid_bare in jids:
             if jid_bare not in self.settings:
@@ -273,8 +272,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # self.send_presence()
         profile.set_identity(self, 'service')
         self['xep_0115'].update_caps()
-        # bookmarks = await self.plugin['xep_0048'].get_bookmarks()
-        # await XmppGroupchat.autojoin(self, bookmarks)
+        # bookmarks = await XmppBookmark.get(self)
+        # await action.xmpp_muc_autojoin(self, bookmarks)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -859,7 +858,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         values = payload['values']
-        jid = values['jid']
+        jid = values['jid'] if 'jid' in values else None
         jid_bare = session['from'].bare
         if jid != jid_bare and not is_operator(self, jid_bare):
                 text_warn = ('Posting to {} is restricted to operators only.'
@@ -982,7 +981,17 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         # It is not possible to assign non-str to transfer.
         # feed = values['feed']
         node = values['node'][0]
-        jid = values['jid'][0]
+        jid = values['jid'] if 'jid' in values else None
+        jid_bare = session['from'].bare
+        if jid != jid_bare and not is_operator(self, jid_bare):
+                text_warn = 'You are not suppose to be here.'
+                session['allow_prev'] = False
+                session['has_next'] = False
+                session['next'] = None
+                session['notes'] = [['warn', text_warn]]
+                session['prev'] = None
+                session['payload'] = None
+                return session
         url = values['url'][0]
         # xep = values['xep'][0]
         xep = None
@@ -1487,9 +1496,9 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         values = payload['values']
         node = values['node'] if 'node' in values else None
         url = values['subscription']
-        jid = values['jid'] if 'jid' in values else None
         jid_bare = session['from'].bare
-        if is_operator(self, jid_bare) and jid:
+        if is_operator(self, jid_bare) and 'jid' in values:
+            jid = values['jid']
             jid_file = jid[0] if isinstance(jid, list) else jid
             form.add_field(var='jid',
                            ftype='hidden',
@@ -1919,10 +1928,10 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         values = payload['values']
-        jid = values['jid']
         jid_bare = session['from'].bare
         form = self['xep_0004'].make_form('form', 'Subscriptions')
-        if is_operator(self, jid_bare) and jid:
+        if is_operator(self, jid_bare) and 'jid' in values:
+            jid = values['jid']
             jid_file = jid
             form.add_field(ftype='hidden',
                            value=jid,
@@ -2263,6 +2272,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
+        jid_bare = session['from'].bare
         match payload['values']['option']:
             case 'activity':
                 # TODO dialog for JID and special dialog for operator
@@ -2272,7 +2282,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             case 'admin':
                 # NOTE Even though this check is already conducted on previous
                 # form, this check is being done just in case.
-                jid_bare = session['from'].bare
                 if is_operator(self, jid_bare):
                     if self.is_component:
                         # NOTE This will be changed with XEP-0222 XEP-0223
@@ -2332,6 +2341,15 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                                      desc='Enter URL to an OPML file.',
                                      required=True)
                 url['validate']['datatype'] = 'xs:anyURI'
+                if is_operator(self, jid_bare):
+                    form.add_field(ftype='fixed',
+                                   label='Subscriber')
+                    form.add_field(desc=('Enter a Jabber ID to import '
+                                         'subscriptions to (The default '
+                                         'Jabber ID is your own).'),
+                                   ftype='text-single',
+                                   label='Jabber ID',
+                                   var='jid')
                 session['allow_complete'] = True
                 session['has_next'] = False
                 session['next'] = self._handle_import_complete
@@ -2339,8 +2357,8 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
             case 'export':
                 form = self['xep_0004'].make_form('form', 'Export')
                 form['instructions'] = ('To easily import subscriptions from '
-                                        'one News Reader to another, then it '
-                                        'is always recommended to export '
+                                        'one News Reader to another, it is '
+                                        'always recommended to export '
                                         'subscriptions into OPML file. See '
                                         'About -> Software for a list of '
                                         'News Readers offered for desktop and '
@@ -2355,6 +2373,15 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 options.addOption('OPML', 'opml')
                 # options.addOption('HTML', 'html')
                 # options.addOption('XBEL', 'xbel')
+                if is_operator(self, jid_bare):
+                    form.add_field(ftype='fixed',
+                                   label='Subscriber')
+                    form.add_field(desc=('Enter a Jabber ID to export '
+                                         'subscriptions from (The default '
+                                         'Jabber ID is your own).'),
+                                   ftype='text-single',
+                                   label='Jabber ID',
+                                   var='jid')
                 session['allow_complete'] = True
                 session['has_next'] = False
                 session['next'] = self._handle_export_complete
@@ -2509,10 +2536,15 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         form = payload
-        url = payload['values']['url']
+        values = payload['values']
+        url = values['url']
         if url.startswith('http') and url.endswith('.opml'):
             jid_bare = session['from'].bare
-            jid_file = jid_bare.replace('/', '_')
+            if is_operator(self, jid_bare) and 'jid' in values:
+                jid = values['jid']
+                jid_file = jid[0] if isinstance(jid, list) else jid
+            else:
+                jid_file = jid_bare
             db_file = config.get_pathname_to_database(jid_file)
             result = await fetch.http(url)
             count = await action.import_opml(db_file, result)
@@ -2546,14 +2578,21 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
-        form = payload
+        form = self['xep_0004'].make_form('result', 'Done')
+        form['instructions'] = 'Export has been completed successfully!'
+        # form['type'] = 'result'
+        values = payload['values']
         jid_bare = session['from'].bare
-        jid_file = jid_bare.replace('/', '_')
+        if is_operator(self, jid_bare) and 'jid' in values:
+            jid = values['jid']
+            jid_file = jid[0] if isinstance(jid, list) else jid
+        else:
+            jid_file = jid_bare
         # form = self['xep_0004'].make_form('result', 'Done')
         # form['instructions'] = ('✅️ Feeds have been exported')
-        exts = payload['values']['filetype']
+        exts = values['filetype']
         for ext in exts:
-            filename = action.export_feeds(self, jid_bare, jid_file, ext)
+            filename = action.export_feeds(self, jid_file, jid_file, ext)
             url = await XmppUpload.start(self, jid_bare, filename)
             chat_type = await get_chat_type(self, jid_bare)
             XmppMessage.send_oob(self, jid_bare, url, chat_type)
@@ -2562,9 +2601,6 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                                        label=ext,
                                        value=url)
             url_field['validate']['datatype'] = 'xs:anyURI'
-        form['type'] = 'result'
-        form['title'] = 'Done'
-        form['instructions'] = ('Completed successfully!')
         session["has_next"] = False
         session['next'] = None
         session['payload'] = form
