@@ -15,7 +15,7 @@ class XmppPubsub:
 
 
     async def get_pubsub_services(self):
-        jids = [self.boundjid.bare]
+        results = []
         iq = await self['xep_0030'].get_items(jid=self.boundjid.domain)
         items = iq['disco_items']['items']
         for item in items:
@@ -23,9 +23,13 @@ class XmppPubsub:
             identities = iq['disco_info']['identities']
             for identity in identities:
                 if identity[0] == 'pubsub' and identity[1] == 'service':
-                    jid = item[0]
-                    jids.extend([jid])
-        return jids
+                    result = {}
+                    result['jid'] = item[0]
+                    if item[1]: result['name'] =  item[1]
+                    elif item[2]: result['name'] = item[2]
+                    else: result['name'] = item[0]
+                    results.extend([result])
+        return results
 
 
     def delete_node(self, jid, node):
@@ -44,7 +48,7 @@ class XmppPubsub:
 
 
     # TODO Make use of var "xep" with match/case (XEP-0060, XEP-0277, XEP-0472)
-    def create_node(self, jid, node, xep ,title=None, summary=None):
+    def create_node(self, jid, node, xep ,title=None, subtitle=None):
         jid_from = str(self.boundjid) if self.is_component else None
         iq = self.Iq(stype='set',
                      sto=jid,
@@ -57,7 +61,7 @@ class XmppPubsub:
                       value=title)
         form.addField('pubsub#description',
                       ftype='text-single',
-                      value=summary)
+                      value=subtitle)
         form.addField('pubsub#notify_retract',
                       ftype='boolean',
                       value=1)

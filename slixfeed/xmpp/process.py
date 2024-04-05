@@ -319,22 +319,49 @@ async def message(self, message):
                 message_text = message_text[4:]
                 url = message_text.split(' ')[0]
                 title = ' '.join(message_text.split(' ')[1:])
-                if not title:
-                    title = uri.get_hostname(url)
-                counter = 0
-                hostname = uri.get_hostname(url)
-                node = hostname + ':' + str(counter)
-                while True:
-                    if sqlite.check_node_exist(db_file, node):
-                        counter += 1
-                        node = hostname + ':' + str(counter)
-                    else:
-                        break
                 if url.startswith('http'):
+                    if not title:
+                        title = uri.get_hostname(url)
                     db_file = config.get_pathname_to_database(jid_file)
+                    counter = 0
+                    hostname = uri.get_hostname(url)
+                    hostname = hostname.replace('.','-')
+                    identifier = hostname + ':' + str(counter)
+                    while True:
+                        if sqlite.check_identifier_exist(db_file, identifier):
+                            counter += 1
+                            identifier = hostname + ':' + str(counter)
+                        else:
+                            break
                     exist = sqlite.get_feed_id_and_name(db_file, url)
                     if not exist:
-                        await sqlite.insert_feed(db_file, url, title, node)
+                        await sqlite.insert_feed(db_file, url, title,
+                                                 identifier)
+                        feed_id = sqlite.get_feed_id(db_file, url)
+                        feed_id = feed_id[0]
+                        document = result['content']
+                        feed = parse(document)
+                        feed_valid = 0 if feed.bozo else 1
+                        await sqlite.update_feed_validity(db_file, feed_id, feed_valid)
+                        if feed.has_key('updated_parsed'):
+                            feed_updated = feed.updated_parsed
+                            try:
+                                feed_updated = dt.convert_struct_time_to_iso8601(feed_updated)
+                            except:
+                                feed_updated = None
+                        else:
+                            feed_updated = None
+                        entries_count = len(feed.entries)
+                        await sqlite.update_feed_properties(db_file, feed_id,
+                                                            entries_count,
+                                                            feed_updated)
+                        feed_id = sqlite.get_feed_id(db_file, url)
+                        feed_id = feed_id[0]
+                        new_entries = action.get_properties_of_entries(
+                            self, jid_bare, db_file, url, feed_id, feed)
+                        if new_entries:
+                            await sqlite.add_entries_and_update_feed_state(
+                                db_file, feed_id, new_entries)
                         await action.scan(self, jid_bare, db_file, url)
                         if jid_bare not in self.settings:
                             Config.add_settings_jid(self.settings, jid_bare,
@@ -477,7 +504,8 @@ async def message(self, message):
                 XmppMessage.send_reply(self, message, response)
             case 'bookmarks':
                 if is_operator(self, jid_bare):
-                    response = await action.list_bookmarks(self)
+                    conferences = await XmppBookmark.get_bookmarks(self)
+                    response = action.list_bookmarks(self, conferences)
                 else:
                     response = ('This action is restricted. '
                                 'Type: viewing bookmarks.')
@@ -608,7 +636,7 @@ async def message(self, message):
                             url = ix_url
                         if url:
                             url = uri.remove_tracking_parameters(url)
-                            url = (uri.replace_hostname(url, 'link')) or url
+                            url = (await uri.replace_hostname(url, 'link')) or url
                             result = await fetch.http(url)
                             if not result['error']:
                                 data = result['content']
@@ -696,15 +724,17 @@ async def message(self, message):
                             url = info[1]
                             db_file = config.get_pathname_to_database(jid)
                             if len(info) > 2:
-                                node = info[2]
+                                identifier = info[2]
                             else:
                                 counter = 0
                                 hostname = uri.get_hostname(url)
-                                node = hostname + ':' + str(counter)
+                                hostname = hostname.replace('.','-')
+                                identifier = hostname + ':' + str(counter)
                                 while True:
-                                    if sqlite.check_node_exist(db_file, node):
+                                    if sqlite.check_identifier_exist(
+                                            db_file, identifier):
                                         counter += 1
-                                        node = hostname + ':' + str(counter)
+                                        identifier = hostname + ':' + str(counter)
                                     else:
                                         break
                             # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
@@ -720,8 +750,10 @@ async def message(self, message):
                                               status_type=status_type)
                             if url.startswith('feed:'):
                                 url = uri.feed_to_http(url)
-                            url = (uri.replace_hostname(url, 'feed')) or url
-                            result = await action.add_feed(self, jid_bare, db_file, url, node)
+                            url = (await uri.replace_hostname(url, 'feed')) or url
+                            result = await action.add_feed(self, jid_bare,
+                                                           db_file, url,
+                                                           identifier)
                             if isinstance(result, list):
                                 results = result
                                 response = ("Web feeds found for {}\n\n```\n"
@@ -740,11 +772,11 @@ async def message(self, message):
                                             .format(result['link'],
                                                     result['name'],
                                                     result['index']))
-                            elif result['node']:
-                                response = ('> {}\nNode "{}" is already '
+                            elif result['identifier']:
+                                response = ('> {}\nIdentifier "{}" is already '
                                             'allocated to index {}'
                                             .format(result['link'],
-                                                    result['node'],
+                                                    result['identifier'],
                                                     result['index']))
                             elif result['error']:
                                 response = ('> {}\nFailed to find subscriptions.  '
@@ -776,10 +808,10 @@ async def message(self, message):
                                     '\n'
                                     'Missing argument. '
                                     'Enter PubSub JID and subscription URL '
-                                    '(and optionally: NodeName).')
+                                    '(and optionally: Identifier Name).')
                 else:
                     response = ('This action is restricted. '
-                                'Type: adding node.')
+                                'Type: publishing to node.')
                 XmppMessage.send_reply(self, message, response)
             case _ if (message_lowercase.startswith('http') or
                        message_lowercase.startswith('feed:')):
@@ -797,19 +829,21 @@ async def message(self, message):
                                   status_type=status_type)
                 if url.startswith('feed:'):
                     url = uri.feed_to_http(url)
-                url = (uri.replace_hostname(url, 'feed')) or url
+                url = (await uri.replace_hostname(url, 'feed')) or url
                 db_file = config.get_pathname_to_database(jid_file)
                 counter = 0
                 hostname = uri.get_hostname(url)
-                node = hostname + ':' + str(counter)
+                hostname = hostname.replace('.','-')
+                identifier = hostname + ':' + str(counter)
                 while True:
-                    if sqlite.check_node_exist(db_file, node):
+                    if sqlite.check_identifier_exist(db_file, identifier):
                         counter += 1
-                        node = hostname + ':' + str(counter)
+                        identifier = hostname + ':' + str(counter)
                     else:
                         break
                 # try:
-                result = await action.add_feed(self, jid_bare, db_file, url, node)
+                result = await action.add_feed(self, jid_bare, db_file, url,
+                                               identifier)
                 if isinstance(result, list):
                     results = result
                     response = ("Web feeds found for {}\n\n```\n"
@@ -1122,15 +1156,15 @@ async def message(self, message):
                                       status_type=status_type)
                     if url.startswith('feed:'):
                         url = uri.feed_to_http(url)
-                    url = (uri.replace_hostname(url, 'feed')) or url
+                    url = (await uri.replace_hostname(url, 'feed')) or url
                     match len(data):
                         case 1:
                             if url.startswith('http'):
                                 while True:
                                     result = await fetch.http(url)
+                                    status = result['status_code']
                                     if not result['error']:
                                         document = result['content']
-                                        status = result['status_code']
                                         feed = parse(document)
                                         # if is_feed(url, feed):
                                         if action.is_feed(feed):
@@ -1151,7 +1185,7 @@ async def message(self, message):
                                                             .format(len(results)))
                                                 break
                                             else:
-                                                url = result[0]
+                                                url = result['link']
                                     else:
                                         response = ('> {}\nFailed to load URL.  Reason: {}'
                                                     .format(url, status))
@@ -1188,7 +1222,7 @@ async def message(self, message):
                                                             .format(len(results)))
                                                 break
                                             else:
-                                                url = result[0]
+                                                url = result['link']
                                     else:
                                         response = ('> {}\nFailed to load URL.  Reason: {}'
                                                     .format(url, status))

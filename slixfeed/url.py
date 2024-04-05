@@ -50,7 +50,7 @@ def get_hostname(url):
     return hostname
 
 
-def replace_hostname(url, url_type):
+async def replace_hostname(url, url_type):
     """
     Replace hostname.
 
@@ -79,6 +79,8 @@ def replace_hostname(url, url_type):
         proxy = proxies[proxy_name]
         if hostname in proxy['hostname'] and url_type in proxy['type']:
             while not url_new:
+                print('>>>')
+                print(url_new)
                 proxy_type = 'clearnet'
                 proxy_list = proxy[proxy_type]
                 if len(proxy_list):
@@ -89,10 +91,13 @@ def replace_hostname(url, url_type):
                     hostname_new = parted_proxy_url.netloc
                     url_new = urlunsplit([protocol_new, hostname_new,
                                           pathname, queries, fragment])
-                    response = fetch.http_response(url_new)
+                    print(proxy_url)
+                    print(url_new)
+                    print('>>>')
+                    response = await fetch.http(url_new)
                     if (response and
-                        response.status_code == 200 and
-                        response.reason == 'OK' and
+                        response['status_code'] == 200 and
+                        # response.reason == 'OK' and
                         url_new.startswith(proxy_url)):
                         break
                     else:
@@ -104,13 +109,16 @@ def replace_hostname(url, url_type):
                         config.backup_obsolete(proxies_obsolete_file,
                                                proxy_name, proxy_type,
                                                proxy_url)
-                        config.update_proxies(proxies_file, proxy_name,
-                                              proxy_type, proxy_url)
+                        try:
+                            config.update_proxies(proxies_file, proxy_name,
+                                                  proxy_type, proxy_url)
+                        except ValueError as e:
+                            logging.error([str(e), proxy_url])
                         url_new = None
                 else:
                     logging.warning(
-                        "No proxy URLs for {}."
-                        "Update proxies.toml".format(proxy_name))
+                        "No proxy URLs for {}. Please update proxies.toml"
+                        .format(proxy_name))
                     url_new = url
                     break
     return url_new

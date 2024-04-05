@@ -15,7 +15,7 @@ from slixmpp.plugins.xep_0048.stanza import Bookmarks
 class XmppBookmark:
 
 
-    async def get(self):
+    async def get_bookmarks(self):
         result = await self.plugin['xep_0048'].get_bookmarks()
         conferences = result['private']['bookmarks']['conferences']
         return conferences

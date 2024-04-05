@@ -183,7 +183,7 @@ async def xmpp_send_status_message(self, jid):
             status_mode = 'dnd'
             status_text = jid_task[list(jid_task.keys())[0]]
         else:
-            feeds = sqlite.get_number_of_items(db_file, 'feeds')
+            feeds = sqlite.get_number_of_items(db_file, 'feeds_properties')
             # print(await current_time(), jid, "has", feeds, "feeds")
             if not feeds:
                 status_mode = 'available'
@@ -227,21 +227,22 @@ async def xmpp_send_pubsub(self, jid_bare, num=None):
         subscriptions = sqlite.get_active_feeds_url(db_file)
         for url in subscriptions:
             url = url[0]
-            feed_id = sqlite.get_feed_id(db_file, url)
-            feed_id = feed_id[0]
-            feed_title = None
-            feed_summary = None
             if jid_bare == self.boundjid.bare:
                 node = 'urn:xmpp:microblog:0'
+                feed_title = None
+                feed_subtitle = None
             else:
+                feed_id = sqlite.get_feed_id(db_file, url)
+                feed_id = feed_id[0]
                 feed_title = sqlite.get_feed_title(db_file, feed_id)
                 feed_title = feed_title[0]
-                feed_summary = None
-                node = sqlite.get_node_name(db_file, feed_id)
+                feed_subtitle = sqlite.get_feed_subtitle(db_file, feed_id)
+                feed_subtitle = feed_subtitle[0]
+                node = sqlite.get_feed_identifier(db_file, feed_id)
                 node = node[0]
             xep = None
             iq_create_node = XmppPubsub.create_node(
-                self, jid_bare, node, xep, feed_title, feed_summary)
+                self, jid_bare, node, xep, feed_title, feed_subtitle)
             await XmppIQ.send(self, iq_create_node)
             entries = sqlite.get_unread_entries_of_feed(db_file, feed_id)
             feed_properties = sqlite.get_feed_properties(db_file, feed_id)
@@ -251,17 +252,21 @@ async def xmpp_send_pubsub(self, jid_bare, num=None):
             # if num and counter < num:
             report[url] = len(entries)
             for entry in entries:
-                feed_entry = {'author'      : None,
-                              'authors'     : None,
-                              'category'    : None,
-                              'content'     : None,
-                              'description' : entry[3],
-                              'link'        : entry[2],
-                              'links'       : entry[4],
-                              'tags'        : None,
-                              'title'       : entry[1],
-                              'type'        : None,
-                              'updated'     : entry[7]}
+                feed_entry = {'authors'      : entry[3],
+                              'content'      : entry[6],
+                              'content_type' : entry[7],
+                              'contact'      : entry[4],
+                              'contributors' : entry[5],
+                              'summary'      : entry[8],
+                              'summary_type' : entry[9],
+                              'enclosures'   : entry[13],
+                              'language'     : entry[10],
+                              'link'         : entry[2],
+                              'links'        : entry[11],
+                              'published'    : entry[15],
+                              'tags'         : entry[12],
+                              'title'        : entry[1],
+                              'updated'      : entry[16]}
                 iq_create_entry = XmppPubsub.create_entry(
                     self, jid_bare, node, feed_entry, feed_version)
                 await XmppIQ.send(self, iq_create_entry)
@@ -303,12 +308,11 @@ async def xmpp_send_message(self, jid, num=None):
             title_e = result[1]
             url = result[2]
             summary = result[3]
-            enclosure = result[4]
-            feed_id = result[5]
-            date = result[6]
+            feed_id = result[4]
+            date = result[5]
             title_f = sqlite.get_feed_title(db_file, feed_id)
             title_f = title_f[0]
-            news_digest += list_unread_entries(self, result, title_f, jid)
+            news_digest += await list_unread_entries(self, result, title_f, jid)
             # print(db_file)
             # print(result[0])
             # breakpoint()
@@ -533,7 +537,7 @@ def is_feed(feed):
     return value
 
 
-def list_unread_entries(self, result, feed_title, jid):
+async def list_unread_entries(self, result, feed_title, jid):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: feed_title: {} jid: {}'
                 .format(function_name, feed_title, jid))
@@ -581,7 +585,7 @@ def list_unread_entries(self, result, feed_title, jid):
     # summary = "\n".join(summary)
     link = result[2]
     link = remove_tracking_parameters(link)
-    link = (replace_hostname(link, "link")) or link
+    link = await replace_hostname(link, "link") or link
     # news_item = ("\n{}\n{}\n{} [{}]\n").format(str(title), str(link),
     #                                            str(feed_title), str(ix))
     formatting = Config.get_setting_value(self.settings, jid, 'formatting')
@@ -691,11 +695,9 @@ async def list_statistics(db_file):
     logger.debug('{}: db_file: {}'
                 .format(function_name, db_file))
     entries_unread = sqlite.get_number_of_entries_unread(db_file)
-    entries = sqlite.get_number_of_items(db_file, 'entries')
-    archive = sqlite.get_number_of_items(db_file, 'archive')
-    entries_all = entries + archive
+    entries = sqlite.get_number_of_items(db_file, 'entries_properties')
     feeds_active = sqlite.get_number_of_feeds_active(db_file)
-    feeds_all = sqlite.get_number_of_items(db_file, 'feeds')
+    feeds_all = sqlite.get_number_of_items(db_file, 'feeds_properties')
 
     # msg = """You have {} unread news items out of {} from {} news sources.
     #       """.format(unread_entries, entries, feeds)
@@ -714,7 +716,7 @@ async def list_statistics(db_file):
                "News items   : {}/{}\n"
                "News sources : {}/{}\n"
                "```").format(entries_unread,
-                             entries_all,
+                             entries,
                              feeds_active,
                              feeds_all)
     return message
@@ -762,19 +764,16 @@ def list_feeds(results):
                     .format(len(results)))
     else:
         url = pick_a_feed()
-        message = ('List of subscriptions is empty.'
+        message = ('List of subscriptions is empty. To add a feed, send a URL.'
                    '\n'
-                   'To add a feed, send a URL.'
-                   '\n'
-                   'Featured news:\n*{}*\n{}'
+                   'Featured news: *{}*\n{}'
                    .format(url['name'], url['link']))
     return message
 
 
-async def list_bookmarks(self):
+def list_bookmarks(self, conferences):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}'.format(function_name))
-    conferences = await XmppBookmark.get(self)
     message = '\nList of groupchats:\n\n```\n'
     for conference in conferences:
         message += ('Name: {}\n'
@@ -835,36 +834,42 @@ async def import_opml(db_file, result):
     if not result['error']:
         document = result['content']
         root = ET.fromstring(document)
-        before = sqlite.get_number_of_items(db_file, 'feeds')
+        before = sqlite.get_number_of_items(db_file, 'feeds_properties')
         feeds = []
         for child in root.findall(".//outline"):
             url = child.get("xmlUrl")
             title = child.get("text")
             # feed = (url, title)
             # feeds.extend([feed])
-            feeds.extend([(url, title)])
+            feed = {
+                'title' : title,
+                'url' : url,
+                }
+            feeds.extend([feed])
         await sqlite.import_feeds(db_file, feeds)
         await sqlite.add_metadata(db_file)
-        after = sqlite.get_number_of_items(db_file, 'feeds')
+        after = sqlite.get_number_of_items(db_file, 'feeds_properties')
         difference = int(after) - int(before)
         return difference
 
 
-async def add_feed(self, jid_bare, db_file, url, node):
+async def add_feed(self, jid_bare, db_file, url, identifier):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} url: {}'
                 .format(function_name, db_file, url))
     while True:
-        exist_feed = sqlite.get_feed_id_and_name(db_file, url)
-        if not exist_feed:
-            exist_node = sqlite.check_node_exist(db_file, node)
-            if not exist_node:
+        feed_id = sqlite.get_feed_id(db_file, url)
+        if not feed_id:
+            exist_identifier = sqlite.check_identifier_exist(db_file, identifier)
+            if not exist_identifier:
                 result = await fetch.http(url)
                 message = result['message']
                 status_code = result['status_code']
                 if not result['error']:
+                    await sqlite.update_feed_status(db_file, feed_id, status_code)
                     document = result['content']
                     feed = parse(document)
+                    # if document and status_code == 200:
                     # if is_feed(url, feed):
                     if is_feed(feed):
                         if "title" in feed["feed"].keys():
@@ -887,21 +892,41 @@ async def add_feed(self, jid_bare, db_file, url, node):
                                 updated = ''
                         else:
                             updated = ''
-                        version = feed["version"]
-                        entries = len(feed["entries"])
-                        await sqlite.insert_feed(db_file, url, title, node,
-                                                 entries=entries,
+                        version = feed.version
+                        entries_count = len(feed.entries)
+                        await sqlite.insert_feed(db_file,
+                                                 url,
+                                                 title,
+                                                 identifier,
+                                                 entries=entries_count,
                                                  version=version,
                                                  encoding=encoding,
                                                  language=language,
                                                  status_code=status_code,
                                                  updated=updated)
-                        await scan(self, jid_bare, db_file, url)
-                        old = Config.get_setting_value(self.settings, jid_bare, 'old')
+                        feed_valid = 0 if feed.bozo else 1
+                        await sqlite.update_feed_validity(db_file, feed_id, feed_valid)
+                        if feed.has_key('updated_parsed'):
+                            feed_updated = feed.updated_parsed
+                            try:
+                                feed_updated = dt.convert_struct_time_to_iso8601(feed_updated)
+                            except:
+                                feed_updated = None
+                        else:
+                            feed_updated = None
+                        entries_count = len(feed.entries)
+                        await sqlite.update_feed_properties(db_file, feed_id,
+                                                            entries_count,
+                                                            feed_updated)
                         feed_id = sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
-                        if not old:
-                            await sqlite.mark_feed_as_read(db_file, feed_id)
+                        new_entries = get_properties_of_entries(
+                            self, jid_bare, db_file, url, feed_id, feed)
+                        if new_entries:
+                            await sqlite.add_entries_and_update_feed_state(
+                                db_file, feed_id, new_entries)
+                        old = Config.get_setting_value(self.settings, jid_bare, 'old')
+                        if not old: await sqlite.mark_feed_as_read(db_file, feed_id)
                         result_final = {'link' : url,
                                         'index' : feed_id,
                                         'name' : title,
@@ -909,7 +934,7 @@ async def add_feed(self, jid_bare, db_file, url, node):
                                         'error' : False,
                                         'message': message,
                                         'exist' : False,
-                                        'node' : None}
+                                        'identifier' : None}
                         break
                     # NOTE This elif statement be unnecessary
                     # when feedparser be supporting json feed.
@@ -936,9 +961,12 @@ async def add_feed(self, jid_bare, db_file, url, node):
                         else:
                             updated = ''
                         version = 'json' + feed["version"].split('/').pop()
-                        entries = len(feed["items"])
-                        await sqlite.insert_feed(db_file, url, title, node,
-                                                 entries=entries,
+                        entries_count = len(feed["items"])
+                        await sqlite.insert_feed(db_file,
+                                                 url,
+                                                 title,
+                                                 identifier,
+                                                 entries=entries_count,
                                                  version=version,
                                                  encoding=encoding,
                                                  language=language,
@@ -957,7 +985,7 @@ async def add_feed(self, jid_bare, db_file, url, node):
                                         'error' : False,
                                         'message': message,
                                         'exist' : False,
-                                        'node' : None}
+                                        'identifier' : None}
                         break
                     else:
                         # NOTE Do not be tempted to return a compact dictionary.
@@ -973,7 +1001,7 @@ async def add_feed(self, jid_bare, db_file, url, node):
                                             'error' : True,
                                             'message': message,
                                             'exist' : False,
-                                            'node' : None}
+                                            'identifier' : None}
                             break
                         elif isinstance(result, list):
                             # Get out of the loop and deliver a list of dicts.
@@ -983,6 +1011,7 @@ async def add_feed(self, jid_bare, db_file, url, node):
                             # Go back up to the while loop and try again.
                             url = result['link']
                 else:
+                    await sqlite.update_feed_status(db_file, feed_id, status_code)
                     result_final = {'link' : url,
                                     'index' : None,
                                     'name' : None,
@@ -990,12 +1019,13 @@ async def add_feed(self, jid_bare, db_file, url, node):
                                     'error' : True,
                                     'message': message,
                                     'exist' : False,
-                                    'node' : None}
+                                    'identifier' : None}
                     break
             else:
-                ix = exist_node[1]
-                node = exist_node[2]
-                message = 'Node is already allocated.'
+                ix = exist_identifier[1]
+                identifier = exist_identifier[2]
+                message = ('Identifier "{}" is already allocated.'
+                           .format(identifier))
                 result_final = {'link' : url,
                                 'index' : ix,
                                 'name' : None,
@@ -1003,20 +1033,21 @@ async def add_feed(self, jid_bare, db_file, url, node):
                                 'error' : False,
                                 'message': message,
                                 'exist' : False,
-                                'node' : node}
+                                'identifier' : identifier}
                 break
         else:
-            ix = exist_feed[0]
-            name = exist_feed[1]
+            feed_id = feed_id[0]
+            title = sqlite.get_feed_title(db_file, feed_id)
+            title = title[0]
             message = 'URL already exist.'
             result_final = {'link' : url,
-                            'index' : ix,
-                            'name' : name,
+                            'index' : feed_id,
+                            'name' : title,
                             'code' : None,
                             'error' : False,
                             'message': message,
                             'exist' : True,
-                            'node' : None}
+                            'identifier' : None}
             break
     return result_final
 
@@ -1168,8 +1199,8 @@ async def scan_json(self, jid_bare, db_file, url):
         if len(new_entries):
             feed_id = sqlite.get_feed_id(db_file, url)
             feed_id = feed_id[0]
-            await sqlite.add_entries_and_update_timestamp(db_file, feed_id,
-                                                          new_entries)
+            await sqlite.add_entries_and_update_feed_state(db_file, feed_id,
+                                                           new_entries)
 
 
 def view_feed(url, feed):
@@ -1266,162 +1297,274 @@ def view_entry(url, feed, num):
     return response
 
 
-# TODO get all active feeds of active accounts and scan the feed with the earliest scanned time
-# TODO Rename function name (idea: scan_and_populate)
-async def scan(self, jid_bare, db_file, url):
+async def download_feed(self, db_file, feed_url):
     """
-    Check feeds for new entries.
+    Get feed content.
 
     Parameters
     ----------
     db_file : str
         Path to database file.
     url : str, optional
-        URL. The default is None.
+        URL.
     """
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} url: {}'
-                .format(function_name, db_file, url))
-    if isinstance(url, tuple): url = url[0]
-    result = await fetch.http(url)
-    feed_id = sqlite.get_feed_id(db_file, url)
+                .format(function_name, db_file, feed_url))
+    if isinstance(feed_url, tuple): feed_url = feed_url[0]
+    result = await fetch.http(feed_url)
+    feed_id = sqlite.get_feed_id(db_file, feed_url)
     feed_id = feed_id[0]
     status_code = result['status_code']
     await sqlite.update_feed_status(db_file, feed_id, status_code)
-    if not result['error']:
-        document = result['content']
-        status = result['status_code']
-        new_entries = []
-        if document and status == 200:
-            feed = parse(document)
-            entries = feed.entries
-            # length = len(entries)
-            await remove_nonexistent_entries(self, jid_bare, db_file, url, feed)
-            try:
-                if feed.bozo:
-                    # bozo = (
-                    #     "WARNING: Bozo detected for feed: {}\n"
-                    #     "For more information, visit "
-                    #     "https://pythonhosted.org/feedparser/bozo.html"
-                    #     ).format(url)
-                    # print(bozo)
-                    valid = 0
-                else:
-                    valid = 1
-                feed_id = sqlite.get_feed_id(db_file, url)
-                feed_id = feed_id[0]
-                await sqlite.update_feed_validity(
-                    db_file, feed_id, valid)
-                if "updated_parsed" in feed["feed"].keys():
-                    updated = feed["feed"]["updated_parsed"]
-                    try:
-                        updated = dt.convert_struct_time_to_iso8601(updated)
-                    except:
-                        updated = ''
-                else:
-                    updated = ''
-                feed_id = sqlite.get_feed_id(db_file, url)
-                feed_id = feed_id[0]
-                await sqlite.update_feed_properties(db_file, feed_id,
-                                                    len(feed["entries"]), updated)
-                # await update_feed_status
-            except (IncompleteReadError, IncompleteRead, error.URLError) as e:
-                logger.error(e)
-                return
-            # new_entry = 0
-            for entry in entries:
-                logger.debug('{}: entry: {}'.format(function_name, entry.link))
-                if entry.has_key("published"):
-                    date = entry.published
-                    date = dt.rfc2822_to_iso8601(date)
-                elif entry.has_key("updated"):
-                    date = entry.updated
-                    date = dt.rfc2822_to_iso8601(date)
-                else:
-                    date = dt.now()
-                if entry.has_key("link"):
-                    # link = complete_url(source, entry.link)
-                    link = join_url(url, entry.link)
-                    link = trim_url(link)
-                else:
-                    link = url
-                # title = feed["feed"]["title"]
-                # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
-                title = entry.title if entry.has_key("title") else date
-                entry_id = entry.id if entry.has_key("id") else link
-                feed_id = sqlite.get_feed_id(db_file, url)
-                feed_id = feed_id[0]
-                exist = sqlite.check_entry_exist(db_file, feed_id,
-                                                 entry_id=entry_id,
-                                                 title=title, link=link,
-                                                 date=date)
-                if not exist:
-                    summary = entry.summary if entry.has_key("summary") else ''
-                    read_status = 0
-                    pathname = urlsplit(link).path
-                    string = (
-                        "{} {} {}"
-                        ).format(
-                            title, summary, pathname)
-                    if self.settings['default']['filter']:
-                        print('Filter is now processing data.')
-                        allow_list = config.is_include_keyword(db_file,
-                                                               "allow", string)
-                        if not allow_list:
-                            reject_list = config.is_include_keyword(db_file,
-                                                                    "deny",
-                                                                    string)
-                            if reject_list:
-                                read_status = 1
-                                logger.debug('Rejected : {}'
-                                             '\n'
-                                             'Keyword  : {}'
-                                             .format(link, reject_list))
-                    if isinstance(date, int):
-                        logger.error('Variable "date" is int: {}'.format(date))
-                    media_link = ''
-                    if entry.has_key("links"):
-                        for e_link in entry.links:
-                            try:
-                                # if (link.rel == "enclosure" and
-                                #     (link.type.startswith("audio/") or
-                                #      link.type.startswith("image/") or
-                                #      link.type.startswith("video/"))
-                                #     ):
-                                media_type = e_link.type[:e_link.type.index("/")]
-                                if e_link.has_key("rel"):
-                                    if (e_link.rel == "enclosure" and
-                                        media_type in ("audio", "image", "video")):
-                                        media_link = e_link.href
-                                        media_link = join_url(url, e_link.href)
-                                        media_link = trim_url(media_link)
-                                        break
-                            except:
-                                logger.error('KeyError: "href"\n'
-                                             'Missing "href" attribute for {}'
-                                             .format(url))
-                                logger.error('Continue scanning for next '
-                                             'potential enclosure of {}'
-                                             .format(link))
-                    entry = {
-                        "title": title,
-                        "link": link,
-                        "summary": summary,
-                        "enclosure": media_link,
-                        "entry_id": entry_id,
-                        "date": date,
-                        "read_status": read_status
+
+
+# TODO get all active feeds of active accounts and scan the feed with the earliest scanned time
+# TODO Rename function name (idea: scan_and_populate)
+def get_properties_of_entries(self, jid_bare, db_file, feed_url, feed_id, feed):
+    """
+    Get new entries.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str, optional
+        URL.
+    """
+    print('GET', feed_url, jid_bare)
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: feed_id: {} url: {}'
+                .format(function_name, feed_id, feed_url))
+
+    new_entries = []
+    for entry in feed.entries:
+        logger.debug('{}: entry: {}'.format(function_name, entry.link))
+        if entry.has_key("published"):
+            entry_published = entry.published
+            entry_published = dt.rfc2822_to_iso8601(entry_published)
+        else:
+            entry_published = ''
+        if entry.has_key("updated"):
+            entry_updated = entry.updated
+            entry_updated = dt.rfc2822_to_iso8601(entry_updated)
+        else:
+            entry_updated = dt.now()
+        if entry.has_key("link"):
+            # link = complete_url(source, entry.link)
+            entry_link = join_url(feed_url, entry.link)
+            entry_link = trim_url(entry_link)
+        else:
+            entry_link = feed_url
+        # title = feed["feed"]["title"]
+        # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
+        entry_title = entry.title if entry.has_key("title") else entry_published
+        entry_id = entry.id if entry.has_key("id") else entry_link
+        exist = sqlite.check_entry_exist(db_file, feed_id,
+                                         identifier=entry_id,
+                                         title=entry_title,
+                                         link=entry_link,
+                                         published=entry_published)
+        if not exist:
+            read_status = 0
+            # # Filter
+            # pathname = urlsplit(link).path
+            # string = (
+            #     "{} {} {}"
+            #     ).format(
+            #         title, summary, pathname)
+            # if self.settings['default']['filter']:
+            #     print('Filter is now processing data.')
+            #     allow_list = config.is_include_keyword(db_file,
+            #                                            "allow", string)
+            #     if not allow_list:
+            #         reject_list = config.is_include_keyword(db_file,
+            #                                                 "deny",
+            #                                                 string)
+            #         if reject_list:
+            #             read_status = 1
+            #             logger.debug('Rejected : {}'
+            #                          '\n'
+            #                          'Keyword  : {}'
+            #                          .format(link, reject_list))
+            if isinstance(entry_published, int):
+                logger.error('Variable "published" is int: {}'.format(entry_published))
+            if isinstance(entry_updated, int):
+                logger.error('Variable "updated" is int: {}'.format(entry_updated))
+
+            # Authors
+            entry_authors =[]
+            if entry.has_key('authors'):
+                for author in entry.authors:
+                    author_properties = {
+                        'name' : author.name if author.has_key('name') else '',
+                        'url' : author.href if author.has_key('href') else '',
+                        'email' : author.email if author.has_key('email') else '',
                         }
-                    new_entries.extend([entry])
-                    # await sqlite.add_entry(
-                    #     db_file, title, link, entry_id,
-                    #     url, date, read_status)
-                    # await sqlite.set_date(db_file, url)
-        if len(new_entries):
-            feed_id = sqlite.get_feed_id(db_file, url)
-            feed_id = feed_id[0]
-            await sqlite.add_entries_and_update_timestamp(db_file, feed_id,
-                                                          new_entries)
+                    entry_authors.extend([author_properties])
+            elif entry.has_key('author_detail'):
+                author_properties = {
+                    'name' : entry.author_detail.name if entry.author_detail.has_key('name') else '',
+                    'url' : entry.author_detail.href if entry.author_detail.has_key('href') else '',
+                    'email' : entry.author_detail.email if entry.author_detail.has_key('email') else '',
+                    }
+                entry_authors.extend([author_properties])
+            elif entry.has_key('author'):
+                author_properties = {
+                    'name' : entry.author,
+                    'url' : '',
+                    'email' : '',
+                    }
+                entry_authors.extend([author_properties])
+
+            # Contributors
+            entry_contributors = []
+            if entry.has_key('contributors'):
+                for contributor in entry.contributors:
+                    contributor_properties = {
+                        'name' : contributor.name if contributor.has_key('name') else '',
+                        'url' : contributor.href if contributor.has_key('href') else '',
+                        'email' : contributor.email if contributor.has_key('email') else '',
+                        }
+                    entry_contributors.extend([contributor_properties])
+
+            # Tags
+            entry_tags = []
+            if entry.has_key('tags'):
+                for tag in entry.tags:
+                    tag_properties = {
+                        'term' : tag.term if tag.has_key('term') else '',
+                        'scheme' : tag.scheme if tag.has_key('scheme') else '',
+                        'label' : tag.label if tag.has_key('label') else '',
+                        }
+                    entry_tags.extend([tag_properties])
+
+            # Content
+            entry_contents = []
+            if entry.has_key('content'):
+                for content in entry.content:
+                    text = content.value if content.has_key('value') else ''
+                    type = content.type if content.has_key('type') else ''
+                    lang = content.lang if content.has_key('lang') else ''
+                    base = content.base if content.has_key('base') else ''
+                    entry_content = {
+                        'text' : text,
+                        'lang' : lang,
+                        'type' : type,
+                        'base' : base,
+                        }
+                    entry_contents.extend([entry_content])
+
+            # Links and Enclosures
+            entry_links = []
+            if entry.has_key('links'):
+                for link in entry.links:
+                    link_properties = {
+                        'url' : link.href if link.has_key('href') else '',
+                        'rel' : link.rel if link.has_key('rel') else '',
+                        'type' : link.type if link.has_key('type') else '',
+                        'length' : '',
+                        }
+                    entry_links.extend([link_properties])
+            # Element media:content is utilized by Mastodon
+            if entry.has_key('media_content'):
+                for link in entry.media_content:
+                    link_properties = {
+                        'url' : link['url'] if 'url' in link else '',
+                        'rel' : 'enclosure',
+                        'type' : link['type'] if 'type' in link else '',
+                        # 'medium' : link['medium'] if 'medium' in link else '',
+                        'length' : link['filesize'] if 'filesize' in link else '',
+                        }
+                    entry_links.extend([link_properties])
+            if entry.has_key('media_thumbnail'):
+                for link in entry.media_thumbnail:
+                    link_properties = {
+                        'url' : link['url'] if 'url' in link else '',
+                        'rel' : 'enclosure',
+                        'type' : '',
+                        # 'medium' : 'image',
+                        'length' : '',
+                        }
+                    entry_links.extend([link_properties])
+
+            # Category
+            entry_category = entry.category if entry.has_key('category') else ''
+
+            # Comments
+            entry_comments = entry.comments if entry.has_key('comments') else ''
+
+            # href
+            entry_href = entry.href if entry.has_key('href') else ''
+
+            # Link: Same as entry.links[0].href in most if not all cases
+            entry_link = entry.link if entry.has_key('link') else ''
+
+            # Rating
+            entry_rating = entry.rating if entry.has_key('rating') else ''
+
+            # Summary
+            entry_summary_text = entry.summary if entry.has_key('summary') else ''
+            if entry.has_key('summary_detail'):
+                entry_summary_type = entry.summary_detail.type if entry.summary_detail.has_key('type') else ''
+                entry_summary_lang = entry.summary_detail.lang if entry.summary_detail.has_key('lang') else ''
+                entry_summary_base = entry.summary_detail.base if entry.summary_detail.has_key('base') else ''
+            else:
+                entry_summary_type = ''
+                entry_summary_lang = ''
+                entry_summary_base = ''
+
+            # Title
+            entry_title = entry.title if entry.has_key('title') else ''
+            if entry.has_key('title_detail'):
+                entry_title_type = entry.title_detail.type if entry.title_detail.has_key('type') else ''
+            else:
+                entry_title_type = ''
+
+            ###########################################################
+
+            # media_type = e_link.type[:e_link.type.index("/")]
+            # if (e_link.rel == "enclosure" and
+            #     media_type in ("audio", "image", "video")):
+            #     media_link = e_link.href
+            #     media_link = join_url(url, e_link.href)
+            #     media_link = trim_url(media_link)
+
+            ###########################################################
+
+            entry_properties = {
+                "identifier": entry_id,
+                "link": entry_link,
+                "href": entry_href,
+                "title": entry_title,
+                "title_type": entry_title_type,
+                'summary_text' : entry_summary_text,
+                'summary_lang' : entry_summary_lang,
+                'summary_type' : entry_summary_type,
+                'summary_base' : entry_summary_base,
+                'category' : entry_category,
+                "comments": entry_comments,
+                "rating": entry_rating,
+                "published": entry_published,
+                "updated": entry_updated,
+                "read_status": read_status
+                }
+            print('entry_properties')
+            print(entry_properties)
+
+            new_entries.extend([{
+                "entry_properties" : entry_properties,
+                "entry_authors" : entry_authors,
+                "entry_contributors" : entry_contributors,
+                "entry_contents" : entry_contents,
+                "entry_links" : entry_links,
+                "entry_tags" : entry_tags
+                }])
+            # await sqlite.add_entry(
+            #     db_file, title, link, entry_id,
+            #     url, date, read_status)
+            # await sqlite.set_date(db_file, url)
+    return new_entries
 
 
 def get_document_title(data):

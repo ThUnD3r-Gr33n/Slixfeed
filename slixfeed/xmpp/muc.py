@@ -20,20 +20,6 @@ import logging
 
 class XmppGroupchat:
 
-    # async def accept_muc_invite(self, message, ctr=None):
-    #     # if isinstance(message, str):
-    #     if not ctr:
-    #         ctr = message["from"].bare
-    #         jid = message['groupchat_invite']['jid']
-    #     else:
-    #         jid = message
-    def accept_invitation(self, message):
-        # operator muc_chat
-        inviter = message["from"].bare
-        jid = message['groupchat_invite']['jid']
-        self.join(self, inviter, jid)
-
-
     async def join(self, jid, alias=None, password=None):
         # token = await initdb(
         #     muc_jid,

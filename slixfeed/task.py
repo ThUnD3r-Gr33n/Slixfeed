@@ -68,12 +68,15 @@ except Exception as exc:
 """
 
 import asyncio
+from feedparser import parse
 import logging
 import os
 import slixfeed.action as action
 import slixfeed.config as config
 from slixfeed.config import Config
 # from slixfeed.dt import current_time
+import slixfeed.dt as dt
+import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
 # from xmpp import Slixfeed
 from slixfeed.xmpp.presence import XmppPresence
@@ -339,14 +342,67 @@ async def check_updates(self, jid_bare):
     jid : str
         Jabber ID.
     """
+    print('Scanning for updates for JID {}'.format(jid_bare))
     logging.info('Scanning for updates for JID {}'.format(jid_bare))
     while True:
         jid_file = jid_bare.replace('/', '_')
         db_file = config.get_pathname_to_database(jid_file)
         urls = sqlite.get_active_feeds_url(db_file)
         for url in urls:
-            await action.scan(self, jid_bare, db_file, url)
-            await asyncio.sleep(50)
+            url = url[0]
+            print('STA',url)
+
+            result = await fetch.http(url)
+            status_code = result['status_code']
+            feed_id = sqlite.get_feed_id(db_file, url)
+            feed_id = feed_id[0]
+            if not result['error']:
+                await sqlite.update_feed_status(db_file, feed_id, status_code)
+                document = result['content']
+                feed = parse(document)
+
+                feed_valid = 0 if feed.bozo else 1
+                await sqlite.update_feed_validity(db_file, feed_id, feed_valid)
+
+                if feed.has_key('updated_parsed'):
+                    feed_updated = feed.updated_parsed
+                    try:
+                        feed_updated = dt.convert_struct_time_to_iso8601(feed_updated)
+                    except:
+                        feed_updated = ''
+                else:
+                    feed_updated = ''
+
+                entries_count = len(feed.entries)
+
+                feed_version = feed.version if feed.has_key('version') else ''
+                feed_encoding = feed.encoding if feed.has_key('encoding') else ''
+                feed_language = feed.feed.language if feed.feed.has_key('language') else ''
+                feed_icon = feed.feed.icon if feed.feed.has_key('icon') else ''
+                feed_image = feed.feed.image if feed.feed.has_key('image') else ''
+                feed_logo = feed.feed.logo if feed.feed.has_key('logo') else ''
+                feed_ttl = feed.feed.ttl if feed.feed.has_key('ttl') else ''
+
+                feed_properties = {
+                    "version" : feed_version,
+                    "encoding" : feed_encoding,
+                    "language" : feed_language,
+                    "rating" : '',
+                    "entries_count" : entries_count,
+                    "icon" : feed_icon,
+                    "image" : feed_image,
+                    "logo" : feed_logo,
+                    "ttl" : feed_ttl,
+                    "updated" : feed_updated,
+                    }
+                await sqlite.update_feed_properties(db_file, feed_id,
+                                                    feed_properties)
+                new_entries = action.get_properties_of_entries(
+                    self, jid_bare, db_file, url, feed_id, feed)
+                if new_entries: await sqlite.add_entries_and_update_feed_state(
+                        db_file, feed_id, new_entries)
+                print('END', url)
+            await asyncio.sleep(5)
         val = Config.get_setting_value(self.settings, jid_bare, 'check')
         await asyncio.sleep(60 * float(val))
         # Schedule to call this function again in 90 minutes

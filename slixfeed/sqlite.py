@@ -5,6 +5,8 @@
 
 TODO
 
+0) Function "mark_feed_as_read": see function "maintain_archive"
+
 1) Function to open connection (receive db_file).
    Function to close connection.
    All other functions to receive cursor.
@@ -85,52 +87,120 @@ def create_tables(db_file):
     logger.debug('{}: db_file: {}'
                 .format(function_name, db_file))
     with create_connection(db_file) as conn:
-        archive_table_sql = (
+        entries_properties_authors_table_sql = (
             """
-            CREATE TABLE IF NOT EXISTS archive (
+            CREATE TABLE IF NOT EXISTS entries_properties_authors (
                 id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                link TEXT NOT NULL,
-                summary TEXT,
-                enclosure TEXT,
-                entry_id TEXT NOT NULL,
-                feed_id INTEGER NOT NULL,
-                timestamp TEXT,
-                read INTEGER NOT NULL DEFAULT 0,
-                reject INTEGER NOT NULL DEFAULT 0,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
-                  ON UPDATE CASCADE
-                  ON DELETE CASCADE,
-                PRIMARY KEY ("id")
-              );
-            """
-            )
-        entries_table_sql = (
-            """
-            CREATE TABLE IF NOT EXISTS entries (
-                id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                link TEXT NOT NULL,
-                summary TEXT,
-                enclosure TEXT,
-                entry_id TEXT NOT NULL,
-                feed_id INTEGER NOT NULL,
-                timestamp TEXT,
-                read INTEGER NOT NULL DEFAULT 0,
-                reject INTEGER NOT NULL DEFAULT 0,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
-                  ON UPDATE CASCADE
-                  ON DELETE CASCADE,
-                PRIMARY KEY ("id")
-              );
-            """
-            )
-        feeds_table_sql = (
-            """
-            CREATE TABLE IF NOT EXISTS feeds (
-                id INTEGER NOT NULL,
+                entry_id INTEGER NOT NULL,
                 name TEXT,
-                url TEXT NOT NULL UNIQUE,
+                url TEXT,
+                email TEXT,
+                FOREIGN KEY ("entry_id") REFERENCES "entries_properties" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
+        entries_properties_contributors_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS entries_properties_contributors (
+                id INTEGER NOT NULL,
+                entry_id INTEGER NOT NULL,
+                name TEXT,
+                url TEXT,
+                email TEXT,
+                FOREIGN KEY ("entry_id") REFERENCES "entries_properties" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
+        entries_properties_contents_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS entries_properties_contents (
+                id INTEGER NOT NULL,
+                entry_id INTEGER NOT NULL,
+                text TEXT,
+                type TEXT,
+                base TEXT,
+                lang TEXT,
+                FOREIGN KEY ("entry_id") REFERENCES "entries_properties" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
+        entries_properties_links_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS entries_properties_links (
+                id INTEGER NOT NULL,
+                entry_id INTEGER NOT NULL,
+                url TEXT,
+                type TEXT,
+                rel TEXT,
+                size INTEGER,
+                FOREIGN KEY ("entry_id") REFERENCES "entries_properties" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
+        entries_properties_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS entries_properties (
+                id INTEGER NOT NULL,
+                feed_id INTEGER NOT NULL,
+                identifier TEXT,
+                link TEXT,
+                title TEXT,
+                title_type TEXT,
+                summary_text TEXT,
+                summary_lang TEXT,
+                summary_type TEXT,
+                summary_base TEXT,
+                category TEXT,
+                href TEXT,
+                comments TEXT,
+                rating TEXT,
+                published TEXT,
+                updated TEXT,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds_properties" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
+        entries_state_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS entries_state (
+                id INTEGER NOT NULL,
+                entry_id INTEGER NOT NULL,
+                rejected INTEGER NOT NULL DEFAULT 0,
+                read INTEGER NOT NULL DEFAULT 0,
+                archived INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY ("entry_id") REFERENCES "entries_properties" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
+        entries_properties_tags_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS entries_properties_tags (
+                id INTEGER NOT NULL,
+                entry_id INTEGER NOT NULL,
+                term TEXT,
+                scheme TEXT,
+                label TEXT,
+                FOREIGN KEY ("entry_id") REFERENCES "entries_properties" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
                 PRIMARY KEY ("id")
               );
             """
@@ -138,16 +208,19 @@ def create_tables(db_file):
         # TODO Rethink!
         # Albeit, probably, more expensive, we might want to have feed_id
         # as foreign key, as it is with feeds_properties and feeds_state
-        feeds_categories_table_sql = (
+        feeds_preferences_table_sql = (
             """
-            CREATE TABLE IF NOT EXISTS feeds_categories (
+            CREATE TABLE IF NOT EXISTS feeds_preferences (
                 id INTEGER NOT NULL,
-                category_id INTEGER NOT NULL UNIQUE,
-                feed_id INTEGER,
-                FOREIGN KEY ("category_id") REFERENCES "categories" ("id")
+                feed_id INTEGER NOT NULL UNIQUE,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                mutable INTEGER NOT NULL DEFAULT 0,
+                filter INTEGER NOT NULL DEFAULT 1,
+                priority INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds_properties" ("id")
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,
-                PRIMARY KEY (id)
+                PRIMARY KEY ("id")
               );
             """
             )
@@ -155,28 +228,39 @@ def create_tables(db_file):
             """
             CREATE TABLE IF NOT EXISTS feeds_properties (
                 id INTEGER NOT NULL,
-                feed_id INTEGER NOT NULL UNIQUE,
-                type TEXT,
+                url TEXT NOT NULL UNIQUE,
+                identifier TEXT,
+                title TEXT,
+                title_type TEXT,
+                subtitle TEXT,
+                subtitle_type TEXT,
+                version TEXT,
                 encoding TEXT,
                 language TEXT,
+                rating TEXT,
                 entries INTEGER,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
-                  ON UPDATE CASCADE
-                  ON DELETE CASCADE,
-                PRIMARY KEY (id)
+                icon TEXT,
+                image TEXT,
+                logo TEXT,
+                ttl TEXT,
+                updated TEXT,
+                PRIMARY KEY ("id")
               );
             """
             )
-        feeds_pubsub_table_sql = (
+        feeds_properties_links_table_sql = (
             """
-            CREATE TABLE IF NOT EXISTS feeds_pubsub (
+            CREATE TABLE IF NOT EXISTS feeds_properties_links (
                 id INTEGER NOT NULL,
-                feed_id INTEGER NOT NULL UNIQUE,
-                node TEXT NOT NULL UNIQUE,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                feed_id INTEGER NOT NULL,
+                url TEXT,
+                type TEXT,
+                rel TEXT,
+                size INTEGER,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds_properties" ("id")
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,
-                PRIMARY KEY (id)
+                PRIMARY KEY ("id")
               );
             """
             )
@@ -186,15 +270,11 @@ def create_tables(db_file):
                 id INTEGER NOT NULL,
                 feed_id INTEGER NOT NULL UNIQUE,
                 type TEXT NOT NULL,
-                base TEXT NOT NULL,
-                title TEXT NOT NULL,
-                link TEXT NOT NULL,
-                enclosure TEXT,
-                summary TEXT,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                keywords TEXT,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds_properties" ("id")
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,
-                PRIMARY KEY (id)
+                PRIMARY KEY ("id")
               );
             """
             )
@@ -203,15 +283,11 @@ def create_tables(db_file):
             CREATE TABLE IF NOT EXISTS feeds_state (
                 id INTEGER NOT NULL,
                 feed_id INTEGER NOT NULL UNIQUE,
-                enabled INTEGER NOT NULL DEFAULT 1,
-                updated TEXT,
-                scanned TEXT,
                 renewed TEXT,
+                scanned TEXT,
                 status_code INTEGER,
                 valid INTEGER,
-                filter INTEGER NOT NULL DEFAULT 1,
-                priority INTEGER,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                FOREIGN KEY ("feed_id") REFERENCES "feeds_properties" ("id")
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,
                 PRIMARY KEY ("id")
@@ -226,23 +302,22 @@ def create_tables(db_file):
                 offline INTEGER,
                 entries INTEGER,
                 entries INTEGER,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                FOREIGN KEY ("feed_id") REFERENCES "feeds_properties" ("id")
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,
                 PRIMARY KEY ("id")
               );
             """
             )
-        feeds_tags_table_sql = (
+        feeds_properties_tags_table_sql = (
             """
-            CREATE TABLE IF NOT EXISTS feeds_tags (
+            CREATE TABLE IF NOT EXISTS feeds_properties_tags (
                 id INTEGER NOT NULL,
                 feed_id INTEGER NOT NULL,
-                tag_id INTEGER NOT NULL,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
-                  ON UPDATE CASCADE
-                  ON DELETE CASCADE,
-                FOREIGN KEY ("tag_id") REFERENCES "tags" ("id")
+                term TEXT,
+                scheme TEXT,
+                label TEXT,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds_properties" ("id")
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,
                 PRIMARY KEY ("id")
@@ -284,6 +359,22 @@ def create_tables(db_file):
               );
             """
             )
+        tagged_feeds_table_sql = (
+            """
+            CREATE TABLE IF NOT EXISTS tagged_feeds (
+                id INTEGER NOT NULL,
+                feed_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                FOREIGN KEY ("tag_id") REFERENCES "tags" ("id")
+                  ON UPDATE CASCADE
+                  ON DELETE CASCADE,
+                PRIMARY KEY ("id")
+              );
+            """
+            )
         tags_table_sql = (
             """
             CREATE TABLE IF NOT EXISTS tags (
@@ -295,18 +386,24 @@ def create_tables(db_file):
             )
         cur = conn.cursor()
         # cur = get_cursor(db_file)
-        cur.execute(archive_table_sql)
-        cur.execute(entries_table_sql)
-        cur.execute(feeds_table_sql)
-        cur.execute(feeds_state_table_sql)
+        cur.execute(entries_properties_table_sql)
+        cur.execute(entries_properties_authors_table_sql)
+        cur.execute(entries_properties_contents_table_sql)
+        cur.execute(entries_properties_contributors_table_sql)
+        cur.execute(entries_properties_links_table_sql)
+        cur.execute(entries_properties_tags_table_sql)
+        cur.execute(entries_state_table_sql)
         cur.execute(feeds_properties_table_sql)
-        cur.execute(feeds_pubsub_table_sql)
+        cur.execute(feeds_properties_links_table_sql)
+        cur.execute(feeds_properties_tags_table_sql)
+        cur.execute(feeds_preferences_table_sql)
         cur.execute(feeds_rules_table_sql)
-        cur.execute(feeds_tags_table_sql)
+        cur.execute(feeds_state_table_sql)
         cur.execute(filters_table_sql)
         # cur.execute(statistics_table_sql)
         cur.execute(settings_table_sql)
         cur.execute(status_table_sql)
+        cur.execute(tagged_feeds_table_sql)
         cur.execute(tags_table_sql)
 
 
@@ -356,20 +453,18 @@ async def import_feeds(db_file, feeds):
             for feed in feeds:
                 logger.debug('{}: feed: {}'
                             .format(function_name, feed))
-                url = feed[0]
-                title = feed[1]
+                url = feed['url']
+                title = feed['title']
                 sql = (
                     """
                     INSERT
-                    INTO feeds(
-                        name, url)
+                    INTO feeds_properties(
+                        title, url)
                     VALUES(
                         ?, ?)
                     """
                     )
-                par = (
-                    title, url
-                    )
+                par = (title, url)
                 try:
                     cur.execute(sql, par)
                 except IntegrityError as e:
@@ -395,16 +490,16 @@ async def add_metadata(db_file):
             sql = (
                 """
                 SELECT id
-                FROM feeds
+                FROM feeds_properties
                 ORDER BY id ASC
                 """
                 )
             ixs = cur.execute(sql).fetchall()
             for ix in ixs:
                 feed_id = ix[0]
+                # insert_feed_properties(cur, feed_id)
                 insert_feed_status(cur, feed_id)
-                insert_feed_properties(cur, feed_id)
-                insert_feed_pubsub(cur, feed_id)
+                insert_feed_preferences(cur, feed_id)
 
 
 def insert_feed_status(cur, feed_id):
@@ -434,6 +529,36 @@ def insert_feed_status(cur, feed_id):
     except IntegrityError as e:
         logger.warning(
             "Skipping feed_id {} for table feeds_state".format(feed_id))
+        logger.error(e)
+
+
+def insert_feed_preferences(cur, feed_id):
+    """
+    Set feed preferences.
+
+    Parameters
+    ----------
+    cur : object
+        Cursor object.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: feed_id: {}'
+                .format(function_name, feed_id))
+    sql = (
+        """
+        INSERT
+        INTO feeds_preferences(
+            feed_id)
+        VALUES(
+            ?)
+        """
+        )
+    par = (feed_id,)
+    try:
+        cur.execute(sql, par)
+    except IntegrityError as e:
+        logger.warning(
+            "Skipping feed_id {} for table feeds_preferences".format(feed_id))
         logger.error(e)
 
 
@@ -467,37 +592,7 @@ def insert_feed_properties(cur, feed_id):
         logger.error(e)
 
 
-def insert_feed_pubsub(cur, feed_id):
-    """
-    Set feed pubsub.
-
-    Parameters
-    ----------
-    cur : object
-        Cursor object.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: feed_id: {}'
-                .format(function_name, feed_id))
-    sql = (
-        """
-        INSERT
-        INTO feeds_pubsub(
-            feed_id)
-        VALUES(
-            ?)
-        """
-        )
-    par = (feed_id,)
-    try:
-        cur.execute(sql, par)
-    except IntegrityError as e:
-        logger.warning(
-            "Skipping feed_id {} for table feeds_pubsub".format(feed_id))
-        logger.error(e)
-
-
-async def insert_feed(db_file, url, title, node, entries=None, version=None,
+async def insert_feed(db_file, url, title, identifier, entries=None, version=None,
                       encoding=None, language=None, status_code=None,
                       updated=None):
     """
@@ -511,8 +606,8 @@ async def insert_feed(db_file, url, title, node, entries=None, version=None,
         URL.
     title : str
         Feed title.
-    node : str
-        Feed Node.
+    identifier : str
+        Feed identifier.
     entries : int, optional
         Number of entries. The default is None.
     version : str, optional
@@ -535,20 +630,18 @@ async def insert_feed(db_file, url, title, node, entries=None, version=None,
             sql = (
                 """
                 INSERT
-                INTO feeds(
-                    name, url)
+                INTO feeds_properties(
+                    url, title, identifier, entries, version, encoding, language, updated)
                 VALUES(
-                    ?, ?)
+                    ?, ?, ?, ?, ?, ?, ?, ?)
                 """
                 )
-            par = (
-                title, url
-                )
+            par = (url, title, identifier, entries, version, encoding, language, updated)
             cur.execute(sql, par)
             sql = (
                 """
                 SELECT id
-                FROM feeds
+                FROM feeds_properties
                 WHERE url = :url
                 """
                 )
@@ -558,46 +651,27 @@ async def insert_feed(db_file, url, title, node, entries=None, version=None,
                 """
                 INSERT
                 INTO feeds_state(
-                    feed_id, enabled, updated, status_code, valid)
+                    feed_id, status_code, valid)
                 VALUES(
-                    ?, ?, ?, ?, ?)
+                    ?, ?, ?)
                 """
                 )
-            par = (
-                feed_id, 1, updated, status_code, 1
-                )
+            par = (feed_id, status_code, 1)
             cur.execute(sql, par)
             sql = (
                 """
                 INSERT
-                INTO feeds_properties(
-                    feed_id, entries, type, encoding, language)
+                INTO feeds_preferences(
+                    feed_id)
                 VALUES(
-                    ?, ?, ?, ?, ?)
+                    ?)
                 """
                 )
-            par = (
-                feed_id, entries, version, encoding, language
-                )
-            cur.execute(sql, par)
-            sql = (
-                """
-                INSERT
-                INTO feeds_pubsub(
-                    feed_id, node)
-                VALUES(
-                    ?, ?)
-                """
-                )
-            par = (
-                feed_id, node
-                )
+            par = (feed_id,)
             cur.execute(sql, par)
 
 
-async def insert_feed_(db_file, url, title=None, entries=None, version=None,
-                       encoding=None, language=None, status_code=None,
-                       updated=None):
+async def insert_feed_(db_file, url, title):
     """
     Insert a new feed into the feeds table.
 
@@ -609,22 +683,6 @@ async def insert_feed_(db_file, url, title=None, entries=None, version=None,
         URL.
     title : str, optional
         Feed title. The default is None.
-    entries : int, optional
-        Number of entries. The default is None.
-    version : str, optional
-        Type of feed. The default is None.
-    encoding : str, optional
-        Encoding of feed. The default is None.
-    language : str, optional
-        Language code of feed. The default is None.
-    status : str, optional
-        HTTP status code. The default is None.
-    updated : ???, optional
-        Date feed was last updated. The default is None.
-    status : str, optional
-        HTTP status code. The default is None.
-    updated : ???, optional
-        Date feed was last updated. The default is None.
     """
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} url: {}'
@@ -635,8 +693,8 @@ async def insert_feed_(db_file, url, title=None, entries=None, version=None,
             sql = (
                 """
                 INSERT
-                INTO feeds(
-                    name, url)
+                INTO feeds_properties(
+                    title, url)
                 VALUES(
                     ?, ?)
                 """
@@ -648,17 +706,15 @@ async def insert_feed_(db_file, url, title=None, entries=None, version=None,
             sql = (
                 """
                 SELECT id
-                FROM feeds
+                FROM feeds_properties
                 WHERE url = :url
                 """
                 )
             par = (url,)
             feed_id = cur.execute(sql, par).fetchone()[0]
-            insert_feed_properties(
-                cur, feed_id, entries=None, 
-                version=None, encoding=None, language=None)
-            insert_feed_status(
-                cur, feed_id, status_code=None, updated=None)
+            # insert_feed_properties(cur, feed_id)
+            insert_feed_status(cur, feed_id)
+            insert_feed_preferences(cur, feed_id)
 
 
 async def remove_feed_by_url(db_file, url):
@@ -681,7 +737,7 @@ async def remove_feed_by_url(db_file, url):
             sql = (
                 """
                 DELETE
-                FROM feeds
+                FROM feeds_properties
                 WHERE url = ?
                 """
                 )
@@ -724,7 +780,7 @@ async def remove_feed_by_index(db_file, ix):
             sql = (
                 """
                 DELETE
-                FROM feeds
+                FROM feeds_properties
                 WHERE id = ?
                 """
                 )
@@ -755,12 +811,12 @@ def get_feeds_by_tag_id(db_file, tag_id):
         cur = conn.cursor()
         sql = (
             """
-            SELECT feeds.*
-            FROM feeds
-            INNER JOIN feeds_tags ON feeds.id = feeds_tags.feed_id
-            INNER JOIN tags ON tags.id = feeds_tags.tag_id
+            SELECT feeds_properties.*
+            FROM feeds_properties
+            INNER JOIN tagged_feeds ON feeds_properties.id = tagged_feeds.feed_id
+            INNER JOIN tags ON tags.id = tagged_feeds.tag_id
             WHERE tags.id = ?
-            ORDER BY feeds.name;
+            ORDER BY feeds_properties.title;
             """
             )
         par = (tag_id,)
@@ -793,9 +849,9 @@ def get_tags_by_feed_id(db_file, feed_id):
             """
             SELECT tags.tag
             FROM tags
-            INNER JOIN feeds_tags ON tags.id = feeds_tags.tag_id
-            INNER JOIN feeds ON feeds.id = feeds_tags.feed_id
-            WHERE feeds.id = ?
+            INNER JOIN tagged_feeds ON tags.id = tagged_feeds.tag_id
+            INNER JOIN feeds_properties ON feeds_properties.id = tagged_feeds.feed_id
+            WHERE feeds_properties.id = ?
             ORDER BY tags.tag;
             """
             )
@@ -826,7 +882,7 @@ async def set_feed_id_and_tag_id(db_file, feed_id, tag_id):
             sql = (
                 """
                 INSERT
-                INTO feeds_tags(
+                INTO tagged_feeds(
                     feed_id, tag_id)
                 VALUES(
                     :feed_id, :tag_id)
@@ -852,8 +908,8 @@ def get_feed_properties(db_file, feed_id):
 
     Returns
     -------
-    node : str
-        Node name.
+    properties : list
+        List of properties.
     """
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} feed_id: {}'
@@ -868,13 +924,13 @@ def get_feed_properties(db_file, feed_id):
             """
             )
         par = (feed_id,)
-        name = cur.execute(sql, par).fetchone()
-    return name
+        properties = cur.execute(sql, par).fetchone()
+    return properties
 
 
-def get_node_name(db_file, feed_id):
+def get_feed_identifier(db_file, feed_id):
     """
-    Get name of given node.
+    Get identifier of given feed ID.
 
     Parameters
     ----------
@@ -885,8 +941,8 @@ def get_node_name(db_file, feed_id):
 
     Returns
     -------
-    node : str
-        Node name.
+    identifier : str
+        Identifier name.
     """
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} feed_id: {}'
@@ -895,26 +951,26 @@ def get_node_name(db_file, feed_id):
         cur = conn.cursor()
         sql = (
             """
-            SELECT node
-            FROM feeds_pubsub
+            SELECT identifier
+            FROM feeds_properties
             WHERE feed_id = ?
             """
             )
         par = (feed_id,)
-        name = cur.execute(sql, par).fetchone()
-    return name
+        identifier = cur.execute(sql, par).fetchone()
+    return identifier
 
 
-def check_node_exist(db_file, node_name):
+def check_identifier_exist(db_file, identifier):
     """
-    Check whether node exist.
+    Check whether given identifier exist.
 
     Parameters
     ----------
     db_file : str
         Path to database file.
-    node_name : str
-        Node name.
+    identifier : str
+        Identifier name.
 
     Returns
     -------
@@ -922,24 +978,24 @@ def check_node_exist(db_file, node_name):
         ID.
     feed_id : str
         Feed ID.
-    node : str
-        Node name.
+    identifier : str
+        Identifier name.
     """
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} node_name: {}'
-                .format(function_name, db_file, node_name))
+    logger.debug('{}: db_file: {} identifier: {}'
+                .format(function_name, db_file, identifier))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
             """
-            SELECT id, feed_id, node
-            FROM feeds_pubsub
-            WHERE node = ?
+            SELECT identifier
+            FROM feeds_properties
+            WHERE identifier = ?
             """
             )
-        par = (node_name,)
-        name = cur.execute(sql, par).fetchone()
-    return name
+        par = (identifier,)
+        identifier = cur.execute(sql, par).fetchone()
+    return identifier
 
 
 def get_tag_id(db_file, tag_name):
@@ -1032,7 +1088,7 @@ def is_tag_id_associated(db_file, tag_id):
         sql = (
             """
             SELECT tag_id
-            FROM feeds_tags
+            FROM tagged_feeds
             WHERE tag_id = :tag_id
             """
             )
@@ -1089,7 +1145,7 @@ def is_tag_id_of_feed_id(db_file, tag_id, feed_id):
         sql = (
             """
             SELECT tag_id
-            FROM feeds_tags
+            FROM tagged_feeds
             WHERE tag_id = :tag_id AND feed_id = :feed_id
             """
             )
@@ -1111,7 +1167,7 @@ async def delete_feed_id_tag_id(db_file, feed_id, tag_id):
             sql = (
                 """
                 DELETE
-                FROM feeds_tags
+                FROM tagged_feeds
                 WHERE tag_id = :tag_id AND feed_id = :feed_id
                 """
                 )
@@ -1179,8 +1235,8 @@ def get_feed_id_and_name(db_file, url):
         cur = conn.cursor()
         sql = (
             """
-            SELECT id, name
-            FROM feeds
+            SELECT id, title
+            FROM feeds_properties
             WHERE url = ?
             """
             )
@@ -1198,7 +1254,7 @@ def get_number_of_items(db_file, table):
     db_file : str
         Path to database file.
     table : str
-        "entries" or "feeds".
+        "entries_properties" or "feeds_properties".
 
     Returns
     -------
@@ -1242,7 +1298,7 @@ def get_number_of_feeds_active(db_file):
         sql = (
             """
             SELECT count(id)
-            FROM feeds_state
+            FROM feeds_preferences
             WHERE enabled = 1
             """
             )
@@ -1271,16 +1327,9 @@ def get_number_of_entries_unread(db_file):
         cur = conn.cursor()
         sql = (
             """
-            SELECT
-            (
-                SELECT count(id)
-                FROM entries
-                WHERE read = 0
-            ) + (
-                SELECT count(id)
-                FROM archive
-            )
-            AS total_count
+            SELECT count(id)
+            FROM entries_state
+            WHERE read = 0
             """
             )
         count = cur.execute(sql).fetchone()[0]
@@ -1310,12 +1359,9 @@ def get_entries(db_file, num):
         cur = conn.cursor()
         sql = (
             """
-            SELECT id, title, link, summary, enclosure, feed_id, timestamp
-            FROM entries
-            UNION ALL
-            SELECT id, title, link, summary, enclosure, feed_id, timestamp
-            FROM archive
-            ORDER BY timestamp DESC
+            SELECT id, title, link, summary_text, feed_id, published
+            FROM entries_properties
+            ORDER BY published DESC
             LIMIT :num
             """
             )
@@ -1347,14 +1393,11 @@ def get_entries_rejected(db_file, num):
         cur = conn.cursor()
         sql = (
             """
-            SELECT id, title, link, summary, enclosure, feed_id, timestamp
-            FROM entries
-            WHERE reject = 1
-            UNION ALL
-            SELECT id, title, link, summary, enclosure, feed_id, timestamp
-            FROM archive
-            WHERE reject = 1
-            ORDER BY timestamp DESC
+            SELECT entries_properties.id, title, link, summary_text, feed_id, published
+            FROM entries_properties
+            INNER JOIN entries_state ON entries_properties.id = entries_state.entry_id
+            WHERE entries_state.rejected = 1
+            ORDER BY published DESC
             LIMIT :num
             """
             )
@@ -1386,13 +1429,11 @@ def get_unread_entries(db_file, num):
         cur = conn.cursor()
         sql = (
             """
-            SELECT id, title, link, summary, enclosure, feed_id, timestamp
-            FROM entries
-            WHERE read = 0
-            UNION ALL
-            SELECT id, title, link, summary, enclosure, feed_id, timestamp
-            FROM archive
-            ORDER BY timestamp DESC
+            SELECT entries_properties.id, title, link, summary_text, feed_id, published
+            FROM entries_properties
+            INNER JOIN entries_state ON entries_properties.id = entries_state.entry_id
+            WHERE entries_state.read = 0
+            ORDER BY published DESC
             LIMIT :num
             """
             )
@@ -1425,7 +1466,7 @@ def get_feed_id_by_entry_index(db_file, ix):
         sql = (
             """
             SELECT feed_id
-            FROM entries
+            FROM entries_properties
             WHERE id = :ix
             """
             )
@@ -1458,7 +1499,7 @@ def get_feed_id(db_file, url):
         sql = (
             """
             SELECT id
-            FROM feeds
+            FROM feeds_properties
             WHERE url = :url
             """
             )
@@ -1466,6 +1507,36 @@ def get_feed_id(db_file, url):
         feed_id = cur.execute(sql, par).fetchone()
         return feed_id
 
+
+def is_entry_archived(cur, ix):
+    """
+    Check whether a given entry is archived.
+
+    Parameters
+    ----------
+    cur : object
+        Cursor object.
+    ix : str
+        Index of entry.
+
+    Returns
+    -------
+    result : tuple
+        Entry ID.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: ix: {}'
+                .format(function_name, ix))
+    sql = (
+        """
+        SELECT id
+        FROM entries_state
+        WHERE archived = 1 AND entry_id = ?
+        """
+        )
+    par = (ix,)
+    result = cur.execute(sql, par).fetchone()
+    return result
 
 async def mark_entry_as_read(cur, ix):
     """
@@ -1483,9 +1554,9 @@ async def mark_entry_as_read(cur, ix):
                 .format(function_name, ix))
     sql = (
         """
-        UPDATE entries
+        UPDATE entries_state
         SET read = 1
-        WHERE id = ?
+        WHERE entry_id = ?
         """
         )
     par = (ix,)
@@ -1539,8 +1610,9 @@ def get_unread_entries_of_feed(db_file, feed_id):
         sql = (
             """
             SELECT *
-            FROM entries
-            WHERE read = 0 AND feed_id = ?
+            FROM entries_properties
+            INNER JOIN entries_state ON entries_properties.id = entries_state.entry_id
+            WHERE entries_state.read = 0 AND feed_id = ?
             """
             )
         par = (feed_id,)
@@ -1566,9 +1638,10 @@ def get_number_of_unread_entries_by_feed(db_file, feed_id):
         cur = conn.cursor()
         sql = (
             """
-            SELECT count(id)
-            FROM entries
-            WHERE read = 0 AND feed_id = ?
+            SELECT count(entries_properties.id)
+            FROM entries_properties
+            INNER JOIN entries_state ON entries_properties.id = entries_state.entry_id
+            WHERE entries_state.read = 0 AND feed_id = ?
             """
             )
         par = (feed_id,)
@@ -1585,7 +1658,7 @@ async def mark_feed_as_read(db_file, feed_id):
     db_file : str
         Path to database file.
     feed_id : str
-        Feed Id.
+        Feed ID.
     """
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} feed_id: {}'
@@ -1595,13 +1668,24 @@ async def mark_feed_as_read(db_file, feed_id):
             cur = conn.cursor()
             sql = (
                 """
-                UPDATE entries
-                SET read = 1
+                SELECT id
+                FROM entries_properties
                 WHERE feed_id = ?
                 """
                 )
             par = (feed_id,)
-            cur.execute(sql, par)
+            ixs = cur.execute(sql, par).fetchall()
+            sql = (
+                """
+                UPDATE entries_state
+                SET read = 1
+                WHERE entry_id = ?
+                """
+                )
+            for ix in ixs: cur.execute(sql, ix)
+            # for ix in ixs:
+            #     par = ix # Variable ix is already of type tuple
+            #     cur.execute(sql, par)
 
 
 async def delete_entry_by_id(db_file, ix):
@@ -1624,7 +1708,7 @@ async def delete_entry_by_id(db_file, ix):
             sql = (
                 """
                 DELETE
-                FROM entries
+                FROM entries_properties
                 WHERE id = :ix
                 """
                 )
@@ -1651,32 +1735,13 @@ async def archive_entry(db_file, ix):
             cur = conn.cursor()
             sql = (
                 """
-                INSERT
-                INTO archive
-                SELECT *
-                FROM entries
-                WHERE entries.id = :ix
+                UPDATE entries_state
+                SET archived = 1
+                WHERE entry_id = :ix
                 """
                 )
             par = (ix,)
-            try:
-                cur.execute(sql, par)
-            except Exception as e:
-                print('ERROR DB insert from entries into archive at index {} '
-                      'for {}. Reason: {}'.format(ix, db_file, e))
-            sql = (
-                """
-                DELETE
-                FROM entries
-                WHERE id = :ix
-                """
-                )
-            par = (ix,)
-            try:
-                cur.execute(sql, par)
-            except:
-                print('ERROR DB deleting items from table entries at index {} '
-                      'for DB {}', ix, db_file)
+            cur.execute(sql, par)
 
 
 def get_feed_title(db_file, ix):
@@ -1687,8 +1752,8 @@ def get_feed_title(db_file, ix):
         cur = conn.cursor()
         sql = (
             """
-            SELECT name
-            FROM feeds
+            SELECT title
+            FROM feeds_properties
             WHERE id = :ix
             """
             )
@@ -1697,7 +1762,25 @@ def get_feed_title(db_file, ix):
         return title
 
 
-async def set_feed_title(db_file, feed_id, name):
+def get_feed_subtitle(db_file, feed_id):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} feed_id: {}'
+                .format(function_name, db_file, feed_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT subtitle
+            FROM feeds_properties
+            WHERE feed_id = :feed_id
+            """
+            )
+        par = (feed_id,)
+        title = cur.execute(sql, par).fetchone()
+        return title
+
+
+async def set_feed_title(db_file, feed_id, title):
     """
     Set new name for feed.
 
@@ -1711,20 +1794,20 @@ async def set_feed_title(db_file, feed_id, name):
         New name.
     """
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} feed_id: {} name: {}'
-                .format(function_name, db_file, feed_id, name))
+    logger.debug('{}: db_file: {} feed_id: {} title: {}'
+                .format(function_name, db_file, feed_id, title))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
             sql = (
                 """
-                UPDATE feeds
-                SET name = :name
+                UPDATE feeds_properties
+                SET title = :title
                 WHERE id = :feed_id
                 """
                 )
             par = {
-                "name": name,
+                "title": title,
                 "feed_id": feed_id
                 }
             cur.execute(sql, par)
@@ -1736,10 +1819,10 @@ def get_entry_title(db_file, ix):
                 .format(function_name, db_file, ix))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        sql = ( # TODO Handletable archive too
+        sql = (
             """
             SELECT title
-            FROM entries
+            FROM entries_properties
             WHERE id = :ix
             """
             )
@@ -1754,10 +1837,10 @@ def get_entry_url(db_file, ix):
                 .format(function_name, db_file, ix))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        sql = ( # TODO Handletable archive too
+        sql = (
             """
             SELECT link
-            FROM entries
+            FROM entries_properties
             WHERE id = :ix
             """
             )
@@ -1775,7 +1858,7 @@ def get_feed_url(db_file, ix):
         sql = (
             """
             SELECT url
-            FROM feeds
+            FROM feeds_properties
             WHERE id = :ix
             """
             )
@@ -1787,7 +1870,7 @@ def get_feed_url(db_file, ix):
 async def mark_as_read(db_file, ix):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} ix: {}'
-                .format(function_name, db_file, ix))
+                 .format(function_name, db_file, ix))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -1797,8 +1880,11 @@ async def mark_as_read(db_file, ix):
             # NOTE: We can use DBLOCK once for both
             # functions, because, due to exclusive
             # ID, only one can ever occur.
-            await mark_entry_as_read(cur, ix)
-            await delete_archived_entry(cur, ix)
+            if is_entry_archived(cur, ix):
+                await delete_entry(cur, ix)
+            else:
+                await mark_entry_as_read(cur, ix)
+            
 
 
 async def mark_all_as_read(db_file):
@@ -1812,29 +1898,42 @@ async def mark_all_as_read(db_file):
     """
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {}'
-                .format(function_name, db_file))
+                 .format(function_name, db_file))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
             sql = (
                 """
-                UPDATE entries
+                UPDATE entries_state
                 SET read = 1
                 """
                 )
             cur.execute(sql)
+            
+            sql = (
+                """
+                SELECT entries_properties.id, title, link, summary_text, feed_id, published
+                FROM entries_properties
+                INNER JOIN entries_state ON entries_properties.id = entries_state.entry_id
+                WHERE entries_state.archive = 1
+                """
+                )
+            ixs = cur.execute(sql).fetchall()
             sql = (
                 """
                 DELETE
-                FROM archive
+                FROM entries_properties
+                WHERE id = ?
                 """
                 )
+            for ix in ixs: cur.execute(sql, ix)
+            
             cur.execute(sql)
 
 
-async def delete_archived_entry(cur, ix):
+async def delete_entry(cur, ix):
     """
-    Delete entry from table archive.
+    Delete entry.
 
     Parameters
     ----------
@@ -1849,7 +1948,7 @@ async def delete_archived_entry(cur, ix):
     sql = (
         """
         DELETE
-        FROM archive
+        FROM entries_properties
         WHERE id = ?
         """
         )
@@ -1869,8 +1968,8 @@ async def update_statistics(cur):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}'.format(function_name))
     stat_dict = {}
-    stat_dict["feeds"] = get_number_of_items(cur, 'feeds')
-    stat_dict["entries"] = get_number_of_items(cur, 'entries')
+    stat_dict["feeds"] = get_number_of_items(cur, 'feeds_properties')
+    stat_dict["entries"] = get_number_of_items(cur, 'entries_properties')
     stat_dict["unread"] = get_number_of_entries_unread(cur=cur)
     for i in stat_dict:
         sql = (
@@ -1927,7 +2026,7 @@ async def set_enabled_status(db_file, feed_id, status):
             cur = conn.cursor()
             sql = (
                 """
-                UPDATE feeds_state
+                UPDATE feeds_preferences
                 SET enabled = :status
                 WHERE feed_id = :feed_id
                 """
@@ -1982,9 +2081,9 @@ async def add_entry(db_file, title, link, entry_id, feed_id, date,
                 """
                 INSERT
                 INTO entries(
-                    title, link, entry_id, feed_id, timestamp, read)
+                    title, link, entry_id, feed_id, published, read)
                 VALUES(
-                    :title, :link, :entry_id, :feed_id, :timestamp, :read)
+                    :title, :link, :entry_id, :feed_id, :published, :read)
                 """
                 )
             par = {
@@ -1992,7 +2091,7 @@ async def add_entry(db_file, title, link, entry_id, feed_id, date,
                 "link": link,
                 "entry_id": entry_id,
                 "feed_id": feed_id,
-                "timestamp": date,
+                "published": date,
                 "read": read_status
                 }
             cur.execute(sql, par)
@@ -2013,9 +2112,9 @@ async def add_entry(db_file, title, link, entry_id, feed_id, date,
             #     # breakpoint()
 
 
-async def add_entries_and_update_timestamp(db_file, feed_id, new_entries):
+async def add_entries_and_update_feed_state(db_file, feed_id, new_entries):
     """
-    Add new entries.
+    Add new entries and update feed state.
 
     Parameters
     ----------
@@ -2030,29 +2129,141 @@ async def add_entries_and_update_timestamp(db_file, feed_id, new_entries):
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
-            for entry in new_entries:
-                logger.debug('{}: db_file: {} feed_id: {} entry: {}'
-                            .format(function_name, db_file, feed_id, entry["title"]))
+            for new_entry in new_entries:
+                logger.debug('{}: db_file: {} feed_id: {}'
+                            .format(function_name, db_file, feed_id))
                 sql = (
                     """
                     INSERT
-                    INTO entries(
-                        title, link, summary, enclosure, entry_id, feed_id, timestamp, read)
+                    INTO entries_properties(
+                        feed_id, identifier, link, title, title_type, summary_text, summary_lang, summary_type, summary_base, category, comments, published, updated)
                     VALUES(
-                        :title, :link, :summary, :enclosure, :entry_id, :feed_id, :timestamp, :read)
+                        :feed_id, :identifier, :link, :title, :title_type, :summary_text, :summary_lang, :summary_type, :summary_base, :category, :comments, :published, :updated)
+                    """
+                    )
+                entry_properties = new_entry['entry_properties']
+                par = {
+                    "feed_id": feed_id,
+                    "identifier": entry_properties["identifier"],
+                    "link": entry_properties["link"],
+                    "title": entry_properties["title"],
+                    "title_type": entry_properties["title_type"],
+                    'summary_text' : entry_properties['summary_text'],
+                    'summary_lang' : entry_properties['summary_lang'],
+                    'summary_type' : entry_properties['summary_type'],
+                    'summary_base' : entry_properties['summary_base'],
+                    'category' : entry_properties['category'],
+                    "comments": entry_properties["comments"],
+                    "published": entry_properties["published"],
+                    "updated": entry_properties["updated"],
+                    }
+                cur.execute(sql, par)
+                entry_id = cur.lastrowid
+                sql = (
+                    """
+                    INSERT
+                    INTO entries_state(
+                        entry_id)
+                    VALUES(
+                        :entry_id)
                     """
                     )
                 par = {
-                    "title": entry["title"],
-                    "link": entry["link"],
-                    "summary": entry["summary"],
-                    "enclosure": entry["enclosure"],
-                    "entry_id": entry["entry_id"],
-                    "feed_id": feed_id,
-                    "timestamp": entry["date"],
-                    "read": entry["read_status"]
+                    "entry_id": entry_id,
                     }
                 cur.execute(sql, par)
+                entry_authors = new_entry['entry_authors']
+                for entry_author in entry_authors:
+                    sql = (
+                        """
+                        INSERT
+                        INTO entries_properties_authors(
+                            entry_id, name, url, email)
+                        VALUES(
+                            :entry_id, :name, :url, :email)
+                        """
+                        )
+                    par = {
+                        "entry_id": entry_id,
+                        "name": entry_author['name'],
+                        "url": entry_author['url'],
+                        "email": entry_author['email'],
+                        }
+                    cur.execute(sql, par)
+                entry_contributors = new_entry['entry_contributors']
+                for entry_contributor in entry_contributors:
+                    sql = (
+                        """
+                        INSERT
+                        INTO entries_properties_contributors(
+                            entry_id, name, url, email)
+                        VALUES(
+                            :entry_id, :name, :url, :email)
+                        """
+                        )
+                    par = {
+                        "entry_id": entry_id,
+                        "name": entry_contributor['name'],
+                        "url": entry_contributor['url'],
+                        "email": entry_contributor['email'],
+                        }
+                    cur.execute(sql, par)
+                entry_contents = new_entry['entry_contents']
+                for entry_content in entry_contents:
+                    sql = (
+                        """
+                        INSERT
+                        INTO entries_properties_contents(
+                            entry_id, text, type, base, lang)
+                        VALUES(
+                            :entry_id, :text, :type, :base, :lang)
+                        """
+                        )
+                    par = {
+                        "entry_id": entry_id,
+                        "text": entry_content['text'],
+                        "type": entry_content['type'],
+                        "base": entry_content['base'],
+                        "lang": entry_content['lang'],
+                        }
+                    cur.execute(sql, par)
+                entry_links = new_entry['entry_tags']
+                for entry_link in entry_links:
+                    sql = (
+                        """
+                        INSERT
+                        INTO entries_properties_tags(
+                            entry_id, term, scheme, label)
+                        VALUES(
+                            :entry_id, :term, :scheme, :label)
+                        """
+                        )
+                    par = {
+                        "entry_id": entry_id,
+                        "term": entry_link['term'],
+                        "scheme": entry_link['scheme'],
+                        "label": entry_link['label'],
+                        }
+                    cur.execute(sql, par)
+                entry_links = new_entry['entry_links']
+                for entry_link in entry_links:
+                    sql = (
+                        """
+                        INSERT
+                        INTO entries_properties_links(
+                            entry_id, url, type, rel, size)
+                        VALUES(
+                            :entry_id, :url, :type, :rel, :size)
+                        """
+                        )
+                    par = {
+                        "entry_id": entry_id,
+                        "url": entry_link['url'],
+                        "rel": entry_link['rel'],
+                        "type": entry_link['type'],
+                        "size": entry_link['length'],
+                        }
+                    cur.execute(sql, par)
             sql = (
                 """
                 UPDATE feeds_state
@@ -2099,6 +2310,27 @@ async def set_date(db_file, feed_id):
             cur.execute(sql, par)
 
 
+async def update_feed_identifier(db_file, feed_id, identifier):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} feed_id: {} identifier: {}'
+                .format(function_name, db_file, feed_id, identifier))
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                UPDATE feeds_properties
+                SET identifier = :identifier
+                WHERE feed_id = :feed_id
+                """
+                )
+            par = {
+                "identifier": identifier,
+                "feed_id": feed_id
+                }
+            cur.execute(sql, par)
+
+
 async def update_feed_status(db_file, feed_id, status_code):
     """
     Set status_code of feed_id in table status.
@@ -2113,8 +2345,11 @@ async def update_feed_status(db_file, feed_id, status_code):
         Status ID or message.
     """
     function_name = sys._getframe().f_code.co_name
-    print('{}: db_file: {} feed_id: {} status_code: {}'
+    logger.debug('{}: db_file: {} feed_id: {} status_code: {}'
                 .format(function_name, db_file, feed_id, status_code))
+    if status_code != 200:
+        print('{}: db_file: {} feed_id: {} status_code: {}'
+                    .format(function_name, db_file, feed_id, status_code))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
@@ -2166,7 +2401,7 @@ async def update_feed_validity(db_file, feed_id, valid):
             cur.execute(sql, par)
 
 
-async def update_feed_properties(db_file, feed_id, entries, updated):
+async def update_feed_properties(db_file, feed_id, feed_properties):
     """
     Update properties of url in table feeds.
 
@@ -2176,26 +2411,36 @@ async def update_feed_properties(db_file, feed_id, entries, updated):
         Path to database file.
     url : str
         Feed URL.
-    entries : int
-        Number of entries.
-    updated : ???
-        Date feed was last updated.
+    feed_properties : dict
+        Feed properties.
     """
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} feed_id: {} entries: {} updated: {}'
-                .format(function_name, db_file, feed_id, entries, updated))
+    logger.debug('{}: db_file: {} feed_id: {} feed_properties: {}'
+                .format(function_name, db_file, feed_id, feed_properties))
     async with DBLOCK:
         with create_connection(db_file) as conn:
             cur = conn.cursor()
             sql = (
                 """
                 UPDATE feeds_properties
-                SET entries = :entries
-                WHERE feed_id = :feed_id
+                SET version = :version, encoding = :encoding,
+                    language = :language, rating = :rating,
+                    entries = :entries, icon = :icon, image = :image,
+                    logo = :logo, ttl = :ttl, updated = :updated
+                WHERE id = :feed_id
                 """
                 )
             par = {
-                "entries"  : entries,
+                "version" : feed_properties['version'],
+                "encoding" : feed_properties['encoding'],
+                "language" : feed_properties['language'],
+                "rating" : feed_properties['rating'],
+                "entries" : feed_properties['entries_count'],
+                "icon" : feed_properties['icon'],
+                "image" : feed_properties['image'],
+                "logo" : feed_properties['logo'],
+                "ttl" : feed_properties['ttl'],
+                "updated" : feed_properties['updated'],
                 "feed_id": feed_id
                 }
             cur.execute(sql, par)
@@ -2221,7 +2466,8 @@ async def maintain_archive(db_file, limit):
             sql = (
                 """
                 SELECT count(id)
-                FROM archive
+                FROM entries_state
+                WHERE archived = 1
                 """
                 )
             count = cur.execute(sql).fetchone()[0]
@@ -2236,12 +2482,14 @@ async def maintain_archive(db_file, limit):
                 sql = (
                     """
                     DELETE
-                    FROM archive
+                    FROM entries_properties
                     WHERE id
                     IN (
-                        SELECT id
-                        FROM archive
-                        ORDER BY timestamp ASC
+                        SELECT entry_id
+                        FROM entries_state
+                        INNER JOIN entries_properties ON entries_state.entry_id = entries_properties.id
+                        WHERE archived = 1
+                        ORDER BY published ASC
                         LIMIT :difference
                         )
                     """
@@ -2274,10 +2522,10 @@ def get_entries_of_feed(db_file, feed_id):
         cur = conn.cursor()
         sql = (
             """
-            SELECT id, title, link, entry_id, timestamp, read
-            FROM entries
+            SELECT id, title, link, identifier, published, read
+            FROM entries_properties
             WHERE feed_id = ?
-            ORDER BY timestamp DESC
+            ORDER BY published DESC
             """
             )
         par = (feed_id,)
@@ -2333,7 +2581,7 @@ def get_feeds_url(db_file):
         sql = (
             """
             SELECT url
-            FROM feeds
+            FROM feeds_properties
             """
             )
         result = cur.execute(sql).fetchall()
@@ -2367,10 +2615,10 @@ def get_feeds_by_enabled_state(db_file, enabled_state):
         cur = conn.cursor()
         sql = (
             """
-            SELECT feeds.*
-            FROM feeds
-            INNER JOIN feeds_state ON feeds.id = feeds_state.feed_id
-            WHERE feeds_state.enabled = ?
+            SELECT feeds_properties.*
+            FROM feeds_properties
+            INNER JOIN feeds_preferences ON feeds_properties.id = feeds_preferences.feed_id
+            WHERE feeds_preferences.enabled = ?
             """
             )
         par = (enabled_state,)
@@ -2399,10 +2647,10 @@ def get_feeds_and_enabled_state(db_file):
         cur = conn.cursor()
         sql = (
             """
-            SELECT feeds.*, feeds_state.enabled
-            FROM feeds
-            INNER JOIN feeds_state ON feeds.id = feeds_state.feed_id
-            ORDER BY feeds.name ASC
+            SELECT feeds_properties.*, feeds_preferences.enabled
+            FROM feeds_properties
+            INNER JOIN feeds_preferences ON feeds_properties.id = feeds_preferences.feed_id
+            ORDER BY feeds_properties.title ASC
             """
             )
         result = cur.execute(sql).fetchall()
@@ -2430,10 +2678,10 @@ def get_active_feeds_url(db_file):
         cur = conn.cursor()
         sql = (
             """
-            SELECT feeds.url
-            FROM feeds
-            INNER JOIN feeds_state ON feeds.id = feeds_state.feed_id
-            WHERE feeds_state.enabled = 1
+            SELECT feeds_properties.url
+            FROM feeds_properties
+            INNER JOIN feeds_preferences ON feeds_properties.id = feeds_preferences.feed_id
+            WHERE feeds_preferences.enabled = 1
             """
             )
         result = cur.execute(sql).fetchall()
@@ -2496,9 +2744,9 @@ def get_feeds(db_file):
         cur = conn.cursor()
         sql = (
             """
-            SELECT id, name, url
-            FROM feeds
-            ORDER BY name
+            SELECT id, title, url
+            FROM feeds_properties
+            ORDER BY title
             """
             )
         result = cur.execute(sql).fetchall()
@@ -2534,14 +2782,11 @@ def get_last_entries(db_file, num):
         #     )
         sql = (
             """
-            SELECT title, link, timestamp
-            FROM entries
-            WHERE read = 0
-            UNION ALL
-            SELECT title, link, timestamp
-            FROM archive
-            WHERE read = 0
-            ORDER BY timestamp DESC
+            SELECT title, link, published
+            FROM entries_properties
+            INNER JOIN entries_state ON entries_properties.id = entries_state.entry_id
+            WHERE entries_state.read = 0
+            ORDER BY published DESC
             LIMIT :num
             """
             )
@@ -2573,9 +2818,9 @@ def search_feeds(db_file, query):
         cur = conn.cursor()
         sql = (
             """
-            SELECT name, id, url
-            FROM feeds
-            WHERE name LIKE ?
+            SELECT title, id, url
+            FROM feeds_properties
+            WHERE title LIKE ?
             OR url LIKE ?
             LIMIT 50
             """
@@ -2609,11 +2854,7 @@ async def search_entries(db_file, query):
         sql = (
             """
             SELECT title, link
-            FROM entries
-            WHERE title LIKE ?
-            UNION ALL
-            SELECT title, link
-            FROM archive
+            FROM entries_properties
             WHERE title LIKE ?
             LIMIT 50
             """
@@ -2645,12 +2886,12 @@ ERROR DATE: result = https://blog.heckel.io/feed/
 19:32:06 ERROR DATE: result = https://mwl.io/feed
 
 """
-def check_entry_exist(db_file, feed_id, entry_id=None, title=None, link=None,
-                      date=None):
+def check_entry_exist(db_file, feed_id, identifier=None, title=None, link=None,
+                      published=None):
     """
     Check whether an entry exists.
     If entry has an ID, check by ID.
-    If entry has timestamp, check by title, link and date.
+    If entry has timestamp (published), check by title, link and date.
     Otherwise, check by title and link.
 
     Parameters
@@ -2659,13 +2900,13 @@ def check_entry_exist(db_file, feed_id, entry_id=None, title=None, link=None,
         Path to database file.
     feed_id : str
         Feed Id.
-    entry_id : str, optional
+    identifier : str, optional
         Entry ID. The default is None.
     title : str, optional
         Entry title. The default is None.
     link : str, optional
         Entry URL. The default is None.
-    date : str, optional
+    published : str, optional
         Entry Timestamp. The default is None.
 
     Returns
@@ -2679,44 +2920,44 @@ def check_entry_exist(db_file, feed_id, entry_id=None, title=None, link=None,
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         exist = False
-        if entry_id:
+        if identifier:
             sql = (
                 """
                 SELECT id
-                FROM entries
-                WHERE entry_id = :entry_id and feed_id = :feed_id
+                FROM entries_properties
+                WHERE identifier = :identifier and feed_id = :feed_id
                 """
                 )
             par = {
-                "entry_id": entry_id,
+                "identifier": identifier,
                 "feed_id": feed_id
                 }
             result = cur.execute(sql, par).fetchone()
             if result: exist = True
-        elif date:
+        elif published:
             sql = (
                 """
                 SELECT id
-                FROM entries
-                WHERE title = :title AND link = :link AND timestamp = :date
+                FROM entries_properties
+                WHERE title = :title AND link = :link AND published = :published
                 """
                 )
             par = {
                 "title": title,
                 "link": link,
-                "date": date
+                "date": published
                 }
             try:
                 result = cur.execute(sql, par).fetchone()
                 if result: exist = True
             except:
                 logger.error("source =", feed_id)
-                logger.error("date =", date)
+                logger.error("published =", published)
         else:
             sql = (
                 """
                 SELECT id
-                FROM entries
+                FROM entries_properties
                 WHERE title = :title AND link = :link
                 """
                 )
