@@ -352,9 +352,20 @@ async def message(self, message):
                         else:
                             feed_updated = None
                         entries_count = len(feed.entries)
+                        feed_properties = {
+                            "version" : '',
+                            "encoding" : '',
+                            "language" : '',
+                            "rating" : '',
+                            "entries_count" : entries_count,
+                            "icon" : '',
+                            "image" : '',
+                            "logo" : '',
+                            "ttl" : '',
+                            "updated" : feed_updated,
+                            }
                         await sqlite.update_feed_properties(db_file, feed_id,
-                                                            entries_count,
-                                                            feed_updated)
+                                                            feed_properties)
                         feed_id = sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
                         new_entries = action.get_properties_of_entries(

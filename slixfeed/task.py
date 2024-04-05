@@ -351,6 +351,12 @@ async def check_updates(self, jid_bare):
         for url in urls:
             url = url[0]
             print('STA',url)
+            
+            # # Skip Reddit
+            # if 'reddit.com' in str(url).lower():
+            #     print('Reddit Atom Syndication feeds are not supported by Slixfeed.')
+            #     print('Skipping URL:', url)
+            #     continue
 
             result = await fetch.http(url)
             status_code = result['status_code']
@@ -360,6 +366,20 @@ async def check_updates(self, jid_bare):
                 await sqlite.update_feed_status(db_file, feed_id, status_code)
                 document = result['content']
                 feed = parse(document)
+
+                # # Skip Librarian
+                # if 'librarian' in feed.feed.title.lower():
+                #     print('Librarian RSS feeds are not supported by Slixfeed.')
+                #     print('Ask the Librarian developers to migrate to Atom Syndication.')
+                #     print('Skipping URL:', url)
+                #     continue
+
+                # # Skip Mastodon
+                # if 'mastodon' in feed.feed.generator.lower():
+                #     print('Mastodon RSS feeds are not supported by Slixfeed.')
+                #     print('Ask the Mastodon developers to migrate to Atom Syndication.')
+                #     print('Skipping URL:', url)
+                #     continue
 
                 feed_valid = 0 if feed.bozo else 1
                 await sqlite.update_feed_validity(db_file, feed_id, feed_valid)
