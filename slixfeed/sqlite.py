@@ -1933,7 +1933,7 @@ async def mark_all_as_read(db_file):
                 SELECT entries_properties.id, title, link, summary_text, feed_id, published
                 FROM entries_properties
                 INNER JOIN entries_state ON entries_properties.id = entries_state.entry_id
-                WHERE entries_state.archive = 1
+                WHERE entries_state.archived = 1
                 """
                 )
             ixs = cur.execute(sql).fetchall()
