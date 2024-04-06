@@ -1945,8 +1945,6 @@ async def mark_all_as_read(db_file):
                 """
                 )
             for ix in ixs: cur.execute(sql, ix)
-            
-            cur.execute(sql)
 
 
 async def delete_entry(cur, ix):
