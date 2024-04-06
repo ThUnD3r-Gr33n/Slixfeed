@@ -1406,6 +1406,24 @@ def get_entries_rejected(db_file, num):
         return result
 
 
+def get_enclosure_by_entry_id(db_file, ix):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} ix: {}'
+                .format(function_name, db_file, ix))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT url
+            FROM entries_properties_links
+            WHERE entry_id = :ix AND rel = "enclosure"
+            """
+            )
+        par = (ix,)
+        result = cur.execute(sql, par).fetchone()
+        return result
+
+
 def get_unread_entries(db_file, num):
     """
     Extract information from unread entries.
