@@ -7,7 +7,6 @@ Functions create_node and create_entry are derived from project atomtopubsub.
 
 """
 
-import hashlib
 import slixmpp.plugins.xep_0060.stanza.pubsub as pubsub
 from slixmpp.xmlstream import ET
 
@@ -30,6 +29,33 @@ class XmppPubsub:
                     else: result['name'] = item[0]
                     results.extend([result])
         return results
+
+
+    async def get_node_properties(self, jid, node):
+        config = await self.plugin['xep_0060'].get_node_config(jid, node)
+        subscriptions = await self.plugin['xep_0060'].get_node_subscriptions(jid, node)
+        affiliations = await self.plugin['xep_0060'].get_node_affiliations(jid, node)
+        properties = {'config': config,
+                      'subscriptions': subscriptions,
+                      'affiliations': affiliations}
+        breakpoint()
+        return properties
+
+
+    async def get_nodes(self, jid):
+        nodes = await self.plugin['xep_0060'].get_nodes(jid)
+        # 'self' would lead to slixmpp.jid.InvalidJID: idna validation failed:
+        return nodes
+
+
+    async def get_item(self, jid, node, item_id):
+        item = await self.plugin['xep_0060'].get_item(jid, node, item_id)
+        return item
+
+
+    async def get_items(self, jid, node):
+        items = await self.plugin['xep_0060'].get_items(jid, node)
+        return items
 
 
     def delete_node(self, jid, node):
@@ -87,9 +113,11 @@ class XmppPubsub:
         return iq
 
 
-    def create_entry(self, jid, node, entry, version):
+    # TODO Consider to create a separate function called "create_atom_entry"
+    # or "create_rfc4287_entry" for anything related to variable "node_entry".
+    def create_entry(self, jid, node_id, item_id, node_item):
         iq = self.Iq(stype="set", sto=jid)
-        iq['pubsub']['publish']['node'] = node
+        iq['pubsub']['publish']['node'] = node_id
 
         item = pubsub.Item()
 
@@ -102,33 +130,8 @@ class XmppPubsub:
         # cross reference, and namely - in another project to utilize PubSub as
         # links sharing system (see del.icio.us) - to share node entries.
 
-        # NOTE Warning: Entry might not have a link
-        # TODO Handle situation error
-        url_encoded = entry['link'].encode()
-        url_hashed = hashlib.md5(url_encoded)
-        url_digest = url_hashed.hexdigest()
-        item['id'] = url_digest
-
-        node_entry = ET.Element("entry")
-        node_entry.set('xmlns', 'http://www.w3.org/2005/Atom')
-
-        title = ET.SubElement(node_entry, "title")
-        title.text = entry['title']
-
-        updated = ET.SubElement(node_entry, "updated")
-        updated.text = entry['updated']
-
-        # Content
-        content = ET.SubElement(node_entry, "content")
-        content.set('type', 'text/html')
-        content.text = entry['description']
-
-        # Links
-        link = ET.SubElement(node_entry, "link")
-        link.set('href', entry['link'])
-
-        item['payload'] = node_entry
-
+        item['id'] = item_id
+        item['payload'] = node_item
         iq['pubsub']['publish'].append(item)
 
         return iq

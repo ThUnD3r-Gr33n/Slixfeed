@@ -42,7 +42,7 @@ from slixfeed.xmpp.connect import XmppConnect
 from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.iq import XmppIQ
 from slixfeed.xmpp.message import XmppMessage
-import slixfeed.xmpp.process as process
+from slixfeed.xmpp.chat import Chat
 import slixfeed.xmpp.profile as profile
 from slixfeed.xmpp.publish import XmppPubsub
 # from slixfeed.xmpp.roster import XmppRoster
@@ -330,7 +330,7 @@ class SlixfeedComponent(slixmpp.ComponentXMPP):
                 self.pending_tasks[jid_bare] = {}
             # if jid_full not in self.pending_tasks:
             #     self.pending_tasks[jid_full] = {}
-            await process.message(self, message)
+            await Chat.process_message(self, message)
         # chat_type = message["type"]
         # message_body = message["body"]
         # message_reply = message.reply

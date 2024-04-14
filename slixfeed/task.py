@@ -170,7 +170,7 @@ async def task_publish(self, jid_bare):
     if jid_bare not in self.settings:
         Config.add_settings_jid(self.settings, jid_bare, db_file)
     while True:
-        await action.xmpp_send_pubsub(self, jid_bare)
+        await action.xmpp_pubsub_send_unread_items(self, jid_bare)
         await asyncio.sleep(60 * 180)
 
 
@@ -260,7 +260,7 @@ async def task_message(self, jid_bare):
         await sqlite.update_last_update_time(db_file)
     else:
         await sqlite.set_last_update_time(db_file)
-    await action.xmpp_send_message(self, jid_bare)
+    await action.xmpp_chat_send_unread_items(self, jid_bare)
     refresh_task(self, jid_bare, task_message, 'interval')
     await start_tasks_xmpp_chat(self, jid_bare, ['status'])
 

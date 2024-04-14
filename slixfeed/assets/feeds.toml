@@ -161,6 +161,30 @@ link = "https://www.pirateparty.gr/feed/"
 tags = ["greece", "party", "pirate"]
 
 [[feeds]]
+lang = "en"
+name = "Cycling Together with Fiona and Marc"
+link = "https://pixelfed.social/users/cyclingtogether.atom"
+tags = ["sports", "cycling", "adventure", "life"]
+
+[[feeds]]
+lang = "en"
+name = "Lagrange Gemini Client"
+link = "https://skyjake.fi/@lagrange.rss"
+tags = ["gemini", "gopher", "browser", "telecommunication", "internet"]
+
+[[feeds]]
+lang = "en"
+name = "[ngn.tf] | blog"
+link = "https://api.ngn.tf/blog/feed.atom"
+tags = ["computer", "service", "technology", "telecommunication", "xmpp"]
+
+[[feeds]]
+lang = "en"
+name = "The SWORD Project"
+link = "http://www.crosswire.org/sword/sword.rss.jsp"
+tags = ["bible", "religion", "christianity", "history", "education", "life"]
+
+[[feeds]]
 lang = "en-au"
 name = "Pirate Party Australia"
 link = "https://pirateparty.org.au/feed/podcast/"
@@ -270,9 +294,21 @@ tags = ["europe", "politics", "uk"]
 
 [[feeds]]
 lang = "en-us"
+name = "4chan /diy/ - Do It Yourself"
+link = "https://boards.4chan.org/diy/index.rss"
+tags = ["design", "diy", "household"]
+
+[[feeds]]
+lang = "en-us"
+name = "12bytes.org"
+link = "https://12bytes.org/feed.xml"
+tags = ["conspiracy", "health", "government", "war", "world"]
+
+[[feeds]]
+lang = "en-us"
 name = "153 News - Videos Being Watched"
 link = "https://153news.net/rss.php?mode=watching"
-tags = ["news", "politics", "usa", "video"]
+tags = ["europe", "news", "politics", "usa", "video", "world"]
 
 [[feeds]]
 lang = "en-us"
@@ -290,7 +326,7 @@ tags = ["lifestyle", "men"]
 lang = "en-us"
 name = "BlackListed News"
 link = "https://www.blacklistednews.com/rss.php"
-tags = ["news", "politics", "usa", "world"]
+tags = ["conspiracy", "health", "government", "news", "politics", "usa", "world"]
 
 [[feeds]]
 lang = "en-us"
@@ -518,7 +554,7 @@ tags = ["gemini", "internet"]
 lang = "en-us"
 name = "Public Intelligence Blog"
 link = "https://phibetaiota.net/feed/"
-tags = ["cia", "conspiracy", "health", "government", "war"]
+tags = ["cia", "conspiracy", "health", "government", "war", "world"]
 
 [[feeds]]
 lang = "en-us"
@@ -693,6 +729,12 @@ lang = "es-es"
 name = "Disroot Blog"
 link = "https://disroot.org/es/blog.atom"
 tags = ["decentralization", "privacy"]
+
+[[feeds]]
+lang = "ch-fr"
+name = "Demoniak Network"
+link = "https://demoniak.ch/index.xml"
+tags = ["computer", "technology"]
 
 [[feeds]]
 lang = "fr-fr"

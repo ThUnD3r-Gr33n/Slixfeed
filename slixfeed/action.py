@@ -28,6 +28,7 @@ TODO
 from asyncio.exceptions import IncompleteReadError
 from bs4 import BeautifulSoup
 from feedparser import parse
+import hashlib
 from http.client import IncompleteRead
 import json
 from slixfeed.log import Logger
@@ -39,7 +40,6 @@ import slixfeed.crawl as crawl
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
-import slixfeed.url as uri
 from slixfeed.url import (
     complete_url,
     join_url,
@@ -56,10 +56,11 @@ from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.publish import XmppPubsub
 from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utility import get_chat_type
+from slixmpp.xmlstream import ET
 import sys
 from urllib import error
 from urllib.parse import parse_qs, urlsplit
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ETR
 
 try:
     import tomllib
@@ -174,10 +175,7 @@ async def xmpp_send_status_message(self, jid):
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
     enabled = Config.get_setting_value(self.settings, jid, 'enabled')
-    if not enabled:
-        status_mode = 'xa'
-        status_text = '📪️ Send "Start" to receive updates'
-    else:
+    if enabled:
         jid_task = self.pending_tasks[jid]
         if len(jid_task):
             status_mode = 'dnd'
@@ -202,7 +200,9 @@ async def xmpp_send_status_message(self, jid):
                 else:
                     status_mode = 'available'
                     status_text = '📭️ No news'
-
+    else:
+        status_mode = 'xa'
+        status_text = '📪️ Send "Start" to receive updates'
     # breakpoint()
     # print(await current_time(), status_text, "for", jid)
     XmppPresence.send(self, jid, status_text, status_type=status_mode)
@@ -215,69 +215,267 @@ async def xmpp_send_status_message(self, jid):
     # )
 
 
-async def xmpp_send_pubsub(self, jid_bare, num=None):
+async def xmpp_pubsub_send_selected_entry(self, jid_bare, jid_file, node_id, entry_id):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: jid_bare: {} jid_file: {}'.format(function_name, jid_bare, jid_file))
+    # jid_file = jid_bare.replace('/', '_')
+    db_file = config.get_pathname_to_database(jid_file)
+    report = {}
+    if jid_bare == self.boundjid.bare:
+        node_id = 'urn:xmpp:microblog:0'
+        node_subtitle = None
+        node_title = None
+    else:
+        feed_id = sqlite.get_feed_id_by_entry_index(db_file, entry_id)
+        feed_id = feed_id[0]
+        feed_properties = sqlite.get_feed_properties(db_file, feed_id)
+        node_id = feed_properties[2]
+        node_title = feed_properties[3]
+        node_subtitle = feed_properties[5]
+    xep = None
+    iq_create_node = XmppPubsub.create_node(
+        self, jid_bare, node_id, xep, node_title, node_subtitle)
+    await XmppIQ.send(self, iq_create_node)
+    entry = sqlite.get_entry_properties(db_file, entry_id)
+    print('xmpp_pubsub_send_selected_entry',jid_bare)
+    print(node_id)
+    entry_dict = pack_entry_into_dict(db_file, entry)
+    node_item = create_rfc4287_entry(entry_dict)
+    entry_url = entry_dict['link']
+    item_id = hash_url_to_md5(entry_url)
+    iq_create_entry = XmppPubsub.create_entry(
+        self, jid_bare, node_id, item_id, node_item)
+    await XmppIQ.send(self, iq_create_entry)
+    await sqlite.mark_as_read(db_file, entry_id)
+    report = entry_url
+    return report
+
+
+async def xmpp_pubsub_send_unread_items(self, jid_bare):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: jid_bare: {}'.format(function_name, jid_bare))
     jid_file = jid_bare.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    enabled = Config.get_setting_value(self.settings, jid_bare, 'enabled')
-    if enabled:
-        if num: counter = 0
-        report = {}
-        subscriptions = sqlite.get_active_feeds_url(db_file)
-        for url in subscriptions:
-            url = url[0]
-            if jid_bare == self.boundjid.bare:
-                node = 'urn:xmpp:microblog:0'
-                feed_title = None
-                feed_subtitle = None
-            else:
-                feed_id = sqlite.get_feed_id(db_file, url)
-                feed_id = feed_id[0]
-                feed_title = sqlite.get_feed_title(db_file, feed_id)
-                feed_title = feed_title[0]
-                feed_subtitle = sqlite.get_feed_subtitle(db_file, feed_id)
-                feed_subtitle = feed_subtitle[0]
-                node = sqlite.get_feed_identifier(db_file, feed_id)
-                node = node[0]
-            xep = None
-            iq_create_node = XmppPubsub.create_node(
-                self, jid_bare, node, xep, feed_title, feed_subtitle)
-            await XmppIQ.send(self, iq_create_node)
-            entries = sqlite.get_unread_entries_of_feed(db_file, feed_id)
-            feed_properties = sqlite.get_feed_properties(db_file, feed_id)
-            feed_version = feed_properties[2]
-            print('xmpp_send_pubsub',jid_bare)
-            print(node)
-            # if num and counter < num:
-            report[url] = len(entries)
-            for entry in entries:
-                feed_entry = {'authors'      : entry[3],
-                              'content'      : entry[6],
-                              'content_type' : entry[7],
-                              'contact'      : entry[4],
-                              'contributors' : entry[5],
-                              'summary'      : entry[8],
-                              'summary_type' : entry[9],
-                              'enclosures'   : entry[13],
-                              'language'     : entry[10],
-                              'link'         : entry[2],
-                              'links'        : entry[11],
-                              'published'    : entry[15],
-                              'tags'         : entry[12],
-                              'title'        : entry[1],
-                              'updated'      : entry[16]}
-                iq_create_entry = XmppPubsub.create_entry(
-                    self, jid_bare, node, feed_entry, feed_version)
-                await XmppIQ.send(self, iq_create_entry)
-                ix = entry[0]
-                await sqlite.mark_as_read(db_file, ix)
-                    # counter += 1
-                    # if num and counter > num: break
-        return report
+    report = {}
+    subscriptions = sqlite.get_active_feeds_url(db_file)
+    for url in subscriptions:
+        url = url[0]
+        if jid_bare == self.boundjid.bare:
+            node_id = 'urn:xmpp:microblog:0'
+            node_subtitle = None
+            node_title = None
+        else:
+            # feed_id = sqlite.get_feed_id(db_file, url)
+            # feed_id = feed_id[0]
+            # feed_properties = sqlite.get_feed_properties(db_file, feed_id)
+            # node_id = feed_properties[2]
+            # node_title = feed_properties[3]
+            # node_subtitle = feed_properties[5]
+            feed_id = sqlite.get_feed_id(db_file, url)
+            feed_id = feed_id[0]
+            node_id = sqlite.get_feed_identifier(db_file, feed_id)
+            node_id = node_id[0]
+            node_title = sqlite.get_feed_title(db_file, feed_id)
+            node_title = node_title[0]
+            node_subtitle = sqlite.get_feed_subtitle(db_file, feed_id)
+            node_subtitle = node_subtitle[0]
+        xep = None
+        iq_create_node = XmppPubsub.create_node(
+            self, jid_bare, node_id, xep, node_title, node_subtitle)
+        await XmppIQ.send(self, iq_create_node)
+        entries = sqlite.get_unread_entries_of_feed(db_file, feed_id)
+        print('xmpp_pubsub_send_unread_items',jid_bare)
+        print(node_id)
+        report[url] = len(entries)
+        for entry in entries:
+            feed_entry = pack_entry_into_dict(db_file, entry)
+            node_entry = create_rfc4287_entry(feed_entry)
+            entry_url = feed_entry['link']
+            item_id = hash_url_to_md5(entry_url)
+            iq_create_entry = XmppPubsub.create_entry(
+                self, jid_bare, node_id, item_id, node_entry)
+            await XmppIQ.send(self, iq_create_entry)
+            ix = entry[0]
+            await sqlite.mark_as_read(db_file, ix)
+    return report
 
 
-async def xmpp_send_message(self, jid, num=None):
+def pack_entry_into_dict(db_file, entry):
+    entry_id = entry[0]
+    authors = sqlite.get_authors_by_entry_id(db_file, entry_id)
+    entry_authors = []
+    for author in authors:
+        entry_author = {
+            'name': author[2],
+            'email': author[3],
+            'url': author[4]}
+        entry_authors.extend([entry_author])
+
+    contributors = sqlite.get_contributors_by_entry_id(db_file, entry_id)
+    entry_contributors = []
+    for contributor in contributors:
+        entry_contributor = {
+            'name': contributor[2],
+            'email': contributor[3],
+            'url': contributor[4]}
+        entry_contributors.extend([entry_contributor])
+
+    links = sqlite.get_links_by_entry_id(db_file, entry_id)
+    entry_links = []
+    for link in links:
+        entry_link = {
+            'url': link[2],
+            'type': link[3],
+            'rel': link[4],
+            'size': link[5]}
+        entry_links.extend([entry_link])
+        
+
+    tags = sqlite.get_tags_by_entry_id(db_file, entry_id)
+    entry_tags = []
+    for tag in tags:
+        entry_tag = {
+            'term': tag[2],
+            'scheme': tag[3],
+            'label': tag[4]}
+        entry_tags.extend([entry_tag])
+
+    contents = sqlite.get_contents_by_entry_id(db_file, entry_id)
+    entry_contents = []
+    for content in contents:
+        entry_content = {
+            'text': content[2],
+            'type': content[3],
+            'base': content[4],
+            'lang': content[5]}
+        entry_contents.extend([entry_content])
+        
+    feed_entry = {
+        'authors'      : entry_authors,
+        'category'     : entry[10],
+        'comments'     : entry[12],
+        'contents'     : entry_contents,
+        'contributors' : entry_contributors,
+        'summary_base' : entry[9],
+        'summary_lang' : entry[7],
+        'summary_text' : entry[6],
+        'summary_type' : entry[8],
+        'enclosures'   : entry[13],
+        'href'         : entry[11],
+        'link'         : entry[3],
+        'links'        : entry_links,
+        'published'    : entry[14],
+        'rating'       : entry[13],
+        'tags'         : entry_tags,
+        'title'        : entry[4],
+        'title_type'   : entry[3],
+        'updated'      : entry[15]}
+    return feed_entry
+
+
+# NOTE Warning: Entry might not have a link
+# TODO Handle situation error
+def hash_url_to_md5(url):
+    url_encoded = url.encode()
+    url_hashed = hashlib.md5(url_encoded)
+    url_digest = url_hashed.hexdigest()
+    return url_digest
+    
+
+def create_rfc4287_entry(feed_entry):
+    node_entry = ET.Element('entry')
+    node_entry.set('xmlns', 'http://www.w3.org/2005/Atom')
+
+    # Title
+    title = ET.SubElement(node_entry, 'title')
+    if feed_entry['title']:
+        if feed_entry['title_type']: title.set('type', feed_entry['title_type'])
+        title.text = feed_entry['title']
+    elif feed_entry['summary_text']:
+        if feed_entry['summary_type']: title.set('type', feed_entry['summary_type'])
+        title.text = feed_entry['summary_text']
+        # if feed_entry['summary_base']: title.set('base', feed_entry['summary_base'])
+        # if feed_entry['summary_lang']: title.set('lang', feed_entry['summary_lang'])
+    else:
+        title.text = feed_entry['published']
+
+    # Some feeds have identical content for contents and summary
+    # So if content is present, do not add summary
+    if feed_entry['contents']:
+        # Content
+        for feed_entry_content in feed_entry['contents']:
+            content = ET.SubElement(node_entry, 'content')
+            # if feed_entry_content['base']: content.set('base', feed_entry_content['base'])
+            if feed_entry_content['lang']: content.set('lang', feed_entry_content['lang'])
+            if feed_entry_content['type']: content.set('type', feed_entry_content['type'])
+            content.text = feed_entry_content['text']
+    else:
+        # Summary
+        summary = ET.SubElement(node_entry, 'summary') # TODO Try 'content'
+        # if feed_entry['summary_base']: summary.set('base', feed_entry['summary_base'])
+        # TODO Check realization of "lang"
+        if feed_entry['summary_type']: summary.set('type', feed_entry['summary_type'])
+        if feed_entry['summary_lang']: summary.set('lang', feed_entry['summary_lang'])
+        summary.text = feed_entry['summary_text']
+
+    # Authors
+    for feed_entry_author in feed_entry['authors']:
+        author = ET.SubElement(node_entry, 'author')
+        name = ET.SubElement(author, 'name')
+        name.text = feed_entry_author['name']
+        if feed_entry_author['url']:
+            uri = ET.SubElement(author, 'uri')
+            uri.text = feed_entry_author['url']
+        if feed_entry_author['email']:
+            email = ET.SubElement(author, 'email')
+            email.text = feed_entry_author['email']
+
+    # Contributors
+    for feed_entry_contributor in feed_entry['contributors']:
+        contributor = ET.SubElement(node_entry, 'author')
+        name = ET.SubElement(contributor, 'name')
+        name.text = feed_entry_contributor['name']
+        if feed_entry_contributor['url']:
+            uri = ET.SubElement(contributor, 'uri')
+            uri.text = feed_entry_contributor['url']
+        if feed_entry_contributor['email']:
+            email = ET.SubElement(contributor, 'email')
+            email.text = feed_entry_contributor['email']
+
+    # Category
+    category = ET.SubElement(node_entry, "category")
+    category.set('category', feed_entry['category'])
+
+    # Tags
+    for feed_entry_tag in feed_entry['tags']:
+        tag = ET.SubElement(node_entry, 'category')
+        tag.set('term', feed_entry_tag['term'])
+
+    # Link
+    link = ET.SubElement(node_entry, "link")
+    link.set('href', feed_entry['link'])
+
+    # Links
+    for feed_entry_link in feed_entry['links']:
+        link = ET.SubElement(node_entry, "link")
+        link.set('href', feed_entry_link['url'])
+        link.set('type', feed_entry_link['type'])
+        link.set('rel', feed_entry_link['rel'])
+
+    # Date updated
+    if feed_entry['updated']:
+        updated = ET.SubElement(node_entry, 'updated')
+        updated.text = feed_entry['updated']
+
+    # Date published
+    if feed_entry['published']:
+        published = ET.SubElement(node_entry, 'published')
+        published.text = feed_entry['published']
+
+    return node_entry
+
+
+async def xmpp_chat_send_unread_items(self, jid, num=None):
     """
     Send news items as messages.
 
@@ -292,56 +490,54 @@ async def xmpp_send_message(self, jid, num=None):
     logger.debug('{}: jid: {} num: {}'.format(function_name, jid, num))
     jid_file = jid.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
-    enabled = Config.get_setting_value(self.settings, jid, 'enabled')
-    if enabled:
-        show_media = Config.get_setting_value(self.settings, jid, 'media')
-        if not num:
-            num = Config.get_setting_value(self.settings, jid, 'quantum')
-        else:
-            num = int(num)
-        results = sqlite.get_unread_entries(db_file, num)
-        news_digest = ''
-        media = None
-        chat_type = await get_chat_type(self, jid)
-        for result in results:
-            ix = result[0]
-            title_e = result[1]
-            url = result[2]
-            summary = result[3]
-            feed_id = result[4]
-            date = result[5]
-            enclosure = sqlite.get_enclosure_by_entry_id(db_file, ix)
-            if enclosure: enclosure = enclosure[0]
-            title_f = sqlite.get_feed_title(db_file, feed_id)
-            title_f = title_f[0]
-            news_digest += await list_unread_entries(self, result, title_f, jid)
-            # print(db_file)
-            # print(result[0])
-            # breakpoint()
-            await sqlite.mark_as_read(db_file, ix)
+    show_media = Config.get_setting_value(self.settings, jid, 'media')
+    if not num:
+        num = Config.get_setting_value(self.settings, jid, 'quantum')
+    else:
+        num = int(num)
+    results = sqlite.get_unread_entries(db_file, num)
+    news_digest = ''
+    media = None
+    chat_type = await get_chat_type(self, jid)
+    for result in results:
+        ix = result[0]
+        title_e = result[1]
+        url = result[2]
+        summary = result[3]
+        feed_id = result[4]
+        date = result[5]
+        enclosure = sqlite.get_enclosure_by_entry_id(db_file, ix)
+        if enclosure: enclosure = enclosure[0]
+        title_f = sqlite.get_feed_title(db_file, feed_id)
+        title_f = title_f[0]
+        news_digest += await list_unread_entries(self, result, title_f, jid)
+        # print(db_file)
+        # print(result[0])
+        # breakpoint()
+        await sqlite.mark_as_read(db_file, ix)
 
-            # Find media
-            # if url.startswith("magnet:"):
-            #     media = action.get_magnet(url)
-            # elif enclosure.startswith("magnet:"):
-            #     media = action.get_magnet(enclosure)
-            # elif enclosure:
-            if show_media:
-                if enclosure:
-                    media = enclosure
-                else:
-                    media = await extract_image_from_html(url)
-            
-            if media and news_digest:
-                # Send textual message
-                XmppMessage.send(self, jid, news_digest, chat_type)
-                news_digest = ''
-                # Send media
-                XmppMessage.send_oob(self, jid, media, chat_type)
-                media = None
-                
-        if news_digest:
+        # Find media
+        # if url.startswith("magnet:"):
+        #     media = action.get_magnet(url)
+        # elif enclosure.startswith("magnet:"):
+        #     media = action.get_magnet(enclosure)
+        # elif enclosure:
+        if show_media:
+            if enclosure:
+                media = enclosure
+            else:
+                media = await extract_image_from_html(url)
+        
+        if media and news_digest:
+            # Send textual message
             XmppMessage.send(self, jid, news_digest, chat_type)
+            news_digest = ''
+            # Send media
+            XmppMessage.send_oob(self, jid, media, chat_type)
+            media = None
+            
+    if news_digest:
+        XmppMessage.send(self, jid, news_digest, chat_type)
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
             # NOTE Do we need "if statement"? See NOTE at is_muc.
@@ -807,25 +1003,25 @@ def export_to_opml(jid, filename, results):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{} jid: {} filename: {}'
                 .format(function_name, jid, filename))
-    root = ET.Element("opml")
+    root = ETR.Element("opml")
     root.set("version", "1.0")
-    head = ET.SubElement(root, "head")
-    ET.SubElement(head, "title").text = "{}".format(jid)
-    ET.SubElement(head, "description").text = (
+    head = ETR.SubElement(root, "head")
+    ETR.SubElement(head, "title").text = "{}".format(jid)
+    ETR.SubElement(head, "description").text = (
         "Set of subscriptions exported by Slixfeed")
-    ET.SubElement(head, "generator").text = "Slixfeed"
-    ET.SubElement(head, "urlPublic").text = (
+    ETR.SubElement(head, "generator").text = "Slixfeed"
+    ETR.SubElement(head, "urlPublic").text = (
         "https://gitgud.io/sjehuda/slixfeed")
     time_stamp = dt.current_time()
-    ET.SubElement(head, "dateCreated").text = time_stamp
-    ET.SubElement(head, "dateModified").text = time_stamp
-    body = ET.SubElement(root, "body")
+    ETR.SubElement(head, "dateCreated").text = time_stamp
+    ETR.SubElement(head, "dateModified").text = time_stamp
+    body = ETR.SubElement(root, "body")
     for result in results:
-        outline = ET.SubElement(body, "outline")
+        outline = ETR.SubElement(body, "outline")
         outline.set("text", result[1])
         outline.set("xmlUrl", result[2])
         # outline.set("type", result[2])
-    tree = ET.ElementTree(root)
+    tree = ETR.ElementTree(root)
     tree.write(filename)
 
 
@@ -835,7 +1031,7 @@ async def import_opml(db_file, result):
                 .format(function_name, db_file))
     if not result['error']:
         document = result['content']
-        root = ET.fromstring(document)
+        root = ETR.fromstring(document)
         before = sqlite.get_number_of_items(db_file, 'feeds_properties')
         feeds = []
         for child in root.findall(".//outline"):
@@ -1789,6 +1985,9 @@ def generate_txt(text, filename):
     with open(filename, 'w') as file:
         file.write(text)
 
+
+# This works too
+# ''.join(xml.etree.ElementTree.fromstring(text).itertext())
 def remove_html_tags(data):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}'.format(function_name))

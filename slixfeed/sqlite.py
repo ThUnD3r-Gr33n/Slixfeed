@@ -920,7 +920,7 @@ def get_feed_properties(db_file, feed_id):
             """
             SELECT *
             FROM feeds_properties
-            WHERE feed_id = ?
+            WHERE id = :feed_id
             """
             )
         par = (feed_id,)
@@ -1406,20 +1406,20 @@ def get_entries_rejected(db_file, num):
         return result
 
 
-def get_enclosure_by_entry_id(db_file, ix):
+def get_enclosure_by_entry_id(db_file, entry_id):
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} ix: {}'
-                .format(function_name, db_file, ix))
+    logger.debug('{}: db_file: {} entry_id: {}'
+                .format(function_name, db_file, entry_id))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
             """
             SELECT url
             FROM entries_properties_links
-            WHERE entry_id = :ix AND rel = "enclosure"
+            WHERE entry_id = :entry_id AND rel = "enclosure"
             """
             )
-        par = (ix,)
+        par = (entry_id,)
         result = cur.execute(sql, par).fetchone()
         return result
 
@@ -1829,6 +1829,24 @@ async def set_feed_title(db_file, feed_id, title):
                 "feed_id": feed_id
                 }
             cur.execute(sql, par)
+
+
+def get_entry_properties(db_file, ix):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} ix: {}'
+                .format(function_name, db_file, ix))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT *
+            FROM entries_properties
+            WHERE id = :ix
+            """
+            )
+        par = (ix,)
+        title = cur.execute(sql, par).fetchone()
+        return title
 
 
 def get_entry_title(db_file, ix):
@@ -2516,6 +2534,98 @@ async def maintain_archive(db_file, limit):
                 cur.execute(sql, par)
 
 
+def get_authors_by_entry_id(db_file, entry_id):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{} db_file: {} entry_id: {}'
+                .format(function_name, db_file, entry_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT *
+            FROM entries_properties_authors
+            WHERE entry_id = :entry_id
+            ORDER BY name DESC
+            """
+            )
+        par = (entry_id,)
+        result = cur.execute(sql, par).fetchall()
+        return result
+
+
+def get_contributors_by_entry_id(db_file, entry_id):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{} db_file: {} entry_id: {}'
+                .format(function_name, db_file, entry_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT *
+            FROM entries_properties_contributors
+            WHERE entry_id = :entry_id
+            ORDER BY name DESC
+            """
+            )
+        par = (entry_id,)
+        result = cur.execute(sql, par).fetchall()
+        return result
+
+
+def get_links_by_entry_id(db_file, entry_id):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} entry_id: {}'
+                .format(function_name, db_file, entry_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT *
+            FROM entries_properties_links
+            WHERE entry_id = :entry_id
+            """
+            )
+        par = (entry_id,)
+        result = cur.execute(sql, par).fetchall()
+        return result
+
+
+def get_tags_by_entry_id(db_file, entry_id):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} entry_id: {}'
+                .format(function_name, db_file, entry_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT *
+            FROM entries_properties_tags
+            WHERE entry_id = :entry_id
+            """
+            )
+        par = (entry_id,)
+        result = cur.execute(sql, par).fetchall()
+        return result
+
+
+def get_contents_by_entry_id(db_file, entry_id):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} entry_id: {}'
+                .format(function_name, db_file, entry_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT *
+            FROM entries_properties_contents
+            WHERE entry_id = :entry_id
+            """
+            )
+        par = (entry_id,)
+        result = cur.execute(sql, par).fetchall()
+        return result
+
+
 # TODO Move entries that don't exist into table archive.
 # NOTE Entries that are read from archive are deleted.
 # NOTE Unlike entries from table entries, entries from
@@ -2538,7 +2648,7 @@ def get_entries_of_feed(db_file, feed_id):
         cur = conn.cursor()
         sql = (
             """
-            SELECT id, title, link, identifier, published, read
+            SELECT id, title, link, identifier, published
             FROM entries_properties
             WHERE feed_id = ?
             ORDER BY published DESC

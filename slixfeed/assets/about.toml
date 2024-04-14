@@ -4,7 +4,7 @@ subtitle = "Slixfeed, slixmpp and more"
 
 [[about]]
 name = "Slixfeed"
-about = "XMPP news bot"
+desc = "XMPP news bot"
 info = ["""
 Slixfeed is a news broker bot for syndicated news which aims to be \
 an easy to use and fully-featured news aggregating bot.
@@ -34,7 +34,7 @@ url = "https://gitgud.io/sjehuda/slixfeed"
 
 [[about]]
 name = "slixmpp"
-about = "Slixmpp XMPP Library"
+desc = "XMPP library"
 info = ["""
 Slixmpp is an MIT licensed XMPP library for Python 3.7+. It is a fork of \
 SleekXMPP.
@@ -47,7 +47,7 @@ url = "https://codeberg.org/poezio/slixmpp"
 
 [[about]]
 name = "SleekXMPP"
-about = "SleekXMPP XMPP Library"
+desc = "XMPP library"
 info = ["""
 SleekXMPP is an MIT licensed XMPP library for Python 2.6/3.1+, and is \
 featured in examples in the book XMPP: The Definitive Guide by Kevin Smith, \
@@ -57,18 +57,22 @@ url = "https://codeberg.org/fritzy/SleekXMPP"
 
 [[about]]
 name = "XMPP"
-about = "Previously known as Jabber"
+desc = "Messaging protocol (also known as Jabber)"
 info = ["""
 XMPP is the Extensible Messaging and Presence Protocol, a set of open \
 technologies for instant messaging, presence, multi-party chat, voice and \
-video calls, collaboration, lightweight middleware, content syndication, and \
-generalized routing of XML data.
+video calls, collaboration, lightweight middleware, content syndication, \
+and generalized routing of XML data.
+
+XMPP was originally developed in the Jabber open-source community to \
+provide an open, decentralized alternative to the closed instant messaging \
+services at that time.
 """]
 url = "https://xmpp.org/about"
 
 [[about]]
 name = "RSS Task Force"
-about = "Swiss Organization"
+desc = "Swiss organization"
 info = ["""
 The RSS Task Force (previously known as The Syndication Society) is an \
 international organization headquartered in Switzerland.
@@ -117,17 +121,17 @@ title = "Contributors"
 subtitle = "People who have contributed to Slixfeed"
 
 [[contributors]]
-name = "grym from #python"
+name = "grym from IRC channel #python"
 role = "Contributor"
 info = ["""
-Correcting code structure to be better prepared for packaging 18c93083.
+Correcting code structure to be better prepared for packaging (18c93083).
 """]
 
 [[contributors]]
 name = "Guus der Kinderen"
 role = "XMPP server administrator"
 info = ["""
-Providing OpenFire server for testing various of features.
+Providing an Openfire server for testing various of features.
 
 XEP-0060: Publish-Subscribe
 XEP-0114: Jabber Component Protocol
@@ -139,7 +143,7 @@ url = "http://goodbytes.im"
 name = "Simone (roughnecks) Canaletti"
 role = "XMPP server administrator"
 info = ["""
-Providing Prosody server and Movim instance for testing PubSub.
+Providing a Prosody server and a Movim instance for testing PubSub.
 
 XEP-0472: Pubsub Social Feed
 """]
@@ -616,7 +620,7 @@ All your data belongs to us.
 """]
 
 [[clients]]
-title = "Recommended Clients"
+title = "Clients"
 subtitle = """
 As a chat bot, Slixfeed works with any XMPP messenger, yet we have deemed it \
 appropriate to list the software that work best with Slixfeed, namely those \
@@ -625,8 +629,14 @@ that provide support for XEP-0050: Ad-Hoc Commands.
 
 [[clients]]
 name = "Cheogram"
-info = "XMPP client for mobile"
+desc = "XMPP client for mobile"
+info = ["""
+The Cheogram Android app allows you to join a worldwide communication network. \
+It especially focuses on features useful to users who want to contact those on \
+other networks as well, such as SMS-enabled phone numbers.
+"""]
 url = "https://cheogram.com"
+platform = "Android"
 
 # [[clients]]
 # name = "Conversations"
@@ -635,8 +645,13 @@ url = "https://cheogram.com"
 
 [[clients]]
 name = "Converse"
-info = "XMPP client for desktop and mobile"
+desc = "XMPP client for desktop and mobile"
+info = ["""
+Converse is a free and open-source XMPP chat client that runs in a web browser \
+or on your desktop.
+"""]
 url = "https://conversejs.org"
+platform = "HTML (Web)"
 
 # [[clients]]
 # name = "Gajim"
@@ -650,13 +665,31 @@ url = "https://conversejs.org"
 
 [[clients]]
 name = "monocles chat"
-info = "XMPP client for mobile"
+desc = "XMPP client for mobile"
+info = """
+monocles chat is a modern and secure Android XMPP chat client. Based on \
+blabber.im and Conversations with a lot of changes and additional features \
+to improve usability and security.
+"""
 url = "https://monocles.chat"
+platform = "Android"
 
 [[clients]]
 name = "Movim"
-info = "XMPP client for desktop and mobile"
+desc = "XMPP client for desktop and mobile"
+info = ["""
+Movim is a social and chat platform that acts as a frontend for the XMPP network.
+
+Once deployed Movim offers a complete social and chat experience for the \
+decentralized XMPP network users. It can easily connect to several XMPP \
+servers at the same time.
+
+With a simple configuration it can also be restricted to one XMPP server \
+and will then act as a powerful frontend for it. Movim is fully compatible \
+with the most used XMPP servers such as ejabberd or Prosody.
+"""]
 url = "https://mov.im"
+platform = "HTML (Web)"
 
 # [[clients]]
 # name = "Moxxy"
@@ -665,18 +698,50 @@ url = "https://mov.im"
 
 [[clients]]
 name = "Poezio"
-info = "XMPP client for console"
+desc = "XMPP client for console"
+info = ["""
+Poezio is a free console XMPP client (the protocol on which the Jabber IM \
+network is built).
+
+Its goal is to let you connect very easily (no account creation needed) to \
+the network and join various chatrooms, immediately. It tries to look like \
+the most famous IRC clients (weechat, irssi, etc). Many commands are identical \
+and you won't be lost if you already know these clients. Configuration can be \
+made in a configuration file or directly from the client.
+"""]
 url = "https://poez.io"
+platform = "FreeBSD and Linux"
 
 [[clients]]
 name = "Psi"
-info = "XMPP client for desktop"
+desc = "XMPP client for desktop"
+info = ["""
+Instant messaging as free and open as it should be.
+
+Psi is a free instant messaging application designed for the XMPP network. \
+Fast and lightweight, Psi is fully open-source and compatible with Windows, \
+Linux, and macOS.
+
+With Psi's full Unicode support and localizations, easy file transfers, \
+customizable iconsets, and many other great features, you'll learn why users \
+around the world are making the switch to free, open instant messaging.
+"""]
 url = "https://psi-im.org"
+platform = "Any"
 
 [[clients]]
 name = "Psi+"
-info = "XMPP client for desktop"
+desc = "XMPP client for desktop"
+info = ["""
+In 2009 a Psi fork named Psi+ was started. Project purpose are: implementation \
+of new features, writing of patches and plugins for transferring them to upstream. \
+As of 2017 the most of active Psi+ developers have become official Psi developers, \
+but Psi+ still has a number of unique features. From developers point of view Psi+ \
+is just a development branch of Psi IM client which is hosted at separate git \
+repositories and for which rolling release development model is used.
+"""]
 url = "https://psi-plus.com"
+platform = "Any"
 
 # [[clients]]
 # name = "Swift"
@@ -689,7 +754,7 @@ url = "https://psi-plus.com"
 # url = "https://yaxim.org"
 
 [[services]]
-title = "Recommended News Services"
+title = "Online Services"
 subtitle = ["""
 Below are online services that extend the syndication experience by means \
 of bookmarking and multimedia, and also enhance it by restoring access to \
@@ -706,7 +771,7 @@ link = "https://www.fivefilters.org/feed-creator/"
 
 [[services]]
 name = "Kill the Newsletter"
-info = "Kill the Newsletter converts email newsletters into Web feeds."
+info = ["Kill the Newsletter converts email newsletters into Web feeds."]
 link = "https://kill-the-newsletter.com"
 
 [[services]]
@@ -737,7 +802,7 @@ It's capable of generating RSS feeds from pretty much everything.
 link = "https://docs.rsshub.app"
 
 [[software]]
-title = "Recommended News Software"
+title = "News Software"
 subtitle = ["""
 Take back control of your news. With free, quality, software for your \
 desktop, home and mobile devices.
@@ -749,7 +814,7 @@ info = ["""
 A self-hosted RSS reader, based on Dropwizard and React/TypeScript.
 """]
 link = "https://commafeed.com"
-os = "Any (HTML)"
+platform = "HTML (Web)"
 
 [[software]]
 name = "FreshRSS"
@@ -758,7 +823,7 @@ FreshRSS is a self-hosted RSS and Atom feed aggregator.
 It is lightweight, easy to work with, powerful, and customizable.
 """]
 link = "https://freshrss.org"
-os = "Any (HTML)"
+platform = "HTML (Web)"
 
 [[software]]
 name = "Liferea"
@@ -769,7 +834,7 @@ it easy to organize and browse feeds. Its GUI is similar to a desktop \
 mail/news client, with an embedded web browser.
 """]
 link = "https://lzone.de/liferea/"
-os = "FreeBSD and Linux"
+platform = "FreeBSD and Linux"
 
 [[software]]
 name = "NetNewsWire"
@@ -787,7 +852,7 @@ can switch to NetNewsWire to get news directly and more reliably from the \
 sites you trust.
 """]
 link = "https://netnewswire.com"
-os = "MacOS"
+platform = "MacOS"
 
 [[software]]
 name = "Newsboat"
@@ -796,7 +861,7 @@ Newsboat is an RSS/Atom feed reader for the text console. It’s an actively \
 maintained fork of Newsbeuter
 """]
 link = "https://newsboat.org"
-os = "Any"
+platform = "HTML (Web)"
 
 [[software]]
 name = "Spot-On"
@@ -806,7 +871,7 @@ search and other forms of communications into a single communications \
 orchestra.
 """]
 link = "https://textbrowser.github.io/spot-on/"
-os = "Any"
+platform = "Any"
 
 [[software]]
 name = "Vienna RSS"
@@ -816,7 +881,7 @@ help you make sense of the flood of information that is distributed via \
 these formats today.
 """]
 link = "https://vienna-rss.com"
-os = "MacOS"
+platform = "MacOS"
 
 [[resources]]
 title = "Useful Resources"
@@ -824,15 +889,34 @@ subtitle = "Technologies which Slixfeed is based upon"
 
 [[resources]]
 name = "feedparser"
-info = "Syndication Library"
+info = "Syndication library"
+desc = "Parse Atom and RSS feeds in Python."
 url = "https://pythonhosted.org/feedparser"
 
 [[resources]]
 name = "Slixmpp"
-info = "XMPP Library"
+info = "XMPP library"
+desc = """
+Slixmpp is an MIT licensed XMPP library for Python 3.7+. It is a fork of \
+SleekXMPP.
+
+Slixmpp's goals is to only rewrite the core of the SleekXMPP library \
+(the low level socket handling, the timers, the events dispatching) \
+in order to remove all threads.
+"""
 url = "https://slixmpp.readthedocs.io"
 
 [[resources]]
 name = "XMPP"
-info = "Messaging Protocol"
+info = "Messaging protocol (also known as Jabber)"
+desc = """
+XMPP is the Extensible Messaging and Presence Protocol, a set of open \
+technologies for instant messaging, presence, multi-party chat, voice and \
+video calls, collaboration, lightweight middleware, content syndication, \
+and generalized routing of XML data.
+
+XMPP was originally developed in the Jabber open-source community to \
+provide an open, decentralized alternative to the closed instant messaging \
+services at that time.
+"""
 url = "https://xmpp.org/about"

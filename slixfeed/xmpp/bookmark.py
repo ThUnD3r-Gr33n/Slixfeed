@@ -21,7 +21,7 @@ class XmppBookmark:
         return conferences
 
 
-    async def properties(self, jid):
+    async def get_bookmark_properties(self, jid):
         result = await self.plugin['xep_0048'].get_bookmarks()
         groupchats = result['private']['bookmarks']['conferences']
         for groupchat in groupchats:
