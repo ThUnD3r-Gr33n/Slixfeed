@@ -2378,6 +2378,7 @@ async def update_feed_status(db_file, feed_id, status_code):
     status : str
         Status ID or message.
     """
+    print('MID', feed_id, 'update_feed_status')
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} feed_id: {} status_code: {}'
                 .format(function_name, db_file, feed_id, status_code))
@@ -2448,6 +2449,7 @@ async def update_feed_properties(db_file, feed_id, feed_properties):
     feed_properties : dict
         Feed properties.
     """
+    print('MID', feed_id, 'update_feed_properties')
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} feed_id: {} feed_properties: {}'
                 .format(function_name, db_file, feed_id, feed_properties))
