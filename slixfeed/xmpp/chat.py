@@ -940,10 +940,15 @@ class Chat:
                     muc_jid = uri.check_xmpp_uri(message_text[5:])
                     if muc_jid:
                         # TODO probe JID and confirm it's a groupchat
-                        XmppGroupchat.join(self, muc_jid)
+                        result = await XmppGroupchat.join(self, muc_jid)
                         # await XmppBookmark.add(self, jid=muc_jid)
-                        response = ('Joined groupchat {}'
-                                    .format(message_text))
+                        if result == 'ban':
+                            response = ('{} is banned from {}'
+                                        .format(self.alias, muc_jid))
+                        else:
+                            await XmppBookmark.add(self, muc_jid)
+                            response = ('Joined groupchat {}'
+                                        .format(message_text))
                     else:
                         response = ('> {}\n'
                                     'XMPP URI is not valid.'

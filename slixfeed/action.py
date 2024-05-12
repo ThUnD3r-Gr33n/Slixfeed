@@ -127,14 +127,20 @@ async def xmpp_muc_autojoin(self, bookmarks):
                               'bookmark {}'.format(bookmark['name']))
             alias = bookmark["nick"]
             muc_jid = bookmark["jid"]
-            await XmppGroupchat.join(self, muc_jid, alias)
-            logger.info('Autojoin groupchat\n'
-                         'Name  : {}\n'
-                         'JID   : {}\n'
-                         'Alias : {}\n'
-                         .format(bookmark["name"],
-                                 bookmark["jid"],
-                                 bookmark["nick"]))
+            result = await XmppGroupchat.join(self, muc_jid, alias)
+            if result == 'ban':
+                await XmppBookmark.remove(self, muc_jid)
+                logger.warning('{} is banned from {}'.format(self.alias, muc_jid))
+                logger.warning('Groupchat {} has been removed from bookmarks'
+                               .format(muc_jid))
+            else:
+                logger.info('Autojoin groupchat\n'
+                            'Name  : {}\n'
+                            'JID   : {}\n'
+                            'Alias : {}\n'
+                            .format(bookmark["name"],
+                                    bookmark["jid"],
+                                    bookmark["nick"]))
         elif not bookmark["jid"]:
             logger.error('JID is missing for bookmark {}'
                           .format(bookmark['name']))

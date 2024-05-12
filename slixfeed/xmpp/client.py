@@ -215,14 +215,30 @@ class Slixfeed(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         muc_jid = message['groupchat_invite']['jid']
-        await XmppBookmark.add(self, muc_jid)
-        await XmppGroupchat.join(self, muc_jid)
-        message_body = ('Greetings! I am {}, the news anchor.\n'
-                        'My job is to bring you the latest '
-                        'news from sources you provide me with.\n'
-                        'You may always reach me via xmpp:{}?message'
-                        .format(self.alias, self.boundjid.bare))
-        XmppMessage.send(self, muc_jid, message_body, 'groupchat')
+        result = await XmppGroupchat.join(self, muc_jid)
+        if result == 'ban':
+            message_body = '{} is banned from {}'.format(self.alias, muc_jid)
+            jid_bare = message['from'].bare
+            # This might not be necessary because JID might not be of the inviter, but rather of the MUC
+            XmppMessage.send(self, jid_bare, message_body, 'chat')
+            logger.warning(message_body)
+            print("on_groupchat_invite")
+            print("on_groupchat_invite")
+            print("on_groupchat_invite")
+            print(jid_full)
+            print(jid_full)
+            print(jid_full)
+            print("on_groupchat_invite")
+            print("on_groupchat_invite")
+            print("on_groupchat_invite")
+        else:
+            await XmppBookmark.add(self, muc_jid)
+            message_body = ('Greetings! I am {}, the news anchor.\n'
+                            'My job is to bring you the latest '
+                            'news from sources you provide me with.\n'
+                            'You may always reach me via xmpp:{}?message'
+                            .format(self.alias, self.boundjid.bare))
+            XmppMessage.send(self, muc_jid, message_body, 'groupchat')
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -237,14 +253,20 @@ class Slixfeed(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         muc_jid = message['groupchat_invite']['jid']
-        await XmppBookmark.add(self, muc_jid)
-        await XmppGroupchat.join(self, muc_jid)
-        message_body = ('Greetings! I am {}, the news anchor.\n'
-                        'My job is to bring you the latest '
-                        'news from sources you provide me with.\n'
-                        'You may always reach me via xmpp:{}?message'
-                        .format(self.alias, self.boundjid.bare))
-        XmppMessage.send(self, muc_jid, message_body, 'groupchat')
+        result = await XmppGroupchat.join(self, muc_jid)
+        if result == 'ban':
+            message_body = '{} is banned from {}'.format(self.alias, muc_jid)
+            jid_bare = message['from'].bare
+            XmppMessage.send(self, jid_bare, message_body, 'chat')
+            logger.warning(message_body)
+        else:
+            await XmppBookmark.add(self, muc_jid)
+            message_body = ('Greetings! I am {}, the news anchor.\n'
+                            'My job is to bring you the latest '
+                            'news from sources you provide me with.\n'
+                            'You may always reach me via xmpp:{}?message'
+                            .format(self.alias, self.boundjid.bare))
+            XmppMessage.send(self, muc_jid, message_body, 'groupchat')
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,

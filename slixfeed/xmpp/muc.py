@@ -17,6 +17,7 @@ FIXME
 
 """
 import logging
+from slixmpp.exceptions import IqError, IqTimeout, PresenceError
 
 class XmppGroupchat:
 
@@ -45,10 +46,26 @@ class XmppGroupchat:
                      .format(jid))
         jid_from = str(self.boundjid) if self.is_component else None
         if alias == None: self.alias
-        await self.plugin['xep_0045'].join_muc_wait(jid,
-                                                    alias,
-                                                    presence_options = {"pfrom" : jid_from},
-                                                    password=password)
+        try:
+            await self.plugin['xep_0045'].join_muc_wait(jid,
+                                                        alias,
+                                                        presence_options = {"pfrom" : jid_from},
+                                                        password=password)
+        except IqError as e:
+            logging.error('Error XmppIQ')
+            logging.error(str(e))
+            logging.error(jid)
+        except IqTimeout as e:
+            logging.error('Timeout XmppIQ')
+            logging.error(str(e))
+            logging.error(jid)
+        except PresenceError as e:
+            logging.error('Error Presence')
+            logging.error(str(e))
+            if (e.condition == 'forbidden' and
+                e.presence['error']['code'] == '403'):
+                logging.warning('{} is banned from {}'.format(self.alias, jid))
+                return 'ban'
 
 
     def leave(self, jid):
