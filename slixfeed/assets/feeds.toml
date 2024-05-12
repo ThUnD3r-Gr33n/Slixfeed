@@ -5,6 +5,12 @@
 # TODO Consider splitting into files feeds-cz.toml, feeds-de.toml, feeds-el.toml.
 
 [[feeds]]
+lang = "ch-fr"
+name = "Demoniak Network"
+link = "https://demoniak.ch/index.xml"
+tags = ["computer", "technology"]
+
+[[feeds]]
 lang = "cs-cz"
 name = "Česká pirátská strana"
 link = "https://www.pirati.cz/feeds/atom/"
@@ -162,9 +168,39 @@ tags = ["greece", "party", "pirate"]
 
 [[feeds]]
 lang = "en"
+name = "Actual Activists"
+link = "https://actualactivists.com/feed/atom/"
+tags = ["news", "world", "conspiracy", "lifestyle", "government"]
+
+[[feeds]]
+lang = "en"
 name = "Cycling Together with Fiona and Marc"
 link = "https://pixelfed.social/users/cyclingtogether.atom"
 tags = ["sports", "cycling", "adventure", "life"]
+
+[[feeds]]
+lang = "en"
+name = "Debian Disguised Work"
+link = "https://disguised.work/atom.xml"
+tags = ["linux", "debian", "ubuntu", "industry"]
+
+[[feeds]]
+lang = "en"
+name = "Dig Deeper"
+link = "https://diggy.club/atom.xml"
+tags = ["linux", "health", "computer", "wisdom", "life", "industry"]
+
+[[feeds]]
+lang = "en"
+name = "Earth Newspaper"
+link = "https://earthnewspaper.com/feed/atom/"
+tags = ["technology", "world", "war", "politics"]
+
+[[feeds]]
+lang = "en"
+name = "Fedi.Tips"
+link = "https://fedi.tips/feed/atom/"
+tags = ["technology", "activitypub", "fediverse", "syndication"]
 
 [[feeds]]
 lang = "en"
@@ -180,9 +216,33 @@ tags = ["computer", "service", "technology", "telecommunication", "xmpp"]
 
 [[feeds]]
 lang = "en"
+name = "RTP Blog"
+link = "http://righttoprivacy.i2p/rss/"
+tags = ["computer", "service", "technology", "telecommunication", "i2p", "privacy"]
+
+[[feeds]]
+lang = "en"
+name = "Techrights"
+link = "http://techrights.org/feed.xml"
+tags = ["linux", "bsd", "technology", "industry"]
+
+[[feeds]]
+lang = "en"
 name = "The SWORD Project"
 link = "http://www.crosswire.org/sword/sword.rss.jsp"
 tags = ["bible", "religion", "christianity", "history", "education", "life"]
+
+[[feeds]]
+lang = "en"
+name = "toastal"
+link = "https://toast.al/posts/feed.atom"
+tags = ["software", "computer", "code", "life"]
+
+[[feeds]]
+lang = "en"
+name = "Views from Apipucos"
+link = "https://apipucos.wordpress.com/feed/atom/"
+tags = ["poem", "computer", "brazil", "art", "life"]
 
 [[feeds]]
 lang = "en-au"
@@ -426,6 +486,12 @@ tags = ["book", "community", "culture", "family", "finance", "lifestyle", "marke
 
 [[feeds]]
 lang = "en-us"
+name = "Jerm Warfare"
+link = "https://jermwarfare.com/feed/atom"
+tags = ["culture", "war", "usa"]
+
+[[feeds]]
+lang = "en-us"
 name = "Juicing for Health"
 link = "https://juicing-for-health.com/feed"
 tags = ["beverage", "drink", "recipe"]
@@ -487,7 +553,7 @@ tags = ["decentralization", "privacy"]
 [[feeds]]
 lang = "en-us"
 name = "nobulart"
-link = "https://nobulart.com/feed/"
+link = "https://nobulart.com/feed/atom/"
 tags = ["news", "survival", "politics", "usa", "world"]
 
 [[feeds]]
@@ -714,6 +780,12 @@ tags = ["party", "pirate", "usa"]
 
 [[feeds]]
 lang = "en-us"
+name = "Walt Heyer Ministries"
+link = "https://waltheyer.com/feed/atom/"
+tags = ["sex", "change", "hoomsexuality"]
+
+[[feeds]]
+lang = "en-us"
 name = "Xonotic"
 link = "https://xonotic.org/index.xml"
 tags = ["3d", "game"]
@@ -725,16 +797,22 @@ link = "https://yaxim.org/atom.xml"
 tags = ["android", "germany", "jabber", "telecommunication", "xmpp"]
 
 [[feeds]]
+lang = "en-us"
+name = "You Are Not So Smart"
+link = "https://youarenotsosmart.com/feed/atom/"
+tags = ["communication", "culture", "psychology", "society"]
+
+[[feeds]]
+lang = "es-ar"
+name = "Cyberdelia"
+link = "https://cyberdelia.com.ar/feeds/all.atom.xml"
+tags = ["decentralization", "development", "electronics", "networking", "privacy", "selfhosting", "technology", "xmpp"]
+
+[[feeds]]
 lang = "es-es"
 name = "Disroot Blog"
 link = "https://disroot.org/es/blog.atom"
 tags = ["decentralization", "privacy"]
-
-[[feeds]]
-lang = "ch-fr"
-name = "Demoniak Network"
-link = "https://demoniak.ch/index.xml"
-tags = ["computer", "technology"]
 
 [[feeds]]
 lang = "fr-fr"

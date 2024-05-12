@@ -340,55 +340,51 @@ class Chat:
                                                      identifier)
                             feed_id = sqlite.get_feed_id(db_file, url)
                             feed_id = feed_id[0]
-                            document = result['content']
-                            feed = parse(document)
-                            feed_valid = 0 if feed.bozo else 1
-                            await sqlite.update_feed_validity(db_file, feed_id, feed_valid)
-                            if feed.has_key('updated_parsed'):
-                                feed_updated = feed.updated_parsed
-                                try:
-                                    feed_updated = dt.convert_struct_time_to_iso8601(feed_updated)
-                                except:
+                            result = await fetch.http(url)
+                            if not result['error']:
+                                document = result['content']
+                                feed = parse(document)
+                                feed_valid = 0 if feed.bozo else 1
+                                await sqlite.update_feed_validity(db_file, feed_id, feed_valid)
+                                if feed.has_key('updated_parsed'):
+                                    feed_updated = feed.updated_parsed
+                                    try:
+                                        feed_updated = dt.convert_struct_time_to_iso8601(feed_updated)
+                                    except:
+                                        feed_updated = None
+                                else:
                                     feed_updated = None
-                            else:
-                                feed_updated = None
-                            entries_count = len(feed.entries)
-                            feed_properties = {
-                                "version" : '',
-                                "encoding" : '',
-                                "language" : '',
-                                "rating" : '',
-                                "entries_count" : entries_count,
-                                "icon" : '',
-                                "image" : '',
-                                "logo" : '',
-                                "ttl" : '',
-                                "updated" : feed_updated,
-                                }
-                            await sqlite.update_feed_properties(db_file, feed_id,
-                                                                feed_properties)
-                            feed_id = sqlite.get_feed_id(db_file, url)
-                            feed_id = feed_id[0]
-                            new_entries = action.get_properties_of_entries(
-                                self, jid_bare, db_file, url, feed_id, feed)
-                            if new_entries:
-                                await sqlite.add_entries_and_update_feed_state(
-                                    db_file, feed_id, new_entries)
-                            await action.scan(self, jid_bare, db_file, url)
-                            if jid_bare not in self.settings:
-                                Config.add_settings_jid(self.settings, jid_bare,
-                                                        db_file)
-                            old = Config.get_setting_value(self.settings, jid_bare,
-                                                           'old')
-                            if old:
-                                # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
-                                # await send_status(jid)
-                                key_list = ['status']
-                                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
-                            else:
+                                feed_properties = action.get_properties_of_feed(
+                                    db_file, feed_id, feed)
+                                await sqlite.update_feed_properties(db_file, feed_id,
+                                                                    feed_properties)
                                 feed_id = sqlite.get_feed_id(db_file, url)
                                 feed_id = feed_id[0]
-                                await sqlite.mark_feed_as_read(db_file, feed_id)
+                                new_entries = action.get_properties_of_entries(
+                                    jid_bare, db_file, url, feed_id, feed)
+                                if new_entries:
+                                    await sqlite.add_entries_and_update_feed_state(
+                                        db_file, feed_id, new_entries)
+
+                                # Function "scan" of module "actions" no longer exists.
+                                # If you choose to add this download functionality and
+                                # the look into function "check_updates" of module "task".
+                                # await action.scan(self, jid_bare, db_file, url)
+                                # if jid_bare not in self.settings:
+                                #     Config.add_settings_jid(self.settings, jid_bare,
+                                #                             db_file)
+                                # old = Config.get_setting_value(self.settings, jid_bare,
+                                #                                'old')
+                                # if old:
+                                #     # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
+                                #     # await send_status(jid)
+                                #     key_list = ['status']
+                                #     await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+                                # else:
+                                #     feed_id = sqlite.get_feed_id(db_file, url)
+                                #     feed_id = feed_id[0]
+                                #     await sqlite.mark_feed_as_read(db_file, feed_id)
+
                             response = ('> {}\n'
                                         'News source has been '
                                         'added to subscription list.'
@@ -760,7 +756,7 @@ class Chat:
                                 # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                                 XmppPresence.send(self, jid_bare, status_message,
                                                   status_type=status_type)
-                                if url.startswith('feed:'):
+                                if url.startswith('feed:/') or url.startswith('itpc:/') or url.startswith('rss:/'):
                                     url = uri.feed_to_http(url)
                                 url = (await uri.replace_hostname(url, 'feed')) or url
                                 result = await action.add_feed(self, jid_bare,
@@ -768,7 +764,7 @@ class Chat:
                                                                identifier)
                                 if isinstance(result, list):
                                     results = result
-                                    response = ("Web feeds found for {}\n\n```\n"
+                                    response = ("Syndication feeds found for {}\n\n```\n"
                                                 .format(url))
                                     for result in results:
                                         response += ("Title : {}\n"
@@ -826,7 +822,8 @@ class Chat:
                                     'Type: publishing to node.')
                     XmppMessage.send_reply(self, message, response)
                 case _ if (message_lowercase.startswith('http') or
-                           message_lowercase.startswith('feed:')):
+                           message_lowercase.startswith('feed:/') or
+                           message_lowercase.startswith('rss:/')):
                     url = message_text
                     # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
                     status_type = 'dnd'
@@ -839,7 +836,7 @@ class Chat:
                     # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
-                    if url.startswith('feed:'):
+                    if url.startswith('feed:/') or url.startswith('rss:/'):
                         url = uri.feed_to_http(url)
                     url = (await uri.replace_hostname(url, 'feed')) or url
                     db_file = config.get_pathname_to_database(jid_file)
@@ -858,7 +855,7 @@ class Chat:
                                                    identifier)
                     if isinstance(result, list):
                         results = result
-                        response = ("Web feeds found for {}\n\n```\n"
+                        response = ("Syndication feeds found for {}\n\n```\n"
                                     .format(url))
                         for result in results:
                             response += ("Title : {}\n"
@@ -1179,7 +1176,7 @@ class Chat:
                         self.pending_tasks[jid_bare][pending_tasks_num] = status_message
                         XmppPresence.send(self, jid_bare, status_message,
                                           status_type=status_type)
-                        if url.startswith('feed:'):
+                        if url.startswith('feed:/') or url.startswith('rss:/'):
                             url = uri.feed_to_http(url)
                         url = (await uri.replace_hostname(url, 'feed')) or url
                         match len(data):
@@ -1199,7 +1196,7 @@ class Chat:
                                                 result = await crawl.probe_page(url, document)
                                                 if isinstance(result, list):
                                                     results = result
-                                                    response = ("Web feeds found for {}\n\n```\n"
+                                                    response = ("Syndication feeds found for {}\n\n```\n"
                                                                 .format(url))
                                                     for result in results:
                                                         response += ("Title : {}\n"
@@ -1236,7 +1233,7 @@ class Chat:
                                                 result = await crawl.probe_page(url, document)
                                                 if isinstance(result, list):
                                                     results = result
-                                                    response = ("Web feeds found for {}\n\n```\n"
+                                                    response = ("Syndication feeds found for {}\n\n```\n"
                                                                 .format(url))
                                                     for result in results:
                                                         response += ("Title : {}\n"

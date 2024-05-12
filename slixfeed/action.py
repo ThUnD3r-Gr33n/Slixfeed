@@ -1112,25 +1112,14 @@ async def add_feed(self, jid_bare, db_file, url, identifier):
                                 feed_updated = None
                         else:
                             feed_updated = None
-                        entries_count = len(feed.entries)
-                        feed_properties = {
-                            "version" : '',
-                            "encoding" : '',
-                            "language" : '',
-                            "rating" : '',
-                            "entries_count" : entries_count,
-                            "icon" : '',
-                            "image" : '',
-                            "logo" : '',
-                            "ttl" : '',
-                            "updated" : feed_updated,
-                            }
+                        feed_properties = get_properties_of_feed(db_file,
+                                                                 feed_id, feed)
                         await sqlite.update_feed_properties(db_file, feed_id,
                                                             feed_properties)
                         feed_id = sqlite.get_feed_id(db_file, url)
                         feed_id = feed_id[0]
                         new_entries = get_properties_of_entries(
-                            self, jid_bare, db_file, url, feed_id, feed)
+                            jid_bare, db_file, url, feed_id, feed)
                         if new_entries:
                             await sqlite.add_entries_and_update_feed_state(
                                 db_file, feed_id, new_entries)
@@ -1528,9 +1517,45 @@ async def download_feed(self, db_file, feed_url):
     await sqlite.update_feed_status(db_file, feed_id, status_code)
 
 
+def get_properties_of_feed(db_file, feed_id, feed):
+
+    if feed.has_key('updated_parsed'):
+        feed_updated = feed.updated_parsed
+        try:
+            feed_updated = dt.convert_struct_time_to_iso8601(feed_updated)
+        except:
+            feed_updated = ''
+    else:
+        feed_updated = ''
+
+    entries_count = len(feed.entries)
+
+    feed_version = feed.version if feed.has_key('version') else ''
+    feed_encoding = feed.encoding if feed.has_key('encoding') else ''
+    feed_language = feed.feed.language if feed.feed.has_key('language') else ''
+    feed_icon = feed.feed.icon if feed.feed.has_key('icon') else ''
+    feed_image = feed.feed.image.href if feed.feed.has_key('image') else ''
+    feed_logo = feed.feed.logo if feed.feed.has_key('logo') else ''
+    feed_ttl = feed.feed.ttl if feed.feed.has_key('ttl') else ''
+
+    feed_properties = {
+        "version" : feed_version,
+        "encoding" : feed_encoding,
+        "language" : feed_language,
+        "rating" : '',
+        "entries_count" : entries_count,
+        "icon" : feed_icon,
+        "image" : feed_image,
+        "logo" : feed_logo,
+        "ttl" : feed_ttl,
+        "updated" : feed_updated,
+        }
+
+    return feed_properties
+
 # TODO get all active feeds of active accounts and scan the feed with the earliest scanned time
 # TODO Rename function name (idea: scan_and_populate)
-def get_properties_of_entries(self, jid_bare, db_file, feed_url, feed_id, feed):
+def get_properties_of_entries(jid_bare, db_file, feed_url, feed_id, feed):
     """
     Get new entries.
 

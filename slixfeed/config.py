@@ -156,7 +156,8 @@ def update_proxies(file, proxy_name, proxy_type, proxy_url, action='remove'):
     """
     data = open_config_file('proxies.toml')
     proxy_list = data['proxies'][proxy_name][proxy_type]
-    breakpoint()
+    # breakpoint()
+    print('####################### PROXY ######################')
     proxy_index = proxy_list.index(proxy_url)
     proxy_list.pop(proxy_index)
     with open(file, 'w') as new_file:

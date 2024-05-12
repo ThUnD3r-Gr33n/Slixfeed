@@ -27,6 +27,13 @@ TODO
     
 7) See project /offpunk/offblocklist.py
 
+NOTE
+
+1) You might not want to utilize aiohttp, because you
+   no more scan as many feeds as possible all at once
+   due to CPU spike.
+   Consider https://pythonhosted.org/feedparser/http-useragent.html
+
 """
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
