@@ -86,9 +86,3 @@ platforms = ["any"]
 
 [tool.setuptools.package-data]
 "*" = ["*.ini", "*.csv", "*.toml", "*.svg"]
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["slixfeed"]
-exclude = []
-namespaces = false

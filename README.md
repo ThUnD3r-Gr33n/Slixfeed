@@ -27,30 +27,52 @@ Slixfeed is primarily designed for XMPP (aka Jabber), yet it is built to be exte
 
 ### monocles chat
 
-<img alt="Chat: Add URL" src="screenshots/chat_add_url.png" width="200px"/>
-<img alt="Ad-Hoc: Commands" src="screenshots/adhoc_commands.png" width="200px"/>
+<img alt="Chat: Add URL" src="slixfeed/documentation/screenshots/chat_add_url.png" width="200px"/>
+<img alt="Ad-Hoc: Commands" src="slixfeed/documentation/screenshots/adhoc_commands.png" width="200px"/>
 
-<!-- ![Chat: Add URL](screenshots/chat_add_url.png) ![Ad-Hoc: Commands](screenshots/adhoc_commands.png) -->
+<!-- ![Chat: Add URL](slixfeed/documentation/screenshots/chat_add_url.png) ![Ad-Hoc: Commands](slixfeed/documentation/screenshots/adhoc_commands.png) -->
 
 ### Cheogram
 
-<img alt="Ad-Hoc: Add URL" src="screenshots/adhoc_add_url.png" width="200px"/>
-<img alt="Ad-Hoc: Settings" width="200px" src="screenshots/adhoc_settings.png"/>
+<img alt="Ad-Hoc: Add URL" src="slixfeed/documentation/screenshots/adhoc_add_url.png" width="200px"/>
+<img alt="Ad-Hoc: Settings" width="200px" src="slixfeed/documentation/screenshots/adhoc_settings.png"/>
 
-<!-- ![Ad-Hoc: Add URL](screenshots/adhoc_add_url.png) ![Ad-Hoc: Preview URL](screenshots/adhoc_preview_url.png) ![Ad-Hoc: Settings](screenshots/adhoc_settings.png) -->
+<!-- ![Ad-Hoc: Add URL](slixfeed/documentation/screenshots/adhoc_add_url.png) ![Ad-Hoc: Preview URL](slixfeed/documentation/screenshots/adhoc_preview_url.png) ![Ad-Hoc: Settings](slixfeed/documentation/screenshots/adhoc_settings.png) -->
 
 ## Getting Started
 
 ### Install
 
-It is possible to install Slixfeed using pip inside venv.
+It is possible to install Slixfeed using pip and pipx.
+
+#### pip inside venv
 
 ```
 $ python3 -m venv .venv
 $ source .venv/bin/activate
 $ pip install git+https://gitgud.io/sjehuda/slixfeed
+```
+
+#### pipx
+
+##### Install
+
+```
+$ pipx install git+https://gitgud.io/sjehuda/slixfeed
+```
+
+##### Upgrade
+
+```
+$ pipx install --upgrade slixfeed
+```
+
+#### Start
+
+```
 $ slixfeed
 ```
+
 
 ### Usage
 
