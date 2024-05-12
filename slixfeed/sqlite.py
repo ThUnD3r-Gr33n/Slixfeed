@@ -3067,7 +3067,7 @@ def check_entry_exist(db_file, feed_id, identifier=None, title=None, link=None,
                 """
                 SELECT id
                 FROM entries_properties
-                WHERE title = :title AND link = :link AND published = :published
+                WHERE title = :title AND link = :link AND published = :date
                 """
                 )
             par = {
@@ -3079,8 +3079,8 @@ def check_entry_exist(db_file, feed_id, identifier=None, title=None, link=None,
                 result = cur.execute(sql, par).fetchone()
                 if result: exist = True
             except:
-                logger.error("source =", feed_id)
-                logger.error("published =", published)
+                logger.error("source =" + feed_id)
+                logger.error("published =" + published)
         else:
             sql = (
                 """
