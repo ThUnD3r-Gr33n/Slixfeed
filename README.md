@@ -61,18 +61,18 @@ $ pip install git+https://gitgud.io/sjehuda/slixfeed
 $ pipx install git+https://gitgud.io/sjehuda/slixfeed
 ```
 
-##### Upgrade
+##### Update
 
 ```
-$ pipx install --upgrade slixfeed
+$ pipx uninstall slixfeed
+$ pipx install git+https://gitgud.io/sjehuda/slixfeed
 ```
 
-#### Start
+### Start
 
 ```
 $ slixfeed
 ```
-
 
 ### Usage
 
