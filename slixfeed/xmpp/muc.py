@@ -51,6 +51,10 @@ class XmppGroupchat:
                                                         alias,
                                                         presence_options = {"pfrom" : jid_from},
                                                         password=password,
+                                                        maxchars=0,
+                                                        maxstanzas=0,
+                                                        seconds=0,
+                                                        since=0,
                                                         timeout=30)
             result = 'joined ' + jid
         except IqError as e:

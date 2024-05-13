@@ -342,7 +342,7 @@ async def check_updates(self, jid_bare):
     jid : str
         Jabber ID.
     """
-    print('Scanning for updates for JID {}'.format(jid_bare))
+    # print('Scanning for updates for JID {}'.format(jid_bare))
     logging.info('Scanning for updates for JID {}'.format(jid_bare))
     while True:
         jid_file = jid_bare.replace('/', '_')
@@ -350,7 +350,7 @@ async def check_updates(self, jid_bare):
         urls = sqlite.get_active_feeds_url(db_file)
         for url in urls:
             url = url[0]
-            print('STA',url)
+            # print('STA',url)
             
             # # Skip Reddit
             # if 'reddit.com' in str(url).lower():

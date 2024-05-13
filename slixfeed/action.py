@@ -1587,7 +1587,7 @@ def get_properties_of_entries(jid_bare, db_file, feed_url, feed_id, feed):
     url : str, optional
         URL.
     """
-    print('MID', feed_url, jid_bare, 'get_properties_of_entries')
+    # print('MID', feed_url, jid_bare, 'get_properties_of_entries')
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: feed_id: {} url: {}'
                 .format(function_name, feed_id, feed_url))
