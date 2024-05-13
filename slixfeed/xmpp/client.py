@@ -819,9 +819,22 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
         moderator = None
+        operator = None
+        print('JID {} CHAT {}'.format(jid_full, chat_type))
+        print('JID {} CHAT {}'.format(jid_full, chat_type))
+        print('JID {} CHAT {}'.format(jid_full, chat_type))
+        print('JID {} CHAT {}'.format(jid_full, chat_type))
+        print('JID {} CHAT {}'.format(jid_full, chat_type))
         if chat_type == 'groupchat':
             moderator = is_moderator(self, jid_bare, jid_full)
-        if is_operator(self, jid_bare) or moderator:
+        else:
+            operator = is_operator(self, jid_bare)
+        print('OPERATOR {} MODERATOR {}'.format(operator, moderator))
+        print('OPERATOR {} MODERATOR {}'.format(operator, moderator))
+        print('OPERATOR {} MODERATOR {}'.format(operator, moderator))
+        print('OPERATOR {} MODERATOR {}'.format(operator, moderator))
+        print('OPERATOR {} MODERATOR {}'.format(operator, moderator))
+        if operator or moderator:
             form = self['xep_0004'].make_form('form', 'PubSub')
             form['instructions'] = 'Publish news items to PubSub nodes.'
             options = form.add_field(desc='From which medium source do you '
