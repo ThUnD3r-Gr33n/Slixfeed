@@ -258,6 +258,19 @@ async def xmpp_pubsub_send_selected_entry(self, jid_bare, jid_file, node_id, ent
 
 
 async def xmpp_pubsub_send_unread_items(self, jid_bare):
+    """
+
+    Parameters
+    ----------
+    jid_bare : TYPE
+        Bare Jabber ID.
+
+    Returns
+    -------
+    report : dict
+        URL and Number of processed entries.
+
+    """
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: jid_bare: {}'.format(function_name, jid_bare))
     jid_file = jid_bare.replace('/', '_')
@@ -266,19 +279,23 @@ async def xmpp_pubsub_send_unread_items(self, jid_bare):
     subscriptions = sqlite.get_active_feeds_url(db_file)
     for url in subscriptions:
         url = url[0]
+        # feed_id = sqlite.get_feed_id(db_file, url)
+        # feed_id = feed_id[0]
+        # feed_properties = sqlite.get_feed_properties(db_file, feed_id)
+        feed_id = sqlite.get_feed_id(db_file, url)
+        feed_id = feed_id[0]
+
+        # Publish to node 'urn:xmpp:microblog:0' for own JID
+        # Publish to node based on feed identifier for PubSub service.
+
         if jid_bare == self.boundjid.bare:
             node_id = 'urn:xmpp:microblog:0'
             node_subtitle = None
             node_title = None
         else:
-            # feed_id = sqlite.get_feed_id(db_file, url)
-            # feed_id = feed_id[0]
-            # feed_properties = sqlite.get_feed_properties(db_file, feed_id)
             # node_id = feed_properties[2]
             # node_title = feed_properties[3]
             # node_subtitle = feed_properties[5]
-            feed_id = sqlite.get_feed_id(db_file, url)
-            feed_id = feed_id[0]
             node_id = sqlite.get_feed_identifier(db_file, feed_id)
             node_id = node_id[0]
             node_title = sqlite.get_feed_title(db_file, feed_id)
@@ -290,8 +307,6 @@ async def xmpp_pubsub_send_unread_items(self, jid_bare):
             self, jid_bare, node_id, xep, node_title, node_subtitle)
         await XmppIQ.send(self, iq_create_node)
         entries = sqlite.get_unread_entries_of_feed(db_file, feed_id)
-        print('xmpp_pubsub_send_unread_items',jid_bare)
-        print(node_id)
         report[url] = len(entries)
         for entry in entries:
             feed_entry = pack_entry_into_dict(db_file, entry)

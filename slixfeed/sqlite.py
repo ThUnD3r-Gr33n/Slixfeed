@@ -1634,8 +1634,8 @@ def get_unread_entries_of_feed(db_file, feed_id):
             """
             )
         par = (feed_id,)
-        count = cur.execute(sql, par).fetchall()
-        return count
+        result = cur.execute(sql, par).fetchall()
+        return result
 
 
 def get_number_of_unread_entries_by_feed(db_file, feed_id):

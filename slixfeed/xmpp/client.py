@@ -305,8 +305,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         await self['xep_0115'].update_caps()
         # self.send_presence()
         await self.get_roster()
-        bookmarks = await XmppBookmark.get_bookmarks(self)
-        await action.xmpp_muc_autojoin(self, bookmarks)
         results = await XmppPubsub.get_pubsub_services(self)
         for result in results + [{'jid' : self.boundjid.bare,
                                    'name' : self.alias}]:
@@ -317,6 +315,10 @@ class Slixfeed(slixmpp.ClientXMPP):
             await task.start_tasks_xmpp_pubsub(self, jid_bare)
         # XmppCommand.adhoc_commands(self)
         # self.service_reactions()
+        bookmarks = await XmppBookmark.get_bookmarks(self)
+        print('iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
+        await action.xmpp_muc_autojoin(self, bookmarks)
+        print('ooooooooooooooooooooooooooooooooo')
         task.task_ping(self)
         time_end = time.time()
         difference = time_end - time_begin
@@ -3124,7 +3126,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         form.add_field(var='jid',
                        ftype='hidden',
                        value=jid)
-        session['has_next'] = False
+        session['has_next'] = True
         session['next'] = self._handle_nodes_action
         session['allow_prev'] = True
         session['payload'] = form
