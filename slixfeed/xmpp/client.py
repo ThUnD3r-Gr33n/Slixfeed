@@ -2522,8 +2522,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                      label='Choose',
                                      required=True,
                                      var='option')
-            jid = session['from'].bare
-            if is_operator(self, jid):
+            if is_operator(self, jid_bare):
                 options.addOption('Administration', 'admin')
             # options.addOption('Activity', 'activity')
             # options.addOption('Filters', 'filter')
@@ -2538,7 +2537,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['prev'] = self._handle_advanced
         else:
             text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid))
+                         .format(jid_bare))
             session['notes'] = [['warn', text_warn]]
         return session
 
