@@ -821,7 +821,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         access = None
         print('PERMISSION JID       : ' + jid_full)
         print('PERMISSION CHAT      : ' + chat_type)
-        if is_operator(self, jid_bare):
+        operator = is_operator(self, jid_bare)
+        if operator:
             if chat_type == 'groupchat':
                 if is_moderator(self, jid_bare, jid_full):
                     access = True
@@ -850,11 +851,13 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['prev'] = None
             session['payload'] = form
         else:
-            if chat_type == 'groupchat':
+            if not operator:
+                text_warn = 'This resource is restricted to operators.'
+            elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
                              .format(jid_bare))
             else:
-                text_warn = 'This resource is restricted to operators.'
+                text_warn = 'This resource is forbidden.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -1026,7 +1029,10 @@ class Slixfeed(slixmpp.ClientXMPP):
     async def _handle_publish_db_complete(self, payload, session):
         values = payload['values']
         jid_file = values['jid_file'][0]
+        print('jid_file')
         print(jid_file)
+        print("values['node']")
+        print(values['node'])
         node_id = values['node'][0]
         jid = values['jid'][0]
         ixs = values['entries']
