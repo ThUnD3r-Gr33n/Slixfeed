@@ -1,3 +1,9 @@
+# Work in Progress
+
+This bot is still a work in progress. Albeit this bot works well in most cases, it is not yet ready for production. We are working to make this bot better.
+
+---
+
 # Syndication bot for XMPP
 
 ## Slixfeed
@@ -8,7 +14,7 @@ Slixfeed is a news aggregator bot for the XMPP communication network which aims 
 
 XMPP is the Extensible Messaging and Presence Protocol, a set of open technologies for instant messaging, presence, multi-party chat, voice and video calls, collaboration, lightweight middleware, content syndication, and generalized routing of XML data.
 
-Visit [XMPP](https://xmpp.org/about/) for more information on the XMPP protocol and check the [list](https://xmpp.org/software/) of XMPP clients.
+Visit [XMPP](https://xmpp.org/) for more information [about](https://xmpp.org/about/) the XMPP protocol and check the [list](https://xmpp.org/software/) of XMPP clients.
 
 Slixfeed is primarily designed for XMPP (aka Jabber), yet it is built to be extended to other protocols.
 
@@ -87,9 +93,8 @@ Slixfeed works with any XMPP chat client; if you want to make use of the visual 
 
 Please join our support groupchats whether you want help, discuss new features or just greet us.
 
-[Main](xmpp:slixfeed@chat.woodpeckersnest.space?join) (International)
-
-[Deutsch](xmpp:slixfeed@conference.miharu.dedyn.io?join) (German)
+- [Main Groupchat](xmpp:slixfeed@chat.woodpeckersnest.space?join) (International)
+- [Deutsche Chat Gruppe](xmpp:slixfeed@conference.miharu.dedyn.io?join) (German)
 
 ## Authors
 
