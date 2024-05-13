@@ -818,23 +818,18 @@ class Slixfeed(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
-        moderator = None
-        operator = None
-        print('JID {} CHAT {}'.format(jid_full, chat_type))
-        print('JID {} CHAT {}'.format(jid_full, chat_type))
-        print('JID {} CHAT {}'.format(jid_full, chat_type))
-        print('JID {} CHAT {}'.format(jid_full, chat_type))
-        print('JID {} CHAT {}'.format(jid_full, chat_type))
-        if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid_bare, jid_full)
-        else:
-            operator = is_operator(self, jid_bare)
-        print('OPERATOR {} MODERATOR {}'.format(operator, moderator))
-        print('OPERATOR {} MODERATOR {}'.format(operator, moderator))
-        print('OPERATOR {} MODERATOR {}'.format(operator, moderator))
-        print('OPERATOR {} MODERATOR {}'.format(operator, moderator))
-        print('OPERATOR {} MODERATOR {}'.format(operator, moderator))
-        if operator or moderator:
+        access = None
+        print('PERMISSION JID       : ' + jid_full)
+        print('PERMISSION CHAT      : ' + chat_type)
+        if is_operator(self, jid_bare):
+            if chat_type == 'groupchat':
+                if is_moderator(self, jid_bare, jid_full):
+                    access = True
+                    print('PERMISSION MOD')
+            else:
+                access = True
+                print('PERMISSION OP')
+        if access:
             form = self['xep_0004'].make_form('form', 'PubSub')
             form['instructions'] = 'Publish news items to PubSub nodes.'
             options = form.add_field(desc='From which medium source do you '
@@ -847,7 +842,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             options.addOption('URL', 'url')
             form.add_field(ftype='fixed',
                            label='* Attention',
-                           desc='Results are viewed best in Movim and '
+                           desc='Results are viewed best with Movim and '
                            'Libervia.')
             session['allow_prev'] = False
             session['has_next'] = True
