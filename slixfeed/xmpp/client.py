@@ -817,7 +817,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        if is_operator(self, jid_bare):
+        chat_type = await get_chat_type(self, jid_bare)
+        moderator = None
+        if chat_type == 'groupchat':
+            moderator = is_moderator(self, jid_bare, jid_full)
+        if is_operator(self, jid_bare) or moderator:
             form = self['xep_0004'].make_form('form', 'PubSub')
             form['instructions'] = 'Publish news items to PubSub nodes.'
             options = form.add_field(desc='From which medium source do you '
@@ -838,7 +842,11 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['prev'] = None
             session['payload'] = form
         else:
-            text_warn = 'This resource is restricted to operators.'
+            if chat_type == 'groupchat':
+                text_warn = ('This resource is restricted to moderators of {}.'
+                             .format(jid_bare))
+            else:
+                text_warn = 'This resource is restricted to operators.'
             session['notes'] = [['warn', text_warn]]
         return session
 
