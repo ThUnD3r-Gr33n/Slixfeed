@@ -40,6 +40,7 @@ import slixfeed.crawl as crawl
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 import slixfeed.sqlite as sqlite
+import slixfeed.url as uri
 from slixfeed.url import (
     complete_url,
     join_url,
@@ -298,14 +299,30 @@ async def xmpp_pubsub_send_unread_items(self, jid_bare):
             # node_subtitle = feed_properties[5]
             node_id = sqlite.get_feed_identifier(db_file, feed_id)
             node_id = node_id[0]
+            if not node_id:
+                counter = 0
+                hostname = uri.get_hostname(url)
+                hostname = hostname.replace('.','-')
+                identifier = hostname + ':' + str(counter)
+                while True:
+                    if sqlite.check_identifier_exist(db_file, identifier):
+                        counter += 1
+                        identifier = hostname + ':' + str(counter)
+                    else:
+                        break
+                await sqlite.update_feed_identifier(db_file, feed_id, identifier)
+                node_id = sqlite.get_feed_identifier(db_file, feed_id)
+                node_id = node_id[0]
             node_title = sqlite.get_feed_title(db_file, feed_id)
             node_title = node_title[0]
             node_subtitle = sqlite.get_feed_subtitle(db_file, feed_id)
             node_subtitle = node_subtitle[0]
         xep = None
-        iq_create_node = XmppPubsub.create_node(
-            self, jid_bare, node_id, xep, node_title, node_subtitle)
-        await XmppIQ.send(self, iq_create_node)
+        node_exist = await XmppPubsub.get_node_configuration(self, jid_bare, node_id)
+        if not node_exist:
+            iq_create_node = XmppPubsub.create_node(
+                self, jid_bare, node_id, xep, node_title, node_subtitle)
+            await XmppIQ.send(self, iq_create_node)
         entries = sqlite.get_unread_entries_of_feed(db_file, feed_id)
         report[url] = len(entries)
         for entry in entries:

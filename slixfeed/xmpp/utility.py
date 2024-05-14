@@ -8,36 +8,6 @@ import logging
 # class XmppUtility:
 
 
-def is_operator(self, jid_bare):
-    result = False
-    for operator in self.operators:
-        if jid_bare == operator['jid']:
-            result = True
-            # operator_name = operator['name']
-            break
-    return result
-
-
-def is_moderator(self, jid_bare, jid_full):
-    alias = jid_full[jid_full.index('/')+1:]
-    role = self.plugin['xep_0045'].get_jid_property(jid_bare, alias, 'role')
-    if role == 'moderator':
-        result = True
-    else:
-        result = False
-    return result
-
-
-def is_member(self, jid_bare, jid_full):
-    alias = jid_full[jid_full.index('/')+1:]
-    affiliation = self.plugin['xep_0045'].get_jid_property(jid_bare, alias, 'affiliation')
-    if affiliation == 'member':
-        result = True
-    else:
-        result = False
-    return result
-
-
 # TODO Rename to get_jid_type
 async def get_chat_type(self, jid):
     """
@@ -58,8 +28,8 @@ async def get_chat_type(self, jid):
 
     Returns
     -------
-    chat_type : str
-        'chat' or 'groupchat'.
+    result : str
+        'chat' or 'groupchat' or 'error'.
     """
     try:
         iqresult = await self["xep_0030"].get_info(jid=jid)
@@ -68,28 +38,19 @@ async def get_chat_type(self, jid):
         # if 'account' in indentity:
         # if 'conference' in indentity:
         if ('http://jabber.org/protocol/muc' in features) and not ('/' in jid):
-            chat_type = "groupchat"
+            result = "groupchat"
         # TODO elif <feature var='jabber:iq:gateway'/>
         # NOTE Is it needed? We do not interact with gateways or services
         else:
-            chat_type = "chat"
+            result = "chat"
         logging.info('Jabber ID: {}\n'
-                     'Chat Type: {}'.format(jid, chat_type))
-        return chat_type
-    # TODO Test whether this exception is realized
-    except IqError as e:
-        message = ('IQ Error\n'
-                   'IQ Stanza: {}'
-                   'Jabber ID: {}'
-                   .format(e, jid))
-        logging.error(message)
-    except IqTimeout as e:
-        message = ('IQ Timeout\n'
-                   'IQ Stanza: {}'
-                   'Jabber ID: {}'
-                   .format(e, jid))
-        logging.error(message)
+                     'Chat Type: {}'.format(jid, result))
+    except (IqError, IqTimeout) as e:
+        logging.error(str(e))
+        logging.error(jid)
+        result = 'error'
     # except BaseException as e:
     #     logging.error('BaseException', str(e))
     # finally:
     #     logging.info('Chat type is:', chat_type)
+    return result

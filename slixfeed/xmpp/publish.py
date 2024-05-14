@@ -42,6 +42,12 @@ class XmppPubsub:
         return properties
 
 
+    async def get_node_configuration(self, jid, node_id):
+        node = await self.plugin['xep_0060'].get_node_config(jid, node_id)
+        print(node)
+        return node
+
+
     async def get_nodes(self, jid):
         nodes = await self.plugin['xep_0060'].get_nodes(jid)
         # 'self' would lead to slixmpp.jid.InvalidJID: idna validation failed:

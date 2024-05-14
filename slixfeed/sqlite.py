@@ -562,6 +562,7 @@ def insert_feed_preferences(cur, feed_id):
         logger.error(e)
 
 
+# TODO Test
 def insert_feed_properties(cur, feed_id):
     """
     Set feed properties.
@@ -578,7 +579,7 @@ def insert_feed_properties(cur, feed_id):
         """
         INSERT
         INTO feeds_properties(
-            feed_id)
+            id)
         VALUES(
             ?)
         """
@@ -953,7 +954,7 @@ def get_feed_identifier(db_file, feed_id):
             """
             SELECT identifier
             FROM feeds_properties
-            WHERE feed_id = ?
+            WHERE id = ?
             """
             )
         par = (feed_id,)
@@ -1762,20 +1763,20 @@ async def archive_entry(db_file, ix):
             cur.execute(sql, par)
 
 
-def get_feed_title(db_file, ix):
+def get_feed_title(db_file, feed_id):
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} ix: {}'
-                .format(function_name, db_file, ix))
+    logger.debug('{}: db_file: {} feed_id: {}'
+                .format(function_name, db_file, feed_id))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
             """
             SELECT title
             FROM feeds_properties
-            WHERE id = :ix
+            WHERE id = :feed_id
             """
             )
-        par = (ix,)
+        par = (feed_id,)
         title = cur.execute(sql, par).fetchone()
         return title
 
@@ -1790,7 +1791,7 @@ def get_feed_subtitle(db_file, feed_id):
             """
             SELECT subtitle
             FROM feeds_properties
-            WHERE feed_id = :feed_id
+            WHERE id = :feed_id
             """
             )
         par = (feed_id,)
@@ -1885,20 +1886,20 @@ def get_entry_url(db_file, ix):
         return url
 
 
-def get_feed_url(db_file, ix):
+def get_feed_url(db_file, feed_id):
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} ix: {}'
-                .format(function_name, db_file, ix))
+    logger.debug('{}: db_file: {} feed_id: {}'
+                .format(function_name, db_file, feed_id))
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (
             """
             SELECT url
             FROM feeds_properties
-            WHERE id = :ix
+            WHERE id = :feed_id
             """
             )
-        par = (ix,)
+        par = (feed_id,)
         url = cur.execute(sql, par).fetchone()
         return url
 
@@ -2355,7 +2356,7 @@ async def update_feed_identifier(db_file, feed_id, identifier):
                 """
                 UPDATE feeds_properties
                 SET identifier = :identifier
-                WHERE feed_id = :feed_id
+                WHERE id = :feed_id
                 """
                 )
             par = {

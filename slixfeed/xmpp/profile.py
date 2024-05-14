@@ -28,18 +28,30 @@ TODO
 import glob
 from slixfeed.config import Config
 import slixfeed.config as config
-# from slixmpp.exceptions import IqTimeout, IqError
-# import logging
+from slixmpp.exceptions import IqTimeout, IqError
+import logging
 import os
 
 # class XmppProfile:
 
 async def update(self):
-    """
-    Update profile.
-    """
-    await set_vcard(self)
-    await set_avatar(self)
+    """ Update profile """
+    try:
+        await set_vcard(self)
+    except IqTimeout as e:
+        logging.error('Profile vCard: Error Timeout')
+        logging.error(str(e))
+    except IqError as e:
+            logging.error('Profile vCard: Error XmppIQ')
+            logging.error(str(e))
+    try:
+        await set_avatar(self)
+    except IqTimeout as e:
+        logging.error('Profile Photo: Error Timeout')
+        logging.error(str(e))
+    except IqError as e:
+            logging.error('Profile Photo: Error XmppIQ')
+            logging.error(str(e))
 
 
 async def set_avatar(self):

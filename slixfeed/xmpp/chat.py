@@ -42,7 +42,8 @@ from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.upload import XmppUpload
-from slixfeed.xmpp.utility import get_chat_type, is_moderator, is_operator
+from slixfeed.xmpp.privilege import is_moderator, is_operator, is_access
+from slixfeed.xmpp.utility import get_chat_type
 import time
 
 from random import randrange
@@ -720,12 +721,48 @@ class Chat:
                     key_list = ['status']
                     await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
                     XmppMessage.send_reply(self, message, response)
+                case _ if message_lowercase.startswith('pubsub list '):
+                    jid = message_text[12:]
+                    from slixfeed.xmpp.publish import XmppPubsub
+                    iq = await XmppPubsub.get_nodes(self, jid)
+                    response = 'List of nodes for {}:\n```\n'.format(jid)
+                    for item in iq['disco_items']:
+                        item_id = item['node']
+                        item_name = item['name']
+                        response += 'Name: {}\nNode: {}\n\n'.format(item_name, item_id)
+                    response += '```'
+                    XmppMessage.send_reply(self, message, response)
+                case _ if message_lowercase.startswith('pubsub send '):
+                    if is_operator(self, jid_bare):
+                        info = message_text[12:]
+                        info = info.split(' ')
+                        jid = info[0]
+                        # num = int(info[1])
+                        if jid:
+                            # if num:
+                            #     report = await action.xmpp_pubsub_send_unread_items(
+                            #         self, jid, num)
+                            # else:
+                            #     report = await action.xmpp_pubsub_send_unread_items(
+                            #         self, jid)
+                            report = await action.xmpp_pubsub_send_unread_items(
+                                self, jid)
+                            response = ''
+                            for url in report:
+                                if report[url]:
+                                    response += url + ' : ' + str(report[url]) + '\n'
+                        else:
+                            response = 'PubSub JID is missing. Enter PubSub JID.'
+                    else:
+                        response = ('This action is restricted. '
+                                    'Type: sending news to PubSub.')
+                    XmppMessage.send_reply(self, message, response)
                 # TODO Handle node error
                 # sqlite3.IntegrityError: UNIQUE constraint failed: feeds_pubsub.node
                 # ERROR:slixmpp.basexmpp:UNIQUE constraint failed: feeds_pubsub.node
-                case _ if message_lowercase.startswith('send '):
+                case _ if message_lowercase.startswith('pubsub '):
                     if is_operator(self, jid_bare):
-                        info = message_text[5:].split(' ')
+                        info = message_text[7:].split(' ')
                         if len(info) > 1:
                             jid = info[0]
                             if '/' not in jid:
@@ -810,7 +847,7 @@ class Chat:
                             else:
                                 response = ('No action has been taken.'
                                             '\n'
-                                            'JID Must not include "/".')
+                                            'JID may not include "/".')
                         else:
                             response = ('No action has been taken.'
                                         '\n'
@@ -823,6 +860,7 @@ class Chat:
                     XmppMessage.send_reply(self, message, response)
                 case _ if (message_lowercase.startswith('http') or
                            message_lowercase.startswith('feed:/') or
+                           message_lowercase.startswith('itpc:/') or
                            message_lowercase.startswith('rss:/')):
                     url = message_text
                     # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
@@ -1029,9 +1067,9 @@ class Chat:
                                                    db_file, key, val)
                     response = 'Only new items of newly added feeds be delivered.'
                     XmppMessage.send_reply(self, message, response)
-                case _ if message_lowercase.startswith('pubsub delete '):
+                case _ if message_lowercase.startswith('node delete '):
                     if is_operator(self, jid_bare):
-                        info = message_text[14:]
+                        info = message_text[12:]
                         info = info.split(' ')
                         if len(info) > 2:
                             jid = info[0]
@@ -1051,20 +1089,9 @@ class Chat:
                         response = ('This action is restricted. '
                                     'Type: sending news to PubSub.')
                     XmppMessage.send_reply(self, message, response)
-                case _ if message_lowercase.startswith('pubsub list '):
-                    jid = message_text[12:]
-                    from slixfeed.xmpp.publish import XmppPubsub
-                    iq = await XmppPubsub.get_nodes(self, jid)
-                    response = 'List of nodes for {}:\n```\n'.format(jid)
-                    for item in iq['disco_items']:
-                        item_id = item['node']
-                        item_name = item['name']
-                        response += 'Name: {}\nNode: {}\n\n'.format(item_name, item_id)
-                    response += '```'
-                    XmppMessage.send_reply(self, message, response)
-                case _ if message_lowercase.startswith('pubsub purge '):
+                case _ if message_lowercase.startswith('node purge '):
                     if is_operator(self, jid_bare):
-                        info = message_text[13:]
+                        info = message_text[11:]
                         info = info.split(' ')
                         if len(info) > 1:
                             jid = info[0]
@@ -1080,29 +1107,6 @@ class Chat:
                                         '\n'
                                         'Missing argument. '
                                         'Enter JID and Node name.')
-                    else:
-                        response = ('This action is restricted. '
-                                    'Type: sending news to PubSub.')
-                    XmppMessage.send_reply(self, message, response)
-                case _ if message_lowercase.startswith('pubsub flash '):
-                    if is_operator(self, jid_bare):
-                        info = message_text[13:]
-                        info = info.split(' ')
-                        jid = info[0]
-                        num = int(info[1])
-                        if jid:
-                            if num:
-                                report = await action.xmpp_pubsub_send_unread_items(
-                                    self, jid, num)
-                            else:
-                                report = await action.xmpp_pubsub_send_unread_items(
-                                    self, jid)
-                            response = ''
-                            for url in report:
-                                if report[url]:
-                                    response += url + ' : ' + str(report[url]) + '\n'
-                        else:
-                            response = 'PubSub JID is missing. Enter PubSub JID.'
                     else:
                         response = ('This action is restricted. '
                                     'Type: sending news to PubSub.')

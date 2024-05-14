@@ -17,7 +17,7 @@ class Logger:
 
     def __init__(self, name):
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.WARNING)
+        self.logger.setLevel(logging.WARNING) # DEBUG
 
         ch = logging.StreamHandler()
         ch.setLevel(logging.WARNING)

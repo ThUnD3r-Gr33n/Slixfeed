@@ -59,7 +59,8 @@ from slixfeed.xmpp.publish import XmppPubsub
 from slixfeed.xmpp.roster import XmppRoster
 # import slixfeed.xmpp.service as service
 from slixfeed.xmpp.presence import XmppPresence
-from slixfeed.xmpp.utility import get_chat_type, is_operator
+from slixfeed.xmpp.privilege import is_operator, is_access
+from slixfeed.xmpp.utility import get_chat_type
 import sys
 import time
 
@@ -87,7 +88,8 @@ from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.roster import XmppRoster
 from slixfeed.xmpp.upload import XmppUpload
-from slixfeed.xmpp.utility import get_chat_type, is_moderator
+from slixfeed.xmpp.privilege import is_moderator, is_operator, is_access
+from slixfeed.xmpp.utility import get_chat_type
 
 main_task = []
 jid_tasker = {}
@@ -305,6 +307,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         await self['xep_0115'].update_caps()
         # self.send_presence()
         await self.get_roster()
+        # XmppCommand.adhoc_commands(self)
+        # self.service_reactions()
+        task.task_ping(self)
         results = await XmppPubsub.get_pubsub_services(self)
         for result in results + [{'jid' : self.boundjid.bare,
                                    'name' : self.alias}]:
@@ -313,13 +318,10 @@ class Slixfeed(slixmpp.ClientXMPP):
                 db_file = config.get_pathname_to_database(jid_bare)
                 Config.add_settings_jid(self.settings, jid_bare, db_file)
             await task.start_tasks_xmpp_pubsub(self, jid_bare)
-        # XmppCommand.adhoc_commands(self)
-        # self.service_reactions()
         bookmarks = await XmppBookmark.get_bookmarks(self)
         print('iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
         await action.xmpp_muc_autojoin(self, bookmarks)
         print('ooooooooooooooooooooooooooooooooo')
-        task.task_ping(self)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -818,19 +820,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
-        access = None
-        print('PERMISSION JID       : ' + jid_full)
-        print('PERMISSION CHAT      : ' + chat_type)
-        operator = is_operator(self, jid_bare)
-        if operator:
-            if chat_type == 'groupchat':
-                if is_moderator(self, jid_bare, jid_full):
-                    access = True
-                    print('PERMISSION MOD')
-            else:
-                access = True
-                print('PERMISSION OP')
-        if access:
+        if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'PubSub')
             form['instructions'] = 'Publish news items to PubSub nodes.'
             options = form.add_field(desc='From which medium source do you '
@@ -844,17 +834,20 @@ class Slixfeed(slixmpp.ClientXMPP):
             form.add_field(ftype='fixed',
                            label='* Attention',
                            desc='Results are viewed best with Movim and '
-                           'Libervia.')
+                                'Libervia.')
             session['allow_prev'] = False
             session['has_next'] = True
             session['next'] = self._handle_publish_action
             session['prev'] = None
             session['payload'] = form
         else:
-            if not operator:
+            if not is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
+                             .format(jid_bare))
+            elif chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
                              .format(jid_bare))
             else:
                 text_warn = 'This resource is forbidden.'
@@ -867,7 +860,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        if is_operator(self, jid_bare):
+        chat_type = await get_chat_type(self, jid_bare)
+        if is_access(self, jid_bare, jid_full, chat_type):
             values = payload['values']
             form = self['xep_0004'].make_form('form', 'Publish')
             form['instructions'] = ('Choose a PubSub Jabber ID and verify '
@@ -955,7 +949,16 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['has_next'] = True
             session['prev'] = self._handle_publish
         else:
-            text_warn = 'This resource is restricted to operators.'
+            if not is_operator(self, jid_bare):
+                text_warn = 'This resource is restricted to operators.'
+            elif chat_type == 'groupchat':
+                text_warn = ('This resource is restricted to moderators of {}.'
+                             .format(jid_bare))
+            elif chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            else:
+                text_warn = 'This resource is forbidden.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -970,21 +973,23 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = values['jid'] if 'jid' in values else None
         jid_bare = session['from'].bare
         if jid != jid_bare and not is_operator(self, jid_bare):
-                text_warn = ('Posting to {} is restricted to operators only.'
-                             .format(jid_bare)) # Should not this be self.boundjid.bare?
-                session['allow_prev'] = False
-                session['has_next'] = False
-                session['next'] = None
-                session['notes'] = [['warn', text_warn]]
-                session['prev'] = None
-                session['payload'] = None
-                return session
+            text_warn = ('Posting to {} is restricted to operators only.'
+                         .format(jid_bare)) # Should not this be self.boundjid.bare?
+            session['allow_prev'] = False
+            session['has_next'] = False
+            session['next'] = None
+            session['notes'] = [['warn', text_warn]]
+            session['prev'] = None
+            session['payload'] = None
+            return session
         jid_file = values['jid_file']
         node = values['node']
         # xep = values['xep']
         if not node:
             if jid == self.boundjid.bare:
                 node = 'urn:xmpp:microblog:0'
+            else:
+                node = 'slixfeed'
         form = self['xep_0004'].make_form('form', 'Publish')
 
         form.add_field(var='node',
@@ -1039,14 +1044,15 @@ class Slixfeed(slixmpp.ClientXMPP):
         #if jid: jid = jid[0] if isinstance(jid, list) else jid
         jid_bare = session['from'].bare
         if jid != jid_bare and not is_operator(self, jid_bare):
-                text_warn = 'You are not suppose to be here.'
-                session['allow_prev'] = False
-                session['has_next'] = False
-                session['next'] = None
-                session['notes'] = [['warn', text_warn]]
-                session['prev'] = None
-                session['payload'] = None
-                return session
+            # TODO Report incident
+            text_warn = 'You are not suppose to be here.'
+            session['allow_prev'] = False
+            session['has_next'] = False
+            session['next'] = None
+            session['notes'] = [['warn', text_warn]]
+            session['prev'] = None
+            session['payload'] = None
+            return session
         # xep = values['xep'][0]
         # xep = None
         
@@ -1073,15 +1079,17 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid = values['jid'] if 'jid' in values else None
         jid_bare = session['from'].bare
         if jid != jid_bare and not is_operator(self, jid_bare):
-                text_warn = ('Posting to {} is restricted to operators only.'
-                             .format(jid_bare)) # Should not this be self.boundjid.bare?
-                session['allow_prev'] = False
-                session['has_next'] = False
-                session['next'] = None
-                session['notes'] = [['warn', text_warn]]
-                session['prev'] = None
-                session['payload'] = None
-                return session
+            # TODO Report incident
+            text_warn = 'You are not suppose to be here.'
+            # text_warn = ('Posting to {} is restricted to operators only.'
+            #              .format(jid_bare)) # Should not this be self.boundjid.bare?
+            session['allow_prev'] = False
+            session['has_next'] = False
+            session['next'] = None
+            session['notes'] = [['warn', text_warn]]
+            session['prev'] = None
+            session['payload'] = None
+            return session
         node = values['node']
         url = values['url']
         # xep = values['xep']
@@ -1197,14 +1205,15 @@ class Slixfeed(slixmpp.ClientXMPP):
         #if jid: jid = jid[0] if isinstance(jid, list) else jid
         jid_bare = session['from'].bare
         if jid != jid_bare and not is_operator(self, jid_bare):
-                text_warn = 'You are not suppose to be here.'
-                session['allow_prev'] = False
-                session['has_next'] = False
-                session['next'] = None
-                session['notes'] = [['warn', text_warn]]
-                session['prev'] = None
-                session['payload'] = None
-                return session
+            # TODO Report incident
+            text_warn = 'You are not suppose to be here.'
+            session['allow_prev'] = False
+            session['has_next'] = False
+            session['next'] = None
+            session['notes'] = [['warn', text_warn]]
+            session['prev'] = None
+            session['payload'] = None
+            return session
         url = values['url'][0]
         # xep = values['xep'][0]
         xep = None
@@ -1364,10 +1373,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
-        moderator = None
-        if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid_bare, jid_full)
-        if chat_type == 'chat' or moderator:
+        if is_access(self, jid_bare, jid_full, chat_type):
             jid = session['from'].bare
             jid_file = jid
             db_file = config.get_pathname_to_database(jid_file)
@@ -1407,8 +1413,16 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['next'] = self._handle_filters_complete
             session['payload'] = form
         else:
-            text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid))
+            if not is_operator(self, jid_bare):
+                text_warn = 'This resource is restricted to operators.'
+            elif chat_type == 'groupchat':
+                text_warn = ('This resource is restricted to moderators of {}.'
+                             .format(jid_bare))
+            elif chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            else:
+                text_warn = 'This resource is forbidden.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -1470,10 +1484,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
-        moderator = None
-        if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid_bare, jid_full)
-        if chat_type == 'chat' or moderator:
+        if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscribe')
             # form['instructions'] = 'Add a new custom subscription.'
             form.add_field(desc='Enter a URL.',
@@ -1515,8 +1526,16 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['prev'] = None
             session['payload'] = form
         else:
-            text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid_bare))
+            if not is_operator(self, jid_bare):
+                text_warn = 'This resource is restricted to operators.'
+            elif chat_type == 'groupchat':
+                text_warn = ('This resource is restricted to moderators of {}.'
+                             .format(jid_bare))
+            elif chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            else:
+                text_warn = 'This resource is forbidden.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -2047,11 +2066,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
-        moderator = None
-        if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid_bare, jid_full)
-        # moderator = moderator if moderator else None
-        if chat_type == 'chat' or moderator:
+        if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Discover & Search')
             form['instructions'] = 'Discover news subscriptions of all kinds'
             options = form.add_field(desc='Select type of search.',
@@ -2068,8 +2083,16 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['payload'] = form
             session['prev'] = None
         else:
-            text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid_bare))
+            if not is_operator(self, jid_bare):
+                text_warn = 'This resource is restricted to operators.'
+            elif chat_type == 'groupchat':
+                text_warn = ('This resource is restricted to moderators of {}.'
+                             .format(jid_bare))
+            elif chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            else:
+                text_warn = 'This resource is forbidden.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -2167,10 +2190,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
-        moderator = None
-        if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid_bare, jid_full)
-        if chat_type == 'chat' or moderator:
+        if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscriptions')
             form['instructions'] = ('Browse, view, toggle or remove '
                                     'tags and subscriptions.')
@@ -2214,8 +2234,16 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['next'] = self._handle_subscriptions_result
             session['has_next'] = True
         else:
-            text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid_bare))
+            if not is_operator(self, jid_bare):
+                text_warn = 'This resource is restricted to operators.'
+            elif chat_type == 'groupchat':
+                text_warn = ('This resource is restricted to moderators of {}.'
+                             .format(jid_bare))
+            elif chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            else:
+                text_warn = 'This resource is forbidden.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -2534,10 +2562,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
-        moderator = None
-        if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid_bare, jid_full)
-        if chat_type == 'chat' or moderator:
+        if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Advanced')
             form['instructions'] = 'Extended options'
             options = form.add_field(ftype='list-single',
@@ -2558,8 +2583,16 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['next'] = self._handle_advanced_result
             session['prev'] = self._handle_advanced
         else:
-            text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid_bare))
+            if not is_operator(self, jid_bare):
+                text_warn = 'This resource is restricted to operators.'
+            elif chat_type == 'groupchat':
+                text_warn = ('This resource is restricted to moderators of {}.'
+                             .format(jid_bare))
+            elif chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            else:
+                text_warn = 'This resource is forbidden.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -2942,10 +2975,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         jid_full = str(session['from'])
         chat_type = await get_chat_type(self, jid_bare)
-        moderator = None
-        if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid_bare, jid_full)
-        if chat_type == 'chat' or moderator:
+        if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscribe')
             # NOTE Refresh button would be of use
             form['instructions'] = 'Featured subscriptions'
@@ -2996,8 +3026,16 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['payload'] = form
             session['prev'] = self._handle_promoted
         else:
-            text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid_bare))
+            if not is_operator(self, jid_bare):
+                text_warn = 'This resource is restricted to operators.'
+            elif chat_type == 'groupchat':
+                text_warn = ('This resource is restricted to moderators of {}.'
+                             .format(jid_bare))
+            elif chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            else:
+                text_warn = 'This resource is forbidden.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -3640,10 +3678,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
-        moderator = None
-        if chat_type == 'groupchat':
-            moderator = is_moderator(self, jid_bare, jid_full)
-        if chat_type == 'chat' or moderator:
+        if is_access(self, jid_bare, jid_full, chat_type):
             jid_file = jid_bare
             db_file = config.get_pathname_to_database(jid_file)
             if jid_bare not in self.settings:
@@ -3742,8 +3777,16 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['next'] = self._handle_settings_complete
             session['payload'] = form
         else:
-            text_warn = ('This resource is restricted to moderators of {}.'
-                         .format(jid_bare))
+            if not is_operator(self, jid_bare):
+                text_warn = 'This resource is restricted to operators.'
+            elif chat_type == 'groupchat':
+                text_warn = ('This resource is restricted to moderators of {}.'
+                             .format(jid_bare))
+            elif chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            else:
+                text_warn = 'This resource is forbidden.'
             session['notes'] = [['warn', text_warn]]
         return session
 
