@@ -107,7 +107,7 @@ Please join our support groupchats whether you want help, discuss new features o
 
 ## Thanks
 
-- Mr. Guus der Kinderen from [Ignite Realtime](https://igniterealtime.org/) who has provided [Openfire](https://igniterealtime.org/projects/openfire/) servers at [GoodBytes](http://goodbytes.im/)
+- Mr. Guus der Kinderen from [Ignite Realtime](https://igniterealtime.org/) who has provided [Openfire](https://igniterealtime.org/projects/openfire/) servers at [GoodBytes](http://goodbytes.nl/)
 - Mr. [Simone "roughnecks" Canaletti](https://woodpeckersnest.space/) who has provided a [Movim](https://join.movim.eu/) instance.
 
 ## Acknowledgment
