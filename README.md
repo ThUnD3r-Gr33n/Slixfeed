@@ -101,6 +101,15 @@ Please join our support groupchats whether you want help, discuss new features o
 - [Schimon](xmpp:sch@pimux.de?message) (Author).
 - [Laura](xmpp:lauranna@404.city?message) (Co-Author, Instructor and Mentor).
 
+## Contributors
+
+- Mr. [Stephen Paul Weber](https://singpolyma.net/) from [Sopranica](https://soprani.ca/) who have provided code for Data Forms to be used as visual interface for Ad-Hoc Commands, and who have taught me about Data Forms.
+
+## Thanks
+
+- Mr. Guus der Kinderen from [Ignite Realtime](https://igniterealtime.org/) who have provided [Openfire](https://igniterealtime.org/projects/openfire/) servers at [GoodBytes](http://goodbytes.im/)
+- Mr. [Simone "roughnecks" Canaletti](https://woodpeckersnest.space/) who have provided a [Movim](https://join.movim.eu/) instance.
+
 ## Acknowledgment
 
 Special thank you to Mrs. Lapina who instructed me during months to complete this, in addition to significant code fixes.
