@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "Slixfeed"
 version = "1.0"
-description = "RSS news bot for XMPP"
+description = "News aggregating bot for XMPP"
 authors = [{name = "Schimon Zachary", email = "sch@fedora.email"}]
 license = {text = "MIT"}
 classifiers = [
@@ -48,14 +48,7 @@ dependencies = [
     "tomli", # Python 3.10
     "tomli_w",
     "slixmpp",
-
-    # Optional dependencies
-    # listed here (testing)
-    "html2text",
-    "pdfkit",
     # "pysocks",
-    "readability-lxml",
-    "xml2epub",
 ]
 
 [project.urls]
@@ -65,9 +58,7 @@ Issues = "https://gitgud.io/sjehuda/slixfeed/issues"
 
 
 [project.optional-dependencies]
-file-export = ["html2text", "pdfkit", "xml2epub"]
 proxy = ["pysocks"]
-readability = ["readability-lxml"]
 
 # This section returns pep508-identifier error
 # [project.optional-dependencies]
