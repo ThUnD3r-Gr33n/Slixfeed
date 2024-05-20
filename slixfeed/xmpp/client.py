@@ -1650,6 +1650,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         return session
 
 
+    # FIXME
     async def _handle_recent_select(self, payload, session):
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
@@ -1721,60 +1722,6 @@ class Slixfeed(slixmpp.ClientXMPP):
         session['next'] = self._handle_recent_action
         session['payload'] = form
         session['prev'] = self._handle_recent
-        return session
-
-
-    async def _handle_recent_action(self, payload, session):
-        jid_full = str(session['from'])
-        function_name = sys._getframe().f_code.co_name
-        logger.debug('{}: jid_full: {}'
-                    .format(function_name, jid_full))
-        ext = payload['values']['filetype']
-        url = payload['values']['url'][0]
-        jid_bare = session['from'].bare
-        cache_dir = config.get_default_cache_directory()
-        if not os.path.isdir(cache_dir):
-            os.mkdir(cache_dir)
-        if not os.path.isdir(cache_dir + '/readability'):
-            os.mkdir(cache_dir + '/readability')
-        url = uri.remove_tracking_parameters(url)
-        url = (await uri.replace_hostname(url, 'link')) or url
-        result = await fetch.http(url)
-        if not result['error']:
-            data = result['content']
-            code = result['status_code']
-            title = action.get_document_title(data)
-            title = title.strip().lower()
-            for i in (' ', '-'):
-                title = title.replace(i, '_')
-            for i in ('?', '"', '\'', '!'):
-                title = title.replace(i, '')
-            filename = os.path.join(
-                cache_dir, 'readability',
-                title + '_' + dt.timestamp() + '.' + ext)
-            error = action.generate_document(data, url, ext, filename,
-                                             readability=True)
-            if error:
-                text_error = ('Failed to export {} fot {}'
-                              '\n\n'
-                              'Reason: {}'.format(ext.upper(), url, error))
-                session['notes'] = [['error', text_error]]
-            else:
-                url = await XmppUpload.start(self, jid_bare, filename)
-                chat_type = await get_chat_type(self, jid_bare)
-                XmppMessage.send_oob(self, jid_bare, url, chat_type)
-                form = self['xep_0004'].make_form('result', 'Download')
-                form['instructions'] = ('Download {} document.'
-                                        .format(ext.upper()))
-                field_url = form.add_field(var='url',
-                                           label='Link',
-                                           ftype='text-single',
-                                           value=url)
-                field_url['validate']['datatype'] = 'xs:anyURI'
-                session['payload'] = form
-        session['allow_complete'] = True
-        session['next'] = None
-        session['prev'] = None
         return session
 
 

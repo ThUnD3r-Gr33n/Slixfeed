@@ -70,30 +70,6 @@ except:
 
 logger = Logger(__name__)
 
-try:
-    import xml2epub
-except ImportError:
-    logger.error('Package xml2epub was not found.\n'
-                 'ePUB support is disabled.')
-
-try:
-    import html2text
-except ImportError:
-    logger.error('Package html2text was not found.\n'
-                 'Markdown support is disabled.')
-
-try:
-    import pdfkit
-except ImportError:
-    logger.error('Package pdfkit was not found.\n'
-                 'PDF support is disabled.')
-
-try:
-    from readability import Document
-except ImportError:
-    logger.error('Package readability was not found.\n'
-                 'Arc90 Lab algorithm is disabled.')
-
 
 def export_feeds(self, jid, jid_file, ext):
     function_name = sys._getframe().f_code.co_name
@@ -129,6 +105,7 @@ async def xmpp_muc_autojoin(self, bookmarks):
             alias = bookmark["nick"]
             muc_jid = bookmark["jid"]
             result = await XmppGroupchat.join(self, muc_jid, alias)
+            print(result)
             if result == 'ban':
                 await XmppBookmark.remove(self, muc_jid)
                 logger.warning('{} is banned from {}'.format(self.alias, muc_jid))
@@ -329,7 +306,9 @@ async def xmpp_pubsub_send_unread_items(self, jid_bare):
             feed_entry = pack_entry_into_dict(db_file, entry)
             node_entry = create_rfc4287_entry(feed_entry)
             entry_url = feed_entry['link']
+            print(entry_url)
             item_id = hash_url_to_md5(entry_url)
+            print(item_id)
             iq_create_entry = XmppPubsub.create_entry(
                 self, jid_bare, node_id, item_id, node_entry)
             await XmppIQ.send(self, iq_create_entry)
@@ -637,7 +616,7 @@ def manual(filename, section=None, command=None):
         try:
             cmd_list = cmds[section][command]
         except KeyError as e:
-            logger.error(str(e))
+            logger.error(e)
             cmd_list = None
     elif section:
         try:
@@ -1837,99 +1816,6 @@ def get_properties_of_entries(jid_bare, db_file, feed_url, feed_id, feed):
     return new_entries
 
 
-def get_document_title(data):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}'.format(function_name))
-    try:
-        document = Document(data)
-        title = document.short_title()
-    except:
-        document = BeautifulSoup(data, 'html.parser')
-        title = document.title.string
-    return title
-
-
-def get_document_content(data):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}'.format(function_name))
-    try:
-        document = Document(data)
-        content = document.summary()
-    except:
-        document = BeautifulSoup(data, 'html.parser')
-        content = data
-    return content
-
-
-def get_document_content_as_text(data):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}'.format(function_name))
-    try:
-        document = Document(data)
-        content = document.summary()
-    except:
-        document = BeautifulSoup(data, 'html.parser')
-        content = data
-    text = remove_html_tags(content)
-    return text
-
-
-def generate_document(data, url, ext, filename, readability=False):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: url: {} ext: {} filename: {}'
-                .format(function_name, url, ext, filename))
-    error = None
-    if readability:
-        try:
-            document = Document(data)
-            content = document.summary()
-        except:
-            content = data
-            logger.warning('Check that package readability is installed.')
-    else:
-        content = data
-    match ext:
-        case "epub":
-            filename = filename.split('.')
-            filename.pop()
-            filename = '.'.join(filename)
-            error = generate_epub(content, filename)
-            if error:
-                logger.error(error)
-                # logger.error(
-                #     "Check that packages xml2epub is installed, "
-                #     "or try again.")
-        case "html":
-            generate_html(content, filename)
-        case "md":
-            try:
-                generate_markdown(content, filename)
-            except:
-                logger.warning('Check that package html2text '
-                                'is installed, or try again.')
-                error = 'Package html2text was not found.'
-        case "pdf":
-            error = generate_pdf(content, filename)
-            if error:
-                logger.error(error)
-                # logger.warning(
-                #     "Check that packages pdfkit and wkhtmltopdf "
-                #     "are installed, or try again.")
-                # error = (
-                #     "Package pdfkit or wkhtmltopdf was not found.")
-        case "txt":
-            generate_txt(content, filename)
-    if error:
-        return error
-
-    # TODO Either adapt it to filename
-    # or change it to something else
-    #filename = document.title()
-    # with open(filename, 'w') as file:
-    #     html_doc = document.summary()
-    #     file.write(html_doc)
-
-
 async def extract_image_from_feed(db_file, feed_id, url):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} feed_id: {} url: {}'
@@ -1959,13 +1845,7 @@ async def extract_image_from_html(url):
     result = await fetch.http(url)
     if not result['error']:
         data = result['content']
-        try:
-            document = Document(data)
-            content = document.summary()
-        except:
-            content = data
-            logger.warning('Check that package readability is installed.')
-        tree = html.fromstring(content)
+        tree = html.fromstring(data)
         # TODO Exclude banners, class="share" links etc.
         images = tree.xpath(
             '//img[not('
@@ -1983,68 +1863,6 @@ async def extract_image_from_html(url):
             image = str(image)
             image_url = complete_url(url, image)
             return image_url
-
-
-def generate_epub(text, filename):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: text: {} pathname: {}'.format(function_name, text, filename))
-    ## create an empty eBook
-    filename_list = filename.split("/")
-    file_title = filename_list.pop()
-    directory = "/".join(filename_list)
-    book = xml2epub.Epub(file_title)
-    ## create chapters by url
-    # chapter0 = xml2epub.create_chapter_from_string(text, title=filename, strict=False)
-    chapter0 = xml2epub.create_chapter_from_string(text, strict=False)
-    #### create chapter objects
-    # chapter1 = xml2epub.create_chapter_from_url("https://dev.to/devteam/top-7-featured-dev-posts-from-the-past-week-h6h")
-    # chapter2 = xml2epub.create_chapter_from_url("https://dev.to/ks1912/getting-started-with-docker-34g6")
-    ## add chapters to your eBook
-    try:
-        book.add_chapter(chapter0)
-        # book.add_chapter(chapter1)
-        # book.add_chapter(chapter2)
-        ## generate epub file
-        book.create_epub(directory, absolute_location=filename)
-    except ValueError as error:
-        return error
-        
-
-
-def generate_html(text, filename):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: text: {} filename: {}'.format(function_name, text, filename))
-    with open(filename, 'w') as file:
-        file.write(text)
-
-
-def generate_markdown(text, filename):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: text: {} filename: {}'.format(function_name, text, filename))
-    h2m = html2text.HTML2Text()
-    # Convert HTML to Markdown
-    markdown = h2m.handle(text)
-    with open(filename, 'w') as file:
-        file.write(markdown)
-
-
-def generate_pdf(text, filename):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: text: {} filename: {}'.format(function_name, text, filename))
-    try:
-        pdfkit.from_string(text, filename)
-    except IOError as error:
-        return error
-    except OSError as error:
-        return error
-
-
-def generate_txt(text, filename):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: text: {} filename: {}'.format(function_name, text, filename))
-    text = remove_html_tags(text)
-    with open(filename, 'w') as file:
-        file.write(text)
 
 
 # This works too

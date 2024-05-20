@@ -61,18 +61,6 @@ old
 Send all items of newly added feeds.
 """
 
-[document]
-content = """
-content <id>/<url> <type>
-Send a readability (arc90) version of an article as file. Specify <id> or <url> and <type>.
-Supported types are ePUB, HTML, MD and PDF (default).
-"""
-page = """
-page <id>/<url> <type>
-Send an article as file. Specify <id> or <url> and <type>.
-Supported types are ePUB, HTML, MD and PDF (default).
-"""
-
 [filters]
 allow = """
 allow [+|-] <keyword>

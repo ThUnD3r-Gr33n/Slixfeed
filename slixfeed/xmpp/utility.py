@@ -46,8 +46,8 @@ async def get_chat_type(self, jid):
         logging.info('Jabber ID: {}\n'
                      'Chat Type: {}'.format(jid, result))
     except (IqError, IqTimeout) as e:
-        logging.error(str(e))
-        logging.error(jid)
+        logging.warning('Chat type could not be determined for {}'.format(jid))
+        logging.error(e)
         result = 'error'
     # except BaseException as e:
     #     logging.error('BaseException', str(e))

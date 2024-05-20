@@ -107,7 +107,8 @@ def http_response(url):
         # response = requests.head(url, headers=headers, allow_redirects=True)
         response = requests.get(url, headers=headers, allow_redirects=True)
     except Exception as e:
-        logging.error(str(e))
+        logging.warning('Error in HTTP response')
+        logging.error(e)
         response = None
     return response
 

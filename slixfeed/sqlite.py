@@ -66,7 +66,8 @@ def create_connection(db_file):
         conn.execute("PRAGMA foreign_keys = ON")
         # return conn
     except Error as e:
-        print(e)
+        logger.warning('Error creating a connection to database {}.'.format(db_file))
+        logger.error(e)
     time_end = time.time()
     difference = time_end - time_begin
     if difference > 1: logger.warning('{} (time: {})'.format(function_name,

@@ -44,7 +44,8 @@ class XmppPubsub:
 
     async def get_node_configuration(self, jid, node_id):
         node = await self.plugin['xep_0060'].get_node_config(jid, node_id)
-        print(node)
+        if not node:
+            print('NODE CONFIG', node_id, str(node))
         return node
 
 

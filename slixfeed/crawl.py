@@ -131,7 +131,7 @@ async def probe_page(url, document=None):
         tree = html.fromstring(document)
         result = None
     except:
-        logging.debug("Failed to parse URL as feed for {}.".format(url))
+        logging.warning("Failed to parse URL as feed for {}.".format(url))
         result = {'link' : None,
                   'index' : None,
                   'name' : None,
