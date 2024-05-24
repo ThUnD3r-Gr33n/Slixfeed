@@ -74,6 +74,8 @@ class XmppGroupchat:
                 e.presence['error']['code'] == '403'):
                 logging.warning('{} is banned from {}'.format(self.alias, jid))
                 result = 'ban'
+            else:
+                result = 'error'
         return result
 
 

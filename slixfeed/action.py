@@ -306,8 +306,9 @@ async def xmpp_pubsub_send_unread_items(self, jid_bare):
             feed_entry = pack_entry_into_dict(db_file, entry)
             node_entry = create_rfc4287_entry(feed_entry)
             entry_url = feed_entry['link']
-            print(entry_url)
             item_id = hash_url_to_md5(entry_url)
+            print('PubSub node item was sent to', jid_bare, node_id)
+            print(entry_url)
             print(item_id)
             iq_create_entry = XmppPubsub.create_entry(
                 self, jid_bare, node_id, item_id, node_entry)
@@ -785,6 +786,7 @@ async def list_unread_entries(self, result, feed_title, jid):
         title = BeautifulSoup(title, "lxml").text
         summary = BeautifulSoup(summary, "lxml").text
     except:
+        print('Found issue at action.py')
         print(result[3])
         breakpoint()
     # TODO Limit text length
