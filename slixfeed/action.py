@@ -202,7 +202,6 @@ async def xmpp_send_status_message(self, jid):
 async def xmpp_pubsub_send_selected_entry(self, jid_bare, jid_file, node_id, entry_id):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: jid_bare: {} jid_file: {}'.format(function_name, jid_bare, jid_file))
-    # jid_file = jid_bare.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
     report = {}
     if jid_bare == self.boundjid.bare:
@@ -251,7 +250,6 @@ async def xmpp_pubsub_send_unread_items(self, jid_bare):
     """
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: jid_bare: {}'.format(function_name, jid_bare))
-    jid_file = jid_bare.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
     report = {}
     subscriptions = sqlite.get_active_feeds_url(db_file)

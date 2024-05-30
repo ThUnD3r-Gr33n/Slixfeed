@@ -165,7 +165,6 @@ async def start_tasks_xmpp_pubsub(self, jid_bare, tasks=None):
 
 
 async def task_publish(self, jid_bare):
-    jid_file = jid_bare.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
     if jid_bare not in self.settings:
         Config.add_settings_jid(self.settings, jid_bare, db_file)
@@ -233,7 +232,6 @@ async def task_status_message(self, jid):
 
 
 async def task_message(self, jid_bare):
-    jid_file = jid_bare.replace('/', '_')
     db_file = config.get_pathname_to_database(jid_file)
     if jid_bare not in self.settings:
         Config.add_settings_jid(self.settings, jid_bare, db_file)
@@ -293,7 +291,6 @@ def refresh_task(self, jid_bare, callback, key, val=None):
     """
     logging.info('Refreshing task {} for JID {}'.format(callback, jid_bare))
     if not val:
-        jid_file = jid_bare.replace('/', '_')
         db_file = config.get_pathname_to_database(jid_file)
         if jid_bare not in self.settings:
             Config.add_settings_jid(self.settings, jid_bare, db_file)
@@ -345,7 +342,6 @@ async def check_updates(self, jid_bare):
     # print('Scanning for updates for JID {}'.format(jid_bare))
     logging.info('Scanning for updates for JID {}'.format(jid_bare))
     while True:
-        jid_file = jid_bare.replace('/', '_')
         db_file = config.get_pathname_to_database(jid_file)
         urls = sqlite.get_active_feeds_url(db_file)
         for url in urls:
