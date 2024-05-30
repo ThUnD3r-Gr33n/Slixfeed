@@ -194,8 +194,8 @@ class Chat:
                 # jid_bare = message['from'].bare
                 jid_full = str(message['from'])
                 if (jid_bare == jid_full[:jid_full.index('/')]):
-                    jid = str(message['from'])
-                    jid_file = jid_full.replace('/', '_')
+                    # TODO Count and alert of MUC-PM attempts
+                    return
     
             response = None
             match message_lowercase:

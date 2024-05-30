@@ -204,6 +204,12 @@ tags = ["technology", "activitypub", "fediverse", "syndication"]
 
 [[feeds]]
 lang = "en"
+name = "her.st - Do you see it yet?"
+link = "https://her.st/feed.xml"
+tags = ["lifestyle", "technology", "xmpp", "computer", "code", "llm", "syndication", "minimalism", "linux", "self-hosting", ".net", "go", "python", "philosophy", "psychology", "privacy", "security"]
+
+[[feeds]]
+lang = "en"
 name = "Lagrange Gemini Client"
 link = "https://skyjake.fi/@lagrange.rss"
 tags = ["gemini", "gopher", "browser", "telecommunication", "internet"]
