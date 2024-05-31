@@ -149,6 +149,47 @@ class Slixfeed(slixmpp.ClientXMPP):
         self.max_connection_attempts = 10
         self.reconnect_timeout = config.get_values('accounts.toml', 'xmpp')['settings']['reconnect_timeout']
 
+        self.register_plugin('xep_0004') # Data Forms
+        self.register_plugin('xep_0030') # Service Discovery
+        self.register_plugin('xep_0045') # Multi-User Chat
+        self.register_plugin('xep_0048') # Bookmarks
+        self.register_plugin('xep_0050') # Ad-Hoc Commands
+        self.register_plugin('xep_0054') # vcard-temp
+        self.register_plugin('xep_0060') # Publish-Subscribe
+        # self.register_plugin('xep_0065') # SOCKS5 Bytestreams
+        self.register_plugin('xep_0066') # Out of Band Data
+        self.register_plugin('xep_0071') # XHTML-IM
+        self.register_plugin('xep_0084') # User Avatar
+        self.register_plugin('xep_0085') # Chat State Notifications
+        self.register_plugin('xep_0115') # Entity Capabilities
+        self.register_plugin('xep_0122') # Data Forms Validation
+        self.register_plugin('xep_0153') # vCard-Based Avatars
+        self.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
+        self.register_plugin('xep_0203') # Delayed Delivery
+        self.register_plugin('xep_0249') # Direct MUC Invitations
+        self.register_plugin('xep_0363') # HTTP File Upload
+        self.register_plugin('xep_0402') # PEP Native Bookmarks
+        self.register_plugin('xep_0444') # Message Reactions
+
+        # proxy_enabled = config.get_value('accounts', 'XMPP', 'proxy_enabled')
+        # if proxy_enabled == '1':
+        #     values = config.get_value('accounts', 'XMPP', [
+        #         'proxy_host',
+        #         'proxy_port',
+        #         'proxy_username',
+        #         'proxy_password'
+        #         ])
+        #     print('Proxy is enabled: {}:{}'.format(values[0], values[1]))
+        #     self.use_proxy = True
+        #     self.proxy_config = {
+        #         'host': values[0],
+        #         'port': values[1],
+        #         'username': values[2],
+        #         'password': values[3]
+        #     }
+        #     proxy = {'socks5': (values[0], values[1])}
+        #     self.proxy = {'socks5': ('localhost', 9050)}
+
         self.add_event_handler("session_start",
                                self.on_session_start)
         self.add_event_handler("session_resumed",
@@ -207,6 +248,13 @@ class Slixfeed(slixmpp.ClientXMPP):
                                self.on_connection_failed)
         self.add_event_handler('session_end',
                                self.on_session_end)
+
+        # Connect to the XMPP server and start processing XMPP stanzas.
+        if hostname and port:
+            self.connect((hostname, port))
+        else:
+            self.connect()
+        self.process()
 
 
     # TODO Test

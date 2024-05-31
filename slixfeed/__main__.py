@@ -107,82 +107,11 @@ match account_mode:
 class JabberComponent:
     def __init__(self, jid, secret, hostname, port, alias=None):
         xmpp = SlixfeedComponent(jid, secret, hostname, port, alias)
-        xmpp.register_plugin('xep_0004') # Data Forms
-        xmpp.register_plugin('xep_0030') # Service Discovery
-        xmpp.register_plugin('xep_0045') # Multi-User Chat
-        # xmpp.register_plugin('xep_0048') # Bookmarks
-        xmpp.register_plugin('xep_0050') # Ad-Hoc Commands
-        xmpp.register_plugin('xep_0054') # vcard-temp
-        xmpp.register_plugin('xep_0060') # Publish-Subscribe
-        # xmpp.register_plugin('xep_0065') # SOCKS5 Bytestreams
-        xmpp.register_plugin('xep_0066') # Out of Band Data
-        xmpp.register_plugin('xep_0071') # XHTML-IM
-        xmpp.register_plugin('xep_0084') # User Avatar
-        xmpp.register_plugin('xep_0085') # Chat State Notifications
-        xmpp.register_plugin('xep_0115') # Entity Capabilities
-        xmpp.register_plugin('xep_0122') # Data Forms Validation
-        xmpp.register_plugin('xep_0153') # vCard-Based Avatars
-        xmpp.register_plugin('xep_0199') # XMPP Ping
-        xmpp.register_plugin('xep_0203') # Delayed Delivery
-        xmpp.register_plugin('xep_0249') # Direct MUC Invitations
-        xmpp.register_plugin('xep_0297') # Stanza Forwarding
-        xmpp.register_plugin('xep_0356') # Privileged Entity
-        xmpp.register_plugin('xep_0363') # HTTP File Upload
-        xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
-        xmpp.register_plugin('xep_0444') # Message Reactions
-        xmpp.connect()
-        xmpp.process()
 
 
 class JabberClient:
     def __init__(self, jid, password, hostname=None, port=None, alias=None):
         xmpp = Slixfeed(jid, password, hostname, port, alias)
-        xmpp.register_plugin('xep_0004') # Data Forms
-        xmpp.register_plugin('xep_0030') # Service Discovery
-        xmpp.register_plugin('xep_0045') # Multi-User Chat
-        xmpp.register_plugin('xep_0048') # Bookmarks
-        xmpp.register_plugin('xep_0050') # Ad-Hoc Commands
-        xmpp.register_plugin('xep_0054') # vcard-temp
-        xmpp.register_plugin('xep_0060') # Publish-Subscribe
-        # xmpp.register_plugin('xep_0065') # SOCKS5 Bytestreams
-        xmpp.register_plugin('xep_0066') # Out of Band Data
-        xmpp.register_plugin('xep_0071') # XHTML-IM
-        xmpp.register_plugin('xep_0084') # User Avatar
-        xmpp.register_plugin('xep_0085') # Chat State Notifications
-        xmpp.register_plugin('xep_0115') # Entity Capabilities
-        xmpp.register_plugin('xep_0122') # Data Forms Validation
-        xmpp.register_plugin('xep_0153') # vCard-Based Avatars
-        xmpp.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
-        xmpp.register_plugin('xep_0249') # Direct MUC Invitations
-        xmpp.register_plugin('xep_0363') # HTTP File Upload
-        xmpp.register_plugin('xep_0402') # PEP Native Bookmarks
-        xmpp.register_plugin('xep_0444') # Message Reactions
-
-        # proxy_enabled = config.get_value('accounts', 'XMPP', 'proxy_enabled')
-        # if proxy_enabled == '1':
-        #     values = config.get_value('accounts', 'XMPP', [
-        #         'proxy_host',
-        #         'proxy_port',
-        #         'proxy_username',
-        #         'proxy_password'
-        #         ])
-        #     print('Proxy is enabled: {}:{}'.format(values[0], values[1]))
-        #     xmpp.use_proxy = True
-        #     xmpp.proxy_config = {
-        #         'host': values[0],
-        #         'port': values[1],
-        #         'username': values[2],
-        #         'password': values[3]
-        #     }
-        #     proxy = {'socks5': (values[0], values[1])}
-        #     xmpp.proxy = {'socks5': ('localhost', 9050)}
-
-        # Connect to the XMPP server and start processing XMPP stanzas.
-        if hostname and port:
-            xmpp.connect((hostname, port))
-        else:
-            xmpp.connect()
-        xmpp.process()
 
 
 def main():
