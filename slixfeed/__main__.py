@@ -56,7 +56,6 @@ TODO
 # vars and their meanings:
 # jid = Jabber ID (XMPP)
 # res = response (HTTP)
-
 from argparse import ArgumentParser
 from getpass import getpass
 import sys
@@ -85,34 +84,9 @@ from slixfeed.version import __version__
 # import socks
 # import socket
 
-account = config.get_values('accounts.toml', 'xmpp')
+account_xmpp = config.get_values('accounts.toml', 'xmpp')
 
-if not 'mode' in account['settings']:
-    account_mode = 'client'
-    print('Key "mode" was not found.\nSetting value to "client".')
-    # raise Exception('Key type is missing from accounts.toml.')
-else:
-    account_mode = 'component'
-
-match account_mode:
-    case 'client':
-        from slixfeed.xmpp.client import Slixfeed
-        # from slixfeed.config import ConfigClient as ConfigAccount
-    case 'component':
-        from slixfeed.xmpp.component import SlixfeedComponent
-        # from slixfeed.config import ConfigComponent as ConfigAccount
-
-# account = ConfigAccount() # TODO Delete as soon as posible after is no longer needed
-
-class JabberComponent:
-    def __init__(self, jid, secret, hostname, port, alias=None):
-        xmpp = SlixfeedComponent(jid, secret, hostname, port, alias)
-
-
-class JabberClient:
-    def __init__(self, jid, password, hostname=None, port=None, alias=None):
-        xmpp = Slixfeed(jid, password, hostname, port, alias)
-
+# account = ConfigAccount() # TODO ~Delete~ Clear as soon as posible after is no longer needed
 
 def main():
 
@@ -133,13 +107,10 @@ def main():
     #     # socks.set_default_proxy(socks.SOCKS5, host, port)
     #     # socket.socket = socks.socksocket
 
-    # Setup the command line arguments.
-    match account_mode:
-        case 'client':
-            parser = ArgumentParser(description=Slixfeed.__doc__)
-        case 'component':
-            parser = ArgumentParser(description=SlixfeedComponent.__doc__)
+    #parser = ArgumentParser(description=Slixfeed.__doc__)
+    parser = ArgumentParser(description='Slixfeed News Bot')
 
+    # Setup the command line arguments.
     parser.add_argument('-v', '--version', help='Print version',
                         action='version', version=__version__)
 
@@ -175,38 +146,55 @@ def main():
     # lognfo = logger.info
     # logwrn = logger.warning
 
+    # NOTE Temporarily archived
+    # NOTE Consider removal of arguments jid, password and alias
+
+    # # Try configuration file
+    # jid = account[account_mode]['jid']
+    # password = account[account_mode]['password']
+    # alias = account[account_mode]['alias'] if 'alias' in account[account_mode] else None
+    # hostname = account[account_mode]['hostname'] if 'hostname' in account[account_mode] else None
+    # port = account[account_mode]['port'] if 'port' in account[account_mode] else None
+
+    # # Use arguments if were given
+    # if args.jid:
+    #     jid = args.jid
+    # if args.password:
+    #     password = args.password
+    # if args.alias:
+    #     alias = args.alias
+    # if args.hostname:
+    #     hostname = args.hostname
+    # if args.port:
+    #     port = args.port
+
+    # # Prompt for credentials if none were given
+    # if not jid:
+    #     jid = input('JID: ')
+    # if not password:
+    #     password = getpass('Password: ')
+    # if not alias:
+    #     alias = (input('Alias: ')) or 'Slixfeed'
+
     # Try configuration file
-    jid = account[account_mode]['jid']
-    password = account[account_mode]['password']
-    alias = account[account_mode]['alias'] if 'alias' in account[account_mode] else None
-    hostname = account[account_mode]['hostname'] if 'hostname' in account[account_mode] else None
-    port = account[account_mode]['port'] if 'port' in account[account_mode] else None
+    if 'client' in account_xmpp:
+        from slixfeed.xmpp.client import Slixfeed
+        jid = account_xmpp['client']['jid']
+        password = account_xmpp['client']['password']
+        alias = account_xmpp['client']['alias'] if 'alias' in account_xmpp['client'] else None
+        hostname = account_xmpp['client']['hostname'] if 'hostname' in account_xmpp['client'] else None
+        port = account_xmpp['client']['port'] if 'port' in account_xmpp['client'] else None
+        Slixfeed(jid, password, hostname, port, alias)
 
-    # Use arguments if were given
-    if args.jid:
-        jid = args.jid
-    if args.password:
-        password = args.password
-    if args.alias:
-        alias = args.alias
-    if args.hostname:
-        hostname = args.hostname
-    if args.port:
-        port = args.port
+    if 'component' in account_xmpp:
+        from slixfeed.xmpp.component import SlixfeedComponent
+        jid = account_xmpp['component']['jid']
+        password = account_xmpp['component']['password']
+        alias = account_xmpp['component']['alias'] if 'alias' in account_xmpp['component'] else None
+        hostname = account_xmpp['component']['hostname'] if 'hostname' in account_xmpp['component'] else None
+        port = account_xmpp['component']['port'] if 'port' in account_xmpp['component'] else None
+        SlixfeedComponent(jid, password, hostname, port, alias).process()
 
-    # Prompt for credentials if none were given
-    if not jid:
-        jid = input('JID: ')
-    if not password:
-        password = getpass('Password: ')
-    if not alias:
-        alias = (input('Alias: ')) or 'Slixfeed'
-
-    match account_mode:
-        case 'client':
-            JabberClient(jid, password, hostname=hostname, port=port, alias=alias)
-        case 'component':
-            JabberComponent(jid, password, hostname, port, alias=alias)
     sys.exit(0)
 
 if __name__ == '__main__':
