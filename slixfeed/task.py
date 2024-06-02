@@ -165,7 +165,7 @@ async def start_tasks_xmpp_pubsub(self, jid_bare, tasks=None):
 
 
 async def task_publish(self, jid_bare):
-    db_file = config.get_pathname_to_database(jid_file)
+    db_file = config.get_pathname_to_database(jid_bare)
     if jid_bare not in self.settings:
         Config.add_settings_jid(self.settings, jid_bare, db_file)
     while True:
@@ -232,7 +232,7 @@ async def task_status_message(self, jid):
 
 
 async def task_message(self, jid_bare):
-    db_file = config.get_pathname_to_database(jid_file)
+    db_file = config.get_pathname_to_database(jid_bare)
     if jid_bare not in self.settings:
         Config.add_settings_jid(self.settings, jid_bare, db_file)
     update_interval = Config.get_setting_value(self.settings, jid_bare, 'interval')
@@ -291,7 +291,7 @@ def refresh_task(self, jid_bare, callback, key, val=None):
     """
     logging.info('Refreshing task {} for JID {}'.format(callback, jid_bare))
     if not val:
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         if jid_bare not in self.settings:
             Config.add_settings_jid(self.settings, jid_bare, db_file)
         val = Config.get_setting_value(self.settings, jid_bare, key)
@@ -342,7 +342,7 @@ async def check_updates(self, jid_bare):
     # print('Scanning for updates for JID {}'.format(jid_bare))
     logging.info('Scanning for updates for JID {}'.format(jid_bare))
     while True:
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         urls = sqlite.get_active_feeds_url(db_file)
         for url in urls:
             url = url[0]

@@ -178,22 +178,28 @@ def main():
 
     # Try configuration file
     if 'client' in account_xmpp:
-        from slixfeed.xmpp.client import Slixfeed
+        from slixfeed.xmpp.client import XmppClient
         jid = account_xmpp['client']['jid']
         password = account_xmpp['client']['password']
         alias = account_xmpp['client']['alias'] if 'alias' in account_xmpp['client'] else None
         hostname = account_xmpp['client']['hostname'] if 'hostname' in account_xmpp['client'] else None
         port = account_xmpp['client']['port'] if 'port' in account_xmpp['client'] else None
-        Slixfeed(jid, password, hostname, port, alias)
+        XmppClient(jid, password, hostname, port, alias)
+        # xmpp_client = Slixfeed(jid, password, hostname, port, alias)
+        # xmpp_client.connect((hostname, port)) if hostname and port else xmpp_client.connect()
+        # xmpp_client.process()
 
     if 'component' in account_xmpp:
-        from slixfeed.xmpp.component import SlixfeedComponent
+        from slixfeed.xmpp.component import XmppComponent
         jid = account_xmpp['component']['jid']
-        password = account_xmpp['component']['password']
+        secret = account_xmpp['component']['password']
         alias = account_xmpp['component']['alias'] if 'alias' in account_xmpp['component'] else None
         hostname = account_xmpp['component']['hostname'] if 'hostname' in account_xmpp['component'] else None
         port = account_xmpp['component']['port'] if 'port' in account_xmpp['component'] else None
-        SlixfeedComponent(jid, password, hostname, port, alias).process()
+        XmppComponent(jid, secret, hostname, port, alias)
+        # xmpp_component = SlixfeedComponent(jid, secret, hostname, port, alias)
+        # xmpp_component.connect()
+        # xmpp_component.process()
 
     sys.exit(0)
 

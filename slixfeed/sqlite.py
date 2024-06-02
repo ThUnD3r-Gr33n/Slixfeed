@@ -2989,7 +2989,7 @@ async def search_entries(db_file, query):
             LIMIT 50
             """
             )
-        par = (f'%{query}%', f'%{query}%')
+        par = [f'%{query}%']
         result = cur.execute(sql, par).fetchall()
         return result
 

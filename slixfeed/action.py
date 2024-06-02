@@ -71,9 +71,9 @@ except:
 logger = Logger(__name__)
 
 
-def export_feeds(self, jid, jid_file, ext):
+def export_feeds(self, jid_bare, ext):
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: jid: {}: jid_file: {}: ext: {}'.format(function_name, jid, jid_file, ext))
+    logger.debug('{}: jid_bare: {}: ext: {}'.format(function_name, jid_bare, ext))
     cache_dir = config.get_default_cache_directory()
     if not os.path.isdir(cache_dir):
         os.mkdir(cache_dir)
@@ -81,15 +81,15 @@ def export_feeds(self, jid, jid_file, ext):
         os.mkdir(cache_dir + '/' + ext)
     filename = os.path.join(
         cache_dir, ext, 'slixfeed_' + dt.timestamp() + '.' + ext)
-    db_file = config.get_pathname_to_database(jid_file)
+    db_file = config.get_pathname_to_database(jid_bare)
     results = sqlite.get_feeds(db_file)
     match ext:
         # case 'html':
         #     response = 'Not yet implemented.'
         case 'md':
-            export_to_markdown(jid, filename, results)
+            export_to_markdown(jid_bare, filename, results)
         case 'opml':
-            export_to_opml(jid, filename, results)
+            export_to_opml(jid_bare, filename, results)
         # case 'xbel':
         #     response = 'Not yet implemented.'
     return filename
@@ -144,7 +144,7 @@ if (await get_chat_type(self, jid_bare) == 'chat' and
 
 """
 
-async def xmpp_send_status_message(self, jid):
+async def xmpp_send_status_message(self, jid_bare):
     """
     Send status message.
 
@@ -154,13 +154,12 @@ async def xmpp_send_status_message(self, jid):
         Jabber ID.
     """
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: jid: {}'.format(function_name, jid))
+    logger.debug('{}: jid: {}'.format(function_name, jid_bare))
     status_text = '📜️ Slixfeed RSS News Bot'
-    jid_file = jid.replace('/', '_')
-    db_file = config.get_pathname_to_database(jid_file)
-    enabled = Config.get_setting_value(self.settings, jid, 'enabled')
+    db_file = config.get_pathname_to_database(jid_bare)
+    enabled = Config.get_setting_value(self.settings, jid_bare, 'enabled')
     if enabled:
-        jid_task = self.pending_tasks[jid]
+        jid_task = self.pending_tasks[jid_bare]
         if len(jid_task):
             status_mode = 'dnd'
             status_text = jid_task[list(jid_task.keys())[0]]
@@ -189,7 +188,7 @@ async def xmpp_send_status_message(self, jid):
         status_text = '📪️ Send "Start" to receive updates'
     # breakpoint()
     # print(await current_time(), status_text, "for", jid)
-    XmppPresence.send(self, jid, status_text, status_type=status_mode)
+    XmppPresence.send(self, jid_bare, status_text, status_type=status_mode)
     # await asyncio.sleep(60 * 20)
     # await refresh_task(self, jid, send_status, 'status', '90')
     # loop.call_at(
@@ -250,7 +249,7 @@ async def xmpp_pubsub_send_unread_items(self, jid_bare):
     """
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: jid_bare: {}'.format(function_name, jid_bare))
-    db_file = config.get_pathname_to_database(jid_file)
+    db_file = config.get_pathname_to_database(jid_bare)
     report = {}
     subscriptions = sqlite.get_active_feeds_url(db_file)
     for url in subscriptions:
@@ -491,7 +490,7 @@ def create_rfc4287_entry(feed_entry):
     return node_entry
 
 
-async def xmpp_chat_send_unread_items(self, jid, num=None):
+async def xmpp_chat_send_unread_items(self, jid_bare, num=None):
     """
     Send news items as messages.
 
@@ -503,18 +502,17 @@ async def xmpp_chat_send_unread_items(self, jid, num=None):
         Number. The default is None.
     """
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: jid: {} num: {}'.format(function_name, jid, num))
-    jid_file = jid.replace('/', '_')
-    db_file = config.get_pathname_to_database(jid_file)
-    show_media = Config.get_setting_value(self.settings, jid, 'media')
+    logger.debug('{}: jid: {} num: {}'.format(function_name, jid_bare, num))
+    db_file = config.get_pathname_to_database(jid_bare)
+    show_media = Config.get_setting_value(self.settings, jid_bare, 'media')
     if not num:
-        num = Config.get_setting_value(self.settings, jid, 'quantum')
+        num = Config.get_setting_value(self.settings, jid_bare, 'quantum')
     else:
         num = int(num)
     results = sqlite.get_unread_entries(db_file, num)
     news_digest = ''
     media = None
-    chat_type = await get_chat_type(self, jid)
+    chat_type = await get_chat_type(self, jid_bare)
     for result in results:
         ix = result[0]
         title_e = result[1]
@@ -526,7 +524,7 @@ async def xmpp_chat_send_unread_items(self, jid, num=None):
         if enclosure: enclosure = enclosure[0]
         title_f = sqlite.get_feed_title(db_file, feed_id)
         title_f = title_f[0]
-        news_digest += await list_unread_entries(self, result, title_f, jid)
+        news_digest += await list_unread_entries(self, result, title_f, jid_bare)
         # print(db_file)
         # print(result[0])
         # breakpoint()
@@ -546,14 +544,14 @@ async def xmpp_chat_send_unread_items(self, jid, num=None):
         
         if media and news_digest:
             # Send textual message
-            XmppMessage.send(self, jid, news_digest, chat_type)
+            XmppMessage.send(self, jid_bare, news_digest, chat_type)
             news_digest = ''
             # Send media
-            XmppMessage.send_oob(self, jid, media, chat_type)
+            XmppMessage.send_oob(self, jid_bare, media, chat_type)
             media = None
             
     if news_digest:
-        XmppMessage.send(self, jid, news_digest, chat_type)
+        XmppMessage.send(self, jid_bare, news_digest, chat_type)
             # TODO Add while loop to assure delivery.
             # print(await current_time(), ">>> ACT send_message",jid)
             # NOTE Do we need "if statement"? See NOTE at is_muc.

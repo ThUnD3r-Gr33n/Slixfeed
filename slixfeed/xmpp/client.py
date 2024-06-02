@@ -108,7 +108,7 @@ loop = asyncio.get_event_loop()
 
 logger = Logger(__name__)
 
-class Slixfeed(slixmpp.ClientXMPP):
+class XmppClient(slixmpp.ClientXMPP):
     """
     Slixfeed:
     News bot that sends updates from RSS feeds.
@@ -250,10 +250,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                self.on_session_end)
 
         # Connect to the XMPP server and start processing XMPP stanzas.
-        if hostname and port:
-            self.connect((hostname, port))
-        else:
-            self.connect()
+        self.connect((hostname, port)) if hostname and port else self.connect()
         self.process()
 
 
@@ -414,8 +411,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         jid_bare = message['from'].bare
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         if jid_bare not in self.settings:
             Config.add_settings_jid(self.settings, jid_bare, db_file)
         if jid_bare == self.boundjid.bare:
@@ -926,7 +922,7 @@ class Slixfeed(slixmpp.ClientXMPP):
                                              ftype='list-single',
                                              label='Jabber ID',
                                              value=jid_bare,
-                                             var='jid_file')
+                                             var='jid_bare')
                     jids = []
                     contacts = await XmppRoster.get_contacts(self)
                     for contact in contacts:
@@ -1030,7 +1026,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             session['prev'] = None
             session['payload'] = None
             return session
-        jid_file = values['jid_file']
+        jid_bare = values['jid_bare']
         node = values['node']
         # xep = values['xep']
         if not node:
@@ -1046,11 +1042,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         form.add_field(var='jid',
                        ftype='hidden',
                        value=jid)
-        form.add_field(var='jid_file',
+        form.add_field(var='jid_bare',
                        ftype='hidden',
-                       value=jid_file)
+                       value=jid_bare)
         num = 100
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         results = sqlite.get_entries(db_file, num)
         subtitle = 'Recent {} updates'.format(num)
         if results:
@@ -1081,9 +1077,9 @@ class Slixfeed(slixmpp.ClientXMPP):
 
     async def _handle_publish_db_complete(self, payload, session):
         values = payload['values']
-        jid_file = values['jid_file'][0]
-        print('jid_file')
-        print(jid_file)
+        jid_bare = values['jid_bare'][0]
+        print('jid_bare')
+        print(jid_bare)
         print("values['node']")
         print(values['node'])
         node_id = values['node'][0]
@@ -1105,7 +1101,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         # xep = None
         
         for ix in ixs:
-            await action.xmpp_pubsub_send_selected_entry(self, jid, jid_file, node_id, ix)
+            await action.xmpp_pubsub_send_selected_entry(self, jid, jid_bare, node_id, ix)
             text_info = 'Posted {} entries.'.format(len(ixs))
             session['allow_prev'] = False
             session['has_next'] = False
@@ -1317,8 +1313,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         if jid_bare not in self.settings:
             Config.add_settings_jid(self.settings, jid_bare, db_file)
         form = self['xep_0004'].make_form('form', 'Profile')
@@ -1423,8 +1418,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         chat_type = await get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
             jid = session['from'].bare
-            jid_file = jid
-            db_file = config.get_pathname_to_database(jid_file)
+            db_file = config.get_pathname_to_database(jid_bare)
             form = self['xep_0004'].make_form('form', 'Filters')
             form['instructions'] = ('Filters allow you to skip news items '
                                     'that you may not be interested at. Use '
@@ -1499,8 +1493,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         # form = self['xep_0004'].make_form('result', 'Done')
         # form['instructions'] = ('✅️ Filters have been updated')
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         # In this case (as is typical), the payload is a form
         values = payload['values']
         for key in values:
@@ -1648,14 +1641,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         values = payload['values']
         form = self['xep_0004'].make_form('form', 'Updates')
         if is_operator(self, jid_bare) and 'jid' in values:
-            jid = values['jid']
-            jid_file = jid
+            jid_bare = values['jid']
             form.add_field(var='jid',
                            ftype='hidden',
-                           value=jid)
-        else:
-            jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+                           value=jid_bare)
+        db_file = config.get_pathname_to_database(jid_bare)
         num = 100
         match values['action']:
             case 'all':
@@ -1710,13 +1700,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         form = self['xep_0004'].make_form('form', 'Article')
         if is_operator(self, jid_bare) and 'jid' in values:
             jid = values['jid']
-            jid_file = jid[0] if isinstance(jid, list) else jid
+            jid_bare = jid[0] if isinstance(jid, list) else jid
             form.add_field(var='jid',
                            ftype='hidden',
                            value=jid)
-        else:
-            jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         title = sqlite.get_entry_title(db_file, ix)
         title = title[0] if title else 'Untitled'
         form['instructions'] = title
@@ -1786,13 +1774,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         if is_operator(self, jid_bare) and 'jid' in values:
             jid = values['jid']
-            jid_file = jid[0] if isinstance(jid, list) else jid
+            jid_bare = jid[0] if isinstance(jid, list) else jid
             form.add_field(var='jid',
                            ftype='hidden',
                            value=jid)
-        else:
-            jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         if identifier and sqlite.check_identifier_exist(db_file, identifier):
             form['title'] = 'Conflict'
             form['instructions'] = ('Name "{}" already exists. Choose a '
@@ -1990,12 +1976,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         values = payload['values']
         if is_operator(self, jid_bare) and 'jid' in values:
-            jid = values['jid'][0]
-            jid_file = jid
+            jid_bare = values['jid'][0]
             del values['jid']
-        else:
-            jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         for key in values:
             value = 1 if values[key] else 0
             await sqlite.set_enabled_status(db_file, key, value)
@@ -2018,12 +2001,9 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         values = payload['values']
         if is_operator(self, jid_bare) and 'jid' in values:
-            jid = values['jid'][0]
-            jid_file = jid
+            jid_bare = values['jid'][0]
             del values['jid']
-        else:
-            jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         subscriptions =''
         ixs = values['subscriptions']
         for ix in ixs:
@@ -2252,14 +2232,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         form = self['xep_0004'].make_form('form', 'Subscriptions')
         if is_operator(self, jid_bare) and 'jid' in values:
-            jid = values['jid']
-            jid_file = jid
+            jid_bare = values['jid']
             form.add_field(ftype='hidden',
-                           value=jid,
+                           value=jid_bare,
                            var='jid')
-        else:
-            jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         match values['action']:
             case 'browse':
                 form['instructions'] = 'Editing subscriptions'
@@ -2349,14 +2326,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         values = payload['values']
         if is_operator(self, jid_bare) and 'jid' in values:
-            jid = values['jid'][0]
-            jid_file = jid
+            jid_bare = values['jid'][0]
             form.add_field(ftype='hidden',
-                           value=jid,
+                           value=jid_bare,
                            var='jid')
-        else:
-            jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         tag_id = values['tag']
         tag_name = sqlite.get_tag_name(db_file, tag_id)[0]
         form['instructions'] = 'Subscriptions tagged with "{}"'.format(tag_name)
@@ -2390,14 +2364,11 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         values = payload['values']
         if is_operator(self, jid_bare) and 'jid' in values:
-            jid = values['jid'][0] if values['jid'] else jid_bare
-            jid_file = jid
+            jid_bare = values['jid'][0] if values['jid'] else jid_bare
             form.add_field(ftype='hidden',
-                           value=jid,
+                           value=jid_bare,
                            var='jid')
-        else:
-            jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         if 'subscription' in values: urls = values['subscription']
         elif 'subscriptions' in values: urls = values['subscriptions']
         url_count = len(urls)
@@ -2489,11 +2460,8 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         values = payload['values']
         if is_operator(self, jid_bare) and 'jid' in values:
-            jid = values['jid'][0]
-            jid_file = jid
-        else:
-            jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+            jid_bare = values['jid'][0]
+        db_file = config.get_pathname_to_database(jid_bare)
         # url = values['url']
         # feed_id = sqlite.get_feed_id(db_file, url)
         # feed_id = feed_id[0]
@@ -2894,10 +2862,8 @@ class Slixfeed(slixmpp.ClientXMPP):
             jid_bare = session['from'].bare
             if is_operator(self, jid_bare) and 'jid' in values:
                 jid = values['jid']
-                jid_file = jid[0] if isinstance(jid, list) else jid
-            else:
-                jid_file = jid_bare
-            db_file = config.get_pathname_to_database(jid_file)
+                jid_bare = jid[0] if isinstance(jid, list) else jid
+            db_file = config.get_pathname_to_database(jid_bare)
             result = await fetch.http(url)
             count = await action.import_opml(db_file, result)
             try:
@@ -2937,14 +2903,12 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         if is_operator(self, jid_bare) and 'jid' in values:
             jid = values['jid']
-            jid_file = jid[0] if isinstance(jid, list) else jid
-        else:
-            jid_file = jid_bare
+            jid_bare = jid[0] if isinstance(jid, list) else jid
         # form = self['xep_0004'].make_form('result', 'Done')
         # form['instructions'] = ('✅️ Feeds have been exported')
         exts = values['filetype']
         for ext in exts:
-            filename = action.export_feeds(self, jid_file, jid_file, ext)
+            filename = action.export_feeds(self, jid_bare, ext)
             url = await XmppUpload.start(self, jid_bare, filename)
             chat_type = await get_chat_type(self, jid_bare)
             XmppMessage.send_oob(self, jid_bare, url, chat_type)
@@ -3411,8 +3375,7 @@ class Slixfeed(slixmpp.ClientXMPP):
             if key:
                 jid_bare = key
                 value = values[key]
-                jid_file = jid_bare
-                db_file = config.get_pathname_to_database(jid_file)
+                db_file = config.get_pathname_to_database(jid_bare)
                 if jid_bare not in self.settings:
                     Config.add_settings_jid(self.settings, jid_bare, db_file)
                 await Config.set_setting_value(self.settings, jid_bare,
@@ -3674,8 +3637,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         chat_type = await get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
-            jid_file = jid_bare
-            db_file = config.get_pathname_to_database(jid_file)
+            db_file = config.get_pathname_to_database(jid_bare)
             if jid_bare not in self.settings:
                 Config.add_settings_jid(self.settings, jid_bare, db_file)
             form = self['xep_0004'].make_form('form', 'Settings')
@@ -3792,8 +3754,7 @@ class Slixfeed(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                      .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        jid_file = jid_bare
-        db_file = config.get_pathname_to_database(jid_file)
+        db_file = config.get_pathname_to_database(jid_bare)
         if jid_bare not in self.settings:
             Config.add_settings_jid(self.settings, jid_bare, db_file)
         # In this case (as is typical), the payload is a form

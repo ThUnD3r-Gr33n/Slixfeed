@@ -79,7 +79,6 @@ class Chat:
         """
         if message['type'] in ('chat', 'groupchat', 'normal'):
             jid_bare = message['from'].bare
-            jid_file = jid_bare
             message_text = ' '.join(message['body'].split())
             command_time_start = time.time()
     
@@ -114,7 +113,7 @@ class Chat:
                 # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
-                db_file = config.get_pathname_to_database(jid_file)
+                db_file = config.get_pathname_to_database(jid_bare)
                 result = await fetch.http(url)
                 count = await action.import_opml(db_file, result)
                 if count:
@@ -324,7 +323,7 @@ class Chat:
                     if url.startswith('http'):
                         if not title:
                             title = uri.get_hostname(url)
-                        db_file = config.get_pathname_to_database(jid_file)
+                        db_file = config.get_pathname_to_database(jid_bare)
                         counter = 0
                         hostname = uri.get_hostname(url)
                         hostname = hostname.replace('.','-')
@@ -407,7 +406,7 @@ class Chat:
                         key = message_text[:5].lower()
                         val = message_text[7:]
                         if val:
-                            db_file = config.get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_bare)
                             keywords = sqlite.get_filter_value(db_file, key)
                             if keywords: keywords = str(keywords[0])
                             val = await config.add_to_list(val, keywords)
@@ -428,7 +427,7 @@ class Chat:
                         key = message_text[:5].lower()
                         val = message_text[7:]
                         if val:
-                            db_file = config.get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_bare)
                             keywords = sqlite.get_filter_value(db_file, key)
                             if keywords: keywords = str(keywords[0])
                             val = await config.remove_from_list(val, keywords)
@@ -456,7 +455,7 @@ class Chat:
                             else:
                                 val_old = Config.get_setting_value(
                                     self.settings, jid_bare, key)
-                                db_file = config.get_pathname_to_database(jid_file)
+                                db_file = config.get_pathname_to_database(jid_bare)
                                 await Config.set_setting_value(
                                     self.settings, jid_bare, db_file, key, val_new)
                                 response = ('Maximum archived items has '
@@ -494,20 +493,20 @@ class Chat:
                 case _ if message_lowercase.startswith('default '):
                     key = message_text[8:]
                     self.settings[jid_bare][key] = None
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     await sqlite.delete_setting(db_file, key)
                     response = ('Setting {} has been restored to default value.'
                                 .format(key))
                     XmppMessage.send_reply(self, message, response)
                 case 'defaults':
                     del self.settings[jid_bare]
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     await sqlite.delete_settings(db_file)
                     response = 'Default settings have been restored.'
                     XmppMessage.send_reply(self, message, response)
                 case _ if message_lowercase.startswith('clear '):
                     key = message_text[6:]
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     await sqlite.delete_filter(db_file, key)
                     response = 'Filter {} has been purged.'.format(key)
                     XmppMessage.send_reply(self, message, response)
@@ -523,7 +522,7 @@ class Chat:
                         key = message_text[:4].lower()
                         val = message_text[6:]
                         if val:
-                            db_file = config.get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_bare)
                             keywords = sqlite.get_filter_value(db_file, key)
                             if keywords: keywords = str(keywords[0])
                             val = await config.add_to_list(val, keywords)
@@ -544,7 +543,7 @@ class Chat:
                         key = message_text[:4].lower()
                         val = message_text[6:]
                         if val:
-                            db_file = config.get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_bare)
                             keywords = sqlite.get_filter_value(db_file, key)
                             if keywords: keywords = str(keywords[0])
                             val = await config.remove_from_list(val, keywords)
@@ -575,7 +574,7 @@ class Chat:
                         # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                         XmppPresence.send(self, jid_bare, status_message,
                                           status_type=status_type)
-                        filename = action.export_feeds(self, jid_bare, jid_file, ext)
+                        filename = action.export_feeds(self, jid_bare, ext)
                         url = await XmppUpload.start(self, jid_bare, filename)
                         # response = (
                         #     'Feeds exported successfully to {}.\n{}'
@@ -609,7 +608,7 @@ class Chat:
                     # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     result = await fetch.http(url)
                     count = await action.import_opml(db_file, result)
                     if count:
@@ -778,7 +777,7 @@ class Chat:
                     if url.startswith('feed:/') or url.startswith('rss:/'):
                         url = uri.feed_to_http(url)
                     url = (await uri.replace_hostname(url, 'feed')) or url
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     counter = 0
                     hostname = uri.get_hostname(url)
                     hostname = hostname.replace('.','-')
@@ -835,13 +834,13 @@ class Chat:
                     query = message_text[6:]
                     if query:
                         if len(query) > 3:
-                            db_file = config.get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_bare)
                             result = sqlite.search_feeds(db_file, query)
                             response = action.list_feeds_by_query(query, result)
                         else:
                             response = 'Enter at least 4 characters to search'
                     else:
-                        db_file = config.get_pathname_to_database(jid_file)
+                        db_file = config.get_pathname_to_database(jid_bare)
                         result = sqlite.get_feeds(db_file)
                         response = action.list_feeds(result)
                     XmppMessage.send_reply(self, message, response)
@@ -859,7 +858,7 @@ class Chat:
                         try:
                             val_new = int(val)
                             val_old = Config.get_setting_value(self.settings, jid_bare, key)
-                            db_file = config.get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_bare)
                             await Config.set_setting_value(
                                 self.settings, jid_bare, db_file, key, val_new)
                             # NOTE Perhaps this should be replaced by functions
@@ -901,7 +900,7 @@ class Chat:
                                 val_new = int(val)
                                 val_old = Config.get_setting_value(
                                     self.settings, jid_bare, key)
-                                db_file = config.get_pathname_to_database(jid_file)
+                                db_file = config.get_pathname_to_database(jid_bare)
                                 await Config.set_setting_value(
                                     self.settings, jid_bare, db_file, key, val_new)
                                 if val_new == 0: # if not val:
@@ -945,7 +944,7 @@ class Chat:
                 #             response = 'Missing value.'
                         XmppMessage.send_reply(self, message, response)
                 case 'media off':
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     key = 'media'
                     val = 0
                     await Config.set_setting_value(
@@ -953,7 +952,7 @@ class Chat:
                     response = 'Media is disabled.'
                     XmppMessage.send_reply(self, message, response)
                 case 'media on':
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     key = 'media'
                     val = 1
                     await Config.set_setting_value(self.settings, jid_bare,
@@ -961,7 +960,7 @@ class Chat:
                     response = 'Media is enabled.'
                     XmppMessage.send_reply(self, message, response)
                 case 'new':
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     key = 'old'
                     val = 0
                     await Config.set_setting_value(self.settings, jid_bare,
@@ -1022,7 +1021,7 @@ class Chat:
                     key_list = ['status']
                     await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
                 case 'old':
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     key = 'old'
                     val = 1
                     await Config.set_setting_value(self.settings, jid_bare,
@@ -1053,7 +1052,7 @@ class Chat:
                             # response = (
                             #     'Every update will contain {} news items.'
                             #     ).format(response)
-                            db_file = config.get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_bare)
                             await Config.set_setting_value(self.settings, jid_bare,
                                                            db_file, key, val_new)
                             response = ('Next update will contain {} news items '
@@ -1183,7 +1182,7 @@ class Chat:
                             if num < 1 or num > 50:
                                 response = 'Value must be ranged from 1 to 50.'
                             else:
-                                db_file = config.get_pathname_to_database(jid_file)
+                                db_file = config.get_pathname_to_database(jid_bare)
                                 result = sqlite.get_last_entries(db_file, num)
                                 response = action.list_last_entries(result, num)
                         except:
@@ -1201,7 +1200,7 @@ class Chat:
                     if ix_url:
                         for i in ix_url:
                             if i:
-                                db_file = config.get_pathname_to_database(jid_file)
+                                db_file = config.get_pathname_to_database(jid_bare)
                                 try:
                                     ix = int(i)
                                     url = sqlite.get_feed_url(db_file, ix)
@@ -1256,9 +1255,9 @@ class Chat:
                     # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     if ix_url:
-                        db_file = config.get_pathname_to_database(jid_file)
+                        db_file = config.get_pathname_to_database(jid_bare)
                         try:
                             ix = int(ix_url)
                             url = sqlite.get_feed_url(db_file, ix)
@@ -1303,7 +1302,7 @@ class Chat:
                     query = message_text[7:]
                     if query:
                         if len(query) > 1:
-                            db_file = config.get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_bare)
                             results = await sqlite.search_entries(db_file, query)
                             response = action.list_search_results(query, results)
                         else:
@@ -1316,7 +1315,7 @@ class Chat:
                 case 'start':
                     key = 'enabled'
                     val = 1
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     await Config.set_setting_value(self.settings, jid_bare,
                                                    db_file, key, val)
                     status_type = 'available'
@@ -1329,12 +1328,12 @@ class Chat:
                     response = 'Updates are enabled.'
                     XmppMessage.send_reply(self, message, response)
                 case 'stats':
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     response = await action.list_statistics(db_file)
                     XmppMessage.send_reply(self, message, response)
                 case _ if message_lowercase.startswith('disable '):
                     feed_id = message_text[8:]
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     try:
                         await sqlite.set_enabled_status(db_file, feed_id, 0)
                         await sqlite.mark_feed_as_read(db_file, feed_id)
@@ -1358,7 +1357,7 @@ class Chat:
                     if name:
                         try:
                             feed_id = int(feed_id)
-                            db_file = config.get_pathname_to_database(jid_file)
+                            db_file = config.get_pathname_to_database(jid_bare)
                             name_old = sqlite.get_feed_title(db_file, feed_id)
                             if name_old:
                                 name_old = name_old[0]
@@ -1390,7 +1389,7 @@ class Chat:
                     XmppMessage.send_reply(self, message, response)
                 case _ if message_lowercase.startswith('enable '):
                     feed_id = message_text[7:]
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     try:
                         await sqlite.set_enabled_status(db_file, feed_id, 1)
                         name = sqlite.get_feed_title(db_file, feed_id)[0]
@@ -1406,7 +1405,7 @@ class Chat:
                 case 'stop':
                     key = 'enabled'
                     val = 0
-                    db_file = config.get_pathname_to_database(jid_file)
+                    db_file = config.get_pathname_to_database(jid_bare)
                     await Config.set_setting_value(
                         self.settings, jid_bare, db_file, key, val)
                     key_list = ['interval', 'status']
@@ -1461,16 +1460,15 @@ class Chat:
             if not os.path.isdir(data_dir + '/logs/'):
                 os.mkdir(data_dir + '/logs/')
             action.log_to_markdown(
-                dt.current_time(), os.path.join(data_dir, 'logs', jid_file),
+                dt.current_time(), os.path.join(data_dir, 'logs', jid_bare),
                 jid_bare, message_text)
             action.log_to_markdown(
-                dt.current_time(), os.path.join(data_dir, 'logs', jid_file),
+                dt.current_time(), os.path.join(data_dir, 'logs', jid_bare),
                 jid_bare, response)
     
             print(
                 'Message : {}\n'
                 'JID     : {}\n'
-                'File    : {}\n'
                 '{}\n'
-                .format(message_text, jid_bare, jid_file, response)
+                .format(message_text, jid_bare, response)
                 )
