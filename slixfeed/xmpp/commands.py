@@ -754,8 +754,7 @@ class XmppCommands:
                         if not result['error']:
                             document = result['content']
                             feed = parse(document)
-                            # if is_feed(url, feed):
-                            if action.is_feed(feed):
+                            if action.is_feed(url, feed):
                                 message = action.view_feed(url, feed)
                                 break
                             else:
@@ -791,8 +790,7 @@ class XmppCommands:
                             document = result['content']
                             status = result['status_code']
                             feed = parse(document)
-                            # if is_feed(url, feed):
-                            if action.is_feed(feed):
+                            if action.is_feed(url, feed):
                                 message = action.view_entry(url, feed, num)
                                 break
                             else:

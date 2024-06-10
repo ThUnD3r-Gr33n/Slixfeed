@@ -62,9 +62,12 @@ Link  : https://www.jsonfeed.org/feed.json/videos.xml
 from aiohttp import ClientError, ClientSession, ClientTimeout
 from feedparser import parse
 import logging
+from lxml import etree
 from lxml import html
+from lxml.etree import fromstring
 import slixfeed.config as config
 import slixfeed.fetch as fetch
+from slixfeed.log import Logger
 from slixfeed.url import complete_url, join_url, trim_url
 from urllib.parse import urlsplit, urlunsplit
 
@@ -107,6 +110,7 @@ from urllib.parse import urlsplit, urlunsplit
 #             else:
 #                 return await callback(url)
 
+logger = Logger(__name__)
 
 async def probe_page(url, document=None):
     """
@@ -130,25 +134,43 @@ async def probe_page(url, document=None):
         # tree = etree.fromstring(res[0]) # etree is for xml
         tree = html.fromstring(document)
         result = None
-    except:
-        logging.warning("Failed to parse URL as feed for {}.".format(url))
-        result = {'link' : None,
-                  'index' : None,
-                  'name' : None,
-                  'code' : None,
-                  'error' : True,
-                  'exist' : None}
+    except Exception as e:
+        logger.error(str(e))
+        try:
+            # /questions/15830421/xml-unicode-strings-with-encoding-declaration-are-not-supported
+            # xml = html.fromstring(document.encode('utf-8'))
+            # parser = etree.XMLParser(ns_clean=True, recover=True, encoding='utf-8')
+            # tree = fromstring(xml, parser=parser)
+
+            # /questions/57833080/how-to-fix-unicode-strings-with-encoding-declaration-are-not-supported
+            #tree = html.fromstring(bytes(document, encoding='utf8'))
+
+            # https://twigstechtips.blogspot.com/2013/06/python-lxml-strings-with-encoding.html
+            #parser = etree.XMLParser(recover=True)
+            #tree = etree.fromstring(document, parser)
+
+            tree = html.fromstring(document.encode('utf-8'))
+            result = None
+        except Exception as e:
+            logger.error(str(e))
+            logger.warning("Failed to parse URL as feed for {}.".format(url))
+            result = {'link' : None,
+                      'index' : None,
+                      'name' : None,
+                      'code' : None,
+                      'error' : True,
+                      'exist' : None}
     if not result:
-        logging.debug("Feed auto-discovery engaged for {}".format(url))
+        logger.debug("Feed auto-discovery engaged for {}".format(url))
         result = await feed_mode_auto_discovery(url, tree)
     if not result:
-        logging.debug("Feed link scan mode engaged for {}".format(url))
+        logger.debug("Feed link scan mode engaged for {}".format(url))
         result = await feed_mode_scan(url, tree)
     if not result:
-        logging.debug("Feed arbitrary mode engaged for {}".format(url))
+        logger.debug("Feed arbitrary mode engaged for {}".format(url))
         result = await feed_mode_guess(url, tree)
     if not result:
-        logging.debug("No feeds were found for {}".format(url))
+        logger.debug("No feeds were found for {}".format(url))
         result = None
     return result
 

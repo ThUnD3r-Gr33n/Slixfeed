@@ -700,7 +700,7 @@ def is_feed_json(document):
     return value
 
 
-def is_feed(feed):
+def is_feed(url, feed):
     """
     Determine whether document is feed or not.
 
@@ -737,10 +737,9 @@ def is_feed(feed):
             #     "No entries nor title for {}"
             #     ).format(url)
     elif feed.bozo:
-        value = False
-        # message = (
-        #     "Bozo detected for {}"
-        #     ).format(url)
+        # NOTE Consider valid even when is not-well-formed
+        value = True
+        logger.warning('Bozo detected for {}'.format(url))
     else:
         value = True
         # message = (
@@ -984,8 +983,7 @@ async def add_feed(self, jid_bare, db_file, url, identifier):
                     document = result['content']
                     feed = parse(document)
                     # if document and status_code == 200:
-                    # if is_feed(url, feed):
-                    if is_feed(feed):
+                    if is_feed(url, feed):
                         if "title" in feed["feed"].keys():
                             title = feed["feed"]["title"]
                         else:

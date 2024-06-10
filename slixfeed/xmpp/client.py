@@ -52,9 +52,9 @@ from slixfeed.config import Config
 import slixfeed.crawl as crawl
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
+from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
 import slixfeed.url as uri
-from slixfeed.log import Logger
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.chat import Chat
@@ -1140,8 +1140,7 @@ class XmppClient(slixmpp.ClientXMPP):
             if not result['error']:
                 document = result['content']
                 feed = parse(document)
-                # if is_feed(url, feed):
-                if action.is_feed(feed):
+                if action.is_feed(url, feed):
                     form['instructions'] = 'Select entries to publish.'
                     options = form.add_field(desc='Select entries to post.',
                                              ftype='list-multi',
