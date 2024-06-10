@@ -84,8 +84,6 @@ from slixfeed.version import __version__
 # import socks
 # import socket
 
-account_xmpp = config.get_values('accounts.toml', 'xmpp')
-
 # account = ConfigAccount() # TODO ~Delete~ Clear as soon as posible after is no longer needed
 
 def main():
@@ -175,6 +173,8 @@ def main():
     #     password = getpass('Password: ')
     # if not alias:
     #     alias = (input('Alias: ')) or 'Slixfeed'
+
+    account_xmpp = config.get_values('accounts.toml', 'xmpp')
 
     # Try configuration file
     if 'client' in account_xmpp:

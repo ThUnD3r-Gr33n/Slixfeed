@@ -827,23 +827,6 @@ def list_search_results(query, results):
     return message
 
 
-def list_feeds_by_query(query, results):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}'.format(function_name))
-    message = ('Feeds containing "{}":\n\n```'
-               .format(query))
-    for result in results:
-        message += ('\nName : {} [{}]'
-                    '\nURL  : {}'
-                    '\n'
-                    .format(str(result[0]), str(result[1]), str(result[2])))
-    if len(results):
-        message += "\n```\nTotal of {} feeds".format(len(results))
-    else:
-        message = "No feeds were found for: {}".format(query)
-    return message
-
-
 async def list_options(self, jid_bare):
     """
     Print options.
@@ -890,67 +873,6 @@ async def list_options(self, jid_bare):
     return message
 
 
-async def list_statistics(db_file):
-    """
-    Print statistics.
-
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
-
-    Returns
-    -------
-    msg : str
-        Statistics as message.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {}'
-                .format(function_name, db_file))
-    entries_unread = sqlite.get_number_of_entries_unread(db_file)
-    entries = sqlite.get_number_of_items(db_file, 'entries_properties')
-    feeds_active = sqlite.get_number_of_feeds_active(db_file)
-    feeds_all = sqlite.get_number_of_items(db_file, 'feeds_properties')
-
-    # msg = """You have {} unread news items out of {} from {} news sources.
-    #       """.format(unread_entries, entries, feeds)
-
-    # try:
-    #     value = cur.execute(sql, par).fetchone()[0]
-    # except:
-    #     print("Error for key:", key)
-    #     value = "Default"
-    # values.extend([value])
-
-    message = ("Statistics:"
-               "\n"
-               "```"
-               "\n"
-               "News items   : {}/{}\n"
-               "News sources : {}/{}\n"
-               "```").format(entries_unread,
-                             entries,
-                             feeds_active,
-                             feeds_all)
-    return message
-
-
-# FIXME Replace counter by len
-def list_last_entries(results, num):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: num: {}'
-                .format(function_name, num))
-    message = "Recent {} titles:\n\n```".format(num)
-    for result in results:
-        message += ("\n{}\n{}\n"
-                    .format(str(result[0]), str(result[1])))
-    if len(results):
-        message += "```\n"
-    else:
-        message = "There are no news at the moment."
-    return message
-
-
 def pick_a_feed(lang=None):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: lang: {}'
@@ -961,27 +883,6 @@ def pick_a_feed(lang=None):
     import random
     url = random.choice(urls['feeds'])
     return url
-
-
-def list_feeds(results):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}'.format(function_name))
-    message = "\nList of subscriptions:\n\n```\n"
-    for result in results:
-        message += ("{} [{}]\n"
-                    "{}\n"
-                    "\n\n"
-                    .format(str(result[1]), str(result[0]), str(result[2])))
-    if len(results):
-        message += ('```\nTotal of {} subscriptions.\n'
-                    .format(len(results)))
-    else:
-        url = pick_a_feed()
-        message = ('List of subscriptions is empty. To add a feed, send a URL.'
-                   '\n'
-                   'Featured news: *{}*\n{}'
-                   .format(url['name'], url['link']))
-    return message
 
 
 def list_bookmarks(self, conferences):
@@ -1014,7 +915,7 @@ def export_to_markdown(jid, filename, results):
 
 # TODO Consider adding element jid as a pointer of import
 def export_to_opml(jid, filename, results):
-    print(jid, filename, results)
+    # print(jid, filename, results)
     function_name = sys._getframe().f_code.co_name
     logger.debug('{} jid: {} filename: {}'
                 .format(function_name, jid, filename))

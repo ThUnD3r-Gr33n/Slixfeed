@@ -1887,6 +1887,24 @@ def get_entry_url(db_file, ix):
         return url
 
 
+def get_entry_summary(db_file, ix):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} ix: {}'
+                .format(function_name, db_file, ix))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT summary_text
+            FROM entries_properties
+            WHERE id = :ix
+            """
+            )
+        par = (ix,)
+        summary = cur.execute(sql, par).fetchone()
+        return summary
+
+
 def get_feed_url(db_file, feed_id):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} feed_id: {}'
@@ -2948,7 +2966,7 @@ def search_feeds(db_file, query):
         cur = conn.cursor()
         sql = (
             """
-            SELECT title, id, url
+            SELECT id, title, url
             FROM feeds_properties
             WHERE title LIKE ?
             OR url LIKE ?
@@ -2960,7 +2978,7 @@ def search_feeds(db_file, query):
         return result
 
 
-async def search_entries(db_file, query):
+def search_entries(db_file, query):
     """
     Query entries.
 

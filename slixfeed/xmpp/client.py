@@ -32,6 +32,8 @@ NOTE
 
 
 import asyncio
+from datetime import datetime
+import os
 from feedparser import parse
 import slixmpp
 import slixfeed.task as task
@@ -44,22 +46,30 @@ from slixfeed.url import join_url, trim_url
 # import xml.etree.ElementTree as ET
 # from lxml import etree
 
+import slixfeed.action as action
 import slixfeed.config as config
 from slixfeed.config import Config
+import slixfeed.crawl as crawl
+import slixfeed.dt as dt
+import slixfeed.fetch as fetch
+import slixfeed.sqlite as sqlite
+import slixfeed.url as uri
 from slixfeed.log import Logger
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
+from slixfeed.xmpp.chat import Chat
 from slixfeed.xmpp.connect import XmppConnect
-from slixfeed.xmpp.muc import XmppGroupchat
+from slixfeed.xmpp.ipc import XmppIpcServer
 from slixfeed.xmpp.iq import XmppIQ
 from slixfeed.xmpp.message import XmppMessage
-from slixfeed.xmpp.chat import Chat
+from slixfeed.xmpp.muc import XmppGroupchat
+from slixfeed.xmpp.presence import XmppPresence
+from slixfeed.xmpp.privilege import is_moderator, is_operator, is_access
 import slixfeed.xmpp.profile as profile
 from slixfeed.xmpp.publish import XmppPubsub
 from slixfeed.xmpp.roster import XmppRoster
 # import slixfeed.xmpp.service as service
-from slixfeed.xmpp.presence import XmppPresence
-from slixfeed.xmpp.privilege import is_operator, is_access
+from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utility import get_chat_type
 import sys
 import time
@@ -69,27 +79,6 @@ try:
 except:
     import tomli as tomllib
 
-import asyncio
-from datetime import datetime
-import logging
-import os
-import slixfeed.action as action
-import slixfeed.config as config
-from slixfeed.config import Config
-import slixfeed.crawl as crawl
-import slixfeed.dt as dt
-import slixfeed.fetch as fetch
-import slixfeed.url as uri
-import slixfeed.sqlite as sqlite
-import slixfeed.task as task
-from slixfeed.version import __version__
-from slixfeed.xmpp.bookmark import XmppBookmark
-from slixfeed.xmpp.message import XmppMessage
-from slixfeed.xmpp.presence import XmppPresence
-from slixfeed.xmpp.roster import XmppRoster
-from slixfeed.xmpp.upload import XmppUpload
-from slixfeed.xmpp.privilege import is_moderator, is_operator, is_access
-from slixfeed.xmpp.utility import get_chat_type
 
 main_task = []
 jid_tasker = {}
@@ -364,9 +353,11 @@ class XmppClient(slixmpp.ClientXMPP):
                 Config.add_settings_jid(self.settings, jid_bare, db_file)
             await task.start_tasks_xmpp_pubsub(self, jid_bare)
         bookmarks = await XmppBookmark.get_bookmarks(self)
-        print('iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
         await action.xmpp_muc_autojoin(self, bookmarks)
-        print('ooooooooooooooooooooooooooooooooo')
+        if 'ipc' in self.settings and self.settings['ipc']['bsd']:
+            # Start Inter-Process Communication
+            print('POSIX sockets: Initiating IPC server...')
+            self.ipc = asyncio.create_task(XmppIpcServer.ipc(self))
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -1715,12 +1706,13 @@ class XmppClient(slixmpp.ClientXMPP):
         logger.debug('Processed URL (tracker removal): {}'.format(url))
         url = (await uri.replace_hostname(url, 'link')) or url
         logger.debug('Processed URL (replace hostname): {}'.format(url))
-        result = await fetch.http(url)
-        if 'content' in result:
-            data = result['content']
-            summary = action.get_document_content_as_text(data)
-        else:
-            summary = 'No content to show.'
+        # result = await fetch.http(url)
+        # if 'content' in result:
+        #     data = result['content']
+        #     summary = action.get_document_content_as_text(data)
+        summary = sqlite.get_entry_summary(db_file, ix)
+        summary = summary[0]
+        summary = action.remove_html_tags(summary) if summary else 'No content to show.'
         form.add_field(ftype="text-multi",
                        label='Article',
                        value=summary)
@@ -1741,21 +1733,21 @@ class XmppClient(slixmpp.ClientXMPP):
                                     value=feed_url,
                                     var='url_feed')
         field_feed['validate']['datatype'] = 'xs:anyURI'
-        options = form.add_field(desc='Select file type.',
-                                 ftype='list-single',
-                                 label='Save as',
-                                 required=True,
-                                 value='pdf',
-                                 var='filetype')
-        options.addOption('ePUB', 'epub')
-        options.addOption('HTML', 'html')
-        options.addOption('Markdown', 'md')
-        options.addOption('PDF', 'pdf')
-        options.addOption('Plain Text', 'txt')
+        # options = form.add_field(desc='Select file type.',
+        #                          ftype='list-single',
+        #                          label='Save as',
+        #                          required=True,
+        #                          value='pdf',
+        #                          var='filetype')
+        # options.addOption('ePUB', 'epub')
+        # options.addOption('HTML', 'html')
+        # options.addOption('Markdown', 'md')
+        # options.addOption('PDF', 'pdf')
+        # options.addOption('Plain Text', 'txt')
         session['allow_complete'] = False
         session['allow_prev'] = True
         session['has_next'] = True
-        session['next'] = self._handle_recent_action
+        # session['next'] = self._handle_recent_action
         session['payload'] = form
         session['prev'] = self._handle_recent
         return session
@@ -1773,11 +1765,12 @@ class XmppClient(slixmpp.ClientXMPP):
         url = values['subscription']
         jid_bare = session['from'].bare
         if is_operator(self, jid_bare) and 'jid' in values:
-            jid = values['jid']
-            jid_bare = jid[0] if isinstance(jid, list) else jid
+            custom_jid = values['jid']
+            jid_bare = custom_jid[0] if isinstance(custom_jid, list) else jid_bare
+            # jid_bare = custom_jid[0] if custom_jid else jid_bare
             form.add_field(var='jid',
                            ftype='hidden',
-                           value=jid)
+                           value=jid_bare)
         db_file = config.get_pathname_to_database(jid_bare)
         if identifier and sqlite.check_identifier_exist(db_file, identifier):
             form['title'] = 'Conflict'
