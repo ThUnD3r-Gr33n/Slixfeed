@@ -153,7 +153,7 @@ async def probe_page(url, document=None):
             result = None
         except Exception as e:
             logger.error(str(e))
-            logger.warn("Failed to parse URL as feed for {}.".format(url))
+            logger.warning("Failed to parse URL as feed for {}.".format(url))
             result = {'link' : None,
                       'index' : None,
                       'name' : None,

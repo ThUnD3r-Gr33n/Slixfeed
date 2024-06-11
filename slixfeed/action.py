@@ -72,6 +72,7 @@ except:
 logger = Logger(__name__)
 
 
+# NOTE Consider removal of MD (and any other option HTML and XBEL)
 def export_feeds(self, jid_bare, ext):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: jid_bare: {}: ext: {}'.format(function_name, jid_bare, ext))
