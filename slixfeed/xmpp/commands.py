@@ -10,6 +10,7 @@ import slixfeed.crawl as crawl
 from slixfeed.config import Config
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
+from slixfeed.opml import Opml
 import slixfeed.sqlite as sqlite
 import slixfeed.task as task
 import slixfeed.url as uri
@@ -292,7 +293,13 @@ class XmppCommands:
 
     async def print_bookmarks(self):
         conferences = await XmppBookmark.get_bookmarks(self)
-        message = action.list_bookmarks(self, conferences)
+        message = '\nList of groupchats:\n\n```\n'
+        for conference in conferences:
+            message += ('Name: {}\n'
+                        'Room: {}\n'
+                        '\n'
+                        .format(conference['name'], conference['jid']))
+        message += ('```\nTotal of {} groupchats.\n'.format(len(conferences)))
         return message
 
 
@@ -339,7 +346,7 @@ class XmppCommands:
     async def import_opml(self, db_file, jid_bare, command):
         url = command
         result = await fetch.http(url)
-        count = await action.import_opml(db_file, result)
+        count = await Opml.import_from_file(db_file, result)
         if count:
             message = ('Successfully imported {} feeds.'
                        .format(count))
@@ -943,11 +950,19 @@ class XmppCommands:
 
     async def search_items(self, db_file, query):
         if query:
-            if len(query) > 1:
+            if len(query) > 3:
                 results = sqlite.search_entries(db_file, query)
-                message = action.list_search_results(query, results)
+                message = ("Search results for '{}':\n\n```"
+                           .format(query))
+                for result in results:
+                    message += ("\n{}\n{}\n"
+                                .format(str(result[0]), str(result[1])))
+                if len(results):
+                    message += "```\nTotal of {} results".format(len(results))
+                else:
+                    message = "No results were found for: {}".format(query)
             else:
-                message = 'Enter at least 2 characters to search'
+                message = 'Enter at least 4 characters to search'
         else:
             message = ('No action has been taken.'
                         '\n'

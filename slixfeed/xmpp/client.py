@@ -53,6 +53,7 @@ import slixfeed.crawl as crawl
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 from slixfeed.log import Logger
+from slixfeed.opml import Opml
 import slixfeed.sqlite as sqlite
 import slixfeed.url as uri
 from slixfeed.version import __version__
@@ -344,9 +345,11 @@ class XmppClient(slixmpp.ClientXMPP):
         # XmppCommand.adhoc_commands(self)
         # self.service_reactions()
         task.task_ping(self)
+        # NOTE This might take more memory due to
+        # function sqlite.get_unread_entries_of_feed
         results = await XmppPubsub.get_pubsub_services(self)
         for result in results + [{'jid' : self.boundjid.bare,
-                                   'name' : self.alias}]:
+                                    'name' : self.alias}]:
             jid_bare = result['jid']
             if jid_bare not in self.settings:
                 db_file = config.get_pathname_to_database(jid_bare)
@@ -1894,9 +1897,10 @@ class XmppClient(slixmpp.ClientXMPP):
                 url = result['link']
                 feed_id = str(result['index'])
                 entries = sqlite.get_entries_of_feed(db_file, feed_id)
-                last_renewed = sqlite.get_status_information_of_feed(db_file,
+                renewed, scanned = sqlite.get_last_update_time_of_feed(db_file,
                                                                      feed_id)
-                last_renewed = str(last_renewed[5])
+                last_updated = renewed or scanned
+                last_updated = str(last_updated)
                 options = form.add_field(desc='Recent titles from subscription',
                                          ftype='list-multi',
                                          label='Preview')
@@ -1906,7 +1910,7 @@ class XmppClient(slixmpp.ClientXMPP):
                                label='Information')
                 form.add_field(ftype='text-single',
                                label='Renewed',
-                               value=last_renewed)
+                               value=last_updated)
                 form.add_field(ftype='text-single',
                                label='ID #',
                                value=feed_id)
@@ -1930,9 +1934,10 @@ class XmppClient(slixmpp.ClientXMPP):
                 url = result['link']
                 feed_id = str(result['index'])
                 entries = sqlite.get_entries_of_feed(db_file, feed_id)
-                last_updated = sqlite.get_status_information_of_feed(db_file,
+                renewed, scanned = sqlite.get_last_update_time_of_feed(db_file,
                                                                      feed_id)
-                last_updated = str(last_updated[3])
+                last_updated = renewed or scanned
+                last_updated = str(last_updated)
                 options = form.add_field(desc='Recent titles from subscription',
                                          ftype='list-multi',
                                          label='Preview')
@@ -2857,7 +2862,7 @@ class XmppClient(slixmpp.ClientXMPP):
                 jid_bare = jid[0] if isinstance(jid, list) else jid
             db_file = config.get_pathname_to_database(jid_bare)
             result = await fetch.http(url)
-            count = await action.import_opml(db_file, result)
+            count = await Opml.import_from_file(db_file, result)
             try:
                 int(count)
                 # form = self['xep_0004'].make_form('result', 'Done')

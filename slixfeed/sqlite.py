@@ -920,7 +920,7 @@ def get_feed_properties(db_file, feed_id):
         cur = conn.cursor()
         sql = (
             """
-            SELECT *
+            SELECT identifier, title, subtitle
             FROM feeds_properties
             WHERE id = :feed_id
             """
@@ -1583,7 +1583,7 @@ async def mark_entry_as_read(cur, ix):
     cur.execute(sql, par)
 
 
-def get_status_information_of_feed(db_file, feed_id):
+def get_last_update_time_of_feed(db_file, feed_id):
     """
     Get status information of given feed.
 
@@ -1601,7 +1601,7 @@ def get_status_information_of_feed(db_file, feed_id):
         cur = conn.cursor()
         sql = (
             """
-            SELECT *
+            SELECT renewed, scanned
             FROM feeds_state
             WHERE feed_id = ?
             """

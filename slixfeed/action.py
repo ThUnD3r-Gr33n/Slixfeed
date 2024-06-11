@@ -39,7 +39,9 @@ from slixfeed.config import Config
 import slixfeed.crawl as crawl
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
+from slixfeed.opml import Opml
 import slixfeed.sqlite as sqlite
+import slixfeed.task as task
 import slixfeed.url as uri
 from slixfeed.url import (
     complete_url,
@@ -48,7 +50,6 @@ from slixfeed.url import (
     replace_hostname,
     trim_url
     )
-import slixfeed.task as task
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.iq import XmppIQ
@@ -89,7 +90,7 @@ def export_feeds(self, jid_bare, ext):
         case 'md':
             export_to_markdown(jid_bare, filename, results)
         case 'opml':
-            export_to_opml(jid_bare, filename, results)
+            Opml.export_to_file(jid_bare, filename, results)
         # case 'xbel':
         #     response = 'Not yet implemented.'
     return filename
@@ -210,10 +211,12 @@ async def xmpp_pubsub_send_selected_entry(self, jid_bare, jid_file, node_id, ent
     else:
         feed_id = sqlite.get_feed_id_by_entry_index(db_file, entry_id)
         feed_id = feed_id[0]
-        feed_properties = sqlite.get_feed_properties(db_file, feed_id)
-        node_id = feed_properties[2]
-        node_title = feed_properties[3]
-        node_subtitle = feed_properties[5]
+        node_id, node_title, node_subtitle = sqlite.get_feed_properties(db_file, feed_id)
+        print('THIS IS A TEST')
+        print(node_id)
+        print(node_title)
+        print(node_subtitle)
+        print('THIS IS A TEST')
     xep = None
     iq_create_node = XmppPubsub.create_node(
         self, jid_bare, node_id, xep, node_title, node_subtitle)
@@ -810,68 +813,6 @@ async def list_unread_entries(self, result, feed_title, jid):
     return news_item
 
 
-def list_search_results(query, results):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: query: {}'
-                .format(function_name, query))
-    message = ("Search results for '{}':\n\n```"
-               .format(query))
-    for result in results:
-        message += ("\n{}\n{}\n"
-                    .format(str(result[0]), str(result[1])))
-    if len(results):
-        message += "```\nTotal of {} results".format(len(results))
-    else:
-        message = "No results were found for: {}".format(query)
-    return message
-
-
-async def list_options(self, jid_bare):
-    """
-    Print options.
-
-    Parameters
-    ----------
-    jid_bare : str
-        Jabber ID.
-
-    Returns
-    -------
-    msg : str
-        Options as message.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: jid: {}'
-                .format(function_name, jid_bare))
-
-    # msg = """You have {} unread news items out of {} from {} news sources.
-    #       """.format(unread_entries, entries, feeds)
-
-    # try:
-    #     value = cur.execute(sql, par).fetchone()[0]
-    # except:
-    #     print("Error for key:", key)
-    #     value = "Default"
-    # values.extend([value])
-
-    value_archive = Config.get_setting_value(self.settings, jid_bare, 'archive')
-    value_interval = Config.get_setting_value(self.settings, jid_bare, 'interval')
-    value_quantum = Config.get_setting_value(self.settings, jid_bare, 'quantum')
-    value_enabled = Config.get_setting_value(self.settings, jid_bare, 'enabled')
-
-    message = ("Options:"
-               "\n"
-               "```"
-               "\n"
-               "Items to archive : {}\n"
-               "Update interval  : {}\n"
-               "Items per update : {}\n"
-               "Operation status : {}\n"
-               "```").format(value_archive, value_interval, value_quantum,
-                             value_enabled)
-    return message
-
-
 def pick_a_feed(lang=None):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: lang: {}'
@@ -882,20 +823,6 @@ def pick_a_feed(lang=None):
     import random
     url = random.choice(urls['feeds'])
     return url
-
-
-def list_bookmarks(self, conferences):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}'.format(function_name))
-    message = '\nList of groupchats:\n\n```\n'
-    for conference in conferences:
-        message += ('Name: {}\n'
-                    'Room: {}\n'
-                    '\n'
-                    .format(conference['name'], conference['jid']))
-    message += ('```\nTotal of {} groupchats.\n'
-                .format(len(conferences)))
-    return message
 
 
 def export_to_markdown(jid, filename, results):
@@ -910,60 +837,6 @@ def export_to_markdown(jid, filename, results):
         file.write('\n\n* * *\n\nThis list was saved on {} from xmpp:{} using '
                    '[Slixfeed](https://gitgud.io/sjehuda/slixfeed)\n'
                    .format(dt.current_date(), jid))
-
-
-# TODO Consider adding element jid as a pointer of import
-def export_to_opml(jid, filename, results):
-    # print(jid, filename, results)
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{} jid: {} filename: {}'
-                .format(function_name, jid, filename))
-    root = ETR.Element("opml")
-    root.set("version", "1.0")
-    head = ETR.SubElement(root, "head")
-    ETR.SubElement(head, "title").text = "{}".format(jid)
-    ETR.SubElement(head, "description").text = (
-        "Set of subscriptions exported by Slixfeed")
-    ETR.SubElement(head, "generator").text = "Slixfeed"
-    ETR.SubElement(head, "urlPublic").text = (
-        "https://gitgud.io/sjehuda/slixfeed")
-    time_stamp = dt.current_time()
-    ETR.SubElement(head, "dateCreated").text = time_stamp
-    ETR.SubElement(head, "dateModified").text = time_stamp
-    body = ETR.SubElement(root, "body")
-    for result in results:
-        outline = ETR.SubElement(body, "outline")
-        outline.set("text", result[1])
-        outline.set("xmlUrl", result[2])
-        # outline.set("type", result[2])
-    tree = ETR.ElementTree(root)
-    tree.write(filename)
-
-
-async def import_opml(db_file, result):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {}'
-                .format(function_name, db_file))
-    if not result['error']:
-        document = result['content']
-        root = ETR.fromstring(document)
-        before = sqlite.get_number_of_items(db_file, 'feeds_properties')
-        feeds = []
-        for child in root.findall(".//outline"):
-            url = child.get("xmlUrl")
-            title = child.get("text")
-            # feed = (url, title)
-            # feeds.extend([feed])
-            feed = {
-                'title' : title,
-                'url' : url,
-                }
-            feeds.extend([feed])
-        await sqlite.import_feeds(db_file, feeds)
-        await sqlite.add_metadata(db_file)
-        after = sqlite.get_number_of_items(db_file, 'feeds_properties')
-        difference = int(after) - int(before)
-        return difference
 
 
 async def add_feed(self, jid_bare, db_file, url, identifier):
