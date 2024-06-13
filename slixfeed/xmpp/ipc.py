@@ -12,7 +12,11 @@ socket (i.e. clients[fd]) from the respective client.
 import asyncio
 import os
 import slixfeed.config as config
+from slixfeed.syndication import FeedTask
+from slixfeed.xmpp.chat import XmppChatTask
 from slixfeed.xmpp.commands import XmppCommands
+from slixfeed.xmpp.chat import XmppChatAction
+from slixfeed.xmpp.status import XmppStatusTask
 import socket
 
 class XmppIpcServer:
@@ -86,7 +90,7 @@ class XmppIpcServer:
                 else:
                     command = data
                 match command:
-                    case _ if command.startswith('add '):
+                    case _ if command.startswith('add'):
                         command = command[4:]
                         url = command.split(' ')[0]
                         title = ' '.join(command.split(' ')[1:])
@@ -130,10 +134,10 @@ class XmppIpcServer:
                             self, muc_jid)
                     case 'bookmarks':
                         response = await XmppCommands.print_bookmarks(self)
-                    case _ if command.startswith('clear '):
+                    case _ if command.startswith('clear'):
                         key = command[6:]
                         response = await XmppCommands.clear_filter(db_file, key)
-                    case _ if command.startswith('default '):
+                    case _ if command.startswith('default'):
                         key = command[8:]
                         response = await XmppCommands.restore_default(
                             self, jid_bare, key=None)
@@ -163,10 +167,10 @@ class XmppIpcServer:
                                 response = ('No action has been taken.'
                                             '\n'
                                             'Missing keywords.')
-                    case _ if command.startswith('disable '):
+                    case _ if command.startswith('disable'):
                         response = await XmppCommands.feed_disable(
                             self, db_file, jid_bare, command)
-                    case _ if command.startswith('enable '):
+                    case _ if command.startswith('enable'):
                         response = await XmppCommands.feed_enable(
                             self, db_file, command)
                     case _ if command.startswith('export'):
@@ -207,12 +211,12 @@ class XmppIpcServer:
                     case 'pubsub list':
                         response = await XmppCommands.pubsub_list(
                             self, jid_bare)
-                    case _ if command.startswith('pubsub list '):
+                    case _ if command.startswith('pubsub list'):
                         jid = command[12:]
                         response = 'List of nodes for {}:\n```\n'.format(jid)
                         response = await XmppCommands.pubsub_list(self, jid)
                         response += '```'
-                    case _ if command.startswith('pubsub send '):
+                    case _ if command.startswith('pubsub send'):
                         info = command[12:]
                         info = info.split(' ')
                         jid = info[0]
@@ -233,6 +237,7 @@ class XmppIpcServer:
                         if val:
                             response = await XmppCommands.set_interval(
                                 self, db_file, jid_bare, val)
+                            XmppChatTask.restart_task(self, jid_bare)
                         else:
                             response = 'Current value for interval: '
                             response += XmppCommands.get_interval(self, jid_bare)
@@ -257,12 +262,13 @@ class XmppIpcServer:
                         response = await XmppCommands.set_old_off(
                             self, jid_bare, db_file)
                     case _ if command.startswith('next'):
-                        await XmppCommands.send_next_update(self, jid_bare, command)
-                    case _ if command.startswith('node delete '):
+                        num = command[5:]
+                        await XmppChatAction.send_unread_items(self, jid_bare, num)
+                    case _ if command.startswith('node delete'):
                         info = command[12:]
                         info = info.split(' ')
                         response = XmppCommands.node_delete(self, info)
-                    case _ if command.startswith('node purge '):
+                    case _ if command.startswith('node purge'):
                         info = command[11:]
                         info = info.split(' ')
                         response = XmppCommands.node_purge(self, info)
@@ -284,7 +290,7 @@ class XmppIpcServer:
                                 self, jid_bare)
                     case 'random':
                         response = XmppCommands.set_random(self, jid_bare, db_file)
-                    case _ if command.startswith('read '):
+                    case _ if command.startswith('read'):
                         data = command[5:]
                         data = data.split()
                         url = data[0]
@@ -305,26 +311,26 @@ class XmppIpcServer:
                             response += result
                         else:
                             response = result
-                    case _ if command.startswith('remove '):
+                    case _ if command.startswith('remove'):
                         ix_url = command[7:]
                         ix_url = ix_url.split(' ')
                         response = await XmppCommands.feed_remove(
                             self, jid_bare, db_file, ix_url)
-                    case _ if command.startswith('rename '):
+                    case _ if command.startswith('rename'):
                         response = await XmppCommands.feed_rename(
                             self, db_file, jid_bare, command)
                     case _ if command.startswith('reset'):
                         ix_url = command[6:]
                         ix_url = ix_url.split(' ')
                         response = await XmppCommands.mark_as_read(
-                            self, jid_bare, db_file, ix_url)
+                            jid_bare, db_file, ix_url)
                     case _ if command.startswith('search'):
                         query = command[7:]
-                        response = XmppCommands.search_items(
-                            self, db_file, query)
+                        response = XmppCommands.search_items(db_file, query)
                     case 'start':
+                        tasks = (FeedTask, XmppChatTask, XmppStatusTask)
                         response = await XmppCommands.scheduler_start(
-                            self, db_file, jid_bare)
+                            self, db_file, jid_bare, tasks)
                     case 'stats':
                         response = XmppCommands.print_statistics(db_file)
                     case 'stop':

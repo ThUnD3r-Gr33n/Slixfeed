@@ -11,9 +11,9 @@ FIXME
 
 TODO
 
-1) Website-specific filter (i.e. audiobookbay).
+1) Site-specific filter (i.e. audiobookbay).
 
-2) Exclude websites from being subjected to filtering (e.g. metapedia).
+2) Exclude sites from being subjected to filtering (e.g. metapedia).
 
 3) Filter phrases:
     Refer to sqlitehandler.search_entries for implementation.
@@ -32,7 +32,7 @@ TODO
 """
 
 import configparser
-import logging
+from slixfeed.log import Logger
 import os
 # from random import randrange
 import slixfeed.sqlite as sqlite
@@ -42,6 +42,8 @@ try:
     import tomllib
 except:
     import tomli as tomllib
+
+logger = Logger(__name__)
 
 # TODO Consider a class ConfigDefault for default values to be initiate at most
 # basic level possible and a class ConfigJID for each JID (i.e. db_file) to be
@@ -75,6 +77,8 @@ class Config:
         else:
             await sqlite.set_setting_value(db_file, key_val)
 
+    # TODO Segregate Jabber ID settings from Slixfeed wide settings.
+    # self.settings, self.settings_xmpp, self.settings_irc etc.
     def get_setting_value(settings, jid_bare, key):
         if jid_bare in settings and key in settings[jid_bare]:
             value = settings[jid_bare][key]
@@ -248,21 +252,21 @@ def get_value(filename, section, keys):
             for key in keys:
                 if key in section_res:
                     value = section_res[key]
-                    logging.debug("Found value {} for key {}".format(value, key))
+                    logger.debug("Found value {} for key {}".format(value, key))
                 else:
                     value = ''
-                    logging.debug("Missing key:", key)
+                    logger.debug("Missing key:", key)
                 result.extend([value])
         elif isinstance(keys, str):
             key = keys
             if key in section_res:
                 result = section_res[key]
-                logging.debug("Found value {} for key {}".format(result, key))
+                logger.debug("Found value {} for key {}".format(result, key))
             else:
                 result = ''
-                # logging.error("Missing key:", key)
+                # logger.error("Missing key:", key)
     if result == None:
-        logging.error(
+        logger.error(
             "Check configuration file {}.ini for "
             "missing key(s) \"{}\" under section [{}].".format(
                 filename, keys, section)

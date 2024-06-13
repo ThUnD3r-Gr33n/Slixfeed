@@ -6,6 +6,7 @@ archive = 50   # Maximum items to archive (0 - 500)
 check = 120    # Source check interval (recommended 90; minimum 10)
 enabled = 1    # Work status (Value 0 to disable)
 filter = 0     # Enable filters (Value 1 to enable)
+finished = 0   # Send an extra message which indicates of the amount of time of a done task (Value 1 to enable)
 interval = 300 # Update interval (Minimum value 10)
 length = 300   # Maximum length of summary (Value 0 to disable)
 media = 0      # Display media (audio, image, video) when available
@@ -20,12 +21,15 @@ random = 0     # Pick random item from database
 # * feed_title = Title of news source
 # * ix = Index of item
 formatting = """
-{title}
+{ix}. {title}
 > {summary}
 {link}
-{feed_title} [{ix}]
+{feed_title} [{feed_id}]
 
 """
+
+[ipc]
+bsd = 0 # IPC (BSD/UDS) POSIX sockets
 
 # Utilized in case of missing protocol support.
 [bridge]
@@ -37,11 +41,11 @@ tor = ""
 yggdrasil = ""
 
 [network]
-http_proxy = ""
-user_agent = "Slixfeed/0.1"
-clearnet = 0  # Enable policed DNS system (not recommended)
-i2p = 1       # Enable I2P mixnet system (safer)
-ipfs = 1      # Enable IPFS DHT system (safer)
-loki = 1      # Enable Loki mixnet system (safer)
-tor = 1       # Enable Tor semi-mixnet system (semi-safer)
-yggdrasil = 1 # Enable Yggdrasil mixnet system (safer)
+http_proxy = ""             # Example: http://127.0.0.1:8118
+user_agent = "Slixfeed/0.1" # Default Slixfeed/0.1
+clearnet = 0                # Enable policed DNS system (not recommended)
+i2p = 1                     # Enable I2P mixnet system (safer)
+ipfs = 1                    # Enable IPFS DHT system (safer)
+loki = 1                    # Enable Loki mixnet system (safer)
+tor = 1                     # Enable Tor semi-mixnet system (semi-safer)
+yggdrasil = 1               # Enable Yggdrasil mixnet system (safer)

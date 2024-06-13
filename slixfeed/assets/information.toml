@@ -3,14 +3,14 @@ info = """
 Slixfeed is a news broker bot for syndicated news which aims to be \
 an easy to use and fully-featured news aggregating bot.
 
-Slixfeed provides a convenient access to Blogs, News websites and \
+Slixfeed provides a convenient access to Blogs, News sites and \
 even Fediverse instances, along with filtering and other privacy \
 driven functionalities.
 
 Slixfeed is designed primarily for the XMPP communication network \
 (aka Jabber).
 
-https://gitgud.io/sjehuda/slixfeed
+https://git.xmpp-it.net/sch/Slixfeed
 """
 
 [note]
@@ -160,6 +160,15 @@ https://mov.im
 
 Poezio
 https://poez.io
+
+Psi
+https://psi-im.org
+
+Psi+
+https://psi-plus.com
+
+Profanity
+https://profanity-im.github.io
 """
 
 [services]

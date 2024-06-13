@@ -1,23 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import logging
-import os
-# import slixfeed.action as action
-import slixfeed.config as config
-from slixfeed.dt import current_time, timestamp
-import slixfeed.fetch as fetch
-import slixfeed.sqlite as sqlite
-import slixfeed.task as task
-import slixfeed.url as uri
-from slixfeed.xmpp.bookmark import XmppBookmark
-# from slixfeed.xmpp.muc import XmppGroupchat
-# from slixfeed.xmpp.message import XmppMessage
-from slixfeed.xmpp.presence import XmppPresence
-from slixfeed.xmpp.upload import XmppUpload
-from slixfeed.xmpp.utility import get_chat_type
-import time
+from slixfeed.log import Logger
 import xml.sax.saxutils as saxutils
+
+logger = Logger(__name__)
 
 """
 

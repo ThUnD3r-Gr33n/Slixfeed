@@ -7,8 +7,22 @@ Functions create_node and create_entry are derived from project atomtopubsub.
 
 """
 
+import asyncio
+import hashlib
 import slixmpp.plugins.xep_0060.stanza.pubsub as pubsub
 from slixmpp.xmlstream import ET
+import slixfeed.config as config
+from slixfeed.config import Config
+from slixfeed.log import Logger
+import slixfeed.sqlite as sqlite
+from slixfeed.syndication import Feed
+import slixfeed.url as uri
+from slixfeed.utilities import Utilities
+from slixfeed.xmpp.iq import XmppIQ
+import sys
+
+logger = Logger(__name__)
+
 
 class XmppPubsub:
 
@@ -110,13 +124,9 @@ class XmppPubsub:
         form.addField('pubsub#deliver_payloads',
                       ftype='boolean',
                       value=0)
-
-        # TODO
-
         form.addField('pubsub#type',
                       ftype='text-single',
                       value='http://www.w3.org/2005/Atom')
-
         return iq
 
 
@@ -243,3 +253,137 @@ class XmppPubsub:
         iq['pubsub']['publish'].append(item)
 
         return iq
+
+
+class XmppPubsubAction:
+
+
+    async def send_selected_entry(self, jid_bare, node_id, entry_id):
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_bare: {}'.format(function_name, jid_bare))
+        db_file = config.get_pathname_to_database(jid_bare)
+        report = {}
+        if jid_bare == self.boundjid.bare:
+            node_id = 'urn:xmpp:microblog:0'
+            node_subtitle = None
+            node_title = None
+        else:
+            feed_id = sqlite.get_feed_id_by_entry_index(db_file, entry_id)
+            feed_id = feed_id[0]
+            node_id, node_title, node_subtitle = sqlite.get_feed_properties(db_file, feed_id)
+            print('THIS IS A TEST')
+            print(node_id)
+            print(node_title)
+            print(node_subtitle)
+            print('THIS IS A TEST')
+        xep = None
+        iq_create_node = XmppPubsub.create_node(
+            self, jid_bare, node_id, xep, node_title, node_subtitle)
+        await XmppIQ.send(self, iq_create_node)
+        entry = sqlite.get_entry_properties(db_file, entry_id)
+        print('xmpp_pubsub_send_selected_entry',jid_bare)
+        print(node_id)
+        entry_dict = Feed.pack_entry_into_dict(db_file, entry)
+        node_item = Feed.create_rfc4287_entry(entry_dict)
+        entry_url = entry_dict['link']
+        item_id = Utilities.hash_url_to_md5(entry_url)
+        iq_create_entry = XmppPubsub.create_entry(
+            self, jid_bare, node_id, item_id, node_item)
+        await XmppIQ.send(self, iq_create_entry)
+        await sqlite.mark_as_read(db_file, entry_id)
+        report = entry_url
+        return report
+    
+    
+    async def send_unread_items(self, jid_bare):
+        """
+    
+        Parameters
+        ----------
+        jid_bare : TYPE
+            Bare Jabber ID.
+    
+        Returns
+        -------
+        report : dict
+            URL and Number of processed entries.
+    
+        """
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid_bare: {}'.format(function_name, jid_bare))
+        db_file = config.get_pathname_to_database(jid_bare)
+        report = {}
+        subscriptions = sqlite.get_active_feeds_url(db_file)
+        for url in subscriptions:
+            url = url[0]
+            # feed_id = sqlite.get_feed_id(db_file, url)
+            # feed_id = feed_id[0]
+            # feed_properties = sqlite.get_feed_properties(db_file, feed_id)
+            feed_id = sqlite.get_feed_id(db_file, url)
+            feed_id = feed_id[0]
+    
+            # Publish to node 'urn:xmpp:microblog:0' for own JID
+            # Publish to node based on feed identifier for PubSub service.
+    
+            if jid_bare == self.boundjid.bare:
+                node_id = 'urn:xmpp:microblog:0'
+                node_subtitle = None
+                node_title = None
+            else:
+                # node_id = feed_properties[2]
+                # node_title = feed_properties[3]
+                # node_subtitle = feed_properties[5]
+                node_id = sqlite.get_feed_identifier(db_file, feed_id)
+                node_id = node_id[0]
+                if not node_id:
+                    counter = 0
+                    hostname = uri.get_hostname(url)
+                    hostname = hostname.replace('.','-')
+                    identifier = hostname + ':' + str(counter)
+                    while True:
+                        if sqlite.check_identifier_exist(db_file, identifier):
+                            counter += 1
+                            identifier = hostname + ':' + str(counter)
+                        else:
+                            break
+                    await sqlite.update_feed_identifier(db_file, feed_id, identifier)
+                    node_id = sqlite.get_feed_identifier(db_file, feed_id)
+                    node_id = node_id[0]
+                node_title = sqlite.get_feed_title(db_file, feed_id)
+                node_title = node_title[0]
+                node_subtitle = sqlite.get_feed_subtitle(db_file, feed_id)
+                node_subtitle = node_subtitle[0]
+            xep = None
+            node_exist = await XmppPubsub.get_node_configuration(self, jid_bare, node_id)
+            if not node_exist:
+                iq_create_node = XmppPubsub.create_node(
+                    self, jid_bare, node_id, xep, node_title, node_subtitle)
+                await XmppIQ.send(self, iq_create_node)
+            entries = sqlite.get_unread_entries_of_feed(db_file, feed_id)
+            report[url] = len(entries)
+            for entry in entries:
+                feed_entry = Feed.pack_entry_into_dict(db_file, entry)
+                node_entry = Feed.create_rfc4287_entry(feed_entry)
+                entry_url = feed_entry['link']
+                item_id = Utilities.hash_url_to_md5(entry_url)
+                print('PubSub node item was sent to', jid_bare, node_id)
+                print(entry_url)
+                print(item_id)
+                iq_create_entry = XmppPubsub.create_entry(
+                    self, jid_bare, node_id, item_id, node_entry)
+                await XmppIQ.send(self, iq_create_entry)
+                ix = entry[0]
+                await sqlite.mark_as_read(db_file, ix)
+        return report
+
+
+class XmppPubsubTask:
+
+
+    async def task_publish(self, jid_bare):
+        db_file = config.get_pathname_to_database(jid_bare)
+        if jid_bare not in self.settings:
+            Config.add_settings_jid(self.settings, jid_bare, db_file)
+        while True:
+            await XmppPubsubAction.send_unread_items(self, jid_bare)
+            await asyncio.sleep(60 * 180)

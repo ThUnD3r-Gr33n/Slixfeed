@@ -1558,29 +1558,38 @@ def is_entry_archived(cur, ix):
     result = cur.execute(sql, par).fetchone()
     return result
 
-async def mark_entry_as_read(cur, ix):
+
+def is_entry_read(db_file, ix):
     """
-    Set read status of entry as read.
+    Check whether a given entry is marked as read.
 
     Parameters
     ----------
-    cur : object
-        Cursor object.
+    db_file : str
+        Path to database file.
     ix : str
         Index of entry.
+
+    Returns
+    -------
+    result : tuple
+        Entry ID.
     """
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: ix: {}'
                 .format(function_name, ix))
-    sql = (
-        """
-        UPDATE entries_state
-        SET read = 1
-        WHERE entry_id = ?
-        """
-        )
-    par = (ix,)
-    cur.execute(sql, par)
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT read
+            FROM entries_state
+            WHERE entry_id = ?
+            """
+            )
+        par = (ix,)
+        result = cur.execute(sql, par).fetchone()
+        return result
 
 
 def get_last_update_time_of_feed(db_file, feed_id):
@@ -1667,45 +1676,6 @@ def get_number_of_unread_entries_by_feed(db_file, feed_id):
         par = (feed_id,)
         count = cur.execute(sql, par).fetchone()
         return count
-
-
-async def mark_feed_as_read(db_file, feed_id):
-    """
-    Set read status of entries of given feed as read.
-
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
-    feed_id : str
-        Feed ID.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} feed_id: {}'
-                .format(function_name, db_file, feed_id))
-    async with DBLOCK:
-        with create_connection(db_file) as conn:
-            cur = conn.cursor()
-            sql = (
-                """
-                SELECT id
-                FROM entries_properties
-                WHERE feed_id = ?
-                """
-                )
-            par = (feed_id,)
-            ixs = cur.execute(sql, par).fetchall()
-            sql = (
-                """
-                UPDATE entries_state
-                SET read = 1
-                WHERE entry_id = ?
-                """
-                )
-            for ix in ixs: cur.execute(sql, ix)
-            # for ix in ixs:
-            #     par = ix # Variable ix is already of type tuple
-            #     cur.execute(sql, par)
 
 
 async def delete_entry_by_id(db_file, ix):
@@ -1923,26 +1893,6 @@ def get_feed_url(db_file, feed_id):
         return url
 
 
-async def mark_as_read(db_file, ix):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} ix: {}'
-                 .format(function_name, db_file, ix))
-    async with DBLOCK:
-        with create_connection(db_file) as conn:
-            cur = conn.cursor()
-            # TODO While `async with DBLOCK` does work well from
-            # outside of functions, it would be better practice
-            # to place it within the functions.
-            # NOTE: We can use DBLOCK once for both
-            # functions, because, due to exclusive
-            # ID, only one can ever occur.
-            if is_entry_archived(cur, ix):
-                await delete_entry(cur, ix)
-            else:
-                await mark_entry_as_read(cur, ix)
-            
-
-
 async def mark_all_as_read(db_file):
     """
     Set read status of all entries as read.
@@ -1983,6 +1933,89 @@ async def mark_all_as_read(db_file):
                 """
                 )
             for ix in ixs: cur.execute(sql, ix)
+
+
+async def mark_feed_as_read(db_file, feed_id):
+    """
+    Set read status of entries of given feed as read.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Feed ID.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} feed_id: {}'
+                .format(function_name, db_file, feed_id))
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            sql = (
+                """
+                SELECT id
+                FROM entries_properties
+                WHERE feed_id = ?
+                """
+                )
+            par = (feed_id,)
+            ixs = cur.execute(sql, par).fetchall()
+            sql = (
+                """
+                UPDATE entries_state
+                SET read = 1
+                WHERE entry_id = ?
+                """
+                )
+            for ix in ixs: cur.execute(sql, ix)
+            # for ix in ixs:
+            #     par = ix # Variable ix is already of type tuple
+            #     cur.execute(sql, par)
+
+
+async def mark_entry_as_read(cur, ix):
+    """
+    Set read status of entry as read.
+
+    Parameters
+    ----------
+    cur : object
+        Cursor object.
+    ix : str
+        Index of entry.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: ix: {}'
+                .format(function_name, ix))
+    sql = (
+        """
+        UPDATE entries_state
+        SET read = 1
+        WHERE entry_id = ?
+        """
+        )
+    par = (ix,)
+    cur.execute(sql, par)
+
+
+async def mark_as_read(db_file, ix):
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} ix: {}'
+                 .format(function_name, db_file, ix))
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            # TODO While `async with DBLOCK` does work well from
+            # outside of functions, it would be better practice
+            # to place it within the functions.
+            # NOTE: We can use DBLOCK once for both
+            # functions, because, due to exclusive
+            # ID, only one can ever occur.
+            if is_entry_archived(cur, ix):
+                await delete_entry(cur, ix)
+            else:
+                await mark_entry_as_read(cur, ix)
 
 
 async def delete_entry(cur, ix):

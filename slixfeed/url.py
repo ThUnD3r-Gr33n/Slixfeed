@@ -19,11 +19,11 @@ TODO
 """
 
 from email.utils import parseaddr
-import logging
 import os
 import random
 import slixfeed.config as config
 import slixfeed.fetch as fetch
+from slixfeed.log import Logger
 from urllib.parse import (
     parse_qs,
     urlencode,
@@ -32,6 +32,8 @@ from urllib.parse import (
     urlsplit,
     urlunsplit
     )
+
+logger = Logger(__name__)
 
 
 # NOTE
@@ -113,12 +115,12 @@ async def replace_hostname(url, url_type):
                             config.update_proxies(proxies_file, proxy_name,
                                                   proxy_type, proxy_url)
                         except ValueError as e:
-                            logging.error([str(e), proxy_url])
+                            logger.error([str(e), proxy_url])
                         url_new = None
                 else:
-                    logging.warning(
-                        "No proxy URLs for {}. Please update proxies.toml"
-                        .format(proxy_name))
+                    logger.warning('No proxy URLs for {}. '
+                                   'Please update proxies.toml'
+                                   .format(proxy_name))
                     url_new = url
                     break
     return url_new

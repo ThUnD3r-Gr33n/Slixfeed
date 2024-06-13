@@ -28,9 +28,11 @@ TODO
 import glob
 from slixfeed.config import Config
 import slixfeed.config as config
+from slixfeed.log import Logger
 from slixmpp.exceptions import IqTimeout, IqError
-import logging
 import os
+
+logger = Logger(__name__)
 
 # class XmppProfile:
 
@@ -39,19 +41,19 @@ async def update(self):
     try:
         await set_vcard(self)
     except IqTimeout as e:
-        logging.error('Profile vCard: Error Timeout')
-        logging.error(str(e))
+        logger.error('Profile vCard: Error Timeout')
+        logger.error(str(e))
     except IqError as e:
-            logging.error('Profile vCard: Error XmppIQ')
-            logging.error(str(e))
+            logger.error('Profile vCard: Error XmppIQ')
+            logger.error(str(e))
     try:
         await set_avatar(self)
     except IqTimeout as e:
-        logging.error('Profile Photo: Error Timeout')
-        logging.error(str(e))
+        logger.error('Profile Photo: Error Timeout')
+        logger.error(str(e))
     except IqError as e:
-            logging.error('Profile Photo: Error XmppIQ')
-            logging.error(str(e))
+            logger.error('Profile Photo: Error XmppIQ')
+            logger.error(str(e))
 
 
 async def set_avatar(self):
@@ -74,7 +76,14 @@ async def set_avatar(self):
         with open(image_file, 'rb') as avatar_file:
             avatar = avatar_file.read()
             # await self.plugin['xep_0084'].publish_avatar(avatar)
-            await self.plugin['xep_0153'].set_avatar(avatar=avatar)
+            try:
+                await self.plugin['xep_0153'].set_avatar(avatar=avatar)
+            except IqTimeout as e:
+                logger.error('Profile Photo: Error Timeout 222')
+                logger.error(str(e))
+            except IqError as e:
+                    logger.error('Profile Photo: Error XmppIQ 222')
+                    logger.error(str(e))
 
 
 def set_identity(self, category):

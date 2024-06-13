@@ -37,7 +37,7 @@ TODO
 13) Tip Of The Day.
     Did you know that you can follow you favorite Mastodon feeds by just
     sending the URL address?
-    Supported fediverse websites are:
+    Supported ActivityPub (i.e. fediverse) instances are:
         Akkoma, Firefish (Calckey), Friendica, HubZilla,
         Mastodon, Misskey, Pixelfed, Pleroma, Socialhome, Soapbox.
 
@@ -57,29 +57,19 @@ TODO
 # jid = Jabber ID (XMPP)
 # res = response (HTTP)
 from argparse import ArgumentParser
-from getpass import getpass
-import sys
-import configparser
-# import filehandler
-# from slixfeed.file import get_default_confdir
-from getpass import getpass
 import logging
-import os
-
-# from datetime import date
-# import time
+import sys
 
 # from eliot import start_action, to_file
 # # to_file(open('slixfeed.log', 'w'))
 # # with start_action(action_type='set_date()', jid=jid):
 # # with start_action(action_type='message()', msg=msg):
 
-#import slixfeed.smtp
-#import slixfeed.irc
-#import slixfeed.matrix
-
 import slixfeed.config as config
+from slixfeed.log import Logger
 from slixfeed.version import __version__
+
+logger = Logger(__name__)
 
 # import socks
 # import socket
@@ -89,7 +79,7 @@ from slixfeed.version import __version__
 def main():
 
     config_dir = config.get_default_config_directory()
-    logging.info('Reading configuration from {}'.format(config_dir))
+    logger.info('Reading configuration from {}'.format(config_dir))
     print('Reading configuration from {}'.format(config_dir))
     network_settings = config.get_values('settings.toml', 'network')
     print('User agent:', network_settings['user_agent'] or 'Slixfeed/0.1')

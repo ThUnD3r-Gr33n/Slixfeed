@@ -40,12 +40,11 @@ keywords = [
 # urls = {Homepage = "https://gitgud.io/sjehuda/slixfeed"}
 dependencies = [
     "aiohttp",
-    "bs4",
+    # "daemonize",
     "feedparser",
     "lxml",
     # "pysocks",
     "python-dateutil",
-    "pyyaml",
     "requests",
     "slixmpp",
     "tomli", # Python 3.10

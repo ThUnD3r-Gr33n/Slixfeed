@@ -24,36 +24,29 @@ TODO
 """
 
 import asyncio
-from feedparser import parse
-import logging
-import os
-import slixfeed.action as action
+from random import randrange # pending_tasks: Use a list and read the first index (i.e. index 0).
 import slixfeed.config as config
-import slixfeed.crawl as crawl
 from slixfeed.config import Config
-import slixfeed.dt as dt
-import slixfeed.fetch as fetch
+from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
-import slixfeed.task as task
-import slixfeed.url as uri
-from slixfeed.version import __version__
-from slixfeed.xmpp.bookmark import XmppBookmark
+from slixfeed.url import (
+    remove_tracking_parameters,
+    replace_hostname,
+    )
+from slixfeed.syndication import FeedTask
+from slixfeed.utilities import Documentation, Html, MD, Task
 from slixfeed.xmpp.commands import XmppCommands
-from slixfeed.xmpp.muc import XmppGroupchat
 from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
-from slixfeed.xmpp.publish import XmppPubsub
+from slixfeed.xmpp.privilege import is_operator, is_moderator
+from slixfeed.xmpp.status import XmppStatusTask
 from slixfeed.xmpp.upload import XmppUpload
-from slixfeed.xmpp.privilege import is_moderator, is_operator, is_access
-from slixfeed.xmpp.utility import get_chat_type
+from slixfeed.xmpp.utilities import XmppUtilities
+import sys
 import time
 
-from random import randrange
 
-try:
-    import tomllib
-except:
-    import tomli as tomllib
+logger = Logger(__name__)
 
 
     # for task in main_task:
@@ -63,7 +56,9 @@ except:
     # if not main_task:
     #     await select_file()
 
-class Chat:
+
+class XmppChat:
+
 
     async def process_message(self, message):
         """
@@ -154,7 +149,7 @@ class Chat:
                 command = command[1:]
             command_lowercase = command.lower()
 
-            logging.debug([str(message['from']), ':', command])
+            logger.debug([str(message['from']), ':', command])
 
             # Support private message via groupchat
             # See https://codeberg.org/poezio/slixmpp/issues/3506
@@ -175,7 +170,7 @@ class Chat:
                                 'Usage: `help <key>`'
                                 .format(command_list))
                 case 'help all':
-                    command_list = action.manual('commands.toml', section='all')
+                    command_list = Documentation.manual('commands.toml', section='all')
                     response = ('Complete list of commands:\n'
                                 '```\n{}\n```'
                                 .format(command_list))
@@ -185,9 +180,8 @@ class Chat:
                     if len(command) == 2:
                         command_root = command[0]
                         command_name = command[1]
-                        command_list = action.manual('commands.toml',
-                                                     section=command_root,
-                                                     command=command_name)
+                        command_list = Documentation.manual(
+                            'commands.toml', section=command_root, command=command_name)
                         if command_list:
                             command_list = ''.join(command_list)
                             response = (command_list)
@@ -196,7 +190,7 @@ class Chat:
                                         .format(command_root, command_name))
                     elif len(command) == 1:
                         command = command[0]
-                        command_list = action.manual('commands.toml', command)
+                        command_list = Documentation.manual('commands.toml', command)
                         if command_list:
                             command_list = ' '.join(command_list)
                             response = ('Available command `{}` keys:\n'
@@ -224,7 +218,7 @@ class Chat:
                                 'I am an RSS News Bot.\n'
                                 'Send "help" for further instructions.\n'
                                 .format(self.alias))
-                case _ if command_lowercase.startswith('add '):
+                case _ if command_lowercase.startswith('add'):
                     command = command[4:]
                     url = command.split(' ')[0]
                     title = ' '.join(command.split(' ')[1:])
@@ -284,10 +278,10 @@ class Chat:
                     else:
                         response = ('This action is restricted. '
                                     'Type: viewing bookmarks.')
-                case _ if command_lowercase.startswith('clear '):
+                case _ if command_lowercase.startswith('clear'):
                     key = command[6:]
                     response = await XmppCommands.clear_filter(db_file, key)
-                case _ if command_lowercase.startswith('default '):
+                case _ if command_lowercase.startswith('default'):
                     key = command[8:]
                     response = await XmppCommands.restore_default(
                         self, jid_bare, key=None)
@@ -317,15 +311,14 @@ class Chat:
                             response = ('No action has been taken.'
                                         '\n'
                                         'Missing keywords.')
-                case _ if command_lowercase.startswith('disable '):
+                case _ if command_lowercase.startswith('disable'):
                     response = await XmppCommands.feed_disable(
                         self, db_file, jid_bare, command)
-                    key_list = ['status']
-                    await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
-                case _ if command_lowercase.startswith('enable '):
+                    XmppStatusTask.restart_task(self, jid_bare)
+                case _ if command_lowercase.startswith('enable'):
                     response = await XmppCommands.feed_enable(
                         self, db_file, command)
-                case _ if command_lowercase.startswith('export '):
+                case _ if command_lowercase.startswith('export'):
                     ext = command[7:]
                     if ext in ('md', 'opml'): # html xbel
                         status_type = 'dnd'
@@ -346,12 +339,11 @@ class Chat:
                         #     'Feeds exported successfully to {}.\n{}'
                         #     ).format(ex, url)
                         # XmppMessage.send_oob_reply_message(message, url, response)
-                        chat_type = await get_chat_type(self, jid_bare)
+                        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
                         XmppMessage.send_oob(self, jid_bare, url, chat_type)
                         del self.pending_tasks[jid_bare][pending_tasks_num]
                         # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
-                        key_list = ['status']
-                        await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+                        XmppStatusTask.restart_task(self, jid_bare)
                     else:
                         response = ('Unsupported filetype.\n'
                                     'Try: md or opml')
@@ -375,8 +367,7 @@ class Chat:
                     response = XmppCommands.fetch_gemini()
                 case _ if (command_lowercase.startswith('http') and
                            command_lowercase.endswith('.opml')):
-                    key_list = ['status']
-                    task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
+                    Task.stop(self, jid_bare, 'status')
                     status_type = 'dnd'
                     status_message = '📥️ Procesing request to import feeds...'
                     # pending_tasks_num = len(self.pending_tasks[jid_bare])
@@ -390,14 +381,13 @@ class Chat:
                         self, db_file, jid_bare, command)
                     del self.pending_tasks[jid_bare][pending_tasks_num]
                     # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
-                    key_list = ['status']
-                    await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
-                case _ if command_lowercase.startswith('pubsub list '):
+                    XmppStatusTask.restart_task(self, jid_bare)
+                case _ if command_lowercase.startswith('pubsub list'):
                     jid = command[12:]
                     response = 'List of nodes for {}:\n```\n'.format(jid)
                     response = await XmppCommands.pubsub_list(self, jid)
                     response += '```'
-                case _ if command_lowercase.startswith('pubsub send '):
+                case _ if command_lowercase.startswith('pubsub send'):
                     if is_operator(self, jid_bare):
                         info = command[12:]
                         info = info.split(' ')
@@ -416,7 +406,6 @@ class Chat:
                            command_lowercase.startswith('itpc:/') or
                            command_lowercase.startswith('rss:/')):
                     url = command
-                    # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
                     status_type = 'dnd'
                     status_message = ('📫️ Processing request to fetch data from {}'
                                       .format(url))
@@ -429,11 +418,9 @@ class Chat:
                                       status_type=status_type)
                     response = await XmppCommands.fetch_http(
                         self, command, db_file, jid_bare)
-                    # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
                     del self.pending_tasks[jid_bare][pending_tasks_num]
                     # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
-                    key_list = ['status']
-                    await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+                    XmppStatusTask.restart_task(self, jid_bare)
                     # except:
                     #     response = (
                     #         '> {}\nNews source is in the process '
@@ -445,6 +432,7 @@ class Chat:
                     if val:
                         response = await XmppCommands.set_interval(
                             self, db_file, jid_bare, val)
+                        XmppChatTask.restart_task(self, jid_bare)
                     else:
                         response = 'Current value for interval: '
                         response += XmppCommands.get_interval(self, jid_bare)
@@ -469,10 +457,10 @@ class Chat:
                     response = await XmppCommands.set_old_off(
                         self, jid_bare, db_file)
                 case _ if command_lowercase.startswith('next'):
-                    await XmppCommands.send_next_update(self, jid_bare, command)
-                    key_list = ['status']
-                    await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
-                case _ if command_lowercase.startswith('node delete '):
+                    num = command[5:]
+                    await XmppChatAction.send_unread_items(self, jid_bare, num)
+                    XmppStatusTask.restart_task(self, jid_bare)
+                case _ if command_lowercase.startswith('node delete'):
                     if is_operator(self, jid_bare):
                         info = command[12:]
                         info = info.split(' ')
@@ -480,7 +468,7 @@ class Chat:
                     else:
                         response = ('This action is restricted. '
                                     'Type: sending news to PubSub.')
-                case _ if command_lowercase.startswith('node purge '):
+                case _ if command_lowercase.startswith('node purge'):
                     if is_operator(self, jid_bare):
                         info = command[11:]
                         info = info.split(' ')
@@ -505,13 +493,12 @@ class Chat:
                         response += XmppCommands.get_quantum(self, jid_bare)
                 case 'random':
                     response = XmppCommands.set_random(self, jid_bare, db_file)
-                case _ if command_lowercase.startswith('read '):
+                case _ if command_lowercase.startswith('read'):
                     data = command[5:]
                     data = data.split()
                     url = data[0]
                     if url:
-                        key_list = ['status']
-                        task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
+                        Task.stop(self, jid_bare, 'status')
                         status_type = 'dnd'
                         status_message = ('📫️ Processing request to fetch data '
                                           'from {}'.format(url))
@@ -520,12 +507,11 @@ class Chat:
                         response = await XmppCommands.feed_read(
                             self, jid_bare, data, url)
                         del self.pending_tasks[jid_bare][pending_tasks_num]
-                        key_list = ['status']
+                        XmppStatusTask.restart_task(self, jid_bare)
                     else:
                         response = ('No action has been taken.'
                                     '\n'
                                     'Missing URL.')
-                    await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
                 case _ if command_lowercase.startswith('recent'):
                     num = command[7:]
                     if not num: num = 5
@@ -535,23 +521,19 @@ class Chat:
                         response += result + '```\n'
                     else:
                         response = result
-                case _ if command_lowercase.startswith('remove '):
+                case _ if command_lowercase.startswith('remove'):
                     ix_url = command[7:]
                     ix_url = ix_url.split(' ')
                     response = await XmppCommands.feed_remove(
                         self, jid_bare, db_file, ix_url)
-                    # refresh_task(self, jid_bare, send_status, 'status', 20)
-                    # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
-                    key_list = ['status']
-                    await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
-                case _ if command_lowercase.startswith('rename '):
+                    XmppStatusTask.restart_task(self, jid_bare)
+                case _ if command_lowercase.startswith('rename'):
                     response = await XmppCommands.feed_rename(
                         self, db_file, jid_bare, command)
                 case _ if command_lowercase.startswith('reset'):
                     ix_url = command[6:]
-                    ix_url = ix_url.split(' ')
-                    key_list = ['status']
-                    task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
+                    if ix_url: ix_url = ix_url.split(' ')
+                    Task.stop(self, jid_bare, 'status')
                     status_type = 'dnd'
                     status_message = '📫️ Marking entries as read...'
                     # pending_tasks_num = len(self.pending_tasks[jid_bare])
@@ -562,24 +544,22 @@ class Chat:
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     response = await XmppCommands.mark_as_read(
-                        self, jid_bare, db_file, ix_url)
+                        jid_bare, db_file, ix_url)
                     del self.pending_tasks[jid_bare][pending_tasks_num]
                     # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
-                    key_list = ['status']
-                    await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
-                case _ if command_lowercase.startswith('search '):
+                    XmppStatusTask.restart_task(self, jid_bare)
+                case _ if command_lowercase.startswith('search'):
                     query = command[7:]
-                    response = XmppCommands.search_items(self, db_file, query)
+                    response = XmppCommands.search_items(db_file, query)
                 case 'start':
                     status_type = 'available'
                     status_message = '📫️ Welcome back!'
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     await asyncio.sleep(5)
-                    key_list = ['check', 'status', 'interval']
-                    await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+                    tasks = (FeedTask, XmppChatTask, XmppStatusTask)
                     response = await XmppCommands.scheduler_start(
-                        self, db_file, jid_bare)
+                        self, db_file, jid_bare, tasks)
                 case 'stats':
                     response = XmppCommands.print_statistics(db_file)
                 case 'stop':
@@ -617,10 +597,10 @@ class Chat:
             #     os.mkdir(data_dir)
             # if not os.path.isdir(data_dir + '/logs/'):
             #     os.mkdir(data_dir + '/logs/')
-            # action.log_to_markdown(
+            # MD.log_to_markdown(
             #     dt.current_time(), os.path.join(data_dir, 'logs', jid_bare),
             #     jid_bare, command)
-            # action.log_to_markdown(
+            # MD.log_to_markdown(
             #     dt.current_time(), os.path.join(data_dir, 'logs', jid_bare),
             #     jid_bare, response)
     
@@ -630,3 +610,228 @@ class Chat:
             #     '{}\n'
             #     .format(command, jid_bare, response)
             #     )
+
+
+class XmppChatAction:
+
+
+    async def send_unread_items(self, jid_bare, num=None):
+        """
+        Send news items as messages.
+
+        Parameters
+        ----------
+        jid : str
+            Jabber ID.
+        num : str, optional
+            Number. The default is None.
+        """
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: jid: {} num: {}'.format(function_name, jid_bare, num))
+        db_file = config.get_pathname_to_database(jid_bare)
+        show_media = Config.get_setting_value(self.settings, jid_bare, 'media')
+        if not num:
+            num = Config.get_setting_value(self.settings, jid_bare, 'quantum')
+        else:
+            num = int(num)
+        results = sqlite.get_unread_entries(db_file, num)
+        news_digest = ''
+        media = None
+        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
+        for result in results:
+            ix = result[0]
+            title_e = result[1]
+            url = result[2]
+            summary = result[3]
+            feed_id = result[4]
+            date = result[5]
+            enclosure = sqlite.get_enclosure_by_entry_id(db_file, ix)
+            if enclosure: enclosure = enclosure[0]
+            title_f = sqlite.get_feed_title(db_file, feed_id)
+            title_f = title_f[0]
+            news_digest += await XmppChatAction.list_unread_entries(self, result, title_f, jid_bare)
+            # print(db_file)
+            # print(result[0])
+            # breakpoint()
+            await sqlite.mark_as_read(db_file, ix)
+
+            # Find media
+            # if url.startswith("magnet:"):
+            #     media = action.get_magnet(url)
+            # elif enclosure.startswith("magnet:"):
+            #     media = action.get_magnet(enclosure)
+            # elif enclosure:
+            if show_media:
+                if enclosure:
+                    media = enclosure
+                else:
+                    media = await Html.extract_image_from_html(url)
+            
+            if media and news_digest:
+                # Send textual message
+                XmppMessage.send(self, jid_bare, news_digest, chat_type)
+                news_digest = ''
+                # Send media
+                XmppMessage.send_oob(self, jid_bare, media, chat_type)
+                media = None
+                
+        if news_digest:
+            XmppMessage.send(self, jid_bare, news_digest, chat_type)
+                # TODO Add while loop to assure delivery.
+                # print(await current_time(), ">>> ACT send_message",jid)
+                # NOTE Do we need "if statement"? See NOTE at is_muc.
+                # if chat_type in ('chat', 'groupchat'):
+                #     # TODO Provide a choice (with or without images)
+                #     XmppMessage.send(self, jid, news_digest, chat_type)
+            # See XEP-0367
+            # if media:
+            #     # message = xmpp.Slixfeed.make_message(
+            #     #     self, mto=jid, mbody=new, mtype=chat_type)
+            #     message = xmpp.Slixfeed.make_message(
+            #         self, mto=jid, mbody=media, mtype=chat_type)
+            #     message['oob']['url'] = media
+            #     message.send()
+                    
+            # TODO Do not refresh task before
+            # verifying that it was completed.
+
+            # XmppStatusTask.restart_task(self, jid_bare)
+            # XmppCommands.task_start(self, jid_bare, 'interval')
+
+        # interval = await initdb(
+        #     jid,
+        #     sqlite.is_setting_key,
+        #     "interval"
+        # )
+        # self.task_manager[jid]["interval"] = loop.call_at(
+        #     loop.time() + 60 * interval,
+        #     loop.create_task,
+        #     send_update(jid)
+        # )
+
+        # print(await current_time(), "asyncio.get_event_loop().time()")
+        # print(await current_time(), asyncio.get_event_loop().time())
+        # await asyncio.sleep(60 * interval)
+
+        # loop.call_later(
+        #     60 * interval,
+        #     loop.create_task,
+        #     send_update(jid)
+        # )
+
+        # print
+        # await handle_event()
+
+
+    async def list_unread_entries(self, result, feed_title, jid):
+        function_name = sys._getframe().f_code.co_name
+        logger.debug('{}: feed_title: {} jid: {}'
+                    .format(function_name, feed_title, jid))
+        # TODO Add filtering
+        # TODO Do this when entry is added to list and mark it as read
+        # DONE!
+        # results = []
+        # if sqlite.is_setting_key(db_file, "deny"):
+        #     while len(results) < num:
+        #         result = cur.execute(sql).fetchone()
+        #         blacklist = sqlite.get_setting_value(db_file, "deny").split(",")
+        #         for i in blacklist:
+        #             if i in result[1]:
+        #                 continue
+        #                 print("rejected:", result[1])
+        #         print("accepted:", result[1])
+        #         results.extend([result])
+    
+        # news_list = "You've got {} news items:\n".format(num)
+        # NOTE Why doesn't this work without list?
+        #      i.e. for result in results
+        # for result in results.fetchall():
+        ix = str(result[0])
+        title = str(result[1]) or '*** No title ***' # [No Title]
+        # Remove HTML tags
+        title = Html.remove_html_tags(title) if title else '*** No title ***'
+        # # TODO Retrieve summary from feed
+        # # See fetch.view_entry
+        summary = result[3]
+        if summary:
+            summary = Html.remove_html_tags(summary)
+            # TODO Limit text length
+            # summary = summary.replace("\n\n\n", "\n\n")
+            summary = summary.replace('\n', ' ')
+            summary = summary.replace('	', ' ')
+            # summary = summary.replace('  ', ' ')
+            summary = ' '.join(summary.split())
+            length = Config.get_setting_value(self.settings, jid, 'length')
+            length = int(length)
+            summary = summary[:length] + " […]"
+            # summary = summary.strip().split('\n')
+            # summary = ["> " + line for line in summary]
+            # summary = "\n".join(summary)
+        else:
+            summary = '*** No summary ***'
+        link = result[2]
+        link = remove_tracking_parameters(link)
+        link = await replace_hostname(link, "link") or link
+        feed_id = result[4]
+        # news_item = ("\n{}\n{}\n{} [{}]\n").format(str(title), str(link),
+        #                                            str(feed_title), str(ix))
+        formatting = Config.get_setting_value(self.settings, jid, 'formatting')
+        news_item = formatting.format(feed_title=feed_title,
+                                      title=title,
+                                      summary=summary,
+                                      link=link,
+                                      ix=ix,
+                                      feed_id=feed_id)
+        # news_item = news_item.replace('\\n', '\n')
+        return news_item
+
+
+class XmppChatTask:
+
+
+    async def task_message(self, jid_bare):
+        db_file = config.get_pathname_to_database(jid_bare)
+        if jid_bare not in self.settings:
+            Config.add_settings_jid(self.settings, jid_bare, db_file)
+        while True:
+            update_interval = Config.get_setting_value(self.settings, jid_bare, 'interval')
+            update_interval = 60 * int(update_interval)
+            last_update_time = sqlite.get_last_update_time(db_file)
+            if last_update_time:
+                last_update_time = float(last_update_time)
+                diff = time.time() - last_update_time
+                if diff < update_interval:
+                    next_update_time = update_interval - diff
+                    await asyncio.sleep(next_update_time) # FIXME!
+        
+                    # print("jid              :", jid, "\n"
+                    #       "time             :", time.time(), "\n"
+                    #       "last_update_time :", last_update_time, "\n"
+                    #       "difference       :", diff, "\n"
+                    #       "update interval  :", update_interval, "\n"
+                    #       "next_update_time :", next_update_time, "\n"
+                    #       )
+        
+                # elif diff > val:
+                #     next_update_time = val
+                await sqlite.update_last_update_time(db_file)
+            else:
+                await sqlite.set_last_update_time(db_file)
+            await XmppChatAction.send_unread_items(self, jid_bare)
+
+
+    def restart_task(self, jid_bare):
+        if jid_bare == self.boundjid.bare:
+            return
+        if jid_bare not in self.task_manager:
+            self.task_manager[jid_bare] = {}
+            logger.info('Creating new task manager for JID {}'.format(jid_bare))
+        logger.info('Stopping task "interval" for JID {}'.format(jid_bare))
+        try:
+            self.task_manager[jid_bare]['interval'].cancel()
+        except:
+            logger.info('No task "interval" for JID {} (XmppChatTask.task_message)'
+                        .format(jid_bare))
+        logger.info('Starting tasks "interval" for JID {}'.format(jid_bare))
+        self.task_manager[jid_bare]['interval'] = asyncio.create_task(
+            XmppChatTask.task_message(self, jid_bare))

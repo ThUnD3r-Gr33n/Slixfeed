@@ -15,9 +15,11 @@ TODO
 
 import asyncio
 from slixfeed.dt import current_time
+from slixfeed.log import Logger
 from slixmpp.exceptions import IqTimeout, IqError
 from time import sleep
-import logging
+
+logger = Logger(__name__)
 
 
 class XmppConnect:
@@ -45,21 +47,21 @@ class XmppConnect:
                 rtt = await self['xep_0199'].ping(jid,
                                                   ifrom=jid_from,
                                                   timeout=10)
-                logging.info('Success! RTT: %s', rtt)
+                logger.info('Success! RTT: %s', rtt)
             except IqError as e:
-                logging.error('Error pinging %s: %s', jid,
+                logger.error('Error pinging %s: %s', jid,
                               e.iq['error']['condition'])
             except IqTimeout:
-                logging.warning('No response from %s', jid)
+                logger.warning('No response from %s', jid)
             if not rtt:
-                logging.warning('Disconnecting...')
+                logger.warning('Disconnecting...')
                 self.disconnect()
                 break
             await asyncio.sleep(60 * 1)
 
 
     def recover(self, message):
-        logging.warning(message)
+        logger.warning(message)
         print(current_time(), message, 'Attempting to reconnect.')
         self.connection_attempts += 1
         # if self.connection_attempts <= self.max_connection_attempts:
@@ -78,10 +80,20 @@ class XmppConnect:
 
 
     def inspect(self):
-        print('Disconnected\n'
-              'Reconnecting...')
+        print('Disconnected\nReconnecting...')
         try:
             self.reconnect
         except:
             self.disconnect()
             print('Problem reconnecting')
+
+
+class XmppConnectTask:
+
+
+    def ping(self):
+        try:
+            self.task_ping_instance.cancel()
+        except:
+            logger.info('No ping task to cancel.')
+        self.task_ping_instance = asyncio.create_task(XmppConnect.ping(self))

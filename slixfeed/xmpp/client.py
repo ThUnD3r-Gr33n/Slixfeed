@@ -5,12 +5,10 @@
 
 TODO
 
-1) Use loop (with gather) instead of TaskGroup.
-
-2) Assure message delivery before calling a new task.
+1) Assure message delivery before calling a new task.
     See https://slixmpp.readthedocs.io/en/latest/event_index.html#term-marker_acknowledged
 
-3) XHTTML-IM
+2) XHTTML-IM
     case _ if message_lowercase.startswith("html"):
         message['html']="
 Parse me!
@@ -36,8 +34,6 @@ from datetime import datetime
 import os
 from feedparser import parse
 import slixmpp
-import slixfeed.task as task
-from slixfeed.url import join_url, trim_url
 # from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadServiceNotFound
 # from slixmpp.plugins.xep_0402 import BookmarkStorage, Conference
 # from slixmpp.plugins.xep_0048.stanza import Bookmarks
@@ -46,32 +42,34 @@ from slixfeed.url import join_url, trim_url
 # import xml.etree.ElementTree as ET
 # from lxml import etree
 
-import slixfeed.action as action
 import slixfeed.config as config
 from slixfeed.config import Config
 import slixfeed.crawl as crawl
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 from slixfeed.log import Logger
-from slixfeed.opml import Opml
 import slixfeed.sqlite as sqlite
+from slixfeed.syndication import Feed, FeedTask, Opml
 import slixfeed.url as uri
+from slixfeed.utilities import Html, Task, Utilities
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
-from slixfeed.xmpp.chat import Chat
-from slixfeed.xmpp.connect import XmppConnect
+from slixfeed.xmpp.chat import XmppChat, XmppChatTask
+from slixfeed.xmpp.connect import XmppConnect, XmppConnectTask
 from slixfeed.xmpp.ipc import XmppIpcServer
 from slixfeed.xmpp.iq import XmppIQ
 from slixfeed.xmpp.message import XmppMessage
-from slixfeed.xmpp.muc import XmppGroupchat
+from slixfeed.xmpp.muc import XmppMuc
+from slixfeed.xmpp.groupchat import XmppGroupchat
 from slixfeed.xmpp.presence import XmppPresence
-from slixfeed.xmpp.privilege import is_moderator, is_operator, is_access
+from slixfeed.xmpp.privilege import is_operator, is_access
 import slixfeed.xmpp.profile as profile
-from slixfeed.xmpp.publish import XmppPubsub
+from slixfeed.xmpp.publish import XmppPubsub, XmppPubsubAction, XmppPubsubTask
 from slixfeed.xmpp.roster import XmppRoster
 # import slixfeed.xmpp.service as service
+from slixfeed.xmpp.status import XmppStatusTask
 from slixfeed.xmpp.upload import XmppUpload
-from slixfeed.xmpp.utility import get_chat_type
+from slixfeed.xmpp.utilities import XmppUtilities
 import sys
 import time
 
@@ -79,13 +77,6 @@ try:
     import tomllib
 except:
     import tomli as tomllib
-
-
-main_task = []
-jid_tasker = {}
-task_manager = {}
-loop = asyncio.get_event_loop()
-# asyncio.set_event_loop(loop)
 
 # time_now = datetime.now()
 # time_now = time_now.strftime("%H:%M:%S")
@@ -230,10 +221,6 @@ class XmppClient(slixmpp.ClientXMPP):
                                self.on_presence_subscribed)
         self.add_event_handler("presence_unsubscribed",
                                self.on_presence_unsubscribed)
-
-        # Initialize event loop
-        # self.loop = asyncio.get_event_loop()
-
         self.add_event_handler('connection_failed',
                                self.on_connection_failed)
         self.add_event_handler('session_end',
@@ -252,7 +239,7 @@ class XmppClient(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         muc_jid = message['groupchat_invite']['jid']
-        result = await XmppGroupchat.join(self, muc_jid)
+        result = await XmppMuc.join(self, muc_jid)
         if result == 'ban':
             message_body = '{} is banned from {}'.format(self.alias, muc_jid)
             jid_bare = message['from'].bare
@@ -290,7 +277,7 @@ class XmppClient(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         muc_jid = message['groupchat_invite']['jid']
-        result = await XmppGroupchat.join(self, muc_jid)
+        result = await XmppMuc.join(self, muc_jid)
         if result == 'ban':
             message_body = '{} is banned from {}'.format(self.alias, muc_jid)
             jid_bare = message['from'].bare
@@ -342,21 +329,19 @@ class XmppClient(slixmpp.ClientXMPP):
         await self['xep_0115'].update_caps()
         # self.send_presence()
         await self.get_roster()
-        # XmppCommand.adhoc_commands(self)
         # self.service_reactions()
-        task.task_ping(self)
-        # NOTE This might take more memory due to
-        # function sqlite.get_unread_entries_of_feed
-        results = await XmppPubsub.get_pubsub_services(self)
-        for result in results + [{'jid' : self.boundjid.bare,
-                                    'name' : self.alias}]:
-            jid_bare = result['jid']
-            if jid_bare not in self.settings:
-                db_file = config.get_pathname_to_database(jid_bare)
-                Config.add_settings_jid(self.settings, jid_bare, db_file)
-            await task.start_tasks_xmpp_pubsub(self, jid_bare)
+        XmppConnectTask.ping(self)
+        # results = await XmppPubsub.get_pubsub_services(self)
+        # for result in results + [{'jid' : self.boundjid.bare,
+        #                             'name' : self.alias}]:
+        #     jid_bare = result['jid']
+        #     if jid_bare not in self.settings:
+        #         db_file = config.get_pathname_to_database(jid_bare)
+        #         Config.add_settings_jid(self.settings, jid_bare, db_file)
+        #     await FeedTask.check_updates(self, jid_bare)
+        #     XmppPubsubTask.task_publish(self, jid_bare)
         bookmarks = await XmppBookmark.get_bookmarks(self)
-        await action.xmpp_muc_autojoin(self, bookmarks)
+        await XmppGroupchat.autojoin(self, bookmarks)
         if 'ipc' in self.settings and self.settings['ipc']['bsd']:
             # Start Inter-Process Communication
             print('POSIX sockets: Initiating IPC server...')
@@ -376,7 +361,7 @@ class XmppClient(slixmpp.ClientXMPP):
         profile.set_identity(self, 'client')
         self['xep_0115'].update_caps()
         bookmarks = await XmppBookmark.get_bookmarks(self)
-        await action.xmpp_muc_autojoin(self, bookmarks)
+        await XmppGroupchat.autojoin(self, bookmarks)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -419,7 +404,7 @@ class XmppClient(slixmpp.ClientXMPP):
             XmppPresence.send(self, jid_bare, status_message)
         else:
             # TODO Request for subscription
-            # if (await get_chat_type(self, jid_bare) == 'chat' and
+            # if (await XmppUtilities.get_chat_type(self, jid_bare) == 'chat' and
             #     not self.client_roster[jid_bare]['to']):
             #     XmppPresence.subscription(self, jid_bare, 'subscribe')
             #     await XmppRoster.add(self, jid_bare)
@@ -434,7 +419,7 @@ class XmppClient(slixmpp.ClientXMPP):
                 self.pending_tasks[jid_bare] = {}
             # if jid_full not in self.pending_tasks:
             #     self.pending_tasks[jid_full] = {}
-            await Chat.process_message(self, message)
+            await XmppChat.process_message(self, message)
         # chat_type = message["type"]
         # message_body = message["body"]
         # message_reply = message.reply
@@ -455,10 +440,14 @@ class XmppClient(slixmpp.ClientXMPP):
         if jid_bare in self.boundjid.bare:
             return
         if presence['show'] in ('away', 'dnd', 'xa'):
-            key_list = ['interval']
-            task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
-            key_list = ['status', 'check']
-            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+            if (jid_bare in self.task_manager and
+                'interval' in self.task_manager[jid_bare]):
+                self.task_manager[jid_bare]['interval'].cancel()
+            else:
+                logger.debug('No task "interval" for JID {} (on_changed_status)'
+                             .format(jid_bare))
+            XmppStatusTask.restart_task(self, jid_bare)
+            FeedTask.restart_task(self, jid_bare)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -516,16 +505,15 @@ class XmppClient(slixmpp.ClientXMPP):
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
-        # TODO Add function to check whether task is already running or not
-        # await task.start_tasks(self, presence)
-        # NOTE Already done inside the start-task function
         jid_bare = presence['from'].bare
         if jid_bare in self.boundjid.bare:
             return
         # FIXME TODO Find out what is the source responsible for a couple presences with empty message
         # NOTE This is a temporary solution
         await asyncio.sleep(10)
-        await task.start_tasks_xmpp_chat(self, jid_bare)
+        FeedTask.restart_task(self, jid_bare)
+        XmppChatTask.restart_task(self, jid_bare)
+        XmppStatusTask.restart_task(self, jid_bare)
         self.add_event_handler("presence_unavailable",
                                self.on_presence_unavailable)
         time_end = time.time()
@@ -563,8 +551,8 @@ class XmppClient(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         jid_bare = presence['from'].bare
-        # await task.stop_tasks(self, jid)
-        task.clean_tasks_xmpp_chat(self, jid_bare)
+        for task in ('check', 'interval', 'status'):
+            Task.stop(self, jid_bare, 'status')
 
         # NOTE Albeit nice to ~have~ see, this would constantly
         #      send presence messages to server to no end.
@@ -591,7 +579,8 @@ class XmppClient(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         jid_bare = presence["from"].bare
-        task.clean_tasks_xmpp_chat(self, jid_bare)
+        for task in ('check', 'interval', 'status'):
+            Task.stop(self, jid_bare, 'status')
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -618,8 +607,7 @@ class XmppClient(slixmpp.ClientXMPP):
             # self.send_presence(pto=jid)
             # task.clean_tasks_xmpp_chat(self, jid, ['status'])
             await asyncio.sleep(5)
-            key_list = ['status']
-            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+            XmppStatusTask.restart_task(self, jid_bare)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 10: logger.warning('{} (time: {})'.format(function_name,
@@ -627,6 +615,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def on_chatstate_composing(self, message):
+        # print('on_chatstate_composing START')
         time_begin = time.time()
         jid_full = str(message['from'])
         function_name = sys._getframe().f_code.co_name
@@ -642,13 +631,14 @@ class XmppClient(slixmpp.ClientXMPP):
             status_message = ('💡 Send "help" for manual, or "info" for '
                               'information.')
             XmppPresence.send(self, jid_bare, status_message)
+        # print('on_chatstate_composing FINISH')
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
                                                                  difference))
 
 
-    async def on_chatstate_gone(self, message):
+    def on_chatstate_gone(self, message):
         time_begin = time.time()
         jid_full = str(message['from'])
         function_name = sys._getframe().f_code.co_name
@@ -658,16 +648,14 @@ class XmppClient(slixmpp.ClientXMPP):
         if jid_bare in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
-            # task.clean_tasks_xmpp_chat(self, jid, ['status'])
-            key_list = ['status']
-            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+            XmppStatusTask.restart_task(self, jid_bare)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
                                                                  difference))
 
 
-    async def on_chatstate_inactive(self, message):
+    def on_chatstate_inactive(self, message):
         time_begin = time.time()
         jid_full = str(message['from'])
         function_name = sys._getframe().f_code.co_name
@@ -677,16 +665,14 @@ class XmppClient(slixmpp.ClientXMPP):
         if jid_bare in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
-            # task.clean_tasks_xmpp_chat(self, jid, ['status'])
-            key_list = ['status']
-            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+            XmppStatusTask.restart_task(self, jid_bare)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
                                                                  difference))
 
 
-    async def on_chatstate_paused(self, message):
+    def on_chatstate_paused(self, message):
         time_begin = time.time()
         jid_full = str(message['from'])
         function_name = sys._getframe().f_code.co_name
@@ -696,9 +682,7 @@ class XmppClient(slixmpp.ClientXMPP):
         if jid_bare in self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
-            # task.clean_tasks_xmpp_chat(self, jid, ['status'])
-            key_list = ['status']
-            await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+            XmppStatusTask.restart_task(self, jid_bare)
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
@@ -857,7 +841,7 @@ class XmppClient(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        chat_type = await get_chat_type(self, jid_bare)
+        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'PubSub')
             form['instructions'] = 'Publish news items to PubSub nodes.'
@@ -898,7 +882,7 @@ class XmppClient(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        chat_type = await get_chat_type(self, jid_bare)
+        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
             values = payload['values']
             form = self['xep_0004'].make_form('form', 'Publish')
@@ -1095,7 +1079,7 @@ class XmppClient(slixmpp.ClientXMPP):
         # xep = None
         
         for ix in ixs:
-            await action.xmpp_pubsub_send_selected_entry(self, jid, jid_bare, node_id, ix)
+            await XmppPubsubAction.send_selected_entry(self, jid, node_id, ix)
             text_info = 'Posted {} entries.'.format(len(ixs))
             session['allow_prev'] = False
             session['has_next'] = False
@@ -1143,7 +1127,7 @@ class XmppClient(slixmpp.ClientXMPP):
             if not result['error']:
                 document = result['content']
                 feed = parse(document)
-                if action.is_feed(url, feed):
+                if Feed.is_feed(url, feed):
                     form['instructions'] = 'Select entries to publish.'
                     options = form.add_field(desc='Select entries to post.',
                                              ftype='list-multi',
@@ -1408,7 +1392,7 @@ class XmppClient(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        chat_type = await get_chat_type(self, jid_bare)
+        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
             jid = session['from'].bare
             db_file = config.get_pathname_to_database(jid_bare)
@@ -1517,7 +1501,7 @@ class XmppClient(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        chat_type = await get_chat_type(self, jid_bare)
+        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscribe')
             # form['instructions'] = 'Add a new custom subscription.'
@@ -1714,7 +1698,7 @@ class XmppClient(slixmpp.ClientXMPP):
         #     summary = action.get_document_content_as_text(data)
         summary = sqlite.get_entry_summary(db_file, ix)
         summary = summary[0]
-        summary = action.remove_html_tags(summary) if summary else 'No content to show.'
+        summary = Html.remove_html_tags(summary) if summary else 'No content to show.'
         form.add_field(ftype="text-multi",
                        label='Article',
                        value=summary)
@@ -1821,8 +1805,8 @@ class XmppClient(slixmpp.ClientXMPP):
                         identifier = hostname + ':' + str(counter)
                     else:
                         break
-                result = await action.add_feed(self, jid_bare, db_file, url,
-                                               identifier)
+                result = await Feed.add_feed(self, jid_bare, db_file, url,
+                                             identifier)
                 if result['error']:
                     error_count += 1
                 elif result['exist']:
@@ -1854,8 +1838,8 @@ class XmppClient(slixmpp.ClientXMPP):
                     identifier = hostname + ':' + str(counter)
                 else:
                     break
-            result = await action.add_feed(self, jid_bare, db_file, url,
-                                           identifier)
+            result = await Feed.add_feed(self, jid_bare, db_file, url,
+                                         identifier)
             # URL is not a feed and URL has returned to feeds
             if isinstance(result, list):
                 results = result
@@ -2037,7 +2021,7 @@ class XmppClient(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        chat_type = await get_chat_type(self, jid_bare)
+        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Discover & Search')
             form['instructions'] = 'Discover news subscriptions of all kinds'
@@ -2161,7 +2145,7 @@ class XmppClient(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        chat_type = await get_chat_type(self, jid_bare)
+        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscriptions')
             form['instructions'] = ('Browse, view, toggle or remove '
@@ -2521,7 +2505,7 @@ class XmppClient(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        chat_type = await get_chat_type(self, jid_bare)
+        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Advanced')
             form['instructions'] = 'Extended options'
@@ -2905,9 +2889,9 @@ class XmppClient(slixmpp.ClientXMPP):
         # form['instructions'] = ('✅️ Feeds have been exported')
         exts = values['filetype']
         for ext in exts:
-            filename = action.export_feeds(self, jid_bare, ext)
+            filename = Feed.export_feeds(jid_bare, ext)
             url = await XmppUpload.start(self, jid_bare, filename)
-            chat_type = await get_chat_type(self, jid_bare)
+            chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
             XmppMessage.send_oob(self, jid_bare, url, chat_type)
             url_field = form.add_field(var=ext.upper(),
                                        ftype='text-single',
@@ -2930,12 +2914,12 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         jid_full = str(session['from'])
-        chat_type = await get_chat_type(self, jid_bare)
+        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscribe')
             # NOTE Refresh button would be of use
             form['instructions'] = 'Featured subscriptions'
-            url = action.pick_a_feed()
+            url = Utilities.pick_a_feed()
             # options = form.add_field(desc='Click to subscribe.',
             #                          ftype="boolean",
             #                          label='Subscribe to {}?'.format(url['name']),
@@ -2948,7 +2932,7 @@ class XmppClient(slixmpp.ClientXMPP):
                                      label='Subscribe',
                                      var='subscription')
             for i in range(10):
-                url = action.pick_a_feed()
+                url = Utilities.pick_a_feed()
                 options.addOption(url['name'], url['link'])
             # jid_bare = session['from'].bare
             if '@' in jid_bare:
@@ -3114,7 +3098,7 @@ class XmppClient(slixmpp.ClientXMPP):
                                    var=jid_bare)
                 session['allow_complete'] = True
                 session['has_next'] = False
-                session['next'] = self._handle_pubsubs_complete
+                session['next'] = self._handle_pubsub_complete
         # session['allow_prev'] = True
         session['payload'] = form
         # session['prev'] = self._handle_advanced
@@ -3256,11 +3240,12 @@ class XmppClient(slixmpp.ClientXMPP):
         
         content = ''
         # TODO Check whether element of type Atom
+        # NOTE Consider pubsub#type of XEP-0462: PubSub Type Filtering
         atom_entry = iq['pubsub']['items']['item']['payload']
         for element in atom_entry:
             if element.text:
                 content += element.text + '\n\n'
-                # content += action.remove_html_tags(element.text) + '\n\n'
+                # content += Html.remove_html_tags(element.text) + '\n\n'
             if element.attrib:
                 for i in element.attrib:
                     content += element.attrib[i] + '\n\n'
@@ -3273,6 +3258,7 @@ class XmppClient(slixmpp.ClientXMPP):
         session['payload'] = form
         return session
 
+    # FIXME Undefined name 'jid_bare'
     async def _handle_node_edit(self, payload, session):
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
@@ -3282,6 +3268,7 @@ class XmppClient(slixmpp.ClientXMPP):
         jid = values['jid'][0]
         node = values['node']
         properties = await XmppPubsub.get_node_properties(self, jid, node)
+        form = self['xep_0004'].make_form('form', 'PubSub')
         form['instructions'] = 'Editing bookmark'
         jid_split = properties['jid'].split('@')
         room = jid_split[0]
@@ -3361,7 +3348,7 @@ class XmppClient(slixmpp.ClientXMPP):
         return session
 
 
-    async def _handle_pubsubs_complete(self, payload, session):
+    async def _handle_pubsub_complete(self, payload, session):
         jid_full = str(session['from'])
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
@@ -3632,7 +3619,7 @@ class XmppClient(slixmpp.ClientXMPP):
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        chat_type = await get_chat_type(self, jid_bare)
+        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         if is_access(self, jid_bare, jid_full, chat_type):
             db_file = config.get_pathname_to_database(jid_bare)
             if jid_bare not in self.settings:
@@ -3783,15 +3770,16 @@ class XmppClient(slixmpp.ClientXMPP):
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
                 await asyncio.sleep(5)
-                key_list = ['check', 'status', 'interval']
-                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+                FeedTask.restart_task(self, jid_bare)
+                XmppChatTask.restart_task(self, jid_bare)
+                XmppStatusTask.restart_task(self, jid_bare)
 
             if (key == 'enabled' and
                 val == 0 and
                 str(is_enabled) == 1):
                 logger.info('Slixfeed has been disabled for {}'.format(jid_bare))
-                key_list = ['interval', 'status']
-                task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
+                for task in ('interval', 'status'):
+                    Task.stop(self, jid_bare, 'status')
                 status_type = 'xa'
                 status_message = '📪️ Send "Start" to receive updates'
                 XmppPresence.send(self, jid_bare, status_message,
@@ -3799,22 +3787,6 @@ class XmppClient(slixmpp.ClientXMPP):
 
             await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
             val = self.settings[jid_bare][key]
-
-            # if key == 'enabled':
-            #     if str(setting.enabled) == 0:
-            #         status_type = 'available'
-            #         status_message = '📫️ Welcome back!'
-            #         XmppPresence.send(self, jid, status_message,
-            #                           status_type=status_type)
-            #         await asyncio.sleep(5)
-            #         await task.start_tasks_xmpp_chat(self, jid, ['check', 'status',
-            #                                                 'interval'])
-            #     else:
-            #         task.clean_tasks_xmpp_chat(self, jid, ['interval', 'status'])
-            #         status_type = 'xa'
-            #         status_message = '📪️ Send "Start" to receive Jabber updates'
-            #         XmppPresence.send(self, jid, status_message,
-            #                           status_type=status_type)
 
             if key in ('enabled', 'media', 'old'):
                 if val == '1':
@@ -3828,17 +3800,6 @@ class XmppClient(slixmpp.ClientXMPP):
                 val = int(val)
                 val = str(val)
 
-            # match value:
-            #     case 'enabled':
-            #         pass
-            #     case 'interval':
-            #         pass
-
-            # result = '{}: {}'.format(key.capitalize(), val)
-
-            # form.add_field(var=key,
-            #                 ftype='fixed',
-            #                 label=result)
         form = payload
         form['title'] = 'Done'
         form['instructions'] = 'has been completed!'

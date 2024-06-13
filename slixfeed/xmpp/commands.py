@@ -1,28 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import asyncio
 from feedparser import parse
 from random import randrange
-import slixfeed.action as action
 import slixfeed.config as config
-import slixfeed.crawl as crawl
 from slixfeed.config import Config
+import slixfeed.crawl as crawl
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
-from slixfeed.opml import Opml
+from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
-import slixfeed.task as task
+from slixfeed.syndication import Feed, Opml
 import slixfeed.url as uri
+from slixfeed.utilities import Documentation, Utilities
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
-from slixfeed.log import Logger
-from slixfeed.xmpp.muc import XmppGroupchat
-from slixfeed.xmpp.message import XmppMessage
-from slixfeed.xmpp.publish import XmppPubsub
+from slixfeed.xmpp.muc import XmppMuc
+from slixfeed.xmpp.publish import XmppPubsub, XmppPubsubAction
 from slixfeed.xmpp.presence import XmppPresence
-from slixfeed.xmpp.upload import XmppUpload
-from slixfeed.xmpp.utility import get_chat_type
+from slixfeed.xmpp.status import XmppStatusTask
+from slixfeed.xmpp.utilities import XmppUtilities
 import sys
 
 try:
@@ -44,20 +41,20 @@ class XmppCommands:
 
 
     def print_help():
-        result = action.manual('commands.toml')
+        result = Documentation.manual('commands.toml')
         message = '\n'.join(result)
         return message
 
 
     def print_help_list():
-        command_list = action.manual('commands.toml', section='all')
+        command_list = Documentation.manual('commands.toml', section='all')
         message = ('Complete list of commands:\n'
                    '```\n{}\n```'.format(command_list))
         return message
 
 
     def print_help_specific(command_root, command_name):
-        command_list = action.manual('commands.toml',
+        command_list = Documentation.manual('commands.toml',
                                      section=command_root,
                                      command=command_name)
         if command_list:
@@ -69,7 +66,7 @@ class XmppCommands:
 
 
     def print_help_key(command):
-        command_list = action.manual('commands.toml', command)
+        command_list = Documentation.manual('commands.toml', command)
         if command_list:
             command_list = ' '.join(command_list)
             message = ('Available command `{}` keys:\n'
@@ -146,22 +143,24 @@ class XmppCommands:
                     document = result['content']
                     feed = parse(document)
                     feed_valid = 0 if feed.bozo else 1
-                    await sqlite.update_feed_validity(db_file, feed_id, feed_valid)
+                    await sqlite.update_feed_validity(
+                        db_file, feed_id, feed_valid)
                     if feed.has_key('updated_parsed'):
                         feed_updated = feed.updated_parsed
                         try:
-                            feed_updated = dt.convert_struct_time_to_iso8601(feed_updated)
+                            feed_updated = dt.convert_struct_time_to_iso8601(
+                                feed_updated)
                         except:
                             feed_updated = None
                     else:
                         feed_updated = None
-                    feed_properties = action.get_properties_of_feed(
+                    feed_properties = Feed.get_properties_of_feed(
                         db_file, feed_id, feed)
                     await sqlite.update_feed_properties(db_file, feed_id,
                                                         feed_properties)
                     feed_id = sqlite.get_feed_id(db_file, url)
                     feed_id = feed_id[0]
-                    new_entries = action.get_properties_of_entries(
+                    new_entries = Feed.get_properties_of_entries(
                         jid_bare, db_file, url, feed_id, feed)
                     if new_entries:
                         await sqlite.add_entries_and_update_feed_state(
@@ -179,8 +178,7 @@ class XmppCommands:
                     # if old:
                     #     # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
                     #     # await send_status(jid)
-                    #     key_list = ['status']
-                    #     await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+                    #     Task.start(self, jid_bare, 'status')
                     # else:
                     #     feed_id = sqlite.get_feed_id(db_file, url)
                     #     feed_id = feed_id[0]
@@ -252,7 +250,7 @@ class XmppCommands:
                 message = ('Maximum archived items has been set to {} (was: {}).'
                            .format(val_new, val_old))
         except:
-            message = ('No action has been taken.  Enter a numeric value only.')
+            message = 'No action has been taken.  Enter a numeric value only.'
         return message
 
 
@@ -332,8 +330,8 @@ class XmppCommands:
             await sqlite.set_filter_value(db_file, ['deny', val])
 
 
-    def export_feeds(self, jid_bare, ext):
-        filename = action.export_feeds(self, jid_bare, ext)
+    def export_feeds(jid_bare, ext):
+        filename = Feed.export_feeds(jid_bare, ext)
         message = 'Feeds successfuly exported to {}.'.format(ext)
         return filename, message
 
@@ -366,14 +364,14 @@ class XmppCommands:
 
 
     # This is similar to send_next_update
-    async def pubsub_send(self, info, jid):
+    async def pubsub_send(self, info, jid_bare):
         # if num:
         #     report = await action.xmpp_pubsub_send_unread_items(
         #         self, jid, num)
         # else:
         #     report = await action.xmpp_pubsub_send_unread_items(
         #         self, jid)
-        result = await action.xmpp_pubsub_send_unread_items(self, jid)
+        result = await XmppPubsubAction.send_unread_items(self, jid_bare)
         message = ''
         for url in result:
             if result[url]:
@@ -416,12 +414,13 @@ class XmppCommands:
                 # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
-                if url.startswith('feed:/') or url.startswith('itpc:/') or url.startswith('rss:/'):
+                if (url.startswith('feed:/') or
+                    url.startswith('itpc:/') or
+                    url.startswith('rss:/')):
                     url = uri.feed_to_http(url)
                 url = (await uri.replace_hostname(url, 'feed')) or url
-                result = await action.add_feed(self, jid_bare,
-                                               db_file, url,
-                                               identifier)
+                result = await Feed.add_feed(self, jid_bare, db_file, url,
+                                             identifier)
                 if isinstance(result, list):
                     results = result
                     message = "Syndication feeds found for {}\n\n```\n".format(url)
@@ -457,8 +456,7 @@ class XmppCommands:
                 del self.pending_tasks[jid_bare][pending_tasks_num]
                 # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                 print(self.pending_tasks)
-                key_list = ['status']
-                await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+                XmppStatusTask.restart_task(self, jid_bare)
                 # except:
                 #     response = (
                 #         '> {}\nNews source is in the process '
@@ -494,8 +492,7 @@ class XmppCommands:
             else:
                 break
         # try:
-        result = await action.add_feed(self, jid_bare, db_file, url,
-                                       identifier)
+        result = await Feed.add_feed(self, jid_bare, db_file, url, identifier)
         if isinstance(result, list):
             results = result
             message = ("Syndication feeds found for {}\n\n```\n"
@@ -547,7 +544,7 @@ class XmppCommands:
         elif query:
             message = "No feeds were found for: {}".format(query)
         else:
-            url = action.pick_a_feed()
+            url = Utilities.pick_a_feed()
             message = ('List of subscriptions is empty. '
                        'To add a feed, send a URL.\n'
                        'Featured news: *{}*\n{}'
@@ -569,19 +566,16 @@ class XmppCommands:
                 self.settings, jid_bare, 'interval')
             await Config.set_setting_value(
                 self.settings, jid_bare, db_file, 'interval', val_new)
-            # NOTE Perhaps this should be replaced by functions
-            # clean and start
-            task.refresh_task(self, jid_bare,
-                              task.task_message, 'interval', val_new)
             message = ('Updates will be sent every {} minutes '
                        '(was: {}).'.format(val_new, val_old))
-        except:
+        except Exception as e:
+            logger.error(str(e))
             message = ('No action has been taken.  Enter a numeric value only.')
         return message
 
 
     async def muc_leave(self, jid_bare):
-        XmppGroupchat.leave(self, jid_bare)
+        XmppMuc.leave(self, jid_bare)
         await XmppBookmark.remove(self, jid_bare)
 
 
@@ -590,7 +584,7 @@ class XmppCommands:
             muc_jid = uri.check_xmpp_uri(command)
             if muc_jid:
                 # TODO probe JID and confirm it's a groupchat
-                result = await XmppGroupchat.join(self, muc_jid)
+                result = await XmppMuc.join(self, muc_jid)
                 # await XmppBookmark.add(self, jid=muc_jid)
                 if result == 'ban':
                     message = '{} is banned from {}'.format(self.alias, muc_jid)
@@ -693,15 +687,6 @@ class XmppCommands:
         return message
 
 
-    async def send_next_update(self, jid_bare, command):
-        """Warning! Not to be interfaced with IPC"""
-        num = command[5:]
-        if num:
-            await action.xmpp_chat_send_unread_items(self, jid_bare, num)
-        else:
-            await action.xmpp_chat_send_unread_items(self, jid_bare)
-
-
     def print_options(self, jid_bare):
         message = ''
         for key in self.settings[jid_bare]:
@@ -761,8 +746,8 @@ class XmppCommands:
                         if not result['error']:
                             document = result['content']
                             feed = parse(document)
-                            if action.is_feed(url, feed):
-                                message = action.view_feed(url, feed)
+                            if Feed.is_feed(url, feed):
+                                message = Feed.view_feed(url, feed)
                                 break
                             else:
                                 result = await crawl.probe_page(url, document)
@@ -797,8 +782,8 @@ class XmppCommands:
                             document = result['content']
                             status = result['status_code']
                             feed = parse(document)
-                            if action.is_feed(url, feed):
-                                message = action.view_entry(url, feed, num)
+                            if Feed.is_feed(url, feed):
+                                message = Feed.view_entry(url, feed, num)
                                 break
                             else:
                                 result = await crawl.probe_page(url, document)
@@ -901,7 +886,7 @@ class XmppCommands:
         return message
 
 
-    async def mark_as_read(self, jid_bare, db_file, ix_url=None):
+    async def mark_as_read(jid_bare, db_file, ix_url=None):
         if ix_url:
             sub_marked = []
             url_invalid = []
@@ -941,14 +926,12 @@ class XmppCommands:
                 message += '\nThe following indexes do not exist:\n\n{}\n'.format(ixs)
             message += '\n```'
         else:
-            message = ('No action has been taken.'
-                        '\n'
-                        'Missing argument. '
-                        'Enter a subscription URL or index number.')
+            await sqlite.mark_all_as_read(db_file)
+            message = 'All subscriptions have been marked as read.'
         return message
 
 
-    async def search_items(self, db_file, query):
+    async def search_items(db_file, query):
         if query:
             if len(query) > 3:
                 results = sqlite.search_entries(db_file, query)
@@ -970,10 +953,12 @@ class XmppCommands:
         return message
 
 
-    async def scheduler_start(self, db_file, jid_bare):
+    # Tasks are classes which are passed to this function
+    # On an occasion in which they would have returned, variable "tasks" might be called "callback"
+    async def scheduler_start(self, db_file, jid_bare, tasks):
         await Config.set_setting_value(self.settings, jid_bare, db_file, 'enabled', 1)
-        key_list = ['check', 'status', 'interval']
-        await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+        for task in tasks:
+            task.restart_task(self, jid_bare)
         message = 'Updates are enabled.'
         return message
 
@@ -981,8 +966,13 @@ class XmppCommands:
     async def scheduler_stop(self, db_file, jid_bare):
         await Config.set_setting_value(
             self.settings, jid_bare, db_file, 'enabled', 0)
-        key_list = ['interval', 'status']
-        task.clean_tasks_xmpp_chat(self, jid_bare, key_list)
+        for task in ('interval', 'status'):
+            if (jid_bare in self.task_manager and
+                task in self.task_manager[jid_bare]):
+                self.task_manager[jid_bare][task].cancel()
+            else:
+                logger.debug('No task {} for JID {} (Task.stop)'
+                             .format(task, jid_bare))
         message = 'Updates are disabled.'
         return message
 
@@ -1037,8 +1027,7 @@ class XmppCommands:
         except:
             message = ('No action has been taken.  No news source with index {}.'
                        .format(feed_id))
-        key_list = ['status']
-        await task.start_tasks_xmpp_chat(self, jid_bare, key_list)
+        XmppStatusTask.restart_task(self, jid_bare)
         return message
 
 
@@ -1102,7 +1091,7 @@ class XmppCommands:
         
     async def invite_jid_to_muc(self, jid_bare):
         muc_jid = 'slixfeed@chat.woodpeckersnest.space'
-        if await get_chat_type(self, jid_bare) == 'chat':
+        if await XmppUtilities.get_chat_type(self, jid_bare) == 'chat':
             self.plugin['xep_0045'].invite(muc_jid, jid_bare)
 
 

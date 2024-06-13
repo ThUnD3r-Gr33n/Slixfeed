@@ -39,37 +39,39 @@ NOTE
 from aiohttp import ClientError, ClientSession, ClientTimeout
 from asyncio import TimeoutError
 # from asyncio.exceptions import IncompleteReadError
-# from bs4 import BeautifulSoup
 # from http.client import IncompleteRead
-import logging
 # from lxml import html
 # from xml.etree.ElementTree import ElementTree, ParseError
 import requests
 import slixfeed.config as config
+from slixfeed.log import Logger
+
+logger = Logger(__name__)
+
 try:
     from magnet2torrent import Magnet2Torrent, FailedToFetchException
 except:
-    logging.info(
+    logger.info(
         "Package magnet2torrent was not found.\n"
         "BitTorrent is disabled.")
 
 
-# class FetchDat:
+# class Dat:
 # async def dat():
 
-# class FetchFtp:
+# class Ftp:
 # async def ftp():
 
-# class FetchGemini:
+# class Gemini:
 # async def gemini():
 
-# class FetchGopher:
+# class Gopher:
 # async def gopher():
 
-# class FetchHttp:
+# class Http:
 # async def http():
 
-# class FetchIpfs:
+# class Ipfs:
 # async def ipfs():
 
 
@@ -103,12 +105,13 @@ def http_response(url):
         "User-Agent": user_agent
     }
     try:
-        # Don't use HEAD request because quite a few websites may deny it
+        # Do not use HEAD request because it appears that too many sites would
+        # deny it.
         # response = requests.head(url, headers=headers, allow_redirects=True)
         response = requests.get(url, headers=headers, allow_redirects=True)
     except Exception as e:
-        logging.warning('Error in HTTP response')
-        logging.error(e)
+        logger.warning('Error in HTTP response')
+        logger.error(e)
         response = None
     return response
 
@@ -175,7 +178,7 @@ async def http(url):
                       'original_url': url,
                       'status_code': None}
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
             result = {'error': True,
                       'message': 'Error:' + str(e) if e else 'Error',
                       'original_url': url,
@@ -188,4 +191,4 @@ async def magnet(link):
     try:
         filename, torrent_data = await m2t.retrieve_torrent()
     except FailedToFetchException:
-        logging.debug("Failed")
+        logger.debug("Failed")
