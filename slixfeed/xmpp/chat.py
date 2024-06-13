@@ -573,7 +573,7 @@ class XmppChat:
                     response = XmppCommands.print_support_jid()
                     await XmppCommands.invite_jid_to_muc(self, jid_bare)
                 case 'version':
-                    response = XmppCommands.print_version(self, jid_bare)
+                    response = XmppCommands.print_version()
                 case _ if command_lowercase.startswith('xmpp:'):
                     response = await XmppCommands.muc_join(self, command)
                 case _:
