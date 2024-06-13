@@ -931,7 +931,7 @@ class XmppCommands:
         return message
 
 
-    async def search_items(db_file, query):
+    def search_items(db_file, query):
         if query:
             if len(query) > 3:
                 results = sqlite.search_entries(db_file, query)

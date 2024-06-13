@@ -307,6 +307,20 @@ class SQLiteMaintain:
             await sqlite.maintain_archive(db_file, limit)
 
 
+"""
+
+Consider utilizing a dict as a handler that would match task keyword to functions.
+
+tasks_xmpp_chat =  {"check" : check_updates,
+                    "status" : task_status_message,
+                    "interval" : task_message}
+
+tasks_xmpp_pubsub =  {"check" : check_updates,
+                      "pubsub" : task_pubsub}
+
+"""
+
+
 class Task:
 
 
