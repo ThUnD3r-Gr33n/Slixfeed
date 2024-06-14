@@ -842,7 +842,7 @@ class FeedTask:
             urls = sqlite.get_active_feeds_url(db_file)
             for url in urls:
                 url = url[0]
-                print('sta : ' + url)
+                print('start scan\nurl {}\ndatabase {}'.format(url, db_file))
                 # print('STA',url)
                 
                 # # Skip Reddit
@@ -855,40 +855,27 @@ class FeedTask:
                 status_code = result['status_code']
                 feed_id = sqlite.get_feed_id(db_file, url)
                 feed_id = feed_id[0]
-                print('feed_id')
-                print(feed_id)
                 if not result['error']:
                     await sqlite.update_feed_status(db_file, feed_id, status_code)
                     document = result['content']
                     feed = parse(document)
                     feed_valid = 0 if feed.bozo else 1
-                    print('feed_valid')
-                    print(feed_valid)
                     await sqlite.update_feed_validity(db_file, feed_id, feed_valid)
                     feed_properties = Feed.get_properties_of_feed(
                         db_file, feed_id, feed)
-                    print('feed_properties')
-                    print(feed_properties)
                     await sqlite.update_feed_properties(
                         db_file, feed_id, feed_properties)
                     new_entries = Feed.get_properties_of_entries(
                         jid_bare, db_file, url, feed_id, feed)
-                    print('new_entries')
-                    print(new_entries)
-                    print('if new_entries')
                     if new_entries:
-                        print('if new_entries (YES)')
-                        print('{}: {} new_entries: {} ({})'.format(jid_bare, len(new_entries), url, feed_id))
                         await sqlite.add_entries_and_update_feed_state(db_file, feed_id, new_entries)
                         limit = Config.get_setting_value(self.settings, jid_bare, 'archive')
                         ixs = sqlite.get_invalid_entries(db_file, url, feed)
                         await sqlite.process_invalid_entries(db_file, ixs)
                         await sqlite.maintain_archive(db_file, limit)
                 # await sqlite.process_invalid_entries(db_file, ixs)
-                print('end : ' + url)
-                limit2 = Config.get_setting_value(self.settings, jid_bare, 'archive')
-                await sqlite.maintain_archive(db_file, limit2)
-                # await asyncio.sleep(50)
+                print('end scan\nurl {}\ndatabase {}'.format(url, db_file))
+                await asyncio.sleep(50)
             val = Config.get_setting_value(self.settings, jid_bare, 'check')
             await asyncio.sleep(60 * float(val))
             # Schedule to call this function again in 90 minutes

@@ -2718,10 +2718,10 @@ def get_invalid_entries(db_file, url, feed):
             # TODO better check and don't repeat code
             if entry.has_key("id") and entry_id:
                 if entry.id == entry_id:
-                    print(url)
-                    print("compare entry.id == entry_id:", entry.id)
-                    print("compare entry.id == entry_id:", entry_id)
-                    print("============")
+                    # print(url)
+                    # print("compare entry.id == entry_id:", entry.id)
+                    # print("compare entry.id == entry_id:", entry_id)
+                    # print("============")
                     # items_valid.append(ix)
                     break
             else:
@@ -2737,10 +2737,10 @@ def get_invalid_entries(db_file, url, feed):
                     link = url
                 # Compare date, link and title
                 if entry.has_key("published") and timestamp:
-                    print(url)
-                    print("compare published:", title, link, time)
-                    print("compare published:", entry_title, entry_link, timestamp)
-                    print("============")
+                    # print(url)
+                    # print("compare published:", title, link, time)
+                    # print("compare published:", entry_title, entry_link, timestamp)
+                    # print("============")
                     time = dt.rfc2822_to_iso8601(entry.published)
                     if (entry_title == title and
                         entry_link == link and
@@ -2751,17 +2751,17 @@ def get_invalid_entries(db_file, url, feed):
                     # Compare link and title
                     if (entry_title == title and
                         entry_link == link):
-                        print(url)
-                        print("compare entry_link == link:", title, link)
-                        print("compare entry_title == title:", entry_title, entry_link)
-                        print("============")
+                        # print(url)
+                        # print("compare entry_link == link:", title, link)
+                        # print("compare entry_title == title:", entry_title, entry_link)
+                        # print("============")
                         # items_valid.append(ix)
                         break
             # print('invalid entry:')
             # print(entry)
             # TODO better check and don't repeat code
         ixs[ix] = read_status
-        print(ixs)
+        # print(ixs)
     return ixs
 
 
@@ -2790,7 +2790,7 @@ async def process_invalid_entries(db_file, ixs):
             for ix in ixs:
                 logger.debug('{}: ix: {}'.format(function_name, ix))
                 if ixs[ix] == 1:
-                    print('index {} ({}) be deleted'.format(ix, ixs[ix]))
+                    # print('index {} ({}) be deleted'.format(ix, ixs[ix]))
                     sql = (
                         """
                         DELETE
@@ -2799,7 +2799,7 @@ async def process_invalid_entries(db_file, ixs):
                         """
                         )
                 else:
-                    print('index {} ({}) be archived'.format(ix, ixs[ix]))
+                    # print('index {} ({}) be archived'.format(ix, ixs[ix]))
                     sql = (
                         """
                         UPDATE entries_state
@@ -2808,12 +2808,8 @@ async def process_invalid_entries(db_file, ixs):
                         """
                         )
                 par = (ix,)
-                # cur.execute(sql, par)
-                try:
-                    print('cur')
-                    cur.execute(sql, par)
-                except Exception as e:
-                    logger.error(e)
+                cur.execute(sql, par)
+
 
 # TODO Move entries that don't exist into table archive.
 # NOTE Entries that are read from archive are deleted.
