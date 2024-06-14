@@ -20,8 +20,9 @@ TODO
 """
 
 from asyncio import Lock
-# from slixfeed.data import join_url
+import slixfeed.dt as dt
 from slixfeed.log import Logger
+from slixfeed.url import join_url
 from sqlite3 import connect, Error, IntegrityError
 import sys
 import time
@@ -1616,8 +1617,8 @@ def get_last_update_time_of_feed(db_file, feed_id):
             """
             )
         par = (feed_id,)
-        count = cur.execute(sql, par).fetchone()
-        return count
+        result = cur.execute(sql, par).fetchone()
+        return result
 
 
 def get_unread_entries_of_feed(db_file, feed_id):
@@ -2680,6 +2681,139 @@ def get_contents_by_entry_id(db_file, entry_id):
         result = cur.execute(sql, par).fetchall()
         return result
 
+
+def get_invalid_entries(db_file, url, feed):
+    """
+    List entries that do not exist in a given feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    url : str
+        Feed URL.
+    feed : list
+        Parsed feed document.
+
+    Returns
+    -------
+    ixs : dict
+        List of indexes of invalid items.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} url: {}'.format(function_name, db_file, url))
+    feed_id = get_feed_id(db_file, url)
+    feed_id = feed_id[0]
+    items = get_entries_of_feed(db_file, feed_id)
+    entries = feed.entries
+    ixs = {}
+    for item in items:
+        ix, entry_title, entry_link, entry_id, timestamp = item
+        read_status = is_entry_read(db_file, ix)
+        read_status = read_status[0]
+        for entry in entries:
+            title = None
+            link = None
+            time = None
+            # TODO better check and don't repeat code
+            if entry.has_key("id") and entry_id:
+                if entry.id == entry_id:
+                    print(url)
+                    print("compare entry.id == entry_id:", entry.id)
+                    print("compare entry.id == entry_id:", entry_id)
+                    print("============")
+                    # items_valid.append(ix)
+                    break
+            else:
+                # Prepare a title to compare
+                if entry.has_key("title"):
+                    title = entry.title
+                else:
+                    title = feed["feed"]["title"]
+                # Prepare a link to compare
+                if entry.has_key("link"):
+                    link = join_url(url, entry.link)
+                else:
+                    link = url
+                # Compare date, link and title
+                if entry.has_key("published") and timestamp:
+                    print(url)
+                    print("compare published:", title, link, time)
+                    print("compare published:", entry_title, entry_link, timestamp)
+                    print("============")
+                    time = dt.rfc2822_to_iso8601(entry.published)
+                    if (entry_title == title and
+                        entry_link == link and
+                        timestamp == time):
+                        # items_valid.append(ix)
+                        break
+                else:
+                    # Compare link and title
+                    if (entry_title == title and
+                        entry_link == link):
+                        print(url)
+                        print("compare entry_link == link:", title, link)
+                        print("compare entry_title == title:", entry_title, entry_link)
+                        print("============")
+                        # items_valid.append(ix)
+                        break
+            # print('invalid entry:')
+            # print(entry)
+            # TODO better check and don't repeat code
+        ixs[ix] = read_status
+        print(ixs)
+    return ixs
+
+
+async def process_invalid_entries(db_file, ixs):
+    """
+    Batch process of invalid items.
+
+    Parameters
+    ----------
+    db_file : TYPE
+        DESCRIPTION.
+    ixs : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} ixs: {}'
+                .format(function_name, db_file, ixs))
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            for ix in ixs:
+                logger.debug('{}: ix: {}'.format(function_name, ix))
+                if ixs[ix] == 1:
+                    print('index {} ({}) be deleted'.format(ix, ixs[ix]))
+                    sql = (
+                        """
+                        DELETE
+                        FROM entries_properties
+                        WHERE id = :ix
+                        """
+                        )
+                else:
+                    print('index {} ({}) be archived'.format(ix, ixs[ix]))
+                    sql = (
+                        """
+                        UPDATE entries_state
+                        SET archived = 1
+                        WHERE entry_id = :ix
+                        """
+                        )
+                par = (ix,)
+                # cur.execute(sql, par)
+                try:
+                    print('cur')
+                    cur.execute(sql, par)
+                except Exception as e:
+                    logger.error(e)
 
 # TODO Move entries that don't exist into table archive.
 # NOTE Entries that are read from archive are deleted.
