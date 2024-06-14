@@ -1373,6 +1373,9 @@ def get_entries(db_file, num):
         return result
 
 
+# NOTE Only [0] [1] [4] are in use.
+# See results = sqlite.get_entries_rejected(db_file, num)
+# Module xmpp/client.py
 def get_entries_rejected(db_file, num):
     """
     Extract information from rejected entries.
@@ -1919,7 +1922,7 @@ async def mark_all_as_read(db_file):
             
             sql = (
                 """
-                SELECT entries_properties.id, title, link, summary_text, feed_id, published
+                SELECT entries_properties.id
                 FROM entries_properties
                 INNER JOIN entries_state ON entries_properties.id = entries_state.entry_id
                 WHERE entries_state.archived = 1
@@ -2664,6 +2667,7 @@ def get_tags_by_entry_id(db_file, entry_id):
         return result
 
 
+# NOTE fetch only relevant/specific items
 def get_contents_by_entry_id(db_file, entry_id):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} entry_id: {}'
