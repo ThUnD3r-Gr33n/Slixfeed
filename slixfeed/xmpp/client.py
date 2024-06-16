@@ -44,14 +44,11 @@ import slixmpp
 
 import slixfeed.config as config
 from slixfeed.config import Config
-import slixfeed.crawl as crawl
-import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
-from slixfeed.syndication import Feed, FeedTask, Opml
-import slixfeed.url as uri
-from slixfeed.utilities import Html, Task, Utilities
+from slixfeed.syndication import Feed, FeedDiscovery, FeedTask, Opml
+from slixfeed.utilities import DateAndTime, Html, Task, Url, Utilities
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.chat import XmppChat, XmppChatTask
@@ -62,7 +59,6 @@ from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.muc import XmppMuc
 from slixfeed.xmpp.groupchat import XmppGroupchat
 from slixfeed.xmpp.presence import XmppPresence
-from slixfeed.xmpp.privilege import is_operator, is_access
 import slixfeed.xmpp.profile as profile
 from slixfeed.xmpp.publish import XmppPubsub, XmppPubsubAction, XmppPubsubTask
 from slixfeed.xmpp.roster import XmppRoster
@@ -791,7 +787,7 @@ class XmppClient(slixmpp.ClientXMPP):
         #     )
 
         # NOTE https://codeberg.org/poezio/slixmpp/issues/3515
-        # if is_operator(self, jid_bare):
+        # if XmppUtilities.is_operator(self, jid_bare):
         self['xep_0050'].add_command(node='subscription',
                                      name='🪶️ Subscribe',
                                      handler=self._handle_subscription_add)
@@ -842,7 +838,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'PubSub')
             form['instructions'] = 'Publish news items to PubSub nodes.'
             options = form.add_field(desc='From which medium source do you '
@@ -863,7 +859,7 @@ class XmppClient(slixmpp.ClientXMPP):
             session['prev'] = None
             session['payload'] = form
         else:
-            if not is_operator(self, jid_bare):
+            if not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
@@ -883,7 +879,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             values = payload['values']
             form = self['xep_0004'].make_form('form', 'Publish')
             form['instructions'] = ('Choose a PubSub Jabber ID and verify '
@@ -971,7 +967,7 @@ class XmppClient(slixmpp.ClientXMPP):
             session['has_next'] = True
             session['prev'] = self._handle_publish
         else:
-            if not is_operator(self, jid_bare):
+            if not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
@@ -994,7 +990,7 @@ class XmppClient(slixmpp.ClientXMPP):
         print(values['jid'])
         jid = values['jid'] if 'jid' in values else None
         jid_bare = session['from'].bare
-        if jid != jid_bare and not is_operator(self, jid_bare):
+        if jid != jid_bare and not XmppUtilities.is_operator(self, jid_bare):
             text_warn = ('Posting to {} is restricted to operators only.'
                          .format(jid_bare)) # Should not this be self.boundjid.bare?
             session['allow_prev'] = False
@@ -1065,7 +1061,7 @@ class XmppClient(slixmpp.ClientXMPP):
         ixs = values['entries']
         #if jid: jid = jid[0] if isinstance(jid, list) else jid
         jid_bare = session['from'].bare
-        if jid != jid_bare and not is_operator(self, jid_bare):
+        if jid != jid_bare and not XmppUtilities.is_operator(self, jid_bare):
             # TODO Report incident
             text_warn = 'You are not suppose to be here.'
             session['allow_prev'] = False
@@ -1100,7 +1096,7 @@ class XmppClient(slixmpp.ClientXMPP):
         values = payload['values']
         jid = values['jid'] if 'jid' in values else None
         jid_bare = session['from'].bare
-        if jid != jid_bare and not is_operator(self, jid_bare):
+        if jid != jid_bare and not XmppUtilities.is_operator(self, jid_bare):
             # TODO Report incident
             text_warn = 'You are not suppose to be here.'
             # text_warn = ('Posting to {} is restricted to operators only.'
@@ -1119,7 +1115,7 @@ class XmppClient(slixmpp.ClientXMPP):
             if jid == self.boundjid.bare:
                 node = 'urn:xmpp:microblog:0'
             else:
-                node = uri.get_hostname(url)
+                node = Url.get_hostname(url)
         form = self['xep_0004'].make_form('form', 'Publish')
         while True:
             result = await fetch.http(url)
@@ -1137,7 +1133,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     if "title" in feed["feed"].keys():
                         title = feed["feed"]["title"]
                     else:
-                        title = uri.get_hostname(url)
+                        title = Url.get_hostname(url)
                     entries = feed.entries
                     entry_ix = 0
                     for entry in entries:
@@ -1146,10 +1142,10 @@ class XmppClient(slixmpp.ClientXMPP):
                         else:
                             if entry.has_key("published"):
                                 title = entry.published
-                                title = dt.rfc2822_to_iso8601(title)
+                                title = DateAndTime.rfc2822_to_iso8601(title)
                             elif entry.has_key("updated"):
                                 title = entry.updated
-                                title = dt.rfc2822_to_iso8601(title)
+                                title = DateAndTime.rfc2822_to_iso8601(title)
                             else:
                                 title = "*** No title ***"
                         options.addOption(title, str(entry_ix))
@@ -1164,7 +1160,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     session['payload'] = form
                     break
                 else:
-                    result = await crawl.probe_page(url, document)
+                    result = await FeedDiscovery.probe_page(url, document)
                     if isinstance(result, list):
                         results = result
                         form['instructions'] = ('Discovered {} subscriptions '
@@ -1225,7 +1221,7 @@ class XmppClient(slixmpp.ClientXMPP):
         jid = values['jid'][0] if 'jid' in values else None
         #if jid: jid = jid[0] if isinstance(jid, list) else jid
         jid_bare = session['from'].bare
-        if jid != jid_bare and not is_operator(self, jid_bare):
+        if jid != jid_bare and not XmppUtilities.is_operator(self, jid_bare):
             # TODO Report incident
             text_warn = 'You are not suppose to be here.'
             session['allow_prev'] = False
@@ -1262,10 +1258,10 @@ class XmppClient(slixmpp.ClientXMPP):
                 # else:
                 #     if feed.entries[entry].has_key("published"):
                 #         title = feed.entries[entry].published
-                #         title = dt.rfc2822_to_iso8601(title)
+                #         title = DateAndTime.rfc2822_to_iso8601(title)
                 #     elif feed.entries[entry].has_key("updated"):
                 #         title = feed.entries[entry].updated
-                #         title = dt.rfc2822_to_iso8601(title)
+                #         title = DateAndTime.rfc2822_to_iso8601(title)
                 #     else:
                 #         title = "*** No title ***"
                 # if feed.entries[entry].has_key("summary"):
@@ -1393,7 +1389,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             jid = session['from'].bare
             db_file = config.get_pathname_to_database(jid_bare)
             form = self['xep_0004'].make_form('form', 'Filters')
@@ -1432,7 +1428,7 @@ class XmppClient(slixmpp.ClientXMPP):
             session['next'] = self._handle_filters_complete
             session['payload'] = form
         else:
-            if not is_operator(self, jid_bare):
+            if not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
@@ -1502,7 +1498,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscribe')
             # form['instructions'] = 'Add a new custom subscription.'
             form.add_field(desc='Enter a URL.',
@@ -1517,7 +1513,7 @@ class XmppClient(slixmpp.ClientXMPP):
                            required=True,
                            value='http://',
                            var='subscription')
-            if is_operator(self, jid_bare):
+            if XmppUtilities.is_operator(self, jid_bare):
                 # form['instructions'] = ('Special section for operators:\n'
                 #                         'This section allows you to add '
                 #                         'subscriptions for a JID of your '
@@ -1544,7 +1540,7 @@ class XmppClient(slixmpp.ClientXMPP):
             session['prev'] = None
             session['payload'] = form
         else:
-            if not is_operator(self, jid_bare):
+            if not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
@@ -1576,7 +1572,7 @@ class XmppClient(slixmpp.ClientXMPP):
         # options.addOption('News by tag', 'tag')
         options.addOption('Rejected', 'reject')
         options.addOption('Unread', 'unread')
-        if is_operator(self, jid_bare):
+        if XmppUtilities.is_operator(self, jid_bare):
             # form['instructions'] = ('Special section for operators:\n'
             #                         'This section allows you to view news items '
             #                         'of a JID of your choice.')
@@ -1617,7 +1613,7 @@ class XmppClient(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         values = payload['values']
         form = self['xep_0004'].make_form('form', 'Updates')
-        if is_operator(self, jid_bare) and 'jid' in values:
+        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
             jid_bare = values['jid']
             form.add_field(var='jid',
                            ftype='hidden',
@@ -1675,7 +1671,7 @@ class XmppClient(slixmpp.ClientXMPP):
         ix = values['update']
         jid_bare = session['from'].bare
         form = self['xep_0004'].make_form('form', 'Article')
-        if is_operator(self, jid_bare) and 'jid' in values:
+        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
             jid = values['jid']
             jid_bare = jid[0] if isinstance(jid, list) else jid
             form.add_field(var='jid',
@@ -1688,9 +1684,9 @@ class XmppClient(slixmpp.ClientXMPP):
         url = sqlite.get_entry_url(db_file, ix)
         url = url[0] # TODO Handle a situation when index is no longer exist
         logger.debug('Original URL: {}'.format(url))
-        url = uri.remove_tracking_parameters(url)
+        url = Url.remove_tracking_parameters(url)
         logger.debug('Processed URL (tracker removal): {}'.format(url))
-        url = (await uri.replace_hostname(url, 'link')) or url
+        url = (await Url.replace_hostname(url, 'link')) or url
         logger.debug('Processed URL (replace hostname): {}'.format(url))
         # result = await fetch.http(url)
         # if 'content' in result:
@@ -1750,7 +1746,7 @@ class XmppClient(slixmpp.ClientXMPP):
         identifier = values['identifier'] if 'identifier' in values else None
         url = values['subscription']
         jid_bare = session['from'].bare
-        if is_operator(self, jid_bare) and 'jid' in values:
+        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
             custom_jid = values['jid']
             jid_bare = custom_jid[0] if isinstance(custom_jid, list) else jid_bare
             # jid_bare = custom_jid[0] if custom_jid else jid_bare
@@ -1780,7 +1776,7 @@ class XmppClient(slixmpp.ClientXMPP):
             session['prev'] = None
         # elif not identifier:
         #     counter = 0
-        #     hostname = uri.get_hostname(url)
+        #     hostname = Url.get_hostname(url)
         #     identifier = hostname + ':' + str(counter)
         #     while True:
         #         if sqlite.check_identifier_exist(db_file, identifier):
@@ -1797,7 +1793,7 @@ class XmppClient(slixmpp.ClientXMPP):
             exist_count = 0
             for url in urls:
                 counter = 0
-                hostname = uri.get_hostname(url)
+                hostname = Url.get_hostname(url)
                 identifier = hostname + ':' + str(counter)
                 while True:
                     if sqlite.check_identifier_exist(db_file, identifier):
@@ -1830,7 +1826,7 @@ class XmppClient(slixmpp.ClientXMPP):
             if isinstance(url, list):
                 url = url[0]
             counter = 0
-            hostname = uri.get_hostname(url)
+            hostname = Url.get_hostname(url)
             identifier = hostname + ':' + str(counter)
             while True:
                 if sqlite.check_identifier_exist(db_file, identifier):
@@ -1956,7 +1952,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         values = payload['values']
-        if is_operator(self, jid_bare) and 'jid' in values:
+        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
             jid_bare = values['jid'][0]
             del values['jid']
         db_file = config.get_pathname_to_database(jid_bare)
@@ -1981,7 +1977,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         values = payload['values']
-        if is_operator(self, jid_bare) and 'jid' in values:
+        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
             jid_bare = values['jid'][0]
             del values['jid']
         db_file = config.get_pathname_to_database(jid_bare)
@@ -2022,7 +2018,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Discover & Search')
             form['instructions'] = 'Discover news subscriptions of all kinds'
             options = form.add_field(desc='Select type of search.',
@@ -2039,7 +2035,7 @@ class XmppClient(slixmpp.ClientXMPP):
             session['payload'] = form
             session['prev'] = None
         else:
-            if not is_operator(self, jid_bare):
+            if not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
@@ -2146,7 +2142,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscriptions')
             form['instructions'] = ('Browse, view, toggle or remove '
                                     'tags and subscriptions.')
@@ -2160,7 +2156,7 @@ class XmppClient(slixmpp.ClientXMPP):
             options.addOption('Browse tags', 'tag')
             options.addOption('Remove subscriptions', 'delete')
             options.addOption('Toggle subscriptions', 'toggle')
-            if is_operator(self, jid_bare):
+            if XmppUtilities.is_operator(self, jid_bare):
                 form['instructions'] = None
                 # form['instructions'] = ('Special section for operators:\n'
                 #                         'This section allows you to change '
@@ -2190,7 +2186,7 @@ class XmppClient(slixmpp.ClientXMPP):
             session['next'] = self._handle_subscriptions_result
             session['has_next'] = True
         else:
-            if not is_operator(self, jid_bare):
+            if not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
@@ -2212,7 +2208,7 @@ class XmppClient(slixmpp.ClientXMPP):
         values = payload['values']
         jid_bare = session['from'].bare
         form = self['xep_0004'].make_form('form', 'Subscriptions')
-        if is_operator(self, jid_bare) and 'jid' in values:
+        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
             jid_bare = values['jid']
             form.add_field(ftype='hidden',
                            value=jid_bare,
@@ -2306,7 +2302,7 @@ class XmppClient(slixmpp.ClientXMPP):
         form = self['xep_0004'].make_form('form', 'Subscriptions')
         jid_bare = session['from'].bare
         values = payload['values']
-        if is_operator(self, jid_bare) and 'jid' in values:
+        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
             jid_bare = values['jid'][0]
             form.add_field(ftype='hidden',
                            value=jid_bare,
@@ -2344,7 +2340,7 @@ class XmppClient(slixmpp.ClientXMPP):
         form = self['xep_0004'].make_form('form', 'Subscription')
         jid_bare = session['from'].bare
         values = payload['values']
-        if is_operator(self, jid_bare) and 'jid' in values:
+        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
             jid_bare = values['jid'][0] if values['jid'] else jid_bare
             form.add_field(ftype='hidden',
                            value=jid_bare,
@@ -2440,7 +2436,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         values = payload['values']
-        if is_operator(self, jid_bare) and 'jid' in values:
+        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
             jid_bare = values['jid'][0]
         db_file = config.get_pathname_to_database(jid_bare)
         # url = values['url']
@@ -2506,14 +2502,14 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Advanced')
             form['instructions'] = 'Extended options'
             options = form.add_field(ftype='list-single',
                                      label='Choose',
                                      required=True,
                                      var='option')
-            if is_operator(self, jid_bare):
+            if XmppUtilities.is_operator(self, jid_bare):
                 options.addOption('Administration', 'admin')
             # options.addOption('Activity', 'activity')
             # options.addOption('Filters', 'filter')
@@ -2527,7 +2523,7 @@ class XmppClient(slixmpp.ClientXMPP):
             session['next'] = self._handle_advanced_result
             session['prev'] = self._handle_advanced
         else:
-            if not is_operator(self, jid_bare):
+            if not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
@@ -2556,7 +2552,7 @@ class XmppClient(slixmpp.ClientXMPP):
             case 'admin':
                 # NOTE Even though this check is already conducted on previous
                 # form, this check is being done just in case.
-                if is_operator(self, jid_bare):
+                if XmppUtilities.is_operator(self, jid_bare):
                     if self.is_component:
                         # NOTE This will be changed with XEP-0222 XEP-0223
                         text_info = ('Subscriber management options are '
@@ -2589,7 +2585,7 @@ class XmppClient(slixmpp.ClientXMPP):
                 else:
                     logger.warning('An unauthorized attempt to access '
                                    'bookmarks has been detected for JID {} at '
-                                   '{}'.format(jid_bare, dt.timestamp()))
+                                   '{}'.format(jid_bare, DateAndTime.timestamp()))
                     text_warn = 'This resource is restricted.'
                     session['notes'] = [['warn', text_warn]]
                     session['has_next'] = False
@@ -2617,7 +2613,7 @@ class XmppClient(slixmpp.ClientXMPP):
                                      required=True,
                                      var='url')
                 url['validate']['datatype'] = 'xs:anyURI'
-                if is_operator(self, jid_bare):
+                if XmppUtilities.is_operator(self, jid_bare):
                     form.add_field(ftype='fixed',
                                     label='* Operators',
                                     desc='This section allows you to import '
@@ -2651,7 +2647,7 @@ class XmppClient(slixmpp.ClientXMPP):
                 options.addOption('OPML', 'opml')
                 # options.addOption('HTML', 'html')
                 # options.addOption('XBEL', 'xbel')
-                if is_operator(self, jid_bare):
+                if XmppUtilities.is_operator(self, jid_bare):
                     # form['instructions'] = ('Special section for operators:\n'
                     #                         'This section allows you to '
                     #                         'import and export subscriptions '
@@ -2841,7 +2837,7 @@ class XmppClient(slixmpp.ClientXMPP):
         url = values['url']
         if url.startswith('http') and url.endswith('.opml'):
             jid_bare = session['from'].bare
-            if is_operator(self, jid_bare) and 'jid' in values:
+            if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
                 jid = values['jid']
                 jid_bare = jid[0] if isinstance(jid, list) else jid
             db_file = config.get_pathname_to_database(jid_bare)
@@ -2882,7 +2878,7 @@ class XmppClient(slixmpp.ClientXMPP):
         # form['type'] = 'result'
         values = payload['values']
         jid_bare = session['from'].bare
-        if is_operator(self, jid_bare) and 'jid' in values:
+        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
             jid = values['jid']
             jid_bare = jid[0] if isinstance(jid, list) else jid
         # form = self['xep_0004'].make_form('result', 'Done')
@@ -2915,7 +2911,7 @@ class XmppClient(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         jid_full = str(session['from'])
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscribe')
             # NOTE Refresh button would be of use
             form['instructions'] = 'Featured subscriptions'
@@ -2938,7 +2934,7 @@ class XmppClient(slixmpp.ClientXMPP):
             if '@' in jid_bare:
                 hostname = jid_bare.split('@')[1]
                 url = 'http://' + hostname
-            result = await crawl.probe_page(url)
+            result = await FeedDiscovery.probe_page(url)
             if not result:
                 url = {'url' : url,
                         'index' : None,
@@ -2966,7 +2962,7 @@ class XmppClient(slixmpp.ClientXMPP):
             session['payload'] = form
             session['prev'] = self._handle_promoted
         else:
-            if not is_operator(self, jid_bare):
+            if not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
@@ -3620,7 +3616,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             db_file = config.get_pathname_to_database(jid_bare)
             if jid_bare not in self.settings:
                 Config.add_settings_jid(self.settings, jid_bare, db_file)
@@ -3718,7 +3714,7 @@ class XmppClient(slixmpp.ClientXMPP):
             session['next'] = self._handle_settings_complete
             session['payload'] = form
         else:
-            if not is_operator(self, jid_bare):
+            if not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'

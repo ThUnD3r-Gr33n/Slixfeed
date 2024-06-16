@@ -5,14 +5,11 @@ from feedparser import parse
 from random import randrange
 import slixfeed.config as config
 from slixfeed.config import Config
-import slixfeed.crawl as crawl
-import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
-from slixfeed.syndication import Feed, Opml
-import slixfeed.url as uri
-from slixfeed.utilities import Documentation, Utilities
+from slixfeed.syndication import Feed, FeedDiscovery, Opml
+from slixfeed.utilities import DateAndTime, Documentation, Url, Utilities
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.muc import XmppMuc
@@ -121,9 +118,9 @@ class XmppCommands:
         """
         if url.startswith('http'):
             if not title:
-                title = uri.get_hostname(url)
+                title = Url.get_hostname(url)
             counter = 0
-            hostname = uri.get_hostname(url)
+            hostname = Url.get_hostname(url)
             hostname = hostname.replace('.','-')
             identifier = hostname + ':' + str(counter)
             while True:
@@ -148,7 +145,7 @@ class XmppCommands:
                     if feed.has_key('updated_parsed'):
                         feed_updated = feed.updated_parsed
                         try:
-                            feed_updated = dt.convert_struct_time_to_iso8601(
+                            feed_updated = DateAndTime.convert_struct_time_to_iso8601(
                                 feed_updated)
                         except:
                             feed_updated = None
@@ -393,7 +390,7 @@ class XmppCommands:
                     identifier = info[2]
                 else:
                     counter = 0
-                    hostname = uri.get_hostname(url)
+                    hostname = Url.get_hostname(url)
                     hostname = hostname.replace('.','-')
                     identifier = hostname + ':' + str(counter)
                     while True:
@@ -417,8 +414,8 @@ class XmppCommands:
                 if (url.startswith('feed:/') or
                     url.startswith('itpc:/') or
                     url.startswith('rss:/')):
-                    url = uri.feed_to_http(url)
-                url = (await uri.replace_hostname(url, 'feed')) or url
+                    url = Url.feed_to_http(url)
+                url = (await Url.replace_hostname(url, 'feed')) or url
                 result = await Feed.add_feed(self, jid_bare, db_file, url,
                                              identifier)
                 if isinstance(result, list):
@@ -479,10 +476,10 @@ class XmppCommands:
     # both interfaces Chat and IPC
     async def fetch_http(self, url, db_file, jid_bare):
         if url.startswith('feed:/') or url.startswith('rss:/'):
-            url = uri.feed_to_http(url)
-        url = (await uri.replace_hostname(url, 'feed')) or url
+            url = Url.feed_to_http(url)
+        url = (await Url.replace_hostname(url, 'feed')) or url
         counter = 0
-        hostname = uri.get_hostname(url)
+        hostname = Url.get_hostname(url)
         hostname = hostname.replace('.','-')
         identifier = hostname + ':' + str(counter)
         while True:
@@ -581,7 +578,7 @@ class XmppCommands:
 
     async def muc_join(self, command):
         if command:
-            muc_jid = uri.check_xmpp_uri(command)
+            muc_jid = Url.check_xmpp_uri(command)
             if muc_jid:
                 # TODO probe JID and confirm it's a groupchat
                 result = await XmppMuc.join(self, muc_jid)
@@ -735,8 +732,8 @@ class XmppCommands:
 
     async def feed_read(self, jid_bare, data, url):
         if url.startswith('feed:/') or url.startswith('rss:/'):
-            url = uri.feed_to_http(url)
-        url = (await uri.replace_hostname(url, 'feed')) or url
+            url = Url.feed_to_http(url)
+        url = (await Url.replace_hostname(url, 'feed')) or url
         match len(data):
             case 1:
                 if url.startswith('http'):
@@ -750,7 +747,7 @@ class XmppCommands:
                                 message = Feed.view_feed(url, feed)
                                 break
                             else:
-                                result = await crawl.probe_page(url, document)
+                                result = await FeedDiscovery.probe_page(url, document)
                                 if isinstance(result, list):
                                     results = result
                                     message = ("Syndication feeds found for {}\n\n```\n"
@@ -786,7 +783,7 @@ class XmppCommands:
                                 message = Feed.view_entry(url, feed, num)
                                 break
                             else:
-                                result = await crawl.probe_page(url, document)
+                                result = await FeedDiscovery.probe_page(url, document)
                                 if isinstance(result, list):
                                     results = result
                                     message = ("Syndication feeds found for {}\n\n```\n"

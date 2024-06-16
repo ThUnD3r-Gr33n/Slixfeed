@@ -20,9 +20,8 @@ TODO
 """
 
 from asyncio import Lock
-import slixfeed.dt as dt
 from slixfeed.log import Logger
-from slixfeed.url import join_url
+from slixfeed.utilities import DateAndTime, Url
 from sqlite3 import connect, Error, IntegrityError
 import sys
 import time
@@ -2736,7 +2735,7 @@ def get_invalid_entries(db_file, url, feed):
                     title = feed["feed"]["title"]
                 # Prepare a link to compare
                 if entry.has_key("link"):
-                    link = join_url(url, entry.link)
+                    link = Url.join_url(url, entry.link)
                 else:
                     link = url
                 # Compare date, link and title
@@ -2745,7 +2744,7 @@ def get_invalid_entries(db_file, url, feed):
                     # print("compare published:", title, link, time)
                     # print("compare published:", entry_title, entry_link, timestamp)
                     # print("============")
-                    time = dt.rfc2822_to_iso8601(entry.published)
+                    time = DateAndTime.rfc2822_to_iso8601(entry.published)
                     if (entry_title == title and
                         entry_link == link and
                         timestamp == time):

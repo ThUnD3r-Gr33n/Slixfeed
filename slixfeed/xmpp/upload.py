@@ -16,7 +16,7 @@ logger = Logger(__name__)
 class XmppUpload:
 
     async def start(self, jid, filename, domain=None):
-        logger.info('Uploading file %s...', filename)
+        logger.info(['Uploading file %s...', filename])
         try:
             upload_file = self['xep_0363'].upload_file
             # if self.encrypted and not self['xep_0454']:
@@ -34,7 +34,7 @@ class XmppUpload:
                     filename, domain, timeout=10,
                 )
                 logger.info('Upload successful!')
-                logger.info('Sending file to %s', jid)
+                logger.info(['Sending file to %s', jid])
             except HTTPError:
                 url = ('Error: It appears that this server does not support '
                        'HTTP File Upload.')

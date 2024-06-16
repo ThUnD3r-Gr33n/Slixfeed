@@ -16,8 +16,7 @@ from slixfeed.config import Config
 from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
 from slixfeed.syndication import Feed
-import slixfeed.url as uri
-from slixfeed.utilities import Utilities
+from slixfeed.utilities import Url, Utilities
 from slixfeed.xmpp.iq import XmppIQ
 import sys
 
@@ -337,7 +336,7 @@ class XmppPubsubAction:
                 node_id = node_id[0]
                 if not node_id:
                     counter = 0
-                    hostname = uri.get_hostname(url)
+                    hostname = Url.get_hostname(url)
                     hostname = hostname.replace('.','-')
                     identifier = hostname + ':' + str(counter)
                     while True:

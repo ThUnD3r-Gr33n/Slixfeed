@@ -29,16 +29,11 @@ import slixfeed.config as config
 from slixfeed.config import Config
 from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
-from slixfeed.url import (
-    remove_tracking_parameters,
-    replace_hostname,
-    )
 from slixfeed.syndication import FeedTask
-from slixfeed.utilities import Documentation, Html, MD, Task
+from slixfeed.utilities import Documentation, Html, MD, Task, Url
 from slixfeed.xmpp.commands import XmppCommands
 from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
-from slixfeed.xmpp.privilege import is_operator, is_moderator
 from slixfeed.xmpp.status import XmppStatusTask
 from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utilities import XmppUtilities
@@ -89,7 +84,7 @@ class XmppChat:
                 if (message['muc']['nick'] == self.alias):
                     return
                 jid_full = str(message['from'])
-                if not is_moderator(self, jid_bare, jid_full):
+                if not XmppUtilities.is_moderator(self, jid_bare, jid_full):
                     return
 
             if message['type'] == 'groupchat':
@@ -115,7 +110,7 @@ class XmppChat:
                 #             return
                 # approved = False
                 jid_full = str(message['from'])
-                if not is_moderator(self, jid_bare, jid_full):
+                if not XmppUtilities.is_moderator(self, jid_bare, jid_full):
                     return
                 # if role == 'moderator':
                 #     approved = True
@@ -257,7 +252,7 @@ class XmppChat:
                         response = 'Current value for archive: '
                         response += XmppCommands.get_archive(self, jid_bare)
                 case _ if command_lowercase.startswith('bookmark +'):
-                    if is_operator(self, jid_bare):
+                    if XmppUtilities.is_operator(self, jid_bare):
                         muc_jid = command[11:]
                         response = await XmppCommands.bookmark_add(
                             self, muc_jid)
@@ -265,7 +260,7 @@ class XmppChat:
                         response = ('This action is restricted. '
                                     'Type: adding bookmarks.')
                 case _ if command_lowercase.startswith('bookmark -'):
-                    if is_operator(self, jid_bare):
+                    if XmppUtilities.is_operator(self, jid_bare):
                         muc_jid = command[11:]
                         response = await XmppCommands.bookmark_del(
                             self, muc_jid)
@@ -273,7 +268,7 @@ class XmppChat:
                         response = ('This action is restricted. '
                                     'Type: removing bookmarks.')
                 case 'bookmarks':
-                    if is_operator(self, jid_bare):
+                    if XmppUtilities.is_operator(self, jid_bare):
                         response = await XmppCommands.print_bookmarks(self)
                     else:
                         response = ('This action is restricted. '
@@ -333,7 +328,7 @@ class XmppChat:
                         XmppPresence.send(self, jid_bare, status_message,
                                           status_type=status_type)
                         filename, response = XmppCommands.export_feeds(
-                            self, jid_bare, ext)
+                            jid_bare, ext)
                         url = await XmppUpload.start(self, jid_bare, filename)
                         # response = (
                         #     'Feeds exported successfully to {}.\n{}'
@@ -388,7 +383,7 @@ class XmppChat:
                     response = await XmppCommands.pubsub_list(self, jid)
                     response += '```'
                 case _ if command_lowercase.startswith('pubsub send'):
-                    if is_operator(self, jid_bare):
+                    if XmppUtilities.is_operator(self, jid_bare):
                         info = command[12:]
                         info = info.split(' ')
                         jid = info[0]
@@ -461,7 +456,7 @@ class XmppChat:
                     await XmppChatAction.send_unread_items(self, jid_bare, num)
                     XmppStatusTask.restart_task(self, jid_bare)
                 case _ if command_lowercase.startswith('node delete'):
-                    if is_operator(self, jid_bare):
+                    if XmppUtilities.is_operator(self, jid_bare):
                         info = command[12:]
                         info = info.split(' ')
                         response = XmppCommands.node_delete(self, info)
@@ -469,7 +464,7 @@ class XmppChat:
                         response = ('This action is restricted. '
                                     'Type: sending news to PubSub.')
                 case _ if command_lowercase.startswith('node purge'):
-                    if is_operator(self, jid_bare):
+                    if XmppUtilities.is_operator(self, jid_bare):
                         info = command[11:]
                         info = info.split(' ')
                         response = XmppCommands.node_purge(self, info)
@@ -770,8 +765,8 @@ class XmppChatAction:
         else:
             summary = '*** No summary ***'
         link = result[2]
-        link = remove_tracking_parameters(link)
-        link = await replace_hostname(link, "link") or link
+        link = Url.remove_tracking_parameters(link)
+        link = await Url.replace_hostname(link, "link") or link
         feed_id = result[4]
         # news_item = ("\n{}\n{}\n{} [{}]\n").format(str(title), str(link),
         #                                            str(feed_title), str(ix))

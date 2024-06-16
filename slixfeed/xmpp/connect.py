@@ -14,7 +14,7 @@ TODO
 """
 
 import asyncio
-from slixfeed.dt import current_time
+from slixfeed.utilities import DateAndTime
 from slixfeed.log import Logger
 from slixmpp.exceptions import IqTimeout, IqError
 from time import sleep
@@ -62,17 +62,17 @@ class XmppConnect:
 
     def recover(self, message):
         logger.warning(message)
-        print(current_time(), message, 'Attempting to reconnect.')
+        print(DateAndTime.current_time(), message, 'Attempting to reconnect.')
         self.connection_attempts += 1
         # if self.connection_attempts <= self.max_connection_attempts:
         #     self.reconnect(wait=5.0)  # wait a bit before attempting to reconnect
         # else:
         #     print(current_time(),"Maximum connection attempts exceeded.")
         #     logging.error("Maximum connection attempts exceeded.")
-        print(current_time(), 'Attempt number', self.connection_attempts)
+        print(DateAndTime.current_time(), 'Attempt number', self.connection_attempts)
         seconds = self.reconnect_timeout or 30
         seconds = int(seconds)
-        print(current_time(), 'Next attempt within', seconds, 'seconds')
+        print(DateAndTime.current_time(), 'Next attempt within', seconds, 'seconds')
         # NOTE asyncio.sleep doesn't interval as expected
         # await asyncio.sleep(seconds)
         sleep(seconds)
