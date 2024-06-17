@@ -18,7 +18,7 @@ FIXME
 """
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.muc import XmppMuc
-from slixfeed.log import Logger
+from slixfeed.log import Logger, Message
 
 logger = Logger(__name__)
 
@@ -34,8 +34,9 @@ class XmppGroupchat:
                                   'bookmark {}'.format(bookmark['name']))
                 alias = bookmark["nick"]
                 muc_jid = bookmark["jid"]
+                
+                Message.printer('Joining MUC {} ...'.format(muc_jid))
                 result = await XmppMuc.join(self, muc_jid, alias)
-                print(result)
                 if result == 'ban':
                     await XmppBookmark.remove(self, muc_jid)
                     logger.warning('{} is banned from {}'.format(self.alias, muc_jid))

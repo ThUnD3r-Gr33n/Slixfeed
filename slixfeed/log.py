@@ -3,6 +3,8 @@
 
 """
 
+TODO Rename module to console or print
+
 To use this class, first, instantiate Logger with the name of your module
 or class, then call the appropriate logging methods on that instance.
 
@@ -47,3 +49,10 @@ class Logger:
     # def check_difference(function_name, difference):
     #     if difference > 1:
     #         Logger.warning(message)
+
+
+class Message:
+
+
+    def printer(text):
+        print(text, end='\r')

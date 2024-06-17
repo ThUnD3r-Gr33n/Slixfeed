@@ -57,7 +57,7 @@ class XmppMuc:
                                                         seconds=0,
                                                         since=0,
                                                         timeout=30)
-            result = 'joined ' + jid
+            result = 'success'
         except IqError as e:
             logger.error('Error XmppIQ')
             logger.error(str(e))

@@ -47,7 +47,6 @@ from lxml import etree, html
 import os
 import random
 import slixfeed.config as config
-import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 from slixfeed.log import Logger
 import sys
@@ -282,7 +281,7 @@ class MD:
                 file.write('- [{}]({})\n'.format(result[1], result[2]))
             file.write('\n\n* * *\n\nThis list was saved on {} from xmpp:{} using '
                        '[Slixfeed](https://slixfeed.woodpeckersnest.space/)\n'
-                       .format(dt.current_date(), jid))
+                       .format(DateAndTime.current_date(), jid))
 
 
     def log_to_markdown(timestamp, filename, jid, message):

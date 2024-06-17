@@ -32,8 +32,7 @@ from slixfeed.config import Config
 import slixfeed.fetch as fetch
 from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
-from slixfeed.utilities import DateAndTime, String, Url
-from slixfeed.utilities import Html, MD, String, Utilities
+from slixfeed.utilities import DateAndTime, Html, MD, String, Url, Utilities
 from slixmpp.xmlstream import ET
 import sys
 from urllib.parse import urlsplit
@@ -1333,7 +1332,7 @@ class FeedTask:
                                     url, entry_identifier, entry)
                                 # new_entries.append(new_entry)
                                 new_entries.extend([new_entry])
-                    print(url)
+                    print(url, end='\r')
                     if new_entries:
                         await sqlite.add_entries_and_update_feed_state(db_file, feed_id, new_entries)
                         limit = Config.get_setting_value(self.settings, jid_bare, 'archive')
@@ -1357,7 +1356,6 @@ class FeedTask:
                                         continue
                             if not valid: ixs_invalid[ix] = read_status
                         if len(ixs_invalid):
-                            print('erasing {}/{}'.format(len(ixs_invalid), len(feed.entries)))
                             await sqlite.process_invalid_entries(db_file, ixs_invalid)
                         # TODO return number of archived entries and add if statement to run archive maintainence function
                         await sqlite.maintain_archive(db_file, limit)
