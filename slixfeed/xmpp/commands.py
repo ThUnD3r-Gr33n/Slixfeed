@@ -9,7 +9,7 @@ import slixfeed.fetch as fetch
 from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
 from slixfeed.syndication import Feed, FeedDiscovery, Opml
-from slixfeed.utilities import DateAndTime, Documentation, Url, Utilities
+from slixfeed.utilities import DateAndTime, Documentation, String, Url, Utilities
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.muc import XmppMuc
@@ -119,18 +119,15 @@ class XmppCommands:
         if url.startswith('http'):
             if not title:
                 title = Url.get_hostname(url)
-            counter = 0
-            hostname = Url.get_hostname(url)
-            hostname = hostname.replace('.','-')
-            identifier = hostname + ':' + str(counter)
-            while True:
-                if sqlite.check_identifier_exist(db_file, identifier):
-                    counter += 1
-                    identifier = hostname + ':' + str(counter)
-                else:
-                    break
             exist = sqlite.get_feed_id_and_name(db_file, url)
             if not exist:
+                counter = 0
+                while True:
+                    identifier = String.generate_identifier(url, counter)
+                    if sqlite.check_identifier_exist(db_file, identifier):
+                        counter += 1
+                    else:
+                        break
                 await sqlite.insert_feed(db_file, url, title,
                                          identifier)
                 feed_id = sqlite.get_feed_id(db_file, url)
@@ -157,8 +154,17 @@ class XmppCommands:
                                                         feed_properties)
                     feed_id = sqlite.get_feed_id(db_file, url)
                     feed_id = feed_id[0]
-                    new_entries = Feed.get_properties_of_entries(
-                        jid_bare, db_file, url, feed_id, feed)
+                    new_entries = []
+                    for entry in feed.entries:
+                        if entry.has_key("link"):
+                            entry_link = Url.join_url(url, entry.link)
+                            entry_link = Url.trim_url(entry_link)
+                            entry_identifier = String.md5_hash(entry_link)
+                            if not sqlite.get_entry_id_by_identifier(
+                                    db_file, entry_identifier):
+                                new_entry = Feed.get_properties_of_entry(
+                                    url, entry_identifier, entry)
+                                new_entries.extend([new_entry])
                     if new_entries:
                         await sqlite.add_entries_and_update_feed_state(
                             db_file, feed_id, new_entries)
@@ -390,14 +396,11 @@ class XmppCommands:
                     identifier = info[2]
                 else:
                     counter = 0
-                    hostname = Url.get_hostname(url)
-                    hostname = hostname.replace('.','-')
-                    identifier = hostname + ':' + str(counter)
                     while True:
+                        identifier = String.generate_identifier(url, counter)
                         if sqlite.check_identifier_exist(
                                 db_file, identifier):
                             counter += 1
-                            identifier = hostname + ':' + str(counter)
                         else:
                             break
                 # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
@@ -479,13 +482,10 @@ class XmppCommands:
             url = Url.feed_to_http(url)
         url = (await Url.replace_hostname(url, 'feed')) or url
         counter = 0
-        hostname = Url.get_hostname(url)
-        hostname = hostname.replace('.','-')
-        identifier = hostname + ':' + str(counter)
         while True:
+            identifier = String.generate_identifier(url, counter)
             if sqlite.check_identifier_exist(db_file, identifier):
                 counter += 1
-                identifier = hostname + ':' + str(counter)
             else:
                 break
         # try:

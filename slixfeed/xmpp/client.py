@@ -48,7 +48,7 @@ import slixfeed.fetch as fetch
 from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
 from slixfeed.syndication import Feed, FeedDiscovery, FeedTask, Opml
-from slixfeed.utilities import DateAndTime, Html, Task, Url, Utilities
+from slixfeed.utilities import DateAndTime, Html, String, Task, Url, Utilities
 from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.chat import XmppChat, XmppChatTask
@@ -1776,12 +1776,10 @@ class XmppClient(slixmpp.ClientXMPP):
             session['prev'] = None
         # elif not identifier:
         #     counter = 0
-        #     hostname = Url.get_hostname(url)
-        #     identifier = hostname + ':' + str(counter)
         #     while True:
+        #         identifier = String.generate_identifier(url, counter)
         #         if sqlite.check_identifier_exist(db_file, identifier):
         #             counter += 1
-        #             identifier = hostname + ':' + str(counter)
         #         else:
         #             break
         # Several URLs to subscribe
@@ -1793,12 +1791,10 @@ class XmppClient(slixmpp.ClientXMPP):
             exist_count = 0
             for url in urls:
                 counter = 0
-                hostname = Url.get_hostname(url)
-                identifier = hostname + ':' + str(counter)
                 while True:
+                    identifier = String.generate_identifier(url, counter)
                     if sqlite.check_identifier_exist(db_file, identifier):
                         counter += 1
-                        identifier = hostname + ':' + str(counter)
                     else:
                         break
                 result = await Feed.add_feed(self, jid_bare, db_file, url,
@@ -1826,12 +1822,10 @@ class XmppClient(slixmpp.ClientXMPP):
             if isinstance(url, list):
                 url = url[0]
             counter = 0
-            hostname = Url.get_hostname(url)
-            identifier = hostname + ':' + str(counter)
             while True:
+                identifier = String.generate_identifier(url, counter)
                 if sqlite.check_identifier_exist(db_file, identifier):
                     counter += 1
-                    identifier = hostname + ':' + str(counter)
                 else:
                     break
             result = await Feed.add_feed(self, jid_bare, db_file, url,

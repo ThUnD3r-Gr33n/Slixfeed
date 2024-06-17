@@ -32,8 +32,8 @@ from slixfeed.config import Config
 import slixfeed.fetch as fetch
 from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
-from slixfeed.utilities import DateAndTime, Url
-from slixfeed.utilities import Html, MD
+from slixfeed.utilities import DateAndTime, String, Url
+from slixfeed.utilities import Html, MD, String, Utilities
 from slixmpp.xmlstream import ET
 import sys
 from urllib.parse import urlsplit
@@ -274,8 +274,7 @@ class Feed:
         while True:
             feed_id = sqlite.get_feed_id(db_file, url)
             if not feed_id:
-                exist_identifier = sqlite.check_identifier_exist(db_file, identifier)
-                if not exist_identifier:
+                if not sqlite.check_identifier_exist(db_file, identifier):
                     result = await fetch.http(url)
                     message = result['message']
                     status_code = result['status_code']
@@ -336,8 +335,17 @@ class Feed:
                                 db_file, feed_id, feed_properties)
                             feed_id = sqlite.get_feed_id(db_file, url)
                             feed_id = feed_id[0]
-                            new_entries = Feed.get_properties_of_entries(
-                                jid_bare, db_file, url, feed_id, feed)
+                            new_entries = []
+                            for entry in feed.entries:
+                                if entry.has_key("link"):
+                                    entry_link = Url.join_url(url, entry.link)
+                                    entry_link = Url.trim_url(entry_link)
+                                    entry_identifier = String.md5_hash(entry_link)
+                                    if not sqlite.get_entry_id_by_identifier(
+                                            db_file, entry_identifier):
+                                        new_entry = Feed.get_properties_of_entry(
+                                            url, entry_identifier, entry)
+                                        new_entries.extend([new_entry])
                             if new_entries:
                                 await sqlite.add_entries_and_update_feed_state(
                                     db_file, feed_id, new_entries)
@@ -387,8 +395,7 @@ class Feed:
                                         'identifier' : None}
                         break
                 else:
-                    ix = exist_identifier[1]
-                    identifier = exist_identifier[2]
+                    ix = sqlite.get_entry_id_by_identifier(db_file, identifier)
                     message = ('Identifier "{}" is already allocated.'
                                .format(identifier))
                     result_final = {'link' : url,
@@ -517,14 +524,14 @@ class Feed:
     # NOTE This function is not being utilized
     async def download_feed(self, db_file, feed_url):
         """
-        Get feed content.
+        Process feed content.
     
         Parameters
         ----------
         db_file : str
             Path to database file.
-        url : str, optional
-            URL.
+        feed_url : str
+            URL of feed.
         """
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: db_file: {} url: {}'
@@ -554,7 +561,15 @@ class Feed:
         feed_encoding = feed.encoding if feed.has_key('encoding') else ''
         feed_language = feed.feed.language if feed.feed.has_key('language') else ''
         feed_icon = feed.feed.icon if feed.feed.has_key('icon') else ''
-        feed_image = feed.feed.image.href if feed.feed.has_key('image') else ''
+        # (Pdb) feed.feed.image
+        # {}
+        # (Pdb) feed.version
+        # 'rss10'
+        # (Pdb) feed.feed.image
+        # {'links': [{'rel': 'alternate', 'type': 'text/html'}]}
+        # (Pdb) feed.version
+        # ''
+        feed_image = feed.feed.image.href if feed.feed.has_key('image') and feed.feed.image.has_key('href') else ''
         feed_logo = feed.feed.logo if feed.feed.has_key('logo') else ''
         feed_ttl = feed.feed.ttl if feed.feed.has_key('ttl') else ''
     
@@ -576,248 +591,236 @@ class Feed:
 
     # TODO get all active feeds of active accounts and scan the feed with the earliest scanned time
     # TODO Rename function name (idea: scan_and_populate)
-    def get_properties_of_entries(jid_bare, db_file, feed_url, feed_id, feed):
+    def get_properties_of_entry(feed_url, entry_identifier, entry):
         """
-        Get new entries.
+        Process entry content.
     
         Parameters
         ----------
-        db_file : str
-            Path to database file.
-        url : str, optional
-            URL.
+        feed_url : str
+            URL of feed.
+        entry : 
+            Object of entry.
         """
-        # print('MID', feed_url, jid_bare, 'get_properties_of_entries')
         function_name = sys._getframe().f_code.co_name
-        logger.debug('{}: feed_id: {} url: {}'
-                    .format(function_name, feed_id, feed_url))
+        logger.debug('{} feed_url: {}'
+                    .format(function_name, feed_url))
     
-        new_entries = []
-        for entry in feed.entries:
-            logger.debug('{}: entry: {}'.format(function_name, entry.link))
-            if entry.has_key("published"):
-                entry_published = entry.published
-                entry_published = DateAndTime.rfc2822_to_iso8601(entry_published)
-            else:
-                entry_published = ''
-            if entry.has_key("updated"):
-                entry_updated = entry.updated
-                entry_updated = DateAndTime.rfc2822_to_iso8601(entry_updated)
-            else:
-                entry_updated = DateAndTime.now()
-            if entry.has_key("link"):
-                # link = complete_url(source, entry.link)
-                entry_link = Url.join_url(feed_url, entry.link)
-                entry_link = Url.trim_url(entry_link)
-            else:
-                entry_link = feed_url
-            # title = feed["feed"]["title"]
-            # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
-            entry_title = entry.title if entry.has_key("title") else entry_published
-            entry_id = entry.id if entry.has_key("id") else entry_link
-            exist = sqlite.check_entry_exist(db_file, feed_id,
-                                             identifier=entry_id,
-                                             title=entry_title,
-                                             link=entry_link,
-                                             published=entry_published)
-            if not exist:
-                read_status = 0
-                # # Filter
-                # pathname = urlsplit(link).path
-                # string = (
-                #     "{} {} {}"
-                #     ).format(
-                #         title, summary, pathname)
-                # if self.settings['default']['filter']:
-                #     print('Filter is now processing data.')
-                #     allow_list = config.is_include_keyword(db_file,
-                #                                            "allow", string)
-                #     if not allow_list:
-                #         reject_list = config.is_include_keyword(db_file,
-                #                                                 "deny",
-                #                                                 string)
-                #         if reject_list:
-                #             read_status = 1
-                #             logger.debug('Rejected : {}'
-                #                          '\n'
-                #                          'Keyword  : {}'
-                #                          .format(link, reject_list))
-                if isinstance(entry_published, int):
-                    logger.error('Variable "published" is int: {}'.format(entry_published))
-                if isinstance(entry_updated, int):
-                    logger.error('Variable "updated" is int: {}'.format(entry_updated))
-    
-                # Authors
-                entry_authors =[]
-                if entry.has_key('authors'):
-                    for author in entry.authors:
-                        author_properties = {
-                            'name' : author.name if author.has_key('name') else '',
-                            'url' : author.href if author.has_key('href') else '',
-                            'email' : author.email if author.has_key('email') else '',
-                            }
-                        entry_authors.extend([author_properties])
-                elif entry.has_key('author_detail'):
-                    author_properties = {
-                        'name' : entry.author_detail.name if entry.author_detail.has_key('name') else '',
-                        'url' : entry.author_detail.href if entry.author_detail.has_key('href') else '',
-                        'email' : entry.author_detail.email if entry.author_detail.has_key('email') else '',
-                        }
-                    entry_authors.extend([author_properties])
-                elif entry.has_key('author'):
-                    author_properties = {
-                        'name' : entry.author,
-                        'url' : '',
-                        'email' : '',
-                        }
-                    entry_authors.extend([author_properties])
-    
-                # Contributors
-                entry_contributors = []
-                if entry.has_key('contributors'):
-                    for contributor in entry.contributors:
-                        contributor_properties = {
-                            'name' : contributor.name if contributor.has_key('name') else '',
-                            'url' : contributor.href if contributor.has_key('href') else '',
-                            'email' : contributor.email if contributor.has_key('email') else '',
-                            }
-                        entry_contributors.extend([contributor_properties])
-    
-                # Tags
-                entry_tags = []
-                if entry.has_key('tags'):
-                    for tag in entry.tags:
-                        tag_properties = {
-                            'term' : tag.term if tag.has_key('term') else '',
-                            'scheme' : tag.scheme if tag.has_key('scheme') else '',
-                            'label' : tag.label if tag.has_key('label') else '',
-                            }
-                        entry_tags.extend([tag_properties])
-    
-                # Content
-                entry_contents = []
-                if entry.has_key('content'):
-                    for content in entry.content:
-                        text = content.value if content.has_key('value') else ''
-                        type = content.type if content.has_key('type') else ''
-                        lang = content.lang if content.has_key('lang') else ''
-                        base = content.base if content.has_key('base') else ''
-                        entry_content = {
-                            'text' : text,
-                            'lang' : lang,
-                            'type' : type,
-                            'base' : base,
-                            }
-                        entry_contents.extend([entry_content])
-    
-                # Links and Enclosures
-                entry_links = []
-                if entry.has_key('links'):
-                    for link in entry.links:
-                        link_properties = {
-                            'url' : link.href if link.has_key('href') else '',
-                            'rel' : link.rel if link.has_key('rel') else '',
-                            'type' : link.type if link.has_key('type') else '',
-                            'length' : '',
-                            }
-                        entry_links.extend([link_properties])
-                # Element media:content is utilized by Mastodon
-                if entry.has_key('media_content'):
-                    for link in entry.media_content:
-                        link_properties = {
-                            'url' : link['url'] if 'url' in link else '',
-                            'rel' : 'enclosure',
-                            'type' : link['type'] if 'type' in link else '',
-                            # 'medium' : link['medium'] if 'medium' in link else '',
-                            'length' : link['filesize'] if 'filesize' in link else '',
-                            }
-                        entry_links.extend([link_properties])
-                if entry.has_key('media_thumbnail'):
-                    for link in entry.media_thumbnail:
-                        link_properties = {
-                            'url' : link['url'] if 'url' in link else '',
-                            'rel' : 'enclosure',
-                            'type' : '',
-                            # 'medium' : 'image',
-                            'length' : '',
-                            }
-                        entry_links.extend([link_properties])
-    
-                # Category
-                entry_category = entry.category if entry.has_key('category') else ''
-    
-                # Comments
-                entry_comments = entry.comments if entry.has_key('comments') else ''
-    
-                # href
-                entry_href = entry.href if entry.has_key('href') else ''
-    
-                # Link: Same as entry.links[0].href in most if not all cases
-                entry_link = entry.link if entry.has_key('link') else ''
-    
-                # Rating
-                entry_rating = entry.rating if entry.has_key('rating') else ''
-    
-                # Summary
-                entry_summary_text = entry.summary if entry.has_key('summary') else ''
-                if entry.has_key('summary_detail'):
-                    entry_summary_type = entry.summary_detail.type if entry.summary_detail.has_key('type') else ''
-                    entry_summary_lang = entry.summary_detail.lang if entry.summary_detail.has_key('lang') else ''
-                    entry_summary_base = entry.summary_detail.base if entry.summary_detail.has_key('base') else ''
-                else:
-                    entry_summary_type = ''
-                    entry_summary_lang = ''
-                    entry_summary_base = ''
-    
-                # Title
-                entry_title = entry.title if entry.has_key('title') else ''
-                if entry.has_key('title_detail'):
-                    entry_title_type = entry.title_detail.type if entry.title_detail.has_key('type') else ''
-                else:
-                    entry_title_type = ''
-    
-                ###########################################################
-    
-                # media_type = e_link.type[:e_link.type.index("/")]
-                # if (e_link.rel == "enclosure" and
-                #     media_type in ("audio", "image", "video")):
-                #     media_link = e_link.href
-                #     media_link = Url.join_url(url, e_link.href)
-                #     media_link = Url.trim_url(media_link)
-    
-                ###########################################################
-    
-                entry_properties = {
-                    "identifier": entry_id,
-                    "link": entry_link,
-                    "href": entry_href,
-                    "title": entry_title,
-                    "title_type": entry_title_type,
-                    'summary_text' : entry_summary_text,
-                    'summary_lang' : entry_summary_lang,
-                    'summary_type' : entry_summary_type,
-                    'summary_base' : entry_summary_base,
-                    'category' : entry_category,
-                    "comments": entry_comments,
-                    "rating": entry_rating,
-                    "published": entry_published,
-                    "updated": entry_updated,
-                    "read_status": read_status
+        read_status = 0
+        if entry.has_key("published"):
+            entry_published = entry.published
+            entry_published = DateAndTime.rfc2822_to_iso8601(entry_published)
+        else:
+            entry_published = ''
+        if entry.has_key("updated"):
+            entry_updated = entry.updated
+            entry_updated = DateAndTime.rfc2822_to_iso8601(entry_updated)
+        else:
+            entry_updated = DateAndTime.now()
+        if entry.has_key("link"):
+            # link = complete_url(source, entry.link)
+            entry_link = Url.join_url(feed_url, entry.link)
+            entry_link = Url.trim_url(entry_link)
+        else:
+            entry_link = feed_url
+        # title = feed["feed"]["title"]
+        # title = "{}: *{}*".format(feed["feed"]["title"], entry.title)
+        entry_title = entry.title if entry.has_key("title") else entry_published
+        # entry_id = entry.id if entry.has_key("id") else entry_link
+        # # Filter
+        # pathname = urlsplit(link).path
+        # string = (
+        #     "{} {} {}"
+        #     ).format(
+        #         title, summary, pathname)
+        # if self.settings['default']['filter']:
+        #     print('Filter is now processing data.')
+        #     allow_list = config.is_include_keyword(db_file,
+        #                                            "allow", string)
+        #     if not allow_list:
+        #         reject_list = config.is_include_keyword(db_file,
+        #                                                 "deny",
+        #                                                 string)
+        #         if reject_list:
+        #             read_status = 1
+        #             logger.debug('Rejected : {}'
+        #                          '\n'
+        #                          'Keyword  : {}'
+        #                          .format(link, reject_list))
+        if isinstance(entry_published, int):
+            logger.error('Variable "published" is int: {}'.format(entry_published))
+        if isinstance(entry_updated, int):
+            logger.error('Variable "updated" is int: {}'.format(entry_updated))
+
+        # Authors
+        entry_authors =[]
+        if entry.has_key('authors'):
+            for author in entry.authors:
+                author_properties = {
+                    'name' : author.name if author.has_key('name') else '',
+                    'url' : author.href if author.has_key('href') else '',
+                    'email' : author.email if author.has_key('email') else '',
                     }
-    
-                new_entries.extend([{
-                    "entry_properties" : entry_properties,
-                    "entry_authors" : entry_authors,
-                    "entry_contributors" : entry_contributors,
-                    "entry_contents" : entry_contents,
-                    "entry_links" : entry_links,
-                    "entry_tags" : entry_tags
-                    }])
-                # await sqlite.add_entry(
-                #     db_file, title, link, entry_id,
-                #     url, date, read_status)
-                # await sqlite.set_date(db_file, url)
-        return new_entries
+                entry_authors.extend([author_properties])
+        elif entry.has_key('author_detail'):
+            author_properties = {
+                'name' : entry.author_detail.name if entry.author_detail.has_key('name') else '',
+                'url' : entry.author_detail.href if entry.author_detail.has_key('href') else '',
+                'email' : entry.author_detail.email if entry.author_detail.has_key('email') else '',
+                }
+            entry_authors.extend([author_properties])
+        elif entry.has_key('author'):
+            author_properties = {
+                'name' : entry.author,
+                'url' : '',
+                'email' : '',
+                }
+            entry_authors.extend([author_properties])
+
+        # Contributors
+        entry_contributors = []
+        if entry.has_key('contributors'):
+            for contributor in entry.contributors:
+                contributor_properties = {
+                    'name' : contributor.name if contributor.has_key('name') else '',
+                    'url' : contributor.href if contributor.has_key('href') else '',
+                    'email' : contributor.email if contributor.has_key('email') else '',
+                    }
+                entry_contributors.extend([contributor_properties])
+
+        # Tags
+        entry_tags = []
+        if entry.has_key('tags'):
+            for tag in entry.tags:
+                tag_properties = {
+                    'term' : tag.term if tag.has_key('term') else '',
+                    'scheme' : tag.scheme if tag.has_key('scheme') else '',
+                    'label' : tag.label if tag.has_key('label') else '',
+                    }
+                entry_tags.extend([tag_properties])
+
+        # Content
+        entry_contents = []
+        if entry.has_key('content'):
+            for content in entry.content:
+                text = content.value if content.has_key('value') else ''
+                type = content.type if content.has_key('type') else ''
+                lang = content.lang if content.has_key('lang') else ''
+                base = content.base if content.has_key('base') else ''
+                entry_content = {
+                    'text' : text,
+                    'lang' : lang,
+                    'type' : type,
+                    'base' : base,
+                    }
+                entry_contents.extend([entry_content])
+
+        # Links and Enclosures
+        entry_links = []
+        if entry.has_key('links'):
+            for link in entry.links:
+                link_properties = {
+                    'url' : link.href if link.has_key('href') else '',
+                    'rel' : link.rel if link.has_key('rel') else '',
+                    'type' : link.type if link.has_key('type') else '',
+                    'length' : '',
+                    }
+                entry_links.extend([link_properties])
+        # Element media:content is utilized by Mastodon
+        if entry.has_key('media_content'):
+            for link in entry.media_content:
+                link_properties = {
+                    'url' : link['url'] if 'url' in link else '',
+                    'rel' : 'enclosure',
+                    'type' : link['type'] if 'type' in link else '',
+                    # 'medium' : link['medium'] if 'medium' in link else '',
+                    'length' : link['filesize'] if 'filesize' in link else '',
+                    }
+                entry_links.extend([link_properties])
+        if entry.has_key('media_thumbnail'):
+            for link in entry.media_thumbnail:
+                link_properties = {
+                    'url' : link['url'] if 'url' in link else '',
+                    'rel' : 'enclosure',
+                    'type' : '',
+                    # 'medium' : 'image',
+                    'length' : '',
+                    }
+                entry_links.extend([link_properties])
+
+        # Category
+        entry_category = entry.category if entry.has_key('category') else ''
+
+        # Comments
+        entry_comments = entry.comments if entry.has_key('comments') else ''
+
+        # href
+        entry_href = entry.href if entry.has_key('href') else ''
+
+        # Link: Same as entry.links[0].href in most if not all cases
+        entry_link = entry.link if entry.has_key('link') else ''
+
+        # Rating
+        entry_rating = entry.rating if entry.has_key('rating') else ''
+
+        # Summary
+        entry_summary_text = entry.summary if entry.has_key('summary') else ''
+        if entry.has_key('summary_detail'):
+            entry_summary_type = entry.summary_detail.type if entry.summary_detail.has_key('type') else ''
+            entry_summary_lang = entry.summary_detail.lang if entry.summary_detail.has_key('lang') else ''
+            entry_summary_base = entry.summary_detail.base if entry.summary_detail.has_key('base') else ''
+        else:
+            entry_summary_type = ''
+            entry_summary_lang = ''
+            entry_summary_base = ''
+
+        # Title
+        entry_title = entry.title if entry.has_key('title') else ''
+        if entry.has_key('title_detail'):
+            entry_title_type = entry.title_detail.type if entry.title_detail.has_key('type') else ''
+        else:
+            entry_title_type = ''
+
+        ###########################################################
+
+        # media_type = e_link.type[:e_link.type.index("/")]
+        # if (e_link.rel == "enclosure" and
+        #     media_type in ("audio", "image", "video")):
+        #     media_link = e_link.href
+        #     media_link = Url.join_url(url, e_link.href)
+        #     media_link = Url.trim_url(media_link)
+
+        ###########################################################
+
+        entry_properties = {
+            "identifier": entry_identifier,
+            "link": entry_link,
+            "href": entry_href,
+            "title": entry_title,
+            "title_type": entry_title_type,
+            'summary_text' : entry_summary_text,
+            'summary_lang' : entry_summary_lang,
+            'summary_type' : entry_summary_type,
+            'summary_base' : entry_summary_base,
+            'category' : entry_category,
+            "comments": entry_comments,
+            "rating": entry_rating,
+            "published": entry_published,
+            "updated": entry_updated,
+            "read_status": read_status}
+
+        new_entry = {
+            "entry_properties" : entry_properties,
+            "entry_authors" : entry_authors,
+            "entry_contributors" : entry_contributors,
+            "entry_contents" : entry_contents,
+            "entry_links" : entry_links,
+            "entry_tags" : entry_tags}
+        # await sqlite.add_entry(
+        #     db_file, title, link, entry_id,
+        #     url, date, read_status)
+        # await sqlite.set_date(db_file, url)
+        return new_entry
 
 
 """
@@ -1277,7 +1280,6 @@ class FeedTask:
             urls = sqlite.get_active_feeds_url(db_file)
             for url in urls:
                 url = url[0]
-                print('start scan\nurl {}\ndatabase {}'.format(url, db_file))
                 # print('STA',url)
                 
                 # # Skip Reddit
@@ -1291,6 +1293,19 @@ class FeedTask:
                 feed_id = sqlite.get_feed_id(db_file, url)
                 feed_id = feed_id[0]
                 if not result['error']:
+                    identifier = sqlite.get_feed_identifier(db_file, feed_id)
+                    identifier = identifier[0]
+                    if not identifier:
+                        counter = 0
+                        while True:
+                            identifier = String.generate_identifier(url, counter)
+                            if sqlite.check_identifier_exist(db_file, identifier):
+                                counter += 1
+                            else:
+                                break
+                        await sqlite.update_feed_identifier(db_file, feed_id, identifier)
+                        # identifier = sqlite.get_feed_identifier(db_file, feed_id)
+                        # identifier = identifier[0]
                     await sqlite.update_feed_status(db_file, feed_id, status_code)
                     document = result['content']
                     feed = parse(document)
@@ -1300,17 +1315,54 @@ class FeedTask:
                         db_file, feed_id, feed)
                     await sqlite.update_feed_properties(
                         db_file, feed_id, feed_properties)
-                    new_entries = Feed.get_properties_of_entries(
-                        jid_bare, db_file, url, feed_id, feed)
+                    new_entries = []
+                    for entry in feed.entries:
+                        if entry.has_key("link"):
+                            # link = complete_url(source, entry.link)
+                            entry_link = Url.join_url(url, entry.link)
+                            entry_link = Url.trim_url(entry_link)
+                            entry_identifier = String.md5_hash(entry_link)
+                            # if 'f-droid.org' in url:
+                            #     breakpoint()
+                            #     print(entry.link)
+                            #     print(entry_identifier)
+                            # Check if an entry identifier exists
+                            if not sqlite.get_entry_id_by_identifier(
+                                    db_file, entry_identifier):
+                                new_entry = Feed.get_properties_of_entry(
+                                    url, entry_identifier, entry)
+                                # new_entries.append(new_entry)
+                                new_entries.extend([new_entry])
+                    print(url)
                     if new_entries:
                         await sqlite.add_entries_and_update_feed_state(db_file, feed_id, new_entries)
                         limit = Config.get_setting_value(self.settings, jid_bare, 'archive')
-                        ixs = sqlite.get_invalid_entries(db_file, url, feed)
-                        await sqlite.process_invalid_entries(db_file, ixs)
+                        ixs = sqlite.get_entries_id_of_feed(db_file, feed_id)
+                        ixs_invalid = {}
+                        for ix in ixs:
+                            ix = ix[0]
+                            read_status = sqlite.is_entry_read(db_file, ix)
+                            read_status = read_status[0]
+                            entry_identifier_local = sqlite.get_entry_identifier(db_file, ix)
+                            entry_identifier_local = entry_identifier_local[0]
+                            valid = False
+                            for entry in feed.entries:
+                                if entry.has_key("link"):
+                                    entry_link = Url.join_url(url, entry.link)
+                                    entry_link = Url.trim_url(entry_link)
+                                    entry_identifier_external = Utilities.hash_url_to_md5(
+                                        entry_link)
+                                    if entry_identifier_local == entry_identifier_external:
+                                        valid = True
+                                        continue
+                            if not valid: ixs_invalid[ix] = read_status
+                        if len(ixs_invalid):
+                            print('erasing {}/{}'.format(len(ixs_invalid), len(feed.entries)))
+                            await sqlite.process_invalid_entries(db_file, ixs_invalid)
+                        # TODO return number of archived entries and add if statement to run archive maintainence function
                         await sqlite.maintain_archive(db_file, limit)
                 # await sqlite.process_invalid_entries(db_file, ixs)
-                print('end scan\nurl {}\ndatabase {}'.format(url, db_file))
-                await asyncio.sleep(50)
+                # await asyncio.sleep(50)
             val = Config.get_setting_value(self.settings, jid_bare, 'check')
             await asyncio.sleep(60 * float(val))
             # Schedule to call this function again in 90 minutes

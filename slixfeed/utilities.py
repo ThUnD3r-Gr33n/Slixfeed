@@ -40,14 +40,13 @@ TODO
 """
 
 from datetime import datetime
-from email.utils import parseaddr
 from dateutil.parser import parse
-from email.utils import parsedate, parsedate_to_datetime
+from email.utils import parseaddr, parsedate, parsedate_to_datetime
 import hashlib
+from lxml import etree, html
 import os
 import random
 import slixfeed.config as config
-from lxml import etree, html
 import slixfeed.dt as dt
 import slixfeed.fetch as fetch
 from slixfeed.log import Logger
@@ -681,9 +680,31 @@ class Url:
 
 
 
+class String:
+
+
+    def generate_identifier(url, counter):
+        hostname = Url.get_hostname(url)
+        hostname = hostname.replace('.','-')
+        identifier = hostname + ':' + str(counter)
+        return identifier
+
+
+    # string_to_md5_hash
+    # NOTE Warning: Entry might not have a link
+    # TODO Handle situation error
+    def md5_hash(url):
+        url_encoded = url.encode()
+        url_hashed = hashlib.md5(url_encoded)
+        url_digest = url_hashed.hexdigest()
+        return url_digest
+
+
+
 class Utilities:
 
 
+    # string_to_md5_hash
     # NOTE Warning: Entry might not have a link
     # TODO Handle situation error
     def hash_url_to_md5(url):

@@ -2226,9 +2226,33 @@ async def add_entries_and_update_feed_state(db_file, feed_id, new_entries):
                     """
                     INSERT
                     INTO entries_properties(
-                        feed_id, identifier, link, title, title_type, summary_text, summary_lang, summary_type, summary_base, category, comments, published, updated)
+                        feed_id,
+                        identifier,
+                        link,
+                        title,
+                        title_type,
+                        summary_text,
+                        summary_lang,
+                        summary_type,
+                        summary_base,
+                        category,
+                        comments,
+                        published,
+                        updated)
                     VALUES(
-                        :feed_id, :identifier, :link, :title, :title_type, :summary_text, :summary_lang, :summary_type, :summary_base, :category, :comments, :published, :updated)
+                        :feed_id,
+                        :identifier,
+                        :link,
+                        :title,
+                        :title_type,
+                        :summary_text,
+                        :summary_lang,
+                        :summary_type,
+                        :summary_base,
+                        :category,
+                        :comments,
+                        :published,
+                        :updated)
                     """
                     )
                 entry_properties = new_entry['entry_properties']
@@ -2847,6 +2871,35 @@ def get_entries_of_feed(db_file, feed_id):
         return items
 
 
+def get_entries_id_of_feed(db_file, feed_id):
+    """
+    Get entries of given feed.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    feed_id : str
+        Feed Id.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{} db_file: {} feed_id: {}'
+                .format(function_name, db_file, feed_id))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT id
+            FROM entries_properties
+            WHERE feed_id = ?
+            ORDER BY published DESC
+            """
+            )
+        par = (feed_id,)
+        items = cur.execute(sql, par).fetchall()
+        return items
+
+
 # TODO What is this function for? 2024-01-02
 # def get_feeds(db_file):
 #     """
@@ -3231,9 +3284,9 @@ def check_entry_exist(db_file, feed_id, identifier=None, title=None, link=None,
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} feed_id: {}'
                 .format(function_name, db_file, feed_id))
+    exist = False
     with create_connection(db_file) as conn:
         cur = conn.cursor()
-        exist = False
         if identifier:
             sql = (
                 """
@@ -3289,6 +3342,76 @@ def check_entry_exist(db_file, feed_id, identifier=None, title=None, link=None,
         # except:
         #     print(current_time(), "ERROR DATE: result =", url)
         return exist
+
+
+def get_entry_id_by_identifier(db_file, identifier):
+    """
+    Get entry ID by its identifier.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    identifier : str
+        Entry identifier.
+
+    Returns
+    -------
+    result : tuple
+        Entry ID or None.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} identifier: {}'
+                .format(function_name, db_file, identifier))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT id
+            FROM entries_properties
+            WHERE identifier = :identifier
+            """
+            )
+        par = {
+            "identifier": identifier
+            }
+        result = cur.execute(sql, par).fetchone()
+        return result
+
+
+def get_entry_identifier(db_file, ix):
+    """
+    Get identifier by its entry ID.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+    id : str
+        Entry ID.
+
+    Returns
+    -------
+    result : tuple
+        Entry ID or None.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {} ix: {}'
+                .format(function_name, db_file, ix))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT identifier
+            FROM entries_properties
+            WHERE id = :ix
+            """
+            )
+        par = {
+            "ix": ix
+            }
+        result = cur.execute(sql, par).fetchone()
+        return result
 
 
 async def set_setting_value(db_file, key_value):
