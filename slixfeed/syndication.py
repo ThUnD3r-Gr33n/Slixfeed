@@ -30,7 +30,7 @@ import os
 import slixfeed.config as config
 from slixfeed.config import Config
 import slixfeed.fetch as fetch
-from slixfeed.log import Logger
+from slixfeed.log import Logger,Message
 import slixfeed.sqlite as sqlite
 from slixfeed.utilities import DateAndTime, Html, MD, String, Url, Utilities
 from slixmpp.xmlstream import ET
@@ -1278,6 +1278,7 @@ class FeedTask:
             db_file = config.get_pathname_to_database(jid_bare)
             urls = sqlite.get_active_feeds_url(db_file)
             for url in urls:
+                Message.printer('Scanning updates for URL {} ...'.format(url))
                 url = url[0]
                 # print('STA',url)
                 
@@ -1332,7 +1333,6 @@ class FeedTask:
                                     url, entry_identifier, entry)
                                 # new_entries.append(new_entry)
                                 new_entries.extend([new_entry])
-                    print(url, end='\r')
                     if new_entries:
                         await sqlite.add_entries_and_update_feed_state(db_file, feed_id, new_entries)
                         limit = Config.get_setting_value(self.settings, jid_bare, 'archive')
@@ -1360,7 +1360,7 @@ class FeedTask:
                         # TODO return number of archived entries and add if statement to run archive maintainence function
                         await sqlite.maintain_archive(db_file, limit)
                 # await sqlite.process_invalid_entries(db_file, ixs)
-                # await asyncio.sleep(50)
+                await asyncio.sleep(50)
             val = Config.get_setting_value(self.settings, jid_bare, 'check')
             await asyncio.sleep(60 * float(val))
             # Schedule to call this function again in 90 minutes
