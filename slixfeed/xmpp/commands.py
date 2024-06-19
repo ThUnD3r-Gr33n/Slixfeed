@@ -444,7 +444,7 @@ class XmppCommands:
                                        result['identifier'],
                                        result['index']))
                 elif result['error']:
-                    message = ('> {}\nFailed to find subscriptions.  '
+                    message = ('> {}\nNo subscriptions were found.  '
                                'Reason: {} (status code: {})'
                                .format(url, result['message'],
                                        result['code']))
@@ -508,7 +508,7 @@ class XmppCommands:
                                          result['name'],
                                          result['index']))
         elif result['error']:
-            message = ('> {}\nFailed to find subscriptions.  '
+            message = ('> {}\nNo subscriptions were found.  '
                        'Reason: {} (status code: {})'
                        .format(url, result['message'],
                                result['code']))
@@ -740,7 +740,7 @@ class XmppCommands:
                     while True:
                         result = await fetch.http(url)
                         status = result['status_code']
-                        if not result['error']:
+                        if result and not result['error']:
                             document = result['content']
                             feed = parse(document)
                             if Feed.is_feed(url, feed):
@@ -760,6 +760,10 @@ class XmppCommands:
                                     message += ('```\nTotal of {} feeds.'
                                                .format(len(results)))
                                     break
+                                elif not result:
+                                    message = ('> {}\nNo subscriptions were found.'
+                                               .format(url))
+                                    break
                                 else:
                                     url = result['link']
                         else:
@@ -767,15 +771,13 @@ class XmppCommands:
                                        .format(url, status))
                             break
                 else:
-                    message = ('No action has been taken.'
-                               '\n'
-                               'Missing URL.')
+                    message = ('No action has been taken.  Missing URL.')
             case 2:
                 num = data[1]
                 if url.startswith('http'):
                     while True:
                         result = await fetch.http(url)
-                        if not result['error']:
+                        if result and not result['error']:
                             document = result['content']
                             status = result['status_code']
                             feed = parse(document)
@@ -795,6 +797,10 @@ class XmppCommands:
                                                     .format(result['name'], result['link']))
                                     message += ('```\nTotal of {} feeds.'
                                                 .format(len(results)))
+                                    break
+                                elif not result:
+                                    message = ('> {}\nNo subscriptions were found.'
+                                               .format(url))
                                     break
                                 else:
                                     url = result['link']

@@ -498,100 +498,40 @@ async def add_metadata(db_file):
             ixs = cur.execute(sql).fetchall()
             for ix in ixs:
                 feed_id = ix[0]
-                # insert_feed_properties(cur, feed_id)
-                insert_feed_status(cur, feed_id)
-                insert_feed_preferences(cur, feed_id)
-
-
-def insert_feed_status(cur, feed_id):
-    """
-    Set feed status.
-
-    Parameters
-    ----------
-    cur : object
-        Cursor object.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: feed_id: {}'
-                .format(function_name, feed_id))
-    sql = (
-        """
-        INSERT
-        INTO feeds_state(
-            feed_id)
-        VALUES(
-            ?)
-        """
-        )
-    par = (feed_id,)
-    try:
-        cur.execute(sql, par)
-    except IntegrityError as e:
-        logger.warning(
-            "Skipping feed_id {} for table feeds_state".format(feed_id))
-        logger.error(e)
-
-
-def insert_feed_preferences(cur, feed_id):
-    """
-    Set feed preferences.
-
-    Parameters
-    ----------
-    cur : object
-        Cursor object.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: feed_id: {}'
-                .format(function_name, feed_id))
-    sql = (
-        """
-        INSERT
-        INTO feeds_preferences(
-            feed_id)
-        VALUES(
-            ?)
-        """
-        )
-    par = (feed_id,)
-    try:
-        cur.execute(sql, par)
-    except IntegrityError as e:
-        logger.warning(
-            "Skipping feed_id {} for table feeds_preferences".format(feed_id))
-        logger.error(e)
-
-
-# TODO Test
-def insert_feed_properties(cur, feed_id):
-    """
-    Set feed properties.
-
-    Parameters
-    ----------
-    cur : object
-        Cursor object.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: feed_id: {}'
-                .format(function_name, feed_id))
-    sql = (
-        """
-        INSERT
-        INTO feeds_properties(
-            id)
-        VALUES(
-            ?)
-        """
-        )
-    par = (feed_id,)
-    try:
-        cur.execute(sql, par)
-    except IntegrityError as e:
-        logger.warning(
-            "Skipping feed_id {} for table feeds_properties".format(feed_id))
-        logger.error(e)
+                # Set feed status
+                sql = (
+                    """
+                    INSERT
+                    INTO feeds_state(
+                        feed_id)
+                    VALUES(
+                        ?)
+                    """
+                    )
+                par = (feed_id,)
+                try:
+                    cur.execute(sql, par)
+                except IntegrityError as e:
+                    logger.warning(
+                        "Skipping feed_id {} for table feeds_state".format(feed_id))
+                    logger.error(e)
+                # Set feed preferences.
+                sql = (
+                    """
+                    INSERT
+                    INTO feeds_preferences(
+                        feed_id)
+                    VALUES(
+                        ?)
+                    """
+                    )
+                par = (feed_id,)
+                try:
+                    cur.execute(sql, par)
+                except IntegrityError as e:
+                    logger.warning(
+                        "Skipping feed_id {} for table feeds_preferences".format(feed_id))
+                    logger.error(e)
 
 
 async def insert_feed(db_file, url, title, identifier, entries=None, version=None,
@@ -671,52 +611,6 @@ async def insert_feed(db_file, url, title, identifier, entries=None, version=Non
                 )
             par = (feed_id,)
             cur.execute(sql, par)
-
-
-async def insert_feed_(db_file, url, title):
-    """
-    Insert a new feed into the feeds table.
-
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
-    url : str
-        URL.
-    title : str, optional
-        Feed title. The default is None.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} url: {}'
-                .format(function_name, db_file, url))
-    async with DBLOCK:
-        with create_connection(db_file) as conn:
-            cur = conn.cursor()
-            sql = (
-                """
-                INSERT
-                INTO feeds_properties(
-                    title, url)
-                VALUES(
-                    ?, ?)
-                """
-                )
-            par = (
-                title, url
-                )
-            cur.execute(sql, par)
-            sql = (
-                """
-                SELECT id
-                FROM feeds_properties
-                WHERE url = :url
-                """
-                )
-            par = (url,)
-            feed_id = cur.execute(sql, par).fetchone()[0]
-            # insert_feed_properties(cur, feed_id)
-            insert_feed_status(cur, feed_id)
-            insert_feed_preferences(cur, feed_id)
 
 
 async def remove_feed_by_url(db_file, url):
@@ -1531,37 +1425,6 @@ def get_feed_id(db_file, url):
         return feed_id
 
 
-def is_entry_archived(cur, ix):
-    """
-    Check whether a given entry is archived.
-
-    Parameters
-    ----------
-    cur : object
-        Cursor object.
-    ix : str
-        Index of entry.
-
-    Returns
-    -------
-    result : tuple
-        Entry ID.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: ix: {}'
-                .format(function_name, ix))
-    sql = (
-        """
-        SELECT id
-        FROM entries_state
-        WHERE archived = 1 AND entry_id = ?
-        """
-        )
-    par = (ix,)
-    result = cur.execute(sql, par).fetchone()
-    return result
-
-
 def is_entry_read(db_file, ix):
     """
     Check whether a given entry is marked as read.
@@ -1977,53 +1840,9 @@ async def mark_feed_as_read(db_file, feed_id):
             #     cur.execute(sql, par)
 
 
-async def mark_entry_as_read(cur, ix):
-    """
-    Set read status of entry as read.
-
-    Parameters
-    ----------
-    cur : object
-        Cursor object.
-    ix : str
-        Index of entry.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: ix: {}'
-                .format(function_name, ix))
-    sql = (
-        """
-        UPDATE entries_state
-        SET read = 1
-        WHERE entry_id = ?
-        """
-        )
-    par = (ix,)
-    cur.execute(sql, par)
-
-
 async def mark_as_read(db_file, ix):
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} ix: {}'
-                 .format(function_name, db_file, ix))
-    async with DBLOCK:
-        with create_connection(db_file) as conn:
-            cur = conn.cursor()
-            # TODO While `async with DBLOCK` does work well from
-            # outside of functions, it would be better practice
-            # to place it within the functions.
-            # NOTE: We can use DBLOCK once for both
-            # functions, because, due to exclusive
-            # ID, only one can ever occur.
-            if is_entry_archived(cur, ix):
-                await delete_entry(cur, ix)
-            else:
-                await mark_entry_as_read(cur, ix)
-
-
-async def delete_entry(cur, ix):
     """
-    Delete entry.
+    Set read status of entry as read or delete entry.
 
     Parameters
     ----------
@@ -2033,65 +1852,39 @@ async def delete_entry(cur, ix):
         Index of entry.
     """
     function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: ix: {}'
-                .format(function_name, ix))
-    sql = (
-        """
-        DELETE
-        FROM entries_properties
-        WHERE id = ?
-        """
-        )
-    par = (ix,)
-    cur.execute(sql, par)
-
-
-async def update_statistics(cur):
-    """
-    Update table statistics.
-
-    Parameters
-    ----------
-    cur : object
-        Cursor object.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}'.format(function_name))
-    stat_dict = {}
-    stat_dict["feeds"] = get_number_of_items(cur, 'feeds_properties')
-    stat_dict["entries"] = get_number_of_items(cur, 'entries_properties')
-    stat_dict["unread"] = get_number_of_entries_unread(cur=cur)
-    for i in stat_dict:
-        sql = (
-            "SELECT id "
-            "FROM statistics "
-            "WHERE title = ?"
-            )
-        par = (i,)
-        cur.execute(sql, par)
-        if cur.fetchone():
+    logger.debug('{}: db_file: {} ix: {}'
+                 .format(function_name, db_file, ix))
+    async with DBLOCK:
+        with create_connection(db_file) as conn:
+            cur = conn.cursor()
+            # Check whether a given entry is archived.
             sql = (
-                "UPDATE statistics "
-                "SET number = :num "
-                "WHERE title = :title"
+                """
+                SELECT id
+                FROM entries_state
+                WHERE archived = 1 AND entry_id = ?
+                """
                 )
-            par = {
-                "title": i,
-                "num": stat_dict[i]
-                }
-            cur.execute(sql, par)
-        else:
-            sql = (
-                "SELECT count(id) "
-                "FROM statistics"
-                )
-            count = cur.execute(sql).fetchone()[0]
-            ix = count + 1
-            sql = (
-                "INSERT INTO statistics "
-                "VALUES(?,?,?)"
-                )
-            par = (ix, i, stat_dict[i])
+            par = (ix,)
+            result = cur.execute(sql, par).fetchone()
+            # is_entry_archived
+            if result:
+                sql = (
+                    """
+                    DELETE
+                    FROM entries_properties
+                    WHERE id = ?
+                    """
+                    )
+            else:
+                sql = (
+                    """
+                    UPDATE entries_state
+                    SET read = 1
+                    WHERE entry_id = ?
+                    """
+                    )
+            par = (ix,)
             cur.execute(sql, par)
 
 
@@ -2709,89 +2502,6 @@ def get_contents_by_entry_id(db_file, entry_id):
         return result
 
 
-def get_invalid_entries(db_file, url, feed):
-    """
-    List entries that do not exist in a given feed.
-
-    Parameters
-    ----------
-    db_file : str
-        Path to database file.
-    url : str
-        Feed URL.
-    feed : list
-        Parsed feed document.
-
-    Returns
-    -------
-    ixs : dict
-        List of indexes of invalid items.
-    """
-    function_name = sys._getframe().f_code.co_name
-    logger.debug('{}: db_file: {} url: {}'.format(function_name, db_file, url))
-    feed_id = get_feed_id(db_file, url)
-    feed_id = feed_id[0]
-    items = get_entries_of_feed(db_file, feed_id)
-    entries = feed.entries
-    ixs = {}
-    for item in items:
-        ix, entry_title, entry_link, entry_id, timestamp = item
-        read_status = is_entry_read(db_file, ix)
-        read_status = read_status[0]
-        for entry in entries:
-            title = None
-            link = None
-            time = None
-            # TODO better check and don't repeat code
-            if entry.has_key("id") and entry_id:
-                if entry.id == entry_id:
-                    # print(url)
-                    # print("compare entry.id == entry_id:", entry.id)
-                    # print("compare entry.id == entry_id:", entry_id)
-                    # print("============")
-                    # items_valid.append(ix)
-                    break
-            else:
-                # Prepare a title to compare
-                if entry.has_key("title"):
-                    title = entry.title
-                else:
-                    title = feed["feed"]["title"]
-                # Prepare a link to compare
-                if entry.has_key("link"):
-                    link = Url.join_url(url, entry.link)
-                else:
-                    link = url
-                # Compare date, link and title
-                if entry.has_key("published") and timestamp:
-                    # print(url)
-                    # print("compare published:", title, link, time)
-                    # print("compare published:", entry_title, entry_link, timestamp)
-                    # print("============")
-                    time = DateAndTime.rfc2822_to_iso8601(entry.published)
-                    if (entry_title == title and
-                        entry_link == link and
-                        timestamp == time):
-                        # items_valid.append(ix)
-                        break
-                else:
-                    # Compare link and title
-                    if (entry_title == title and
-                        entry_link == link):
-                        # print(url)
-                        # print("compare entry_link == link:", title, link)
-                        # print("compare entry_title == title:", entry_title, entry_link)
-                        # print("============")
-                        # items_valid.append(ix)
-                        break
-            # print('invalid entry:')
-            # print(entry)
-            # TODO better check and don't repeat code
-        ixs[ix] = read_status
-        # print(ixs)
-    return ixs
-
-
 async def process_invalid_entries(db_file, ixs):
     """
     Batch process of invalid items.
@@ -2974,10 +2684,7 @@ def get_feeds_by_enabled_state(db_file, enabled_state):
     function_name = sys._getframe().f_code.co_name
     logger.debug('{}: db_file: {} enabled_state: {}'
                 .format(function_name, db_file, enabled_state))
-    if enabled_state:
-        enabled_state = 1
-    else:
-        enabled_state = 0
+    enabled_state = 1 if enabled_state else 0
     with create_connection(db_file) as conn:
         cur = conn.cursor()
         sql = (

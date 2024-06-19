@@ -13,6 +13,7 @@ logger.debug('This is a debug message')
 
 """
 
+from datetime import datetime
 import logging
 
 
@@ -55,4 +56,6 @@ class Message:
 
 
     def printer(text):
-        print(text, end='\r')
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        print('{} {}'.format(current_time, text), end='\r')

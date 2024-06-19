@@ -34,8 +34,7 @@ class XmppGroupchat:
                                   'bookmark {}'.format(bookmark['name']))
                 alias = bookmark["nick"]
                 muc_jid = bookmark["jid"]
-                
-                Message.printer('Joining MUC {} ...'.format(muc_jid))
+                Message.printer('Joining to MUC {} ...'.format(muc_jid))
                 result = await XmppMuc.join(self, muc_jid, alias)
                 if result == 'ban':
                     await XmppBookmark.remove(self, muc_jid)
@@ -53,3 +52,4 @@ class XmppGroupchat:
             elif not bookmark["jid"]:
                 logger.error('JID is missing for bookmark {}'
                               .format(bookmark['name']))
+        print('Done')
