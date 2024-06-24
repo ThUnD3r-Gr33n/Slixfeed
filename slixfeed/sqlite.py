@@ -2762,6 +2762,39 @@ def get_active_feeds_url(db_file):
         return result
 
 
+def get_active_feeds_url_sorted_by_last_scanned(db_file):
+    """
+    Query table feeds for active URLs and sort them by last scanned time.
+
+    Parameters
+    ----------
+    db_file : str
+        Path to database file.
+
+    Returns
+    -------
+    result : tuple
+        URLs of active feeds.
+    """
+    function_name = sys._getframe().f_code.co_name
+    logger.debug('{}: db_file: {}'
+                .format(function_name, db_file))
+    with create_connection(db_file) as conn:
+        cur = conn.cursor()
+        sql = (
+            """
+            SELECT feeds_properties.url
+            FROM feeds_properties
+            INNER JOIN feeds_preferences ON feeds_properties.id = feeds_preferences.feed_id
+            INNER JOIN feeds_state ON feeds_properties.id = feeds_state.feed_id
+            WHERE feeds_preferences.enabled = 1
+            ORDER BY feeds_state.scanned
+            """
+            )
+        result = cur.execute(sql).fetchall()
+        return result
+
+
 def get_tags(db_file):
     """
     Query table tags and list items.

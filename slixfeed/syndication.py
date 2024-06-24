@@ -1276,7 +1276,7 @@ class FeedTask:
         logger.info('Scanning for updates for JID {}'.format(jid_bare))
         while True:
             db_file = config.get_pathname_to_database(jid_bare)
-            urls = sqlite.get_active_feeds_url(db_file)
+            urls = sqlite.get_active_feeds_url_sorted_by_last_scanned(db_file)
             for url in urls:
                 Message.printer('Scanning updates for URL {} ...'.format(url))
                 url = url[0]
@@ -1360,7 +1360,7 @@ class FeedTask:
                         # TODO return number of archived entries and add if statement to run archive maintainence function
                         await sqlite.maintain_archive(db_file, limit)
                 # await sqlite.process_invalid_entries(db_file, ixs)
-                await asyncio.sleep(50)
+                await asyncio.sleep(60 * 2)
             val = Config.get_setting_value(self.settings, jid_bare, 'check')
             await asyncio.sleep(60 * float(val))
             # Schedule to call this function again in 90 minutes

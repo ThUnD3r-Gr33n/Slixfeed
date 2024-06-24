@@ -46,7 +46,7 @@ class XmppMuc:
         #         )
         logger.info('Joining groupchat\nJID     : {}\n'.format(jid))
         jid_from = str(self.boundjid) if self.is_component else None
-        if alias == None: self.alias
+        if not alias: alias = self.alias
         try:
             await self.plugin['xep_0045'].join_muc_wait(jid,
                                                         alias,

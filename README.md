@@ -56,7 +56,7 @@ It is possible to install Slixfeed using pip and pipx.
 ```
 $ python3 -m venv .venv
 $ source .venv/bin/activate
-$ pip install git+https://gitgud.io/sjehuda/slixfeed
+$ pip install git+https://git.xmpp-it.net/sch/Slixfeed
 ```
 
 #### pipx
@@ -64,14 +64,14 @@ $ pip install git+https://gitgud.io/sjehuda/slixfeed
 ##### Install
 
 ```
-$ pipx install git+https://gitgud.io/sjehuda/slixfeed
+$ pipx install git+https://git.xmpp-it.net/sch/Slixfeed
 ```
 
 ##### Update
 
 ```
 $ pipx uninstall slixfeed
-$ pipx install git+https://gitgud.io/sjehuda/slixfeed
+$ pipx install git+https://git.xmpp-it.net/sch/Slixfeed
 ```
 
 ### Start
