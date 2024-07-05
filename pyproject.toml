@@ -43,12 +43,17 @@ dependencies = [
     # "daemonize",
     "feedparser",
     "lxml",
+    "omemo", # OMEMO
     # "pysocks",
+    "protobuf==3.20.3", # OMEMO
     "python-dateutil",
     "requests",
     "slixmpp",
+    "slixmpp-omemo", # OMEMO
     "tomli", # Python 3.10
     "tomli_w",
+    "X3DH", # OMEMO
+    "XEdDSA", # OMEMO
 ]
 
 [project.urls]
