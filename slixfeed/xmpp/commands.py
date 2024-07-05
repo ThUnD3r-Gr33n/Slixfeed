@@ -334,9 +334,9 @@ class XmppCommands:
 
 
     def export_feeds(jid_bare, ext):
-        filename = Feed.export_feeds(jid_bare, ext)
+        pathname = Feed.export_feeds(jid_bare, ext)
         message = 'Feeds successfuly exported to {}.'.format(ext)
-        return filename, message
+        return pathname, message
 
 
     def fetch_gemini():

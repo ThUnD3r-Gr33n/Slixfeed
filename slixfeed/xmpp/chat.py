@@ -24,19 +24,26 @@ TODO
 """
 
 import asyncio
+import os
+from pathlib import Path
 from random import randrange # pending_tasks: Use a list and read the first index (i.e. index 0).
 import slixfeed.config as config
 from slixfeed.config import Config
+import slixfeed.fetch as fetch
+from slixfeed.fetch import Http
 from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
 from slixfeed.syndication import FeedTask
 from slixfeed.utilities import Documentation, Html, MD, Task, Url
 from slixfeed.xmpp.commands import XmppCommands
+from slixfeed.xmpp.encryption import XmppOmemo
 from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.status import XmppStatusTask
 from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utilities import XmppUtilities
+from slixmpp import JID
+from slixmpp.stanza import Message
 import sys
 import time
 
@@ -55,7 +62,7 @@ logger = Logger(__name__)
 class XmppChat:
 
 
-    async def process_message(self, message):
+    async def process_message(self, message: Message, allow_untrusted: bool = False) -> None:
         """
         Process incoming message stanzas. Be aware that this also
         includes MUC messages and error messages. It is usually
@@ -69,8 +76,10 @@ class XmppChat:
             for stanza objects and the Message stanza to see
             how it may be used.
         """
-        if message['type'] in ('chat', 'groupchat', 'normal'):
-            jid_bare = message['from'].bare
+        message_from = message['from']
+        message_type = message['type']
+        if message_type in ('chat', 'groupchat', 'normal'):
+            jid_bare = message_from.bare
             command = ' '.join(message['body'].split())
             command_time_start = time.time()
 
@@ -80,14 +89,14 @@ class XmppChat:
 
             # FIXME Code repetition. See below.
             # TODO Check alias by nickname associated with conference
-            if message['type'] == 'groupchat':
+            if message_type == 'groupchat':
                 if (message['muc']['nick'] == self.alias):
                     return
-                jid_full = str(message['from'])
+                jid_full = message_from.full
                 if not XmppUtilities.is_moderator(self, jid_bare, jid_full):
                     return
 
-            if message['type'] == 'groupchat':
+            if message_type == 'groupchat':
                 # nick = message['from'][message['from'].index('/')+1:]
                 # nick = str(message['from'])
                 # nick = nick[nick.index('/')+1:]
@@ -109,7 +118,7 @@ class XmppChat:
                 #         if nick not in operator:
                 #             return
                 # approved = False
-                jid_full = str(message['from'])
+                jid_full = message_from.full
                 if not XmppUtilities.is_moderator(self, jid_bare, jid_full):
                     return
                 # if role == 'moderator':
@@ -140,17 +149,23 @@ class XmppChat:
 
             # await compose.message(self, jid_bare, message)
 
+            if self['xep_0384'].is_encrypted(message):
+                command, omemo_decrypted = await XmppOmemo.decrypt(
+                    self, message, allow_untrusted)
+            else:
+                omemo_decrypted = None
+
             if message['type'] == 'groupchat':
                 command = command[1:]
             command_lowercase = command.lower()
 
-            logger.debug([str(message['from']), ':', command])
+            logger.debug([message_from.full, ':', command])
 
             # Support private message via groupchat
             # See https://codeberg.org/poezio/slixmpp/issues/3506
             if message['type'] == 'chat' and message.get_plugin('muc', check=True):
-                # jid_bare = message['from'].bare
-                jid_full = str(message['from'])
+                # jid_bare = message_from.bare
+                jid_full = message_from.full
                 if (jid_bare == jid_full[:jid_full.index('/')]):
                     # TODO Count and alert of MUC-PM attempts
                     return
@@ -217,7 +232,7 @@ class XmppChat:
                     command = command[4:]
                     url = command.split(' ')[0]
                     title = ' '.join(command.split(' ')[1:])
-                    response = XmppCommands.feed_add(
+                    response = await XmppCommands.feed_add(
                         url, db_file, jid_bare, title)
                 case _ if command_lowercase.startswith('allow +'):
                         val = command[7:]
@@ -327,15 +342,20 @@ class XmppChat:
                         # self.pending_tasks[jid_bare][self.pending_tasks_counter] = status_message
                         XmppPresence.send(self, jid_bare, status_message,
                                           status_type=status_type)
-                        filename, response = XmppCommands.export_feeds(
+                        pathname, response = XmppCommands.export_feeds(
                             jid_bare, ext)
-                        url = await XmppUpload.start(self, jid_bare, filename)
+                        encrypt_omemo = Config.get_setting_value(self.settings, jid_bare, 'omemo')
+                        encrypted = True if encrypt_omemo else False
+                        url = await XmppUpload.start(self, jid_bare, Path(pathname), encrypted=encrypted)
                         # response = (
                         #     'Feeds exported successfully to {}.\n{}'
                         #     ).format(ex, url)
                         # XmppMessage.send_oob_reply_message(message, url, response)
-                        chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-                        XmppMessage.send_oob(self, jid_bare, url, chat_type)
+                        if url:
+                            chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
+                            XmppMessage.send_oob(self, jid_bare, url, chat_type)
+                        else:
+                            response = 'OPML file export has been failed.'
                         del self.pending_tasks[jid_bare][pending_tasks_num]
                         # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                         XmppStatusTask.restart_task(self, jid_bare)
@@ -378,18 +398,18 @@ class XmppChat:
                     # del self.pending_tasks[jid_bare][self.pending_tasks_counter]
                     XmppStatusTask.restart_task(self, jid_bare)
                 case _ if command_lowercase.startswith('pubsub list'):
-                    jid = command[12:]
-                    response = 'List of nodes for {}:\n```\n'.format(jid)
-                    response = await XmppCommands.pubsub_list(self, jid)
+                    jid_full_pubsub = command[12:]
+                    response = 'List of nodes for {}:\n```\n'.format(jid_full_pubsub)
+                    response = await XmppCommands.pubsub_list(self, jid_full_pubsub)
                     response += '```'
                 case _ if command_lowercase.startswith('pubsub send'):
                     if XmppUtilities.is_operator(self, jid_bare):
                         info = command[12:]
                         info = info.split(' ')
-                        jid = info[0]
+                        jid_full_pubsub = info[0]
                         # num = int(info[1])
-                        if jid:
-                            response = XmppCommands.pubsub_send(self, info, jid)
+                        if jid_full_pubsub:
+                            response = XmppCommands.pubsub_send(self, info, jid_full_pubsub)
                     else:
                         response = ('This action is restricted. '
                                     'Type: sending news to PubSub.')
@@ -581,7 +601,16 @@ class XmppChat:
             command_time_finish = time.time()
             command_time_total = command_time_finish - command_time_start
             command_time_total = round(command_time_total, 3)
-            if response: XmppMessage.send_reply(self, message, response)
+            if response:
+                response_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
+                    self, message_from, response)
+                if omemo_encrypted and omemo_decrypted:
+                    message_from = message['from']
+                    message_type = message['type']
+                    XmppMessage.send_omemo(self, message_from, message_type, response_encrypted)
+                    # XmppMessage.send_omemo_reply(self, message, response_encrypted)
+                else:
+                    XmppMessage.send_reply(self, message, response)
             if Config.get_setting_value(self.settings, jid_bare, 'finished'):
                 response_finished = 'Finished. Total time: {}s'.format(command_time_total)
                 XmppMessage.send_reply(self, message, response_finished)
@@ -616,7 +645,7 @@ class XmppChatAction:
 
         Parameters
         ----------
-        jid : str
+        jid_bare : str
             Jabber ID.
         num : str, optional
             Number. The default is None.
@@ -624,6 +653,9 @@ class XmppChatAction:
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid: {} num: {}'.format(function_name, jid_bare, num))
         db_file = config.get_pathname_to_database(jid_bare)
+        encrypt_omemo = Config.get_setting_value(self.settings, jid_bare, 'omemo')
+        encrypted = True if encrypt_omemo else False
+        jid = JID(jid_bare)
         show_media = Config.get_setting_value(self.settings, jid_bare, 'media')
         if not num:
             num = Config.get_setting_value(self.settings, jid_bare, 'quantum')
@@ -631,7 +663,7 @@ class XmppChatAction:
             num = int(num)
         results = sqlite.get_unread_entries(db_file, num)
         news_digest = ''
-        media = None
+        media_url = None
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         for result in results:
             ix = result[0]
@@ -658,20 +690,60 @@ class XmppChatAction:
             # elif enclosure:
             if show_media:
                 if enclosure:
-                    media = enclosure
+                    media_url = enclosure
                 else:
-                    media = await Html.extract_image_from_html(url)
-            
-            if media and news_digest:
-                # Send textual message
-                XmppMessage.send(self, jid_bare, news_digest, chat_type)
+                    media_url = await Html.extract_image_from_html(url)
+
+            if media_url and news_digest:
+                if encrypt_omemo:
+                    news_digest_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
+                        self, jid, news_digest)
+                if encrypt_omemo and omemo_encrypted:
+                    XmppMessage.send_omemo(self, jid, chat_type, news_digest_encrypted)
+                else:
+                    # Send textual message
+                    XmppMessage.send(self, jid_bare, news_digest, chat_type)
                 news_digest = ''
                 # Send media
-                XmppMessage.send_oob(self, jid_bare, media, chat_type)
-                media = None
-                
+                if encrypt_omemo:
+                    cache_dir = config.get_default_cache_directory()
+                    filename = media_url.split('/').pop().split('?')[0]
+                    pathname = os.path.join(cache_dir, filename)
+                    # http_response = await Http.response(media_url)
+                    
+                    # http_headers = await Http.fetch_headers(media_url)
+                    # breakpoint()
+                    # status = Http.fetch_media(media_url, pathname)
+                    # if status:
+                    #     filesize = os.path.getsize(pathname)
+                    #     media_url_new = await XmppUpload.start(
+                    #         self, jid_bare, Path(pathname), filesize, encrypted=encrypted)
+                    # else:
+                    #     media_url_new = media_url
+                    
+                    media_url_new = media_url
+                    media_url_new_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
+                        self, jid, media_url_new)
+                    
+                    # NOTE Temporary line!
+                    XmppMessage.send_omemo_oob(self, jid_bare, media_url_new_encrypted, chat_type)
+                    
+                    
+                    # if media_url_new_encrypted and omemo_encrypted:
+                    #     XmppMessage.send_omemo_oob(self, jid, media_url_new_encrypted, chat_type)
+                    # elif media_url:
+                    #     XmppMessage.send_oob(self, jid_bare, media_url_new_encrypted, chat_type)
+                else:
+                    XmppMessage.send_oob(self, jid_bare, media_url, chat_type)
+                media_url = None
+
         if news_digest:
-            XmppMessage.send(self, jid_bare, news_digest, chat_type)
+            if encrypt_omemo: news_digest_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
+                self, jid, news_digest)
+            if encrypt_omemo and omemo_encrypted:
+                XmppMessage.send_omemo(self, jid, chat_type, news_digest_encrypted)
+            else:
+                XmppMessage.send(self, jid_bare, news_digest, chat_type)
                 # TODO Add while loop to assure delivery.
                 # print(await current_time(), ">>> ACT send_message",jid)
                 # NOTE Do we need "if statement"? See NOTE at is_muc.

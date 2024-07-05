@@ -20,14 +20,15 @@ Slixfeed is primarily designed for XMPP (aka Jabber), yet it is built to be exte
 
 ## Features
 
-- **Visual interface** - Interactive interface for XMPP using Ad-Hoc Commands,
 - **Ease** - Slixfeed automatically scans (i.e. crawls) for syndication feeds of given URL.
+- **Encryption** - Messages are encrypted with the OMEMO standard.
 - **Export** - Download articles as ePUB, HTML, Markdown and PDF.
 - **Filtering** - Filter news items using lists of allow and deny.
 - **Multimedia** - Display audios pictures and videos inline.
 - **Privacy** - Redirect to alternative back-ends, such as Invidious, Librarian, Nitter, for increased privacy, productivity and security.
 - **Portable** - Export and import feeds with a standard OPML file.
 - **Simultaneous** - Slixfeed is designed to handle multiple contacts, including groupchats, Simultaneously.
+- **Visual interface** - Interactive interface for XMPP using Ad-Hoc Commands,
 
 ## Preview
 

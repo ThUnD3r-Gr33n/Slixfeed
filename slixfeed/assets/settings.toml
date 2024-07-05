@@ -11,6 +11,7 @@ interval = 300 # Update interval (Minimum value 10)
 length = 300   # Maximum length of summary (Value 0 to disable)
 media = 0      # Display media (audio, image, video) when available
 old = 0        # Mark entries of newly added entries as unread
+omemo = 1      # Encrypt messages with OMEMO
 quantum = 3    # Amount of entries per update
 random = 0     # Pick random item from database
 

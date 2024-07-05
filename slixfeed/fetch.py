@@ -45,6 +45,8 @@ from asyncio import TimeoutError
 import requests
 import slixfeed.config as config
 from slixfeed.log import Logger
+# import urllib.request
+# from urllib.error import HTTPError
 
 logger = Logger(__name__)
 
@@ -54,7 +56,6 @@ except:
     logger.info(
         "Package magnet2torrent was not found.\n"
         "BitTorrent is disabled.")
-
 
 # class Dat:
 # async def dat():
@@ -68,52 +69,151 @@ except:
 # class Gopher:
 # async def gopher():
 
-# class Http:
-# async def http():
-
 # class Ipfs:
 # async def ipfs():
 
 
-def http_response(url):
-    """
-    Download response headers.
+class Http:
 
-    Parameters
-    ----------
-    url : str
-        URL.
 
-    Returns
-    -------
-    response: requests.models.Response
-        HTTP Header Response.
+    # def fetch_media(url, pathname):
+    #     try:
+    #         urllib.request.urlretrieve(url, pathname)
+    #         status = 1
+    #     except HTTPError as e:
+    #         logger.error(e)
+    #         status = 0
+    #     return status
 
-    Result would contain these:
-        response.encoding
-        response.headers
-        response.history
-        response.reason
-        response.status_code
-        response.url
-    """
-    user_agent = (
-        config.get_value(
-            "settings", "Network", "user_agent")
-        ) or 'Slixfeed/0.1'
-    headers = {
-        "User-Agent": user_agent
-    }
-    try:
-        # Do not use HEAD request because it appears that too many sites would
-        # deny it.
-        # response = requests.head(url, headers=headers, allow_redirects=True)
-        response = requests.get(url, headers=headers, allow_redirects=True)
-    except Exception as e:
-        logger.warning('Error in HTTP response')
-        logger.error(e)
-        response = None
-    return response
+
+    async def fetch_headers(url):
+        network_settings = config.get_values('settings.toml', 'network')
+        user_agent = (network_settings['user_agent'] or 'Slixfeed/0.1')
+        headers = {'User-Agent': user_agent}
+        proxy = (network_settings['http_proxy'] or None)
+        timeout = ClientTimeout(total=10)
+        async with ClientSession(headers=headers) as session:
+            async with session.get(url, proxy=proxy,
+                                   # proxy_auth=(proxy_username, proxy_password),
+                                   timeout=timeout
+                                   ) as response:
+                headers = response.headers
+                return headers
+                # print("Headers for URL:", url)
+                # for header_name, header_value in headers.items():
+                #     print(f"{header_name}: {header_value}")
+
+
+    # TODO Write file to disk. Consider aiofiles
+    async def fetch_media(url, pathname):
+        """
+        Download media content of given URL.
+
+        Parameters
+        ----------
+        url : str
+            URL.
+        pathname : list
+            Pathname (including filename) to save content to.
+
+        Returns
+        -------
+        msg: list or str
+            Document or error message.
+        """
+        network_settings = config.get_values('settings.toml', 'network')
+        user_agent = (network_settings['user_agent'] or 'Slixfeed/0.1')
+        headers = {'User-Agent': user_agent}
+        proxy = (network_settings['http_proxy'] or None)
+        timeout = ClientTimeout(total=10)
+        async with ClientSession(headers=headers) as session:
+        # async with ClientSession(trust_env=True) as session:
+            try:
+                async with session.get(url, proxy=proxy,
+                                       # proxy_auth=(proxy_username, proxy_password),
+                                       timeout=timeout
+                                       ) as response:
+                    status = response.status
+                    if status in (200, 201):
+                        try:
+                            result = {'charset': response.charset,
+                                      'content_length': response.content_length,
+                                      'content_type': response.content_type,
+                                      'error': False,
+                                      'message': None,
+                                      'original_url': url,
+                                      'status_code': status,
+                                      'response_url': response.url}
+                        except:
+                            result = {'error': True,
+                                      'message': 'Could not get document.',
+                                      'original_url': url,
+                                      'status_code': status,
+                                      'response_url': response.url}
+                    else:
+                        result = {'error': True,
+                                  'message': 'HTTP Error:' + str(status),
+                                  'original_url': url,
+                                  'status_code': status,
+                                  'response_url': response.url}
+            except ClientError as e:
+                result = {'error': True,
+                          'message': 'Error:' + str(e) if e else 'ClientError',
+                          'original_url': url,
+                          'status_code': None}
+            except TimeoutError as e:
+                result = {'error': True,
+                          'message': 'Timeout:' + str(e) if e else 'TimeoutError',
+                          'original_url': url,
+                          'status_code': None}
+            except Exception as e:
+                logger.error(e)
+                result = {'error': True,
+                          'message': 'Error:' + str(e) if e else 'Error',
+                          'original_url': url,
+                          'status_code': None}
+        return result
+
+
+    def http_response(url):
+        """
+        Download response headers.
+    
+        Parameters
+        ----------
+        url : str
+            URL.
+    
+        Returns
+        -------
+        response: requests.models.Response
+            HTTP Header Response.
+    
+        Result would contain these:
+            response.encoding
+            response.headers
+            response.history
+            response.reason
+            response.status_code
+            response.url
+        """
+        user_agent = (
+            config.get_value(
+                "settings", "Network", "user_agent")
+            ) or 'Slixfeed/0.1'
+        headers = {
+            "User-Agent": user_agent
+        }
+        try:
+            # Do not use HEAD request because it appears that too many sites would
+            # deny it.
+            # response = requests.head(url, headers=headers, allow_redirects=True)
+            response = requests.get(url, headers=headers, allow_redirects=True)
+        except Exception as e:
+            logger.warning('Error in HTTP response')
+            logger.error(e)
+            response = None
+        return response
 
 
 async def http(url):

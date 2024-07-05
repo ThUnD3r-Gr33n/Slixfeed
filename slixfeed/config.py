@@ -105,6 +105,71 @@ class ConfigJabberID:
             settings[jid_bare][key] = value
 
 
+class Data:
+
+
+    def get_default_data_directory():
+        """
+        Determine the directory path where dbfile will be stored.
+    
+        * If $XDG_DATA_HOME is defined, use it;
+        * else if $HOME exists, use it;
+        * else if the platform is Windows, use %APPDATA%;
+        * else use the current directory.
+    
+        Returns
+        -------
+        str
+            Path to database file.
+    
+        Note
+        ----
+        This function was taken from project buku.
+        
+        See https://github.com/jarun/buku
+    
+        * Arun Prakash Jana (jarun)
+        * Dmitry Marakasov (AMDmi3)
+        """
+    #    data_home = xdg.BaseDirectory.xdg_data_home
+        data_home = os.environ.get('XDG_DATA_HOME')
+        if data_home is None:
+            if os.environ.get('HOME') is None:
+                if sys.platform == 'win32':
+                    data_home = os.environ.get('APPDATA')
+                    if data_home is None:
+                        return os.path.abspath('.slixfeed/data')
+                else:
+                    return os.path.abspath('.slixfeed/data')
+            else:
+                data_home = os.path.join(
+                    os.environ.get('HOME'), '.local', 'share'
+                    )
+        return os.path.join(data_home, 'slixfeed')
+
+
+    def get_pathname_to_omemo_directory():
+        """
+        Get OMEMO directory.
+    
+        Parameters
+        ----------
+        None
+    
+        Returns
+        -------
+        object
+            Coroutine object.
+        """
+        db_dir = get_default_data_directory()
+        if not os.path.isdir(db_dir):
+            os.mkdir(db_dir)
+        if not os.path.isdir(db_dir + "/omemo"):
+            os.mkdir(db_dir + "/omemo")
+        omemo_dir = os.path.join(db_dir, "omemo")
+        return omemo_dir
+
+
 def get_values(filename, key=None):
     config_dir = get_default_config_directory()
     if not os.path.isdir(config_dir):

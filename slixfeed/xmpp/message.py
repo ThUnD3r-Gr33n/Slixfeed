@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from slixfeed.log import Logger
+from slixmpp import JID
 import xml.sax.saxutils as saxutils
 
 logger = Logger(__name__)
@@ -37,6 +38,43 @@ class XmppMessage:
                           mbody=message_body,
                           mtype=chat_type,
                           mnick=self.alias)
+
+
+    def send_omemo(self, jid: JID, chat_type, response_encrypted):
+        jid_from = str(self.boundjid) if self.is_component else None
+        message = self.make_message(mto=jid, mfrom=jid_from, mtype=chat_type)
+        eme_ns = 'eu.siacs.conversations.axolotl'
+        # message['eme']['namespace'] = eme_ns
+        # message['eme']['name'] = self['xep_0380'].mechanisms[eme_ns]
+        message['eme'] = {'namespace': eme_ns}
+        # message['eme'] = {'name': self['xep_0380'].mechanisms[eme_ns]}
+        message.append(response_encrypted)
+        message.send()
+
+
+    def send_omemo_oob(self, jid: JID, url_encrypted, chat_type, aesgcm=False):
+        jid_from = str(self.boundjid) if self.is_component else None
+        # if not aesgcm: url_encrypted = saxutils.escape(url_encrypted)
+        message = self.make_message(mto=jid, mfrom=jid_from, mtype=chat_type)
+        eme_ns = 'eu.siacs.conversations.axolotl'
+        # message['eme']['namespace'] = eme_ns
+        # message['eme']['name'] = self['xep_0380'].mechanisms[eme_ns]
+        message['eme'] = {'namespace': eme_ns}
+        # message['eme'] = {'name': self['xep_0380'].mechanisms[eme_ns]}
+        message['oob']['url'] = url_encrypted
+        message.append(url_encrypted)
+        message.send()
+
+
+    # FIXME Solve this function
+    def send_omemo_reply(self, message, response_encrypted):
+        eme_ns = 'eu.siacs.conversations.axolotl'
+        # message['eme']['namespace'] = eme_ns
+        # message['eme']['name'] = self['xep_0380'].mechanisms[eme_ns]
+        message['eme'] = {'namespace': eme_ns}
+        # message['eme'] = {'name': self['xep_0380'].mechanisms[eme_ns]}
+        message.append(response_encrypted)
+        message.reply(message['body']).send()
 
 
     # NOTE We might want to add more characters

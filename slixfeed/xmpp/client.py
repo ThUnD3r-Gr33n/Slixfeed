@@ -31,8 +31,9 @@ NOTE
 
 import asyncio
 from datetime import datetime
-import os
 from feedparser import parse
+import os
+from pathlib import Path
 import slixmpp
 # from slixmpp.plugins.xep_0363.http_upload import FileTooBig, HTTPError, UploadServiceNotFound
 # from slixmpp.plugins.xep_0402 import BookmarkStorage, Conference
@@ -42,8 +43,9 @@ import slixmpp
 # import xml.etree.ElementTree as ET
 # from lxml import etree
 
+from omemo.exceptions import MissingBundleException
 import slixfeed.config as config
-from slixfeed.config import Config
+from slixfeed.config import Config, Data
 import slixfeed.fetch as fetch
 from slixfeed.log import Logger
 import slixfeed.sqlite as sqlite
@@ -66,6 +68,9 @@ from slixfeed.xmpp.roster import XmppRoster
 from slixfeed.xmpp.status import XmppStatusTask
 from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utilities import XmppUtilities
+import slixmpp_omemo
+from slixmpp_omemo import PluginCouldNotLoad, MissingOwnKey, EncryptionPrepareException
+from slixmpp_omemo import UndecidedException, UntrustedException, NoAvailableSession
 import sys
 import time
 
@@ -147,6 +152,21 @@ class XmppClient(slixmpp.ClientXMPP):
         self.register_plugin('xep_0363') # HTTP File Upload
         self.register_plugin('xep_0402') # PEP Native Bookmarks
         self.register_plugin('xep_0444') # Message Reactions
+        try:
+            self.register_plugin(
+                'xep_0384',
+                {
+                    'data_dir': Data.get_pathname_to_omemo_directory(),
+                },
+                module=slixmpp_omemo,) # OMEMO Encryption
+        except (PluginCouldNotLoad,):
+            logger.error('An error has occured when loading the OMEMO plugin.')
+            sys.exit(1)
+        try:
+            self.register_plugin('xep_0454')
+        except slixmpp.plugins.base.PluginNotFound:
+            logger.error('Could not load xep_0454. Ensure you have '
+                         '\'cryptography\' from extras_require installed.')
 
         # proxy_enabled = config.get_value('accounts', 'XMPP', 'proxy_enabled')
         # if proxy_enabled == '1':
@@ -230,7 +250,7 @@ class XmppClient(slixmpp.ClientXMPP):
     # TODO Test
     async def on_groupchat_invite(self, message):
         time_begin = time.time()
-        jid_full = str(message['from'])
+        jid_full = message['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -268,7 +288,7 @@ class XmppClient(slixmpp.ClientXMPP):
     # NOTE Tested with Gajim and Psi
     async def on_groupchat_direct_invite(self, message):
         time_begin = time.time()
-        jid_full = str(message['from'])
+        jid_full = message['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -366,7 +386,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     async def on_disco_info(self, DiscoInfo):
         time_begin = time.time()
-        jid_full = str(DiscoInfo['from'])
+        jid_full = DiscoInfo['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -381,7 +401,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     async def on_message(self, message):
         time_begin = time.time()
-        jid_full = str(message['from'])
+        jid_full = message['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -427,7 +447,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     async def on_changed_status(self, presence):
         time_begin = time.time()
-        jid_full = str(presence['from'])
+        jid_full = presence['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -452,7 +472,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     async def on_presence_subscribe(self, presence):
         time_begin = time.time()
-        jid_full = str(presence['from'])
+        jid_full = presence['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -475,7 +495,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     def on_presence_subscribed(self, presence):
         time_begin = time.time()
-        jid_full = str(presence['from'])
+        jid_full = presence['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -497,7 +517,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     async def on_presence_available(self, presence):
         time_begin = time.time()
-        jid_full = str(presence['from'])
+        jid_full = presence['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -521,7 +541,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     def on_presence_unsubscribed(self, presence):
         time_begin = time.time()
-        jid_full = str(presence['from'])
+        jid_full = presence['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -542,7 +562,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     def on_presence_unavailable(self, presence):
         time_begin = time.time()
-        jid_full = str(presence['from'])
+        jid_full = presence['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -570,7 +590,7 @@ class XmppClient(slixmpp.ClientXMPP):
     # If bookmarks, remove groupchat JID into file 
     def on_presence_error(self, presence):
         time_begin = time.time()
-        jid_full = str(presence['from'])
+        jid_full = presence['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -590,7 +610,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     async def on_chatstate_active(self, message):
         time_begin = time.time()
-        jid_full = str(message['from'])
+        jid_full = message['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -613,7 +633,7 @@ class XmppClient(slixmpp.ClientXMPP):
     async def on_chatstate_composing(self, message):
         # print('on_chatstate_composing START')
         time_begin = time.time()
-        jid_full = str(message['from'])
+        jid_full = message['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -636,7 +656,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     def on_chatstate_gone(self, message):
         time_begin = time.time()
-        jid_full = str(message['from'])
+        jid_full = message['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -653,7 +673,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     def on_chatstate_inactive(self, message):
         time_begin = time.time()
-        jid_full = str(message['from'])
+        jid_full = message['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -670,7 +690,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     def on_chatstate_paused(self, message):
         time_begin = time.time()
-        jid_full = str(message['from'])
+        jid_full = message['from'].full
         function_name = sys._getframe().f_code.co_name
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
@@ -832,7 +852,7 @@ class XmppClient(slixmpp.ClientXMPP):
     # http://jabber.org/protocol/commands#actions
 
     async def _handle_publish(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -873,7 +893,7 @@ class XmppClient(slixmpp.ClientXMPP):
         return session
 
     async def _handle_publish_action(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -981,7 +1001,7 @@ class XmppClient(slixmpp.ClientXMPP):
         return session
 
     async def _handle_publish_db_preview(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1089,7 +1109,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_publish_url_preview(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1281,7 +1301,7 @@ class XmppClient(slixmpp.ClientXMPP):
         return session
 
     async def _handle_profile(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1383,7 +1403,7 @@ class XmppClient(slixmpp.ClientXMPP):
         return session
 
     async def _handle_filters(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1456,7 +1476,7 @@ class XmppClient(slixmpp.ClientXMPP):
                        session. Additional, custom data may be saved
                        here to persist across handler callbacks.
         """
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1492,7 +1512,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_add(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1555,7 +1575,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_recent(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1606,7 +1626,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_recent_result(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1663,7 +1683,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     # FIXME
     async def _handle_recent_select(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1736,7 +1756,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_new(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1940,7 +1960,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_toggle(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1965,7 +1985,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_del_complete(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -1993,7 +2013,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     def _handle_cancel(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2006,7 +2026,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_discover(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2044,7 +2064,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     def _handle_discover_type(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2100,7 +2120,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_discover_category(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2130,7 +2150,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscriptions(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2195,7 +2215,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscriptions_result(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2289,7 +2309,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_tag(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2327,7 +2347,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_edit(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2424,7 +2444,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     # TODO Create a new form. Do not "recycle" the last form.
     async def _handle_subscription_complete(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2490,7 +2510,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_advanced(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2532,7 +2552,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_advanced_result(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2679,7 +2699,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_about(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2704,7 +2724,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_about_result(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2768,7 +2788,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_motd(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2781,7 +2801,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_help(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2822,7 +2842,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_import_complete(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -2863,12 +2883,11 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_export_complete(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         form = self['xep_0004'].make_form('result', 'Done')
-        form['instructions'] = 'Export has been completed successfully!'
         # form['type'] = 'result'
         values = payload['values']
         jid_bare = session['from'].bare
@@ -2880,17 +2899,25 @@ class XmppClient(slixmpp.ClientXMPP):
         exts = values['filetype']
         for ext in exts:
             filename = Feed.export_feeds(jid_bare, ext)
-            url = await XmppUpload.start(self, jid_bare, filename)
-            chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-            XmppMessage.send_oob(self, jid_bare, url, chat_type)
-            url_field = form.add_field(var=ext.upper(),
-                                       ftype='text-single',
-                                       label=ext,
-                                       value=url)
-            url_field['validate']['datatype'] = 'xs:anyURI'
-        session["has_next"] = False
-        session['next'] = None
-        session['payload'] = form
+            encrypt_omemo = Config.get_setting_value(self.settings, jid_bare, 'omemo')
+            encrypted = True if encrypt_omemo else False
+            url = await XmppUpload.start(
+                self, jid_bare, Path(filename), encrypted=encrypted)
+            if url:
+                form['instructions'] = 'Export has been completed successfully!'
+                chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
+                XmppMessage.send_oob(self, jid_bare, url, chat_type)
+                url_field = form.add_field(var=ext.upper(),
+                                           ftype='text-single',
+                                           label=ext,
+                                           value=url)
+                url_field['validate']['datatype'] = 'xs:anyURI'
+                session["has_next"] = False
+                session['next'] = None
+                session['payload'] = form
+            else:
+                text_warn = 'OPML file export has been failed.'
+                session['notes'] = [['warn', text_warn]]
         return session
 
 
@@ -2898,12 +2925,12 @@ class XmppClient(slixmpp.ClientXMPP):
     # TODO Attempt to look up for feeds of hostname of JID (i.e. scan
     # jabber.de for feeds for juliet@jabber.de)
     async def _handle_promoted(self, iq, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
         if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscribe')
@@ -2971,7 +2998,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_admin_action(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3096,7 +3123,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     def _handle_nodes(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3124,7 +3151,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_nodes_action(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3183,7 +3210,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_node_browse(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3214,7 +3241,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_item_view(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3250,7 +3277,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
     # FIXME Undefined name 'jid_bare'
     async def _handle_node_edit(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3303,7 +3330,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_nodes_purge(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3321,7 +3348,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_nodes_delete(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3339,7 +3366,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_pubsub_complete(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3364,7 +3391,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscribers_complete(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3412,7 +3439,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_contact_action(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3480,7 +3507,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     def _handle_contacts_complete(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3504,7 +3531,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_bookmarks_edit(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3569,7 +3596,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_bookmarks_complete(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3604,7 +3631,7 @@ class XmppClient(slixmpp.ClientXMPP):
                        session. Additional, custom data may be saved
                        here to persist across handler callbacks.
         """
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
@@ -3723,7 +3750,7 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_settings_complete(self, payload, session):
-        jid_full = str(session['from'])
+        jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                      .format(function_name, jid_full))

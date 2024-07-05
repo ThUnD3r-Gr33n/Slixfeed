@@ -50,7 +50,7 @@ class XmppStatus:
                         status_text = '📬️ There are {} news items'.format(str(unread))
                     else:
                         # print('status no news for ' + jid_bare)
-                        status_mode = 'available'
+                        status_mode = 'away'
                         status_text = '📭️ No news'
         else:
             # print('status disabled for ' + jid_bare)
