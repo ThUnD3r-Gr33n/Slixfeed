@@ -151,6 +151,7 @@ class XmppChat:
             # await compose.message(self, jid_bare, message)
 
             if self['xep_0384'].is_encrypted(message):
+                allow_untrusted=True # Temporary fix. This should be handled by "retry""
                 command, omemo_decrypted, retry = await XmppOmemo.decrypt(
                     self, message, allow_untrusted)
                 if retry:
