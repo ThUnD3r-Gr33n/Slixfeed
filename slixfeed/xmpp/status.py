@@ -28,7 +28,7 @@ class XmppStatus:
         logger.debug('{}: jid: {}'.format(function_name, jid_bare))
         status_text = '📜️ Slixfeed RSS News Bot'
         db_file = config.get_pathname_to_database(jid_bare)
-        enabled = Config.get_setting_value(self.settings, jid_bare, 'enabled')
+        enabled = Config.get_setting_value(self, jid_bare, 'enabled')
         if enabled:
             jid_task = self.pending_tasks[jid_bare] if jid_bare in self.pending_tasks else None
             if jid_task and len(jid_task):

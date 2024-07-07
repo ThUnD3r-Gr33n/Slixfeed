@@ -58,12 +58,11 @@ class Config:
     # TODO Open SQLite file once
     def add_settings_jid(self, jid_bare, db_file):
         self.settings[jid_bare] = {}
-        for key in ('archive', 'enabled', 'filter', 'formatting', 'interval',
-                    'length', 'media', 'old', 'quantum'):
+        for key in self.defaults['default']:
             value = sqlite.get_setting_value(db_file, key)
             if value:
                 self.settings[jid_bare][key] = value[0]
-            elif key != 'formatting':
+            elif key not in ('check', 'formatting'):
                 # NOTE This might neglects the need for
                 # self.defaults of get_setting_value
                 self.settings[jid_bare][key] = self.defaults['default'][key]

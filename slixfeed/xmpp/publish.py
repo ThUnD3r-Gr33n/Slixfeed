@@ -379,7 +379,7 @@ class XmppPubsubTask:
     async def task_publish(self, jid_bare):
         db_file = config.get_pathname_to_database(jid_bare)
         if jid_bare not in self.settings:
-            Config.add_settings_jid(self.settings, jid_bare, db_file)
+            Config.add_settings_jid(self, jid_bare, db_file)
         while True:
             await XmppPubsubAction.send_unread_items(self, jid_bare)
             await asyncio.sleep(60 * 180)
