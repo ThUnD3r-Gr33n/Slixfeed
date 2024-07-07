@@ -36,6 +36,7 @@ NOTE
 
 """
 
+import aiofiles
 from aiohttp import ClientError, ClientSession, ClientTimeout
 from asyncio import TimeoutError
 # from asyncio.exceptions import IncompleteReadError
@@ -135,6 +136,9 @@ class Http:
                                        ) as response:
                     status = response.status
                     if status in (200, 201):
+                        f = await aiofiles.open(pathname, mode='wb')
+                        await f.write(await response.read())
+                        await f.close()
                         try:
                             result = {'charset': response.charset,
                                       'content_length': response.content_length,

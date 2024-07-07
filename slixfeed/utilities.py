@@ -327,6 +327,7 @@ class Html:
                 '//img[not('
                     'contains(@src, "avatar") or '
                     'contains(@src, "cc-by-sa") or '
+                    'contains(@src, "data:image/") or '
                     'contains(@src, "emoji") or '
                     'contains(@src, "icon") or '
                     'contains(@src, "logo") or '

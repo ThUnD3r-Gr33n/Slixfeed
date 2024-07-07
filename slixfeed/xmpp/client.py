@@ -43,7 +43,6 @@ import slixmpp
 # import xml.etree.ElementTree as ET
 # from lxml import etree
 
-from omemo.exceptions import MissingBundleException
 import slixfeed.config as config
 from slixfeed.config import Config, Data
 import slixfeed.fetch as fetch
@@ -55,11 +54,12 @@ from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.chat import XmppChat, XmppChatTask
 from slixfeed.xmpp.connect import XmppConnect, XmppConnectTask
+from slixfeed.xmpp.encryption import XmppOmemo
+from slixfeed.xmpp.groupchat import XmppGroupchat
 from slixfeed.xmpp.ipc import XmppIpcServer
 from slixfeed.xmpp.iq import XmppIQ
 from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.muc import XmppMuc
-from slixfeed.xmpp.groupchat import XmppGroupchat
 from slixfeed.xmpp.presence import XmppPresence
 import slixfeed.xmpp.profile as profile
 from slixfeed.xmpp.publish import XmppPubsub, XmppPubsubAction, XmppPubsubTask
@@ -68,9 +68,9 @@ from slixfeed.xmpp.roster import XmppRoster
 from slixfeed.xmpp.status import XmppStatusTask
 from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utilities import XmppUtilities
+from slixmpp import JID
 import slixmpp_omemo
-from slixmpp_omemo import PluginCouldNotLoad, MissingOwnKey, EncryptionPrepareException
-from slixmpp_omemo import UndecidedException, UntrustedException, NoAvailableSession
+from slixmpp_omemo import PluginCouldNotLoad
 import sys
 import time
 
@@ -2906,7 +2906,12 @@ class XmppClient(slixmpp.ClientXMPP):
             if url:
                 form['instructions'] = 'Export has been completed successfully!'
                 chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-                XmppMessage.send_oob(self, jid_bare, url, chat_type)
+                if encrypted:
+                    url_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
+                        self, JID(jid_bare), url)
+                    XmppMessage.send_omemo_oob(self, JID(jid_bare), url_encrypted, chat_type)
+                else:
+                    XmppMessage.send_oob(self, jid_bare, url, chat_type)
                 url_field = form.add_field(var=ext.upper(),
                                            ftype='text-single',
                                            label=ext,

@@ -23,13 +23,13 @@ TODO
 
 """
 
+from omemo.exceptions import MissingBundleException
 from slixfeed.log import Logger
 from slixmpp import JID
 from slixmpp.exceptions import IqTimeout, IqError
 from slixmpp.stanza import Message
-from slixmpp_omemo import PluginCouldNotLoad, MissingOwnKey, EncryptionPrepareException
+from slixmpp_omemo import MissingOwnKey, EncryptionPrepareException
 from slixmpp_omemo import UndecidedException, UntrustedException, NoAvailableSession
-from omemo.exceptions import MissingBundleException
 
 
 logger = Logger(__name__)
@@ -66,6 +66,7 @@ class XmppOmemo:
             response = ('Error: Your message has not been encrypted for '
                         'Slixfeed (MissingOwnKey).')
             omemo_decrypted = False
+            retry = False
             logger.error(exn)
         except (NoAvailableSession,) as exn:
             # We received a message from that contained a session that we
@@ -77,6 +78,7 @@ class XmppOmemo:
             response = ('Error: Your message has not been encrypted for '
                         'Slixfeed (NoAvailableSession).')
             omemo_decrypted = False
+            retry = False
             logger.error(exn)
         except (UndecidedException, UntrustedException) as exn:
             # We received a message from an untrusted device. We can
@@ -90,9 +92,10 @@ class XmppOmemo:
             response = (f'Error: Device "{exn.device}" is not present in the '
                         'trusted devices of Slixfeed.')
             omemo_decrypted = False
+            retry = True
             logger.error(exn)
             # We resend, setting the `allow_untrusted` parameter to True.
-            await XmppChat.process_message(self, message, allow_untrusted=True)
+            # await XmppChat.process_message(self, message, allow_untrusted=True)
         except (EncryptionPrepareException,) as exn:
             # Slixmpp tried its best, but there were errors it couldn't
             # resolve. At this point you should have seen other exceptions
@@ -100,15 +103,17 @@ class XmppOmemo:
             response = ('Error: Your message has not been encrypted for '
                         'Slixfeed (EncryptionPrepareException).')
             omemo_decrypted = False
+            retry = False
             logger.error(exn)
         except (Exception,) as exn:
             response = ('Error: Your message has not been encrypted for '
                         'Slixfeed (Unknown).')
             omemo_decrypted = False
+            retry = False
             logger.error(exn)
             raise
 
-        return response, omemo_decrypted
+        return response, omemo_decrypted, retry
 
 
     async def encrypt(self, jid: JID, message_body):

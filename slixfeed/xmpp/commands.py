@@ -648,6 +648,18 @@ class XmppCommands:
         return message
 
 
+    async def set_omemo_off(self, jid_bare, db_file):
+        await Config.set_setting_value(self.settings, jid_bare, db_file, 'omemo', 0)
+        message = 'OMEMO is disabled.'
+        return message
+
+
+    async def set_omemo_on(self, jid_bare, db_file):
+        await Config.set_setting_value(self.settings, jid_bare, db_file, 'omemo', 1)
+        message = 'OMEMO is enabled.'
+        return message
+
+
     def node_delete(self, info):
         info = info.split(' ')
         if len(info) > 2:
@@ -958,10 +970,10 @@ class XmppCommands:
 
     # Tasks are classes which are passed to this function
     # On an occasion in which they would have returned, variable "tasks" might be called "callback"
-    async def scheduler_start(self, db_file, jid_bare, tasks):
+    async def scheduler_start(self, db_file, jid_bare, callbacks):
         await Config.set_setting_value(self.settings, jid_bare, db_file, 'enabled', 1)
-        for task in tasks:
-            task.restart_task(self, jid_bare)
+        for callback in callbacks:
+            callback.restart_task(self, jid_bare)
         message = 'Updates are enabled.'
         return message
 

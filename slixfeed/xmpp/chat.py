@@ -46,6 +46,7 @@ from slixmpp import JID
 from slixmpp.stanza import Message
 import sys
 import time
+from typing import Optional
 
 
 logger = Logger(__name__)
@@ -150,8 +151,11 @@ class XmppChat:
             # await compose.message(self, jid_bare, message)
 
             if self['xep_0384'].is_encrypted(message):
-                command, omemo_decrypted = await XmppOmemo.decrypt(
+                command, omemo_decrypted, retry = await XmppOmemo.decrypt(
                     self, message, allow_untrusted)
+                if retry:
+                    command, omemo_decrypted, retry = await XmppOmemo.decrypt(
+                        self, message, allow_untrusted=True)
             else:
                 omemo_decrypted = None
 
@@ -353,7 +357,12 @@ class XmppChat:
                         # XmppMessage.send_oob_reply_message(message, url, response)
                         if url:
                             chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-                            XmppMessage.send_oob(self, jid_bare, url, chat_type)
+                            if encrypted:
+                                url_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
+                                    self, JID(jid_bare), url)
+                                XmppMessage.send_omemo_oob(self, JID(jid_bare), url_encrypted, chat_type)
+                            else:
+                                XmppMessage.send_oob(self, jid_bare, url, chat_type)
                         else:
                             response = 'OPML file export has been failed.'
                         del self.pending_tasks[jid_bare][pending_tasks_num]
@@ -473,6 +482,13 @@ class XmppChat:
                         self, jid_bare, db_file)
                 case _ if command_lowercase.startswith('next'):
                     num = command[5:]
+                    if num:
+                        try:
+                            int(num)
+                        except:
+                            # NOTE Show this text as a status message
+                            # response = 'Argument for command "next" must be an integer.'
+                            num = None
                     await XmppChatAction.send_unread_items(self, jid_bare, num)
                     XmppStatusTask.restart_task(self, jid_bare)
                 case _ if command_lowercase.startswith('node delete'):
@@ -493,6 +509,12 @@ class XmppChat:
                                     'Type: sending news to PubSub.')
                 case 'old':
                     response = await XmppCommands.set_old_on(
+                        self, jid_bare, db_file)
+                case 'omemo off':
+                    response = await XmppCommands.set_omemo_off(
+                        self, jid_bare, db_file)
+                case 'omemo on':
+                    response = await XmppCommands.set_omemo_on(
                         self, jid_bare, db_file)
                 case 'options':
                     response = 'Options:\n```'
@@ -572,9 +594,9 @@ class XmppChat:
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     await asyncio.sleep(5)
-                    tasks = (FeedTask, XmppChatTask, XmppStatusTask)
+                    callbacks = (FeedTask, XmppChatTask, XmppStatusTask)
                     response = await XmppCommands.scheduler_start(
-                        self, db_file, jid_bare, tasks)
+                        self, db_file, jid_bare, callbacks)
                 case 'stats':
                     response = XmppCommands.print_statistics(db_file)
                 case 'stop':
@@ -639,7 +661,7 @@ class XmppChat:
 class XmppChatAction:
 
 
-    async def send_unread_items(self, jid_bare, num=None):
+    async def send_unread_items(self, jid_bare, num: Optional[int] = None):
         """
         Send news items as messages.
 
@@ -693,6 +715,17 @@ class XmppChatAction:
                     media_url = enclosure
                 else:
                     media_url = await Html.extract_image_from_html(url)
+                try:
+                    http_headers = await Http.fetch_headers(media_url)
+                    if ('Content-Length' in http_headers):
+                        if int(http_headers['Content-Length']) < 100000:
+                            media_url = None
+                    else:
+                        media_url = None
+                except Exception as e:
+                    print(media_url)
+                    logger.error(e)
+                    media_url = None
 
             if media_url and news_digest:
                 if encrypt_omemo:
@@ -707,34 +740,55 @@ class XmppChatAction:
                 # Send media
                 if encrypt_omemo:
                     cache_dir = config.get_default_cache_directory()
+                    # if not media_url.startswith('data:'):
                     filename = media_url.split('/').pop().split('?')[0]
+                    if not filename: breakpoint()
                     pathname = os.path.join(cache_dir, filename)
                     # http_response = await Http.response(media_url)
-                    
-                    # http_headers = await Http.fetch_headers(media_url)
-                    # breakpoint()
-                    # status = Http.fetch_media(media_url, pathname)
-                    # if status:
+                    http_headers = await Http.fetch_headers(media_url)
+                    if ('Content-Length' in http_headers and
+                        int(http_headers['Content-Length']) < 3000000):
+                        status = await Http.fetch_media(media_url, pathname)
+                        if status:
+                            filesize = os.path.getsize(pathname)
+                            media_url_new = await XmppUpload.start(
+                                self, jid_bare, Path(pathname), filesize, encrypted=encrypted)
+                        else:
+                            media_url_new = media_url
+                    else:
+                        media_url_new = media_url
+                    # else:
+                    #     import io, base64
+                    #     from PIL import Image
+                    #     file_content = media_url.split(',').pop()
+                    #     file_extension = media_url.split(';')[0].split(':').pop().split('/').pop()
+                    #     img = Image.open(io.BytesIO(base64.decodebytes(bytes(file_content, "utf-8"))))
+                    #     filename = 'image.' + file_extension
+                    #     pathname = os.path.join(cache_dir, filename)
+                    #     img.save(pathname)
                     #     filesize = os.path.getsize(pathname)
                     #     media_url_new = await XmppUpload.start(
                     #         self, jid_bare, Path(pathname), filesize, encrypted=encrypted)
-                    # else:
-                    #     media_url_new = media_url
-                    
-                    media_url_new = media_url
                     media_url_new_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
                         self, jid, media_url_new)
-                    
-                    # NOTE Temporary line!
-                    XmppMessage.send_omemo_oob(self, jid_bare, media_url_new_encrypted, chat_type)
-                    
-                    
-                    # if media_url_new_encrypted and omemo_encrypted:
-                    #     XmppMessage.send_omemo_oob(self, jid, media_url_new_encrypted, chat_type)
-                    # elif media_url:
-                    #     XmppMessage.send_oob(self, jid_bare, media_url_new_encrypted, chat_type)
+                    if media_url_new_encrypted and omemo_encrypted:
+                        # NOTE Tested against Gajim.
+                        # FIXME This only works with aesgcm URLs, and it does
+                        # not work with http URLs.
+                        # url = saxutils.escape(url)
+                        # AttributeError: 'Encrypted' object has no attribute 'replace'
+                        XmppMessage.send_omemo_oob(self, jid, media_url_new_encrypted, chat_type)
                 else:
-                    XmppMessage.send_oob(self, jid_bare, media_url, chat_type)
+                    # NOTE Tested against Gajim.
+                    # FIXME Jandle data: URIs.
+                    if not media_url.startswith('data:'):
+                        http_headers = await Http.fetch_headers(media_url)
+                        if ('Content-Length' in http_headers and
+                            int(http_headers['Content-Length']) > 100000):
+                            print(http_headers['Content-Length'])
+                            XmppMessage.send_oob(self, jid_bare, media_url, chat_type)
+                    else:
+                        XmppMessage.send_oob(self, jid_bare, media_url, chat_type)
                 media_url = None
 
         if news_digest:
