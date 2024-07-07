@@ -59,7 +59,7 @@ class XmppOmemo:
                 response = message_body.decode('utf8')
                 omemo_decrypted = True
             else:
-                response = omemo_decrypted = None
+                response = retry = omemo_decrypted = None
         except (MissingOwnKey,) as exn:
             # The message is missing our own key, it was not encrypted for
             # us, and we can't decrypt it.
