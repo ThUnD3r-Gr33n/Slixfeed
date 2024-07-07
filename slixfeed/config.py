@@ -51,27 +51,32 @@ logger = Logger(__name__)
 # setting_jid.setting_key has value, otherwise resort to setting_default.setting_key.
 class Config:
 
-    def add_settings_default(settings):
+    def add_settings_default(self):
         settings_default = get_values('settings.toml', 'settings')
-        settings['default'] = settings_default
+        self.defaults = settings_default
 
     # TODO Open SQLite file once
-    def add_settings_jid(settings, jid_bare, db_file):
-        settings[jid_bare] = {}
+    def add_settings_jid(self, jid_bare, db_file):
+        self.settings[jid_bare] = {}
         for key in ('archive', 'enabled', 'filter', 'formatting', 'interval',
                     'length', 'media', 'old', 'quantum'):
             value = sqlite.get_setting_value(db_file, key)
-            if value: settings[jid_bare][key] = value[0]
+            if value:
+                self.settings[jid_bare][key] = value[0]
+            elif key != 'formatting':
+                # NOTE This might neglects the need for
+                # self.defaults of get_setting_value
+                self.settings[jid_bare][key] = self.defaults['default'][key]
 
     def get_settings_xmpp(key=None):
         result = get_values('accounts.toml', 'xmpp')
         result = result[key] if key else result
         return result
 
-    async def set_setting_value(settings, jid_bare, db_file, key, val):
+    async def set_setting_value(self, jid_bare, db_file, key, val):
         key = key.lower()
         key_val = [key, val]
-        settings[jid_bare][key] = val
+        self.settings[jid_bare][key] = val
         if sqlite.is_setting_key(db_file, key):
             await sqlite.update_setting_value(db_file, key_val)
         else:
@@ -79,11 +84,11 @@ class Config:
 
     # TODO Segregate Jabber ID settings from Slixfeed wide settings.
     # self.settings, self.settings_xmpp, self.settings_irc etc.
-    def get_setting_value(settings, jid_bare, key):
-        if jid_bare in settings and key in settings[jid_bare]:
-            value = settings[jid_bare][key]
+    def get_setting_value(self, jid_bare, key):
+        if jid_bare in self.settings and key in self.settings[jid_bare]:
+            value = self.settings[jid_bare][key]
         else:
-            value = settings['default'][key]
+            value = self.defaults['default'][key]
         return value
 
 class ConfigNetwork:

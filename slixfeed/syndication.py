@@ -348,7 +348,7 @@ class Feed:
                             if new_entries:
                                 await sqlite.add_entries_and_update_feed_state(
                                     db_file, feed_id, new_entries)
-                            old = Config.get_setting_value(self.settings, jid_bare, 'old')
+                            old = Config.get_setting_value(self, jid_bare, 'old')
                             if not old: await sqlite.mark_feed_as_read(db_file, feed_id)
                             result_final = {'link' : url,
                                             'index' : feed_id,
@@ -1335,7 +1335,7 @@ class FeedTask:
                                 new_entries.extend([new_entry])
                     if new_entries:
                         await sqlite.add_entries_and_update_feed_state(db_file, feed_id, new_entries)
-                        limit = Config.get_setting_value(self.settings, jid_bare, 'archive')
+                        limit = Config.get_setting_value(self, jid_bare, 'archive')
                         ixs = sqlite.get_entries_id_of_feed(db_file, feed_id)
                         ixs_invalid = {}
                         for ix in ixs:
@@ -1361,7 +1361,7 @@ class FeedTask:
                         await sqlite.maintain_archive(db_file, limit)
                 # await sqlite.process_invalid_entries(db_file, ixs)
                 await asyncio.sleep(60 * 2)
-            val = Config.get_setting_value(self.settings, jid_bare, 'check')
+            val = Config.get_setting_value(self, jid_bare, 'check')
             await asyncio.sleep(60 * float(val))
             # Schedule to call this function again in 90 minutes
             # loop.call_at(

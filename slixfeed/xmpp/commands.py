@@ -174,10 +174,8 @@ class XmppCommands:
                     # the look into function "check_updates" of module "task".
                     # await action.scan(self, jid_bare, db_file, url)
                     # if jid_bare not in self.settings:
-                    #     Config.add_settings_jid(self.settings, jid_bare,
-                    #                             db_file)
-                    # old = Config.get_setting_value(self.settings, jid_bare,
-                    #                                'old')
+                    #     Config.add_settings_jid(self, jid_bare, db_file)
+                    # old = Config.get_setting_value(self, jid_bare, 'old')
                     # if old:
                     #     # task.clean_tasks_xmpp_chat(self, jid_bare, ['status'])
                     #     # await send_status(jid)
@@ -234,8 +232,7 @@ class XmppCommands:
 
 
     def get_archive(self, jid_bare):
-        result = Config.get_setting_value(
-            self.settings, jid_bare, 'archive')
+        result = Config.get_setting_value(self, jid_bare, 'archive')
         message = str(result)
         return message
 
@@ -246,10 +243,9 @@ class XmppCommands:
             if val_new > 500:
                 message = 'Value may not be greater than 500.'
             else:
-                val_old = Config.get_setting_value(
-                    self.settings, jid_bare, 'archive')
+                val_old = Config.get_setting_value(self, jid_bare, 'archive')
                 await Config.set_setting_value(
-                    self.settings, jid_bare, db_file, 'archive', val_new)
+                    self, jid_bare, db_file, 'archive', val_new)
                 message = ('Maximum archived items has been set to {} (was: {}).'
                            .format(val_new, val_old))
         except:
@@ -550,8 +546,7 @@ class XmppCommands:
 
 
     def get_interval(self, jid_bare):
-        result = Config.get_setting_value(
-            self.settings, jid_bare, 'interval')
+        result = Config.get_setting_value(self, jid_bare, 'interval')
         message = str(result)
         return message
 
@@ -559,10 +554,9 @@ class XmppCommands:
     async def set_interval(self, db_file, jid_bare, val):
         try:
             val_new = int(val)
-            val_old = Config.get_setting_value(
-                self.settings, jid_bare, 'interval')
+            val_old = Config.get_setting_value(self, jid_bare, 'interval')
             await Config.set_setting_value(
-                self.settings, jid_bare, db_file, 'interval', val_new)
+                self, jid_bare, db_file, 'interval', val_new)
             message = ('Updates will be sent every {} minutes '
                        '(was: {}).'.format(val_new, val_old))
         except Exception as e:
@@ -596,8 +590,7 @@ class XmppCommands:
 
 
     def get_length(self, jid_bare):
-        result = Config.get_setting_value(
-            self.settings, jid_bare, 'length')
+        result = Config.get_setting_value(self, jid_bare, 'length')
         result = str(result)
         return result
 
@@ -605,10 +598,9 @@ class XmppCommands:
     async def set_length(self, db_file, jid_bare, val):
         try:
             val_new = int(val)
-            val_old = Config.get_setting_value(
-                self.settings, jid_bare, 'length')
+            val_old = Config.get_setting_value(self, jid_bare, 'length')
             await Config.set_setting_value(
-                self.settings, jid_bare, db_file, 'length', val_new)
+                self, jid_bare, db_file, 'length', val_new)
             if not val_new: # i.e. val_new == 0
                 # TODO Add action to disable limit
                 message = ('Summary length limit is disabled '
@@ -625,37 +617,37 @@ class XmppCommands:
 
 
     async def set_media_off(self, jid_bare, db_file):
-        await Config.set_setting_value(self.settings, jid_bare, db_file, 'media', 0)
+        await Config.set_setting_value(self, jid_bare, db_file, 'media', 0)
         message = 'Media is disabled.'
         return message
 
 
     async def set_media_on(self, jid_bare, db_file):
-        await Config.set_setting_value(self.settings, jid_bare, db_file, 'media', 1)
+        await Config.set_setting_value(self, jid_bare, db_file, 'media', 1)
         message = 'Media is enabled.'
         return message
 
 
     async def set_old_off(self, jid_bare, db_file):
-        await Config.set_setting_value(self.settings, jid_bare, db_file, 'old', 0)
+        await Config.set_setting_value(self, jid_bare, db_file, 'old', 0)
         message = 'Only new items of newly added feeds be delivered.'
         return message
 
 
     async def set_old_on(self, jid_bare, db_file):
-        await Config.set_setting_value(self.settings, jid_bare, db_file, 'old', 1)
+        await Config.set_setting_value(self, jid_bare, db_file, 'old', 1)
         message = 'All items of newly added feeds be delivered.'
         return message
 
 
     async def set_omemo_off(self, jid_bare, db_file):
-        await Config.set_setting_value(self.settings, jid_bare, db_file, 'omemo', 0)
+        await Config.set_setting_value(self, jid_bare, db_file, 'omemo', 0)
         message = 'OMEMO is disabled.'
         return message
 
 
     async def set_omemo_on(self, jid_bare, db_file):
-        await Config.set_setting_value(self.settings, jid_bare, db_file, 'omemo', 1)
+        await Config.set_setting_value(self, jid_bare, db_file, 'omemo', 1)
         message = 'OMEMO is enabled.'
         return message
 
@@ -699,8 +691,8 @@ class XmppCommands:
     def print_options(self, jid_bare):
         message = ''
         for key in self.settings[jid_bare]:
-            val = Config.get_setting_value(self.settings, jid_bare, key)
-            # val = Config.get_setting_value(self.settings, jid_bare, key)
+            val = Config.get_setting_value(self, jid_bare, key)
+            # val = Config.get_setting_value(self, jid_bare, key)
             steps = 11 - len(key)
             pulse = ''
             for step in range(steps):
@@ -710,8 +702,7 @@ class XmppCommands:
 
 
     def get_quantum(self, jid_bare):
-        result = Config.get_setting_value(
-            self.settings, jid_bare, 'quantum')
+        result = Config.get_setting_value(self, jid_bare, 'quantum')
         message = str(result)
         return message
 
@@ -719,14 +710,13 @@ class XmppCommands:
     async def set_quantum(self, db_file, jid_bare, val):
         try:
             val_new = int(val)
-            val_old = Config.get_setting_value(
-                self.settings, jid_bare, 'quantum')
+            val_old = Config.get_setting_value(self, jid_bare, 'quantum')
             # response = (
             #     'Every update will contain {} news items.'
             #     ).format(response)
             db_file = config.get_pathname_to_database(jid_bare)
-            await Config.set_setting_value(self.settings, jid_bare,
-                                           db_file, 'quantum', val_new)
+            await Config.set_setting_value(
+                self, jid_bare, db_file, 'quantum', val_new)
             message = ('Next update will contain {} news items (was: {}).'
                        .format(val_new, val_old))
         except:
@@ -971,7 +961,7 @@ class XmppCommands:
     # Tasks are classes which are passed to this function
     # On an occasion in which they would have returned, variable "tasks" might be called "callback"
     async def scheduler_start(self, db_file, jid_bare, callbacks):
-        await Config.set_setting_value(self.settings, jid_bare, db_file, 'enabled', 1)
+        await Config.set_setting_value(self, jid_bare, db_file, 'enabled', 1)
         for callback in callbacks:
             callback.restart_task(self, jid_bare)
         message = 'Updates are enabled.'
@@ -979,8 +969,7 @@ class XmppCommands:
 
 
     async def scheduler_stop(self, db_file, jid_bare):
-        await Config.set_setting_value(
-            self.settings, jid_bare, db_file, 'enabled', 0)
+        await Config.set_setting_value(self, jid_bare, db_file, 'enabled', 0)
         for task in ('interval', 'status'):
             if (jid_bare in self.task_manager and
                 task in self.task_manager[jid_bare]):

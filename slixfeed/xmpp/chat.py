@@ -84,7 +84,7 @@ class XmppChat:
             command = ' '.join(message['body'].split())
             command_time_start = time.time()
 
-            # if (message['type'] == 'groupchat' and
+            # if (message_type == 'groupchat' and
             #     message['muc']['nick'] == self.alias):
             #         return
 
@@ -160,7 +160,7 @@ class XmppChat:
             else:
                 omemo_decrypted = None
 
-            if message['type'] == 'groupchat':
+            if message_type == 'groupchat':
                 command = command[1:]
             command_lowercase = command.lower()
 
@@ -168,7 +168,7 @@ class XmppChat:
 
             # Support private message via groupchat
             # See https://codeberg.org/poezio/slixmpp/issues/3506
-            if message['type'] == 'chat' and message.get_plugin('muc', check=True):
+            if message_type == 'chat' and message.get_plugin('muc', check=True):
                 # jid_bare = message_from.bare
                 jid_full = message_from.full
                 if (jid_bare == jid_full[:jid_full.index('/')]):
@@ -349,7 +349,7 @@ class XmppChat:
                                           status_type=status_type)
                         pathname, response = XmppCommands.export_feeds(
                             jid_bare, ext)
-                        encrypt_omemo = Config.get_setting_value(self.settings, jid_bare, 'omemo')
+                        encrypt_omemo = Config.get_setting_value(self, jid_bare, 'omemo')
                         encrypted = True if encrypt_omemo else False
                         url = await XmppUpload.start(self, jid_bare, Path(pathname), encrypted=encrypted)
                         # response = (
@@ -360,8 +360,8 @@ class XmppChat:
                             chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
                             if encrypted:
                                 url_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
-                                    self, JID(jid_bare), url)
-                                XmppMessage.send_omemo_oob(self, JID(jid_bare), url_encrypted, chat_type)
+                                    self, message_from, url)
+                                XmppMessage.send_omemo_oob(self, message_from, url_encrypted, chat_type)
                             else:
                                 XmppMessage.send_oob(self, jid_bare, url, chat_type)
                         else:
@@ -383,7 +383,7 @@ class XmppChat:
                         response = (first_line + result +
                                     '\n```\nTotal of {} feeds'.format(number))
                 case 'goodbye':
-                    if message['type'] == 'groupchat':
+                    if message_type == 'groupchat':
                         await XmppCommands.muc_leave(self, jid_bare)
                     else:
                         response = 'This command is valid in groupchat only.'
@@ -625,16 +625,19 @@ class XmppChat:
             command_time_total = command_time_finish - command_time_start
             command_time_total = round(command_time_total, 3)
             if response:
-                response_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
-                    self, message_from, response)
-                if omemo_encrypted and omemo_decrypted:
-                    message_from = message['from']
-                    message_type = message['type']
-                    XmppMessage.send_omemo(self, message_from, message_type, response_encrypted)
-                    # XmppMessage.send_omemo_reply(self, message, response_encrypted)
+                encrypt_omemo = Config.get_setting_value(self, jid_bare, 'omemo')
+                encrypted = True if encrypt_omemo else False
+                if encrypted and self['xep_0384'].is_encrypted(message):
+                    response_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
+                        self, message_from, response)
+                    if omemo_decrypted and omemo_encrypted:
+                        # message_from = message['from']
+                        # message_type = message['type']
+                        XmppMessage.send_omemo(self, message_from, message_type, response_encrypted)
+                        # XmppMessage.send_omemo_reply(self, message, response_encrypted)
                 else:
                     XmppMessage.send_reply(self, message, response)
-            if Config.get_setting_value(self.settings, jid_bare, 'finished'):
+            if Config.get_setting_value(self, jid_bare, 'finished'):
                 response_finished = 'Finished. Total time: {}s'.format(command_time_total)
                 XmppMessage.send_reply(self, message, response_finished)
 
@@ -676,12 +679,12 @@ class XmppChatAction:
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid: {} num: {}'.format(function_name, jid_bare, num))
         db_file = config.get_pathname_to_database(jid_bare)
-        encrypt_omemo = Config.get_setting_value(self.settings, jid_bare, 'omemo')
+        encrypt_omemo = Config.get_setting_value(self, jid_bare, 'omemo')
         encrypted = True if encrypt_omemo else False
         jid = JID(jid_bare)
-        show_media = Config.get_setting_value(self.settings, jid_bare, 'media')
+        show_media = Config.get_setting_value(self, jid_bare, 'media')
         if not num:
-            num = Config.get_setting_value(self.settings, jid_bare, 'quantum')
+            num = Config.get_setting_value(self, jid_bare, 'quantum')
         else:
             num = int(num)
         results = sqlite.get_unread_entries(db_file, num)
@@ -883,7 +886,7 @@ class XmppChatAction:
             summary = summary.replace('	', ' ')
             # summary = summary.replace('  ', ' ')
             summary = ' '.join(summary.split())
-            length = Config.get_setting_value(self.settings, jid, 'length')
+            length = Config.get_setting_value(self, jid, 'length')
             length = int(length)
             summary = summary[:length] + " […]"
             # summary = summary.strip().split('\n')
@@ -897,7 +900,7 @@ class XmppChatAction:
         feed_id = result[4]
         # news_item = ("\n{}\n{}\n{} [{}]\n").format(str(title), str(link),
         #                                            str(feed_title), str(ix))
-        formatting = Config.get_setting_value(self.settings, jid, 'formatting')
+        formatting = Config.get_setting_value(self, jid, 'formatting')
         news_item = formatting.format(feed_title=feed_title,
                                       title=title,
                                       summary=summary,
@@ -914,9 +917,9 @@ class XmppChatTask:
     async def task_message(self, jid_bare):
         db_file = config.get_pathname_to_database(jid_bare)
         if jid_bare not in self.settings:
-            Config.add_settings_jid(self.settings, jid_bare, db_file)
+            Config.add_settings_jid(self, jid_bare, db_file)
         while True:
-            update_interval = Config.get_setting_value(self.settings, jid_bare, 'interval')
+            update_interval = Config.get_setting_value(self, jid_bare, 'interval')
             update_interval = 60 * int(update_interval)
             last_update_time = sqlite.get_last_update_time(db_file)
             if last_update_time:

@@ -117,14 +117,16 @@ class XmppClient(slixmpp.ClientXMPP):
         # Handler for ping
         self.task_ping_instance = {}
 
+        # Handler for default configuration
+        self.defaults = config.get_values('settings.toml')
         # Handler for configuration
-        self.settings = config.get_values('settings.toml')
+        self.settings = {}
         # Handler for operators
         self.operators = config.get_values('accounts.toml', 'xmpp')['operators']
 
         # self.settings = {}
         # # Populate dict handler
-        # Config.add_settings_default(self.settings)
+        # Config.add_settings_default(self)
 
         # Handlers for connection events
         self.connection_attempts = 0
@@ -353,12 +355,12 @@ class XmppClient(slixmpp.ClientXMPP):
         #     jid_bare = result['jid']
         #     if jid_bare not in self.settings:
         #         db_file = config.get_pathname_to_database(jid_bare)
-        #         Config.add_settings_jid(self.settings, jid_bare, db_file)
+        #         Config.add_settings_jid(self, jid_bare, db_file)
         #     await FeedTask.check_updates(self, jid_bare)
         #     XmppPubsubTask.task_publish(self, jid_bare)
         bookmarks = await XmppBookmark.get_bookmarks(self)
         await XmppGroupchat.autojoin(self, bookmarks)
-        if 'ipc' in self.settings and self.settings['ipc']['bsd']:
+        if 'ipc' in self.defaults and self.defaults['ipc']['bsd']:
             # Start Inter-Process Communication
             print('POSIX sockets: Initiating IPC server...')
             self.ipc = asyncio.create_task(XmppIpcServer.ipc(self))
@@ -408,7 +410,7 @@ class XmppClient(slixmpp.ClientXMPP):
         jid_bare = message['from'].bare
         db_file = config.get_pathname_to_database(jid_bare)
         if jid_bare not in self.settings:
-            Config.add_settings_jid(self.settings, jid_bare, db_file)
+            Config.add_settings_jid(self, jid_bare, db_file)
         if jid_bare == self.boundjid.bare:
             status_type = 'dnd'
             status_message = ('Slixfeed is not designed to receive messages '
@@ -1308,7 +1310,7 @@ class XmppClient(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         db_file = config.get_pathname_to_database(jid_bare)
         if jid_bare not in self.settings:
-            Config.add_settings_jid(self.settings, jid_bare, db_file)
+            Config.add_settings_jid(self, jid_bare, db_file)
         form = self['xep_0004'].make_form('form', 'Profile')
         form['instructions'] = ('Displaying information\nJabber ID {}'
                                 .format(jid_bare))
@@ -1332,42 +1334,42 @@ class XmppClient(slixmpp.ClientXMPP):
                        value=unread)
         form.add_field(ftype='fixed',
                        label='Options')
-        key_archive = Config.get_setting_value(self.settings, jid_bare, 'archive')
+        key_archive = Config.get_setting_value(self, jid_bare, 'archive')
         key_archive = str(key_archive)
         form.add_field(label='Archive',
                        ftype='text-single',
                        value=key_archive)
-        key_enabled = Config.get_setting_value(self.settings, jid_bare, 'enabled')
+        key_enabled = Config.get_setting_value(self, jid_bare, 'enabled')
         key_enabled = str(key_enabled)
         form.add_field(label='Enabled',
                        ftype='text-single',
                        value=key_enabled)
-        key_interval = Config.get_setting_value(self.settings, jid_bare, 'interval')
+        key_interval = Config.get_setting_value(self, jid_bare, 'interval')
         key_interval = str(key_interval)
         form.add_field(label='Interval',
                        ftype='text-single',
                        value=key_interval)
-        key_length = Config.get_setting_value(self.settings, jid_bare, 'length')
+        key_length = Config.get_setting_value(self, jid_bare, 'length')
         key_length = str(key_length)
         form.add_field(label='Length',
                        ftype='text-single',
                        value=key_length)
-        key_media = Config.get_setting_value(self.settings, jid_bare, 'media')
+        key_media = Config.get_setting_value(self, jid_bare, 'media')
         key_media = str(key_media)
         form.add_field(label='Media',
                        ftype='text-single',
                        value=key_media)
-        key_old = Config.get_setting_value(self.settings, jid_bare, 'old')
+        key_old = Config.get_setting_value(self, jid_bare, 'old')
         key_old = str(key_old)
         form.add_field(label='Old',
                        ftype='text-single',
                        value=key_old)
-        key_quantum = Config.get_setting_value(self.settings, jid_bare, 'quantum')
+        key_quantum = Config.get_setting_value(self, jid_bare, 'quantum')
         key_quantum = str(key_quantum)
         form.add_field(label='Quantum',
                        ftype='text-single',
                        value=key_quantum)
-        update_interval = Config.get_setting_value(self.settings, jid_bare, 'interval')
+        update_interval = Config.get_setting_value(self, jid_bare, 'interval')
         update_interval = str(update_interval)
         update_interval = 60 * int(update_interval)
         last_update_time = sqlite.get_last_update_time(db_file)
@@ -2899,7 +2901,7 @@ class XmppClient(slixmpp.ClientXMPP):
         exts = values['filetype']
         for ext in exts:
             filename = Feed.export_feeds(jid_bare, ext)
-            encrypt_omemo = Config.get_setting_value(self.settings, jid_bare, 'omemo')
+            encrypt_omemo = Config.get_setting_value(self, jid_bare, 'omemo')
             encrypted = True if encrypt_omemo else False
             url = await XmppUpload.start(
                 self, jid_bare, Path(filename), encrypted=encrypted)
@@ -3079,7 +3081,7 @@ class XmppClient(slixmpp.ClientXMPP):
                 form['instructions'] = ('Select a Publish-Subscribe service '
                                         'of which nodes you want to list.')
                 # jid_bare = self.boundjid.bare
-                # enabled_state = Config.get_setting_value(self.settings, jid_bare, 'enabled')
+                # enabled_state = Config.get_setting_value(self, jid_bare, 'enabled')
 
                 results = await XmppPubsub.get_pubsub_services(self)
                 options = form.add_field(desc='Select a PubSub service.',
@@ -3104,7 +3106,7 @@ class XmppClient(slixmpp.ClientXMPP):
                                ftype='fixed',
                                label='Jabber ID')
                 # jid_bare = self.boundjid.bare
-                # enabled_state = Config.get_setting_value(self.settings, jid_bare, 'enabled')
+                # enabled_state = Config.get_setting_value(self, jid_bare, 'enabled')
 
                 results = await XmppPubsub.get_pubsub_services(self)
                 for result in results + [{'jid' : self.boundjid.bare,
@@ -3112,7 +3114,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     jid_bare = result['jid']
                     name = result['name']
                     enabled_state = Config.get_setting_value(
-                        self.settings, jid_bare, 'enabled')
+                        self, jid_bare, 'enabled')
                     form.add_field(desc=jid_bare,
                                    ftype='boolean',
                                    label=name,
@@ -3383,9 +3385,9 @@ class XmppClient(slixmpp.ClientXMPP):
                 value = values[key]
                 db_file = config.get_pathname_to_database(jid_bare)
                 if jid_bare not in self.settings:
-                    Config.add_settings_jid(self.settings, jid_bare, db_file)
-                await Config.set_setting_value(self.settings, jid_bare,
-                                               db_file, 'enabled', value)
+                    Config.add_settings_jid(self, jid_bare, db_file)
+                await Config.set_setting_value(
+                    self, jid_bare, db_file, 'enabled', value)
         print(self.settings)
         text_note = 'Done.'
         session['has_next'] = False
@@ -3645,10 +3647,10 @@ class XmppClient(slixmpp.ClientXMPP):
         if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
             db_file = config.get_pathname_to_database(jid_bare)
             if jid_bare not in self.settings:
-                Config.add_settings_jid(self.settings, jid_bare, db_file)
+                Config.add_settings_jid(self, jid_bare, db_file)
             form = self['xep_0004'].make_form('form', 'Settings')
             form['instructions'] = 'Editing settings of {}'.format(jid_bare)
-            value = Config.get_setting_value(self.settings, jid_bare, 'enabled')
+            value = Config.get_setting_value(self, jid_bare, 'enabled')
             value = str(value)
             value = int(value)
             if value:
@@ -3660,7 +3662,7 @@ class XmppClient(slixmpp.ClientXMPP):
                            label='Enabled',
                            value=value,
                            var='enabled')
-            value = Config.get_setting_value(self.settings, jid_bare, 'media')
+            value = Config.get_setting_value(self, jid_bare, 'media')
             value = str(value)
             value = int(value)
             if value:
@@ -3672,7 +3674,7 @@ class XmppClient(slixmpp.ClientXMPP):
                            label='Display media',
                            value=value,
                            var='media')
-            value = Config.get_setting_value(self.settings, jid_bare, 'old')
+            value = Config.get_setting_value(self, jid_bare, 'old')
             value = str(value)
             value = int(value)
             if value:
@@ -3686,7 +3688,7 @@ class XmppClient(slixmpp.ClientXMPP):
                            label='Include old news',
                            value=value,
                            var='old')
-            value = Config.get_setting_value(self.settings, jid_bare, 'interval')
+            value = Config.get_setting_value(self, jid_bare, 'interval')
             value = str(value)
             value = int(value)
             value = value/60
@@ -3707,7 +3709,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     i += 6
                 else:
                     i += 1
-            value = Config.get_setting_value(self.settings, jid_bare, 'quantum')
+            value = Config.get_setting_value(self, jid_bare, 'quantum')
             value = str(value)
             options = form.add_field(desc='Amount of items per update.',
                                      ftype='list-single',
@@ -3721,7 +3723,7 @@ class XmppClient(slixmpp.ClientXMPP):
                 x = str(i)
                 options.addOption(x, x)
                 i += 1
-            value = Config.get_setting_value(self.settings, jid_bare, 'archive')
+            value = Config.get_setting_value(self, jid_bare, 'archive')
             value = str(value)
             options = form.add_field(desc='Number of news items to archive.',
                                      ftype='list-single',
@@ -3762,7 +3764,7 @@ class XmppClient(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         db_file = config.get_pathname_to_database(jid_bare)
         if jid_bare not in self.settings:
-            Config.add_settings_jid(self.settings, jid_bare, db_file)
+            Config.add_settings_jid(self, jid_bare, db_file)
         # In this case (as is typical), the payload is a form
         values = payload['values']
         for key in values:
@@ -3781,7 +3783,7 @@ class XmppClient(slixmpp.ClientXMPP):
                 if val < 1: val = 1
                 val = val * 60
 
-            is_enabled = Config.get_setting_value(self.settings, jid_bare, 'enabled')
+            is_enabled = Config.get_setting_value(self, jid_bare, 'enabled')
 
             if (key == 'enabled' and
                 val == 1 and
@@ -3807,7 +3809,7 @@ class XmppClient(slixmpp.ClientXMPP):
                 XmppPresence.send(self, jid_bare, status_message,
                                   status_type=status_type)
 
-            await Config.set_setting_value(self.settings, jid_bare, db_file, key, val)
+            await Config.set_setting_value(self, jid_bare, db_file, key, val)
             val = self.settings[jid_bare][key]
 
             if key in ('enabled', 'media', 'old'):
