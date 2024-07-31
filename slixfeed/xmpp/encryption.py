@@ -49,6 +49,7 @@ class XmppOmemo:
     async def decrypt(self, message: Message, allow_untrusted: bool = False):
         jid = message['from']
         try:
+            print('XmppOmemo.decrypt')
             message_omemo_encrypted = message['omemo_encrypted']
             message_body = await self['xep_0384'].decrypt_message(
                 message_omemo_encrypted, jid, allow_untrusted)
@@ -62,6 +63,7 @@ class XmppOmemo:
                 omemo_decrypted = response = None
             retry = None
         except (MissingOwnKey,) as exn:
+            print('XmppOmemo.decrypt. except: MissingOwnKey')
             # The message is missing our own key, it was not encrypted for
             # us, and we can't decrypt it.
             response = ('Error: Your message has not been encrypted for '
@@ -70,6 +72,7 @@ class XmppOmemo:
             retry = False
             logger.error(exn)
         except (NoAvailableSession,) as exn:
+            print('XmppOmemo.decrypt. except: NoAvailableSession')
             # We received a message from that contained a session that we
             # don't know about (deleted session storage, etc.). We can't
             # decrypt the message, and it's going to be lost.
@@ -82,6 +85,8 @@ class XmppOmemo:
             retry = False
             logger.error(exn)
         except (UndecidedException, UntrustedException) as exn:
+            print('XmppOmemo.decrypt. except: UndecidedException')
+            print('XmppOmemo.decrypt. except: UntrustedException')
             # We received a message from an untrusted device. We can
             # choose to decrypt the message nonetheless, with the
             # `allow_untrusted` flag on the `decrypt_message` call, which
@@ -98,6 +103,7 @@ class XmppOmemo:
             # We resend, setting the `allow_untrusted` parameter to True.
             # await XmppChat.process_message(self, message, allow_untrusted=True)
         except (EncryptionPrepareException,) as exn:
+            print('XmppOmemo.decrypt. except: EncryptionPrepareException')
             # Slixmpp tried its best, but there were errors it couldn't
             # resolve. At this point you should have seen other exceptions
             # and given a chance to resolve them already.
@@ -107,6 +113,7 @@ class XmppOmemo:
             retry = False
             logger.error(exn)
         except (Exception,) as exn:
+            print('XmppOmemo.decrypt. except: Exception')
             response = ('Error: Your message has not been encrypted for '
                         'Slixfeed (Unknown).')
             omemo_decrypted = False
@@ -118,9 +125,12 @@ class XmppOmemo:
 
 
     async def encrypt(self, jid: JID, message_body):
+        print(jid)
+        print(message_body)
         expect_problems = {}  # type: Optional[Dict[JID, List[int]]]
         while True:
             try:
+                print('XmppOmemo.encrypt')
                 # `encrypt_message` excepts the plaintext to be sent, a list of
                 # bare JIDs to encrypt to, and optionally a dict of problems to
                 # expect per bare JID.
@@ -137,6 +147,7 @@ class XmppOmemo:
                 omemo_encrypted = True
                 break
             except UndecidedException as exn:
+                print('XmppOmemo.encrypt. except: UndecidedException')
                 # The library prevents us from sending a message to an
                 # untrusted/undecided barejid, so we need to make a decision here.
                 # This is where you prompt your user to ask what to do. In
@@ -145,6 +156,7 @@ class XmppOmemo:
                 omemo_encrypted = False
             # TODO: catch NoEligibleDevicesException
             except EncryptionPrepareException as exn:
+                print('XmppOmemo.encrypt. except: EncryptionPrepareException')
                 # This exception is being raised when the library has tried
                 # all it could and doesn't know what to do anymore. It
                 # contains a list of exceptions that the user must resolve, or
@@ -168,10 +180,12 @@ class XmppOmemo:
                         device_list = expect_problems.setdefault(jid, [])
                         device_list.append(error.device)
             except (IqError, IqTimeout) as exn:
+                print('XmppOmemo.encrypt. except: IqError, IqTimeout')
                 message_body = ('An error occured while fetching information '
                                 'on a recipient.\n%r' % exn)
                 omemo_encrypted = False
             except Exception as exn:
+                print('XmppOmemo.encrypt. except: Exception')
                 message_body = ('An error occured while attempting to encrypt'
                                 '.\n%r' % exn)
                 omemo_encrypted = False

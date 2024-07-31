@@ -19,6 +19,7 @@ from slixfeed.syndication import Feed
 from slixfeed.utilities import String, Url, Utilities
 from slixfeed.xmpp.iq import XmppIQ
 import sys
+import time
 
 logger = Logger(__name__)
 
@@ -370,10 +371,49 @@ class XmppPubsubAction:
                 await XmppIQ.send(self, iq_create_entry)
                 ix = entry[0]
                 await sqlite.mark_as_read(db_file, ix)
+        print(report)
         return report
 
 
 class XmppPubsubTask:
+
+
+    def loop_task(self, jid_bare):
+        db_file = config.get_pathname_to_database(jid_bare)
+        if jid_bare not in self.settings:
+            Config.add_settings_jid(self, jid_bare, db_file)
+        while True:
+            if jid_bare not in self.task_manager:
+                self.task_manager[jid_bare] = {}
+                logger.info('Creating new task manager for JID {}'.format(jid_bare))
+            logger.info('Stopping task "publish" for JID {}'.format(jid_bare))
+            try:
+                self.task_manager[jid_bare]['publish'].cancel()
+            except:
+                logger.info('No task "publish" for JID {} (XmppPubsubAction.send_unread_items)'
+                            .format(jid_bare))
+            logger.info('Starting tasks "publish" for JID {}'.format(jid_bare))
+            self.task_manager[jid_bare]['publish'] = asyncio.create_task(
+                XmppPubsubAction.send_unread_items(self, jid_bare))
+            time.sleep(60 * 180)
+
+
+    def restart_task(self, jid_bare):
+        db_file = config.get_pathname_to_database(jid_bare)
+        if jid_bare not in self.settings:
+            Config.add_settings_jid(self, jid_bare, db_file)
+        if jid_bare not in self.task_manager:
+            self.task_manager[jid_bare] = {}
+            logger.info('Creating new task manager for JID {}'.format(jid_bare))
+        logger.info('Stopping task "publish" for JID {}'.format(jid_bare))
+        try:
+            self.task_manager[jid_bare]['publish'].cancel()
+        except:
+            logger.info('No task "publish" for JID {} (XmppPubsubAction.send_unread_items)'
+                        .format(jid_bare))
+        logger.info('Starting tasks "publish" for JID {}'.format(jid_bare))
+        self.task_manager[jid_bare]['publish'] = asyncio.create_task(
+            XmppPubsubAction.send_unread_items(self, jid_bare))
 
 
     async def task_publish(self, jid_bare):

@@ -88,7 +88,7 @@ $ slixfeed
 
 ## Recommended Clients
 
-Slixfeed works with any XMPP chat client; if you want to make use of the visual interface Slixfeed has to offer (i.e. Ad-Hoc Commands), then you are advised to use [Cheogram](https://cheogram.com), [Converse](https://conversejs.org), [Gajim](https://gajim.org), [monocles chat](https://monocles.chat), [Movim](https://mov.im), [Poezio](https://poez.io), [Psi](https://psi-im.org) or [Psi+](https://psi-plus.com).
+Slixfeed works with any XMPP chat client; if you want to make use of the visual interface Slixfeed has to offer (i.e. Ad-Hoc Commands), then you are advised to use [Cheogram](https://cheogram.com), [Converse](https://conversejs.org), [Gajim](https://gajim.org), [LeechCraft](https://leechcraft.org/plugins-azoth-xoox), [monocles chat](https://monocles.chat), [Movim](https://mov.im), [Poezio](https://poez.io), [Psi](https://psi-im.org) or [Psi+](https://psi-plus.com).
 
 ### Support
 

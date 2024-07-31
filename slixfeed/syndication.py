@@ -1371,6 +1371,10 @@ class FeedTask:
             # )
 
 
+#   Consider an endless loop. See XmppPubsubTask.loop_task
+#   def restart_task(self, jid_bare):
+
+
     def restart_task(self, jid_bare):
         if jid_bare == self.boundjid.bare:
             return

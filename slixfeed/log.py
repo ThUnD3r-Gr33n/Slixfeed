@@ -58,4 +58,5 @@ class Message:
     def printer(text):
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
-        print('{} {}'.format(current_time, text), end='\r')
+#        print('{} {}'.format(current_time, text), end='\r')
+        print('{} {}'.format(current_time, text))

@@ -349,21 +349,29 @@ class XmppClient(slixmpp.ClientXMPP):
         await self.get_roster()
         # self.service_reactions()
         XmppConnectTask.ping(self)
-        # results = await XmppPubsub.get_pubsub_services(self)
-        # for result in results + [{'jid' : self.boundjid.bare,
-        #                             'name' : self.alias}]:
-        #     jid_bare = result['jid']
-        #     if jid_bare not in self.settings:
-        #         db_file = config.get_pathname_to_database(jid_bare)
-        #         Config.add_settings_jid(self, jid_bare, db_file)
-        #     await FeedTask.check_updates(self, jid_bare)
-        #     XmppPubsubTask.task_publish(self, jid_bare)
+
         bookmarks = await XmppBookmark.get_bookmarks(self)
         await XmppGroupchat.autojoin(self, bookmarks)
         if 'ipc' in self.defaults and self.defaults['ipc']['bsd']:
             # Start Inter-Process Communication
             print('POSIX sockets: Initiating IPC server...')
             self.ipc = asyncio.create_task(XmppIpcServer.ipc(self))
+
+        while True:
+            results = await XmppPubsub.get_pubsub_services(self)
+            for result in results + [{'jid' : self.boundjid.bare,
+                                        'name' : self.alias}]:
+                jid_bare = result['jid']
+                if jid_bare not in self.settings:
+                    db_file = config.get_pathname_to_database(jid_bare)
+                    Config.add_settings_jid(self, jid_bare, db_file)
+                #await FeedTask.check_updates(self, jid_bare)
+                #await XmppPubsubTask.task_publish(self, jid_bare)
+                FeedTask.restart_task(self, jid_bare)
+                #XmppPubsubTask.loop_task(self, jid_bare)
+                XmppPubsubTask.restart_task(self, jid_bare)
+            await asyncio.sleep(60 * 180)
+
         time_end = time.time()
         difference = time_end - time_begin
         if difference > 1: logger.warning('{} (time: {})'.format(function_name,
