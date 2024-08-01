@@ -245,7 +245,7 @@ and webhooks.
 User ⇄ XMPP client ⇄ XMPP Server ⇄ XMPP Bot ⇄ REST API
 """]
 interface = "Groupchat"
-url = "https://github.com/nioc/xmpp-bot"
+url = "https://git.xmpp-it.net/roughnecks/xmpp-bot"
 
 [[legal]]
 title = "Legal"

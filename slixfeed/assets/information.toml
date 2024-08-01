@@ -3,7 +3,7 @@ info = """
 Slixfeed is a news broker bot for syndicated news which aims to be \
 an easy to use and fully-featured news aggregating bot.
 
-Slixfeed provides a convenient access to Blogs, News sites and \
+Slixfeed provides a convenient access to Blogs, News websites and \
 even Fediverse instances, along with filtering and other privacy \
 driven functionalities.
 

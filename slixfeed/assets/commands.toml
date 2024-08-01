@@ -213,6 +213,18 @@ read <url> <index>
 Display specified entry number from given <url> by given <index>.
 """
 
+[pubsub]
+pubsub = """
+pubsub [off|on]
+Designate JID as PubSub service.
+"""
+
+[send]
+send = """
+send <pubsub>/<jid> <url> <node>
+Send feeds to given JID.
+"""
+
 [search]
 feeds = """
 feeds

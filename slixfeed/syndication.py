@@ -1376,8 +1376,6 @@ class FeedTask:
 
 
     def restart_task(self, jid_bare):
-        if jid_bare == self.boundjid.bare:
-            return
         if jid_bare not in self.task_manager:
             self.task_manager[jid_bare] = {}
             logger.info('Creating new task manager for JID {}'.format(jid_bare))

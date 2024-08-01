@@ -463,7 +463,7 @@ class XmppClient(slixmpp.ClientXMPP):
         logger.debug(message_log.format(function_name, jid_full))
         # await task.check_readiness(self, presence)
         jid_bare = presence['from'].bare
-        if jid_bare in self.boundjid.bare:
+        if jid_bare == self.boundjid.bare:
             return
         if presence['show'] in ('away', 'dnd', 'xa'):
             if (jid_bare in self.task_manager and
@@ -532,7 +532,7 @@ class XmppClient(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         jid_bare = presence['from'].bare
-        if jid_bare in self.boundjid.bare:
+        if jid_bare == self.boundjid.bare:
             return
         # FIXME TODO Find out what is the source responsible for a couple presences with empty message
         # NOTE This is a temporary solution
@@ -625,7 +625,7 @@ class XmppClient(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         jid_bare = message['from'].bare
-        if jid_bare in self.boundjid.bare:
+        if jid_bare == self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
             # NOTE: Required for Cheogram
@@ -671,7 +671,7 @@ class XmppClient(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         jid_bare = message['from'].bare
-        if jid_bare in self.boundjid.bare:
+        if jid_bare == self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
             XmppStatusTask.restart_task(self, jid_bare)
@@ -688,7 +688,7 @@ class XmppClient(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         jid_bare = message['from'].bare
-        if jid_bare in self.boundjid.bare:
+        if jid_bare == self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
             XmppStatusTask.restart_task(self, jid_bare)
@@ -705,7 +705,7 @@ class XmppClient(slixmpp.ClientXMPP):
         message_log = '{}: jid_full: {}'
         logger.debug(message_log.format(function_name, jid_full))
         jid_bare = message['from'].bare
-        if jid_bare in self.boundjid.bare:
+        if jid_bare == self.boundjid.bare:
             return
         if message['type'] in ('chat', 'normal'):
             XmppStatusTask.restart_task(self, jid_bare)
