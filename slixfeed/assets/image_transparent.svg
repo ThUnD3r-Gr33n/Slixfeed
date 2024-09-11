@@ -20,15 +20,15 @@
 
   <!-- Black shapes with orange margins -->
   <path d="M167 406a60 60 0 1 1-120 0 60 60 0 0 1 120 0z" 
-        style="fill:#ffa000; stroke:#e15a00; stroke-width:10; filter:url(#shadow);" 
+        style="fill:url(#glassGradient); stroke:#e15a00; stroke-width:10; filter:url(#shadow);" 
         transform="translate(44 44)" />
 
   <path d="M47 186v80c110 0 199 89 199 199h80c0-154-125-279-279-279z" 
-        style="fill:#ffa000; stroke:#e15a00; stroke-width:10; filter:url(#shadow);" 
+        style="fill:url(#glassGradient); stroke:#e15a00; stroke-width:10; filter:url(#shadow);" 
         transform="translate(44 44)" />
 
   <path d="M47 47v79c187 0 338 152 338 339h80C465 234 277 47 47 47z" 
-        style="fill:#ffa000; stroke:#e15a00; stroke-width:10; filter:url(#shadow);" 
+        style="fill:url(#glassGradient); stroke:#e15a00; stroke-width:10; filter:url(#shadow);" 
         transform="translate(44 44)" />
 
   <!-- Glass Shadow Effect Layer -->

@@ -28,9 +28,9 @@ Good luck!
 
 filetypes = "Atom, JSON, RDF, RSS, XML."
 platforms = "XMPP"
-# platforms = "ActivityPub, Briar, DeltaChat, Email, IRC, LXMF, MQTT, Nostr, Session, Tox."
+# platforms = "ActivityPub, BitMessage, Briar, DeltaChat, Email, IRC, LXMF, MQTT, Nostr, Session, Tox."
 comment = "For ideal experience, we recommend using XMPP." # Nostr, Session or DeltaChat
-url = "https://gitgud.io/sjehuda/slixfeed"
+url = "https://git.xmpp-it.net/sch/Slixfeed"
 
 [[about]]
 name = "slixmpp"
@@ -260,7 +260,7 @@ Slixfeed is distributed in the hope that it will be useful, but WITHOUT ANY \
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR \
 A PARTICULAR PURPOSE.  See the MIT License for more details.
 """]
-link = "https://gitgud.io/sjehuda/slixfeed"
+link = "https://git.xmpp-it.net/sch/Slixfeed"
 
 [[license]]
 title = "License"

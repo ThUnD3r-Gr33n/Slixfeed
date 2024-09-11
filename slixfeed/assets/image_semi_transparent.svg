@@ -1,0 +1,51 @@
+<svg height="600" width="600" xmlns="http://www.w3.org/2000/svg" xml:space="preserve">
+  <defs>
+    <!-- Gradient for Glass Effect -->
+    <linearGradient id="glassGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(255, 255, 255, 0.5); stop-opacity:1" />
+      <stop offset="100%" style="stop-color:rgba(0, 0, 0, 0.2); stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="glassHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:rgba(255, 255, 255, 0.8); stop-opacity:1" />
+      <stop offset="100%" style="stop-color:rgba(255, 255, 255, 0); stop-opacity:1" />
+    </linearGradient>
+
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="5" />
+      <feOffset dx="5" dy="5" result="offsetblur" />
+      <feFlood flood-color="rgba(0, 0, 0, 0.3)" />
+      <feComposite in2="offsetblur" operator="in" />
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Shapes with Glass Effect -->
+  <path d="M167 406a60 60 0 1 1-120 0 60 60 0 0 1 120 0z" 
+        style="fill:url(#glassGradient); stroke:#e15a00; stroke-width:10; filter:url(#shadow);" 
+        transform="translate(44 44)" />
+
+  <path d="M47 186v80c110 0 199 89 199 199h80c0-154-125-279-279-279z" 
+        style="fill:url(#glassGradient); stroke:#e15a00; stroke-width:10; filter:url(#shadow);" 
+        transform="translate(44 44)" />
+
+  <path d="M47 47v79c187 0 338 152 338 339h80C465 234 277 47 47 47z" 
+        style="fill:url(#glassGradient); stroke:#e15a00; stroke-width:10; filter:url(#shadow);" 
+        transform="translate(44 44)" />
+
+  <!-- Highlights for Shiny Effect -->
+  <path d="M167 406a60 60 0 1 1-120 0 60 60 0 0 1 120 0z" 
+        style="fill:url(#glassHighlight); opacity:0.6;" 
+        transform="translate(44 44)" />
+
+  <path d="M47 186v80c110 0 199 89 199 199h80c0-154-125-279-279-279z" 
+        style="fill:url(#glassHighlight); opacity:0.6;" 
+        transform="translate(44 44)" />
+
+  <path d="M47 47v79c187 0 338 152 338 339h80C465 234 277 47 47 47z" 
+        style="fill:url(#glassHighlight); opacity:0.6;" 
+        transform="translate(44 44)" />
+</svg>

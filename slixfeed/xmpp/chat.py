@@ -36,7 +36,6 @@ import slixfeed.sqlite as sqlite
 from slixfeed.syndication import FeedTask
 from slixfeed.utilities import Documentation, Html, MD, Task, Url
 from slixfeed.xmpp.commands import XmppCommands
-from slixfeed.xmpp.encryption import XmppOmemo
 from slixfeed.xmpp.message import XmppMessage
 from slixfeed.xmpp.presence import XmppPresence
 from slixfeed.xmpp.status import XmppStatusTask
@@ -48,6 +47,10 @@ import sys
 import time
 from typing import Optional
 
+try:
+    from slixfeed.xmpp.encryption import XmppOmemo
+except Exception as e:
+    print('Encryption of type OMEMO is not enabled.  Reason: ' + str(e))
 
 logger = Logger(__name__)
 
@@ -150,7 +153,7 @@ class XmppChat:
 
             # await compose.message(self, jid_bare, message)
 
-            if self['xep_0384'].is_encrypted(message):
+            if self.omemo_present and self['xep_0384'].is_encrypted(message):
                 allow_untrusted=True # Temporary fix. This should be handled by "retry""
                 command, omemo_decrypted, retry = await XmppOmemo.decrypt(
                     self, message, allow_untrusted)
@@ -229,8 +232,8 @@ class XmppChat:
                 case _ if command_lowercase in ['greetings', 'hallo', 'hello',
                                                 'hey', 'hi', 'hola', 'holla',
                                                 'hollo']:
-                    response = ('Greeting! My name is {}.\n'
-                                'I am an RSS News Bot.\n'
+                    response = ('Greeting. My name is {}.\n'
+                                'I am an Atom/RSS News Bot.\n'
                                 'Send "help" for further instructions.\n'
                                 .format(self.alias))
                 case _ if command_lowercase.startswith('add'):
@@ -358,7 +361,7 @@ class XmppChat:
                         # XmppMessage.send_oob_reply_message(message, url, response)
                         if url:
                             chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-                            if encrypted:
+                            if self.omemo_present and encrypted:
                                 url_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
                                     self, message_from, url)
                                 XmppMessage.send_omemo_oob(self, message_from, url_encrypted, chat_type)
@@ -591,7 +594,7 @@ class XmppChat:
                     response = XmppCommands.search_items(db_file, query)
                 case 'start':
                     status_type = 'available'
-                    status_message = '📫️ Welcome back!'
+                    status_message = '📫️ Welcome back.'
                     XmppPresence.send(self, jid_bare, status_message,
                                       status_type=status_type)
                     await asyncio.sleep(5)
@@ -627,7 +630,7 @@ class XmppChat:
             if response:
                 encrypt_omemo = Config.get_setting_value(self, jid_bare, 'omemo')
                 encrypted = True if encrypt_omemo else False
-                if encrypted and self['xep_0384'].is_encrypted(message):
+                if self.omemo_present and encrypted and self['xep_0384'].is_encrypted(message):
                     response_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
                         self, message_from, response)
                     if omemo_decrypted and omemo_encrypted:
@@ -732,17 +735,17 @@ class XmppChatAction:
                     media_url = None
 
             if media_url and news_digest:
-                if encrypt_omemo:
+                if self.omemo_present and encrypt_omemo:
                     news_digest_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
                         self, jid, news_digest)
-                if encrypt_omemo and omemo_encrypted:
+                if self.omemo_present and encrypt_omemo and omemo_encrypted:
                     XmppMessage.send_omemo(self, jid, chat_type, news_digest_encrypted)
                 else:
                     # Send textual message
                     XmppMessage.send(self, jid_bare, news_digest, chat_type)
                 news_digest = ''
                 # Send media
-                if encrypt_omemo:
+                if self.omemo_present and encrypt_omemo:
                     cache_dir = config.get_default_cache_directory()
                     # if not media_url.startswith('data:'):
                     filename = media_url.split('/').pop().split('?')[0]
@@ -796,9 +799,10 @@ class XmppChatAction:
                 media_url = None
 
         if news_digest:
-            if encrypt_omemo: news_digest_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
-                self, jid, news_digest)
-            if encrypt_omemo and omemo_encrypted:
+            if self.omemo_present and encrypt_omemo:
+                news_digest_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
+                    self, jid, news_digest)
+            if self.omemo_present and encrypt_omemo and omemo_encrypted:
                 XmppMessage.send_omemo(self, jid, chat_type, news_digest_encrypted)
             else:
                 XmppMessage.send(self, jid_bare, news_digest, chat_type)

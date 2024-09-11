@@ -57,7 +57,18 @@ It is possible to install Slixfeed using pip and pipx.
 ```
 $ python3 -m venv .venv
 $ source .venv/bin/activate
+```
+
+##### Install
+
+```
 $ pip install git+https://git.xmpp-it.net/sch/Slixfeed
+```
+
+##### Install (OMEMO)
+
+```
+$ pip install git+https://git.xmpp-it.net/sch/Slixfeed[omemo]
 ```
 
 #### pipx

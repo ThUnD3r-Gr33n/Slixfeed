@@ -54,7 +54,6 @@ from slixfeed.version import __version__
 from slixfeed.xmpp.bookmark import XmppBookmark
 from slixfeed.xmpp.chat import XmppChat, XmppChatTask
 from slixfeed.xmpp.connect import XmppConnect, XmppConnectTask
-from slixfeed.xmpp.encryption import XmppOmemo
 from slixfeed.xmpp.groupchat import XmppGroupchat
 from slixfeed.xmpp.ipc import XmppIpcServer
 from slixfeed.xmpp.iq import XmppIQ
@@ -69,8 +68,6 @@ from slixfeed.xmpp.status import XmppStatusTask
 from slixfeed.xmpp.upload import XmppUpload
 from slixfeed.xmpp.utilities import XmppUtilities
 from slixmpp import JID
-import slixmpp_omemo
-from slixmpp_omemo import PluginCouldNotLoad
 import sys
 import time
 
@@ -154,21 +151,32 @@ class XmppClient(slixmpp.ClientXMPP):
         self.register_plugin('xep_0363') # HTTP File Upload
         self.register_plugin('xep_0402') # PEP Native Bookmarks
         self.register_plugin('xep_0444') # Message Reactions
+
         try:
-            self.register_plugin(
-                'xep_0384',
-                {
-                    'data_dir': Data.get_pathname_to_omemo_directory(),
-                },
-                module=slixmpp_omemo,) # OMEMO Encryption
-        except (PluginCouldNotLoad,):
-            logger.error('An error has occured when loading the OMEMO plugin.')
-            sys.exit(1)
-        try:
-            self.register_plugin('xep_0454')
-        except slixmpp.plugins.base.PluginNotFound:
-            logger.error('Could not load xep_0454. Ensure you have '
-                         '\'cryptography\' from extras_require installed.')
+            from slixfeed.xmpp.encryption import XmppOmemo
+            import slixmpp_omemo
+            from slixmpp_omemo import PluginCouldNotLoad
+            self.omemo_present = True
+        except Exception as e:
+            print('Encryption of type OMEMO is not enabled.  Reason: ' + str(e))
+            self.omemo_present = False
+
+        if self.omemo_present:
+            try:
+                self.register_plugin(
+                    'xep_0384',
+                    {
+                        'data_dir': Data.get_pathname_to_omemo_directory(),
+                    },
+                    module=slixmpp_omemo,) # OMEMO Encryption
+            except (PluginCouldNotLoad,):
+                logger.error('An error has occured when loading the OMEMO plugin.')
+                sys.exit(1)
+            try:
+                self.register_plugin('xep_0454')
+            except slixmpp.plugins.base.PluginNotFound:
+                logger.error('Could not load xep_0454. Ensure you have '
+                             '\'cryptography\' from extras_require installed.')
 
         # proxy_enabled = config.get_value('accounts', 'XMPP', 'proxy_enabled')
         # if proxy_enabled == '1':
@@ -868,7 +876,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid, chat_type):
             form = self['xep_0004'].make_form('form', 'PubSub')
             form['instructions'] = 'Publish news items to PubSub nodes.'
             options = form.add_field(desc='From which medium source do you '
@@ -889,16 +897,16 @@ class XmppClient(slixmpp.ClientXMPP):
             session['prev'] = None
             session['payload'] = form
         else:
-            if not XmppUtilities.is_operator(self, jid_bare):
+            if chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            elif not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
                              .format(jid_bare))
-            elif chat_type == 'error':
-                text_warn = ('Could not determine chat type of {}.'
-                             .format(jid_bare))
             else:
-                text_warn = 'This resource is forbidden.'
+                text_warn = 'This resource is restricted.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -909,7 +917,7 @@ class XmppClient(slixmpp.ClientXMPP):
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid, chat_type):
             values = payload['values']
             form = self['xep_0004'].make_form('form', 'Publish')
             form['instructions'] = ('Choose a PubSub Jabber ID and verify '
@@ -997,16 +1005,16 @@ class XmppClient(slixmpp.ClientXMPP):
             session['has_next'] = True
             session['prev'] = self._handle_publish
         else:
-            if not XmppUtilities.is_operator(self, jid_bare):
+            if chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            elif not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
                              .format(jid_bare))
-            elif chat_type == 'error':
-                text_warn = ('Could not determine chat type of {}.'
-                             .format(jid_bare))
             else:
-                text_warn = 'This resource is forbidden.'
+                text_warn = 'This resource is restricted.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -1413,13 +1421,14 @@ class XmppClient(slixmpp.ClientXMPP):
         return session
 
     async def _handle_filters(self, iq, session):
+        jid = session['from']
         jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid, chat_type):
             jid = session['from'].bare
             db_file = config.get_pathname_to_database(jid_bare)
             form = self['xep_0004'].make_form('form', 'Filters')
@@ -1458,16 +1467,16 @@ class XmppClient(slixmpp.ClientXMPP):
             session['next'] = self._handle_filters_complete
             session['payload'] = form
         else:
-            if not XmppUtilities.is_operator(self, jid_bare):
+            if chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            elif not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
                              .format(jid_bare))
-            elif chat_type == 'error':
-                text_warn = ('Could not determine chat type of {}.'
-                             .format(jid_bare))
             else:
-                text_warn = 'This resource is forbidden.'
+                text_warn = 'This resource is restricted.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -1522,13 +1531,14 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscription_add(self, iq, session):
+        jid = session['from']
         jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscribe')
             # form['instructions'] = 'Add a new custom subscription.'
             form.add_field(desc='Enter a URL.',
@@ -1570,16 +1580,16 @@ class XmppClient(slixmpp.ClientXMPP):
             session['prev'] = None
             session['payload'] = form
         else:
-            if not XmppUtilities.is_operator(self, jid_bare):
+            if chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            elif not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
                              .format(jid_bare))
-            elif chat_type == 'error':
-                text_warn = ('Could not determine chat type of {}.'
-                             .format(jid_bare))
             else:
-                text_warn = 'This resource is forbidden.'
+                text_warn = 'This resource is restricted.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -2036,13 +2046,14 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_discover(self, iq, session):
+        jid = session['from']
         jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid, chat_type):
             form = self['xep_0004'].make_form('form', 'Discover & Search')
             form['instructions'] = 'Discover news subscriptions of all kinds'
             options = form.add_field(desc='Select type of search.',
@@ -2059,16 +2070,16 @@ class XmppClient(slixmpp.ClientXMPP):
             session['payload'] = form
             session['prev'] = None
         else:
-            if not XmppUtilities.is_operator(self, jid_bare):
+            if chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            elif not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
                              .format(jid_bare))
-            elif chat_type == 'error':
-                text_warn = ('Could not determine chat type of {}.'
-                             .format(jid_bare))
             else:
-                text_warn = 'This resource is forbidden.'
+                text_warn = 'This resource is restricted.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -2160,13 +2171,14 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_subscriptions(self, iq, session):
+        jid = session['from']
         jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscriptions')
             form['instructions'] = ('Browse, view, toggle or remove '
                                     'tags and subscriptions.')
@@ -2210,16 +2222,16 @@ class XmppClient(slixmpp.ClientXMPP):
             session['next'] = self._handle_subscriptions_result
             session['has_next'] = True
         else:
-            if not XmppUtilities.is_operator(self, jid_bare):
+            if chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            elif not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
                              .format(jid_bare))
-            elif chat_type == 'error':
-                text_warn = ('Could not determine chat type of {}.'
-                             .format(jid_bare))
             else:
-                text_warn = 'This resource is forbidden.'
+                text_warn = 'This resource is restricted.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -2520,13 +2532,13 @@ class XmppClient(slixmpp.ClientXMPP):
 
 
     async def _handle_advanced(self, iq, session):
-        jid_full = session['from'].full
+        jid = session['from']
         function_name = sys._getframe().f_code.co_name
-        logger.debug('{}: jid_full: {}'
-                    .format(function_name, jid_full))
+        logger.debug('{}: jid: {}'
+                    .format(function_name, jid))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid, chat_type):
             form = self['xep_0004'].make_form('form', 'Advanced')
             form['instructions'] = 'Extended options'
             options = form.add_field(ftype='list-single',
@@ -2547,16 +2559,16 @@ class XmppClient(slixmpp.ClientXMPP):
             session['next'] = self._handle_advanced_result
             session['prev'] = self._handle_advanced
         else:
-            if not XmppUtilities.is_operator(self, jid_bare):
+            if chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            elif not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
                              .format(jid_bare))
-            elif chat_type == 'error':
-                text_warn = ('Could not determine chat type of {}.'
-                             .format(jid_bare))
             else:
-                text_warn = 'This resource is forbidden.'
+                text_warn = 'This resource is restricted.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -2940,6 +2952,7 @@ class XmppClient(slixmpp.ClientXMPP):
     # TODO Attempt to look up for feeds of hostname of JID (i.e. scan
     # jabber.de for feeds for juliet@jabber.de)
     async def _handle_promoted(self, iq, session):
+        jid = session['from']
         jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
@@ -2947,7 +2960,7 @@ class XmppClient(slixmpp.ClientXMPP):
         jid_bare = session['from'].bare
         jid_full = session['from'].full
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid, chat_type):
             form = self['xep_0004'].make_form('form', 'Subscribe')
             # NOTE Refresh button would be of use
             form['instructions'] = 'Featured subscriptions'
@@ -2998,16 +3011,16 @@ class XmppClient(slixmpp.ClientXMPP):
             session['payload'] = form
             session['prev'] = self._handle_promoted
         else:
-            if not XmppUtilities.is_operator(self, jid_bare):
+            if chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            elif not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
                              .format(jid_bare))
-            elif chat_type == 'error':
-                text_warn = ('Could not determine chat type of {}.'
-                             .format(jid_bare))
             else:
-                text_warn = 'This resource is forbidden.'
+                text_warn = 'This resource is restricted.'
             session['notes'] = [['warn', text_warn]]
         return session
 
@@ -3646,13 +3659,14 @@ class XmppClient(slixmpp.ClientXMPP):
                        session. Additional, custom data may be saved
                        here to persist across handler callbacks.
         """
+        jid = session['from']
         jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
                     .format(function_name, jid_full))
         jid_bare = session['from'].bare
         chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
-        if XmppUtilities.is_access(self, jid_bare, jid_full, chat_type):
+        if XmppUtilities.is_access(self, jid, chat_type):
             db_file = config.get_pathname_to_database(jid_bare)
             if jid_bare not in self.settings:
                 Config.add_settings_jid(self, jid_bare, db_file)
@@ -3750,16 +3764,16 @@ class XmppClient(slixmpp.ClientXMPP):
             session['next'] = self._handle_settings_complete
             session['payload'] = form
         else:
-            if not XmppUtilities.is_operator(self, jid_bare):
+            if chat_type == 'error':
+                text_warn = ('Could not determine chat type of {}.'
+                             .format(jid_bare))
+            elif not XmppUtilities.is_operator(self, jid_bare):
                 text_warn = 'This resource is restricted to operators.'
             elif chat_type == 'groupchat':
                 text_warn = ('This resource is restricted to moderators of {}.'
                              .format(jid_bare))
-            elif chat_type == 'error':
-                text_warn = ('Could not determine chat type of {}.'
-                             .format(jid_bare))
             else:
-                text_warn = 'This resource is forbidden.'
+                text_warn = 'This resource is restricted.'
             session['notes'] = [['warn', text_warn]]
         return session
 

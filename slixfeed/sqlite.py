@@ -3032,7 +3032,7 @@ def check_entry_exist(db_file, feed_id, identifier=None, title=None, link=None,
                 """
                 SELECT id
                 FROM entries_properties
-                WHERE identifier = :identifier and feed_id = :feed_id
+                WHERE identifier = :identifier AND feed_id = :feed_id
                 """
                 )
             par = {

@@ -9,10 +9,8 @@ logger = Logger(__name__)
 # class XmppChat
 # class XmppUtility:
 
-    
 class XmppUtilities:
 
-    
     async def get_chat_type(self, jid):
         """
         Check chat (i.e. JID) type.
@@ -60,21 +58,18 @@ class XmppUtilities:
         return result
 
 
-
-    def is_access(self, jid_bare, jid_full, chat_type):
+    def is_access(self, jid, chat_type):
         """Determine access privilege"""
-        operator = XmppUtilities.is_operator(self, jid_bare)
-        if operator:
-            if chat_type == 'groupchat':
-                if XmppUtilities.is_moderator(self, jid_bare, jid_full):
-                    access = True
-            else:
-                access = True
+        room = jid_bare = jid.bare
+        alias = jid.resource
+        if chat_type == 'groupchat':
+            access = True if XmppUtilities.is_moderator(self, room, alias) else False
+            if access: print('Access granted to groupchat moderator ' + alias)
         else:
-            access = False
+            print('Access granted to chat ' + jid_bare)
+            access = True
         return access
-    
-    
+
     def is_operator(self, jid_bare):
         """Check if given JID is an operator"""
         result = False
@@ -84,25 +79,29 @@ class XmppUtilities:
                 # operator_name = operator['name']
                 break
         return result
-    
-    
-    def is_moderator(self, jid_bare, jid_full):
-        """Check if given JID is a moderator"""
-        alias = jid_full[jid_full.index('/')+1:]
-        role = self.plugin['xep_0045'].get_jid_property(jid_bare, alias, 'role')
-        if role == 'moderator':
-            result = True
-        else:
-            result = False
+
+    def is_admin(self, room, alias):
+        """Check if given JID is an administrator"""
+        affiliation = self.plugin['xep_0045'].get_jid_property(room, alias, 'affiliation')
+        result = True if affiliation == 'admin' else False
         return result
-    
-    
+
+    def is_owner(self, room, alias):
+        """Check if given JID is an owner"""
+        affiliation = self.plugin['xep_0045'].get_jid_property(room, alias, 'affiliation')
+        result = True if affiliation == 'owner' else False
+        return result
+
+    def is_moderator(self, room, alias):
+        """Check if given JID is a moderator"""
+        role = self.plugin['xep_0045'].get_jid_property(room, alias, 'role')
+        result = True if role == 'moderator' else False
+        return result
+
+    # NOTE Would this properly work when Alias and Local differ?
     def is_member(self, jid_bare, jid_full):
         """Check if given JID is a member"""
         alias = jid_full[jid_full.index('/')+1:]
         affiliation = self.plugin['xep_0045'].get_jid_property(jid_bare, alias, 'affiliation')
-        if affiliation == 'member':
-            result = True
-        else:
-            result = False
+        result = True if affiliation == 'member' else False
         return result
