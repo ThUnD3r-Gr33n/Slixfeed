@@ -43,7 +43,7 @@ from asyncio import TimeoutError
 # from http.client import IncompleteRead
 # from lxml import html
 # from xml.etree.ElementTree import ElementTree, ParseError
-import requests
+#import requests
 import slixfeed.config as config
 from slixfeed.log import Logger
 # import urllib.request
