@@ -26,6 +26,8 @@ TODO
 import json
 from omemo.storage import Just, Maybe, Nothing, Storage
 from omemo.types import DeviceInformation, JSONType
+import os
+from slixfeed.config import Data
 from slixfeed.log import Logger
 from slixmpp import JID
 from slixmpp.exceptions import IqTimeout, IqError
@@ -90,7 +92,7 @@ class XmppOmemo:
 
         if len(encryption_errors) > 0:
             print(f'There were non-critical errors during encryption: {encryption_errors}')
-            # log.info(f'There were non-critical errors during encryption: {encryption_errors}')
+            #log.info(f'There were non-critical errors during encryption: {encryption_errors}')
 
         # for namespace, message in messages.items():
         #     message['eme']['namespace'] = namespace
@@ -252,7 +254,8 @@ class StorageImpl(Storage):
     Example storage implementation that stores all data in a single JSON file.
     """
 
-    JSON_FILE = "/home/admin/omemo-echo-client.json"
+    omemo_dir = Data.get_pathname_to_omemo_directory()
+    JSON_FILE = os.path.join(omemo_dir, 'omemo.json')
 
     def __init__(self) -> None:
         super().__init__()
@@ -310,7 +313,8 @@ class XEP_0384Impl(XEP_0384):  # pylint: disable=invalid-name
         blindly_trusted: FrozenSet[DeviceInformation],
         identifier: Optional[str]
     ) -> None:
-        log.info(f"[{identifier}] Devices trusted blindly: {blindly_trusted}")
+        print(f"[{identifier}] Devices trusted blindly: {blindly_trusted}")
+        #log.info(f"[{identifier}] Devices trusted blindly: {blindly_trusted}")
 
     async def _prompt_manual_trust(
         self,
