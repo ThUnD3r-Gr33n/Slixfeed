@@ -94,17 +94,15 @@ class XmppChat:
             # FIXME Code repetition. See below.
             # TODO Check alias by nickname associated with conference
             if message_type == 'groupchat':
-                if (message['muc']['nick'] == self.alias):
+                alias = message['muc']['nick']
+                if (alias == self.alias):
                     return
-                jid_full = message_from.full
-                if not XmppUtilities.is_moderator(self, jid_bare, jid_full):
+                if not XmppUtilities.is_moderator(self, jid_bare, alias):
                     return
-
-            if message_type == 'groupchat':
                 # nick = message['from'][message['from'].index('/')+1:]
                 # nick = str(message['from'])
                 # nick = nick[nick.index('/')+1:]
-                if (message['muc']['nick'] == self.alias or
+                if (alias == self.alias or
                     not message['body'].startswith('!')):
                     return
                 # token = await initdb(
@@ -122,8 +120,7 @@ class XmppChat:
                 #         if nick not in operator:
                 #             return
                 # approved = False
-                jid_full = message_from.full
-                if not XmppUtilities.is_moderator(self, jid_bare, jid_full):
+                if not XmppUtilities.is_moderator(self, jid_bare, alias):
                     return
                 # if role == 'moderator':
                 #     approved = True
