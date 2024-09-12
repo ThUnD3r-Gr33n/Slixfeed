@@ -23,17 +23,18 @@ TODO
 
 """
 
-from omemo.exceptions import MissingBundleException
+import json
+from omemo.storage import Just, Maybe, Nothing, Storage
+from omemo.types import DeviceInformation, JSONType
 from slixfeed.log import Logger
 from slixmpp import JID
 from slixmpp.exceptions import IqTimeout, IqError
+#from slixmpp.plugins import register_plugin
 from slixmpp.stanza import Message
-from slixmpp_omemo import MissingOwnKey, EncryptionPrepareException
-from slixmpp_omemo import UndecidedException, UntrustedException, NoAvailableSession
-
+from slixmpp_omemo import TrustLevel, XEP_0384
+from typing import Any, Dict, FrozenSet, Literal, Optional, Union
 
 logger = Logger(__name__)
-
 
     # for task in main_task:
     #     task.cancel()
@@ -46,7 +47,59 @@ logger = Logger(__name__)
 class XmppOmemo:
 
 
-    async def decrypt(self, message: Message, allow_untrusted: bool = False):
+    async def decrypt(self, stanza: Message):
+
+        omemo_decrypted = None
+
+        mto = stanza["from"]
+        mtype = stanza["type"]
+
+        namespace = self['xep_0384'].is_encrypted(stanza)
+        if namespace is None:
+            omemo_decrypted = False
+            response = f"Unencrypted message or unsupported message encryption: {stanza['body']}"
+        else:
+            print(f'Message in namespace {namespace} received: {stanza}')
+            try:
+                response, device_information = await self['xep_0384'].decrypt_message(stanza)
+                print(f'Information about sender: {device_information}')
+                omemo_decrypted = True
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                response = f'Error {type(e).__name__}: {e}'
+
+        return response, omemo_decrypted
+
+
+    async def encrypt(
+        self,
+        mto: JID,
+        mtype: Literal['chat', 'normal'],
+        mbody: str
+    ) -> None:
+        
+        if isinstance(mbody, str):
+            reply = self.make_message(mto=mto, mtype=mtype)
+            reply['body'] = mbody
+
+        reply.set_to(mto)
+        reply.set_from(self.boundjid)
+
+        # It might be a good idea to strip everything except for the body from the stanza,
+        # since some things might break when echoed.
+        message, encryption_errors = await self['xep_0384'].encrypt_message(reply, mto)
+
+        if len(encryption_errors) > 0:
+            print(f'There were non-critical errors during encryption: {encryption_errors}')
+            # log.info(f'There were non-critical errors during encryption: {encryption_errors}')
+
+        # for namespace, message in messages.items():
+        #     message['eme']['namespace'] = namespace
+        #     message['eme']['name'] = self['xep_0380'].mechanisms[namespace]
+
+        return message, True
+
+
+    async def _decrypt(self, message: Message, allow_untrusted: bool = False):
         jid = message['from']
         try:
             print('XmppOmemo.decrypt')
@@ -124,7 +177,7 @@ class XmppOmemo:
         return response, omemo_decrypted, retry
 
 
-    async def encrypt(self, jid: JID, message_body):
+    async def _encrypt(self, jid: JID, message_body):
         print(jid)
         print(message_body)
         expect_problems = {}  # type: Optional[Dict[JID, List[int]]]
@@ -192,3 +245,95 @@ class XmppOmemo:
                 raise
 
         return message_body, omemo_encrypted
+
+
+class StorageImpl(Storage):
+    """
+    Example storage implementation that stores all data in a single JSON file.
+    """
+
+    JSON_FILE = "/home/admin/omemo-echo-client.json"
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.__data: Dict[str, JSONType] = {}
+        try:
+            with open(self.JSON_FILE, encoding="utf8") as f:
+                self.__data = json.load(f)
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
+
+    async def _load(self, key: str) -> Maybe[JSONType]:
+        if key in self.__data:
+            return Just(self.__data[key])
+
+        return Nothing()
+
+    async def _store(self, key: str, value: JSONType) -> None:
+        self.__data[key] = value
+        with open(self.JSON_FILE, "w", encoding="utf8") as f:
+            json.dump(self.__data, f)
+
+    async def _delete(self, key: str) -> None:
+        self.__data.pop(key, None)
+        with open(self.JSON_FILE, "w", encoding="utf8") as f:
+            json.dump(self.__data, f)
+
+
+class XEP_0384Impl(XEP_0384):  # pylint: disable=invalid-name
+    """
+    Example implementation of the OMEMO plugin for Slixmpp.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # pylint: disable=redefined-outer-name
+        super().__init__(*args, **kwargs)
+
+        # Just the type definition here
+        self.__storage: Storage
+
+    def plugin_init(self) -> None:
+        self.__storage = StorageImpl()
+
+        super().plugin_init()
+
+    @property
+    def storage(self) -> Storage:
+        return self.__storage
+
+    @property
+    def _btbv_enabled(self) -> bool:
+        return True
+
+    async def _devices_blindly_trusted(
+        self,
+        blindly_trusted: FrozenSet[DeviceInformation],
+        identifier: Optional[str]
+    ) -> None:
+        log.info(f"[{identifier}] Devices trusted blindly: {blindly_trusted}")
+
+    async def _prompt_manual_trust(
+        self,
+        manually_trusted: FrozenSet[DeviceInformation],
+        identifier: Optional[str]
+    ) -> None:
+        # Since BTBV is enabled and we don't do any manual trust adjustments in the example, this method
+        # should never be called. All devices should be automatically trusted blindly by BTBV.
+
+        # To show how a full implementation could look like, the following code will prompt for a trust
+        # decision using `input`:
+        session_mananger = await self.get_session_manager()
+
+        for device in manually_trusted:
+            while True:
+                answer = input(f"[{identifier}] Trust the following device? (yes/no) {device}")
+                if answer in { "yes", "no" }:
+                    await session_mananger.set_trust(
+                        device.bare_jid,
+                        device.identity_key,
+                        TrustLevel.TRUSTED.value if answer == "yes" else TrustLevel.DISTRUSTED.value
+                    )
+                    break
+                print("Please answer yes or no.")
+
+#register_plugin(XEP_0384Impl)

@@ -66,7 +66,7 @@ class XmppUtilities:
             access = True if XmppUtilities.is_moderator(self, room, alias) else False
             if access: print('Access granted to groupchat moderator ' + alias)
         else:
-            print('Access granted to chat ' + jid_bare)
+            print('Access granted to chat jid ' + jid_bare)
             access = True
         return access
 

@@ -366,7 +366,7 @@ def create_tables(db_file):
                 id INTEGER NOT NULL,
                 feed_id INTEGER NOT NULL,
                 tag_id INTEGER NOT NULL,
-                FOREIGN KEY ("feed_id") REFERENCES "feeds" ("id")
+                FOREIGN KEY ("feed_id") REFERENCES "feeds_properties" ("id")
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,
                 FOREIGN KEY ("tag_id") REFERENCES "tags" ("id")

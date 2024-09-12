@@ -145,22 +145,40 @@ class XmppClient(slixmpp.ClientXMPP):
         self.register_plugin('xep_0115') # Entity Capabilities
         self.register_plugin('xep_0122') # Data Forms Validation
         self.register_plugin('xep_0153') # vCard-Based Avatars
-        self.register_plugin('xep_0199', {'keepalive': True}) # XMPP Ping
+        self.register_plugin('xep_0199', # XMPP Ping
+                             {'keepalive': True})
         self.register_plugin('xep_0203') # Delayed Delivery
         self.register_plugin('xep_0249') # Direct MUC Invitations
         self.register_plugin('xep_0363') # HTTP File Upload
+        self.register_plugin('xep_0380') # Explicit Message Encryption
         self.register_plugin('xep_0402') # PEP Native Bookmarks
         self.register_plugin('xep_0444') # Message Reactions
 
         try:
-            from slixfeed.xmpp.encryption import XmppOmemo
             import slixmpp_omemo
-            from slixmpp_omemo import PluginCouldNotLoad
             self.omemo_present = True
         except Exception as e:
             print('Encryption of type OMEMO is not enabled.  Reason: ' + str(e))
             self.omemo_present = False
 
+        if self.omemo_present:
+            #from slixmpp.xmlstream.handler import CoroutineCallback
+            #from slixmpp.xmlstream.matcher import MatchXPath
+            #self.register_handler(CoroutineCallback(
+            #    'Messages',
+            #    MatchXPath(f'{{{self.default_ns}}}message'),
+            #    self.on_message  # type: ignore[arg-type]
+            #))
+
+            from slixfeed.xmpp.encryption import XEP_0384Impl
+            from slixfeed.xmpp.encryption import XmppOmemo
+            import slixfeed.xmpp.encryption as slixfeed_xmpp_encryption
+            from slixmpp.plugins import register_plugin
+            register_plugin(XEP_0384Impl)
+            self.register_plugin('xep_0384', # OMEMO Encryption
+                                  module=XEP_0384Impl)
+
+        """
         if self.omemo_present:
             try:
                 self.register_plugin(
@@ -177,7 +195,7 @@ class XmppClient(slixmpp.ClientXMPP):
             except slixmpp.plugins.base.PluginNotFound:
                 logger.error('Could not load xep_0454. Ensure you have '
                              '\'cryptography\' from extras_require installed.')
-
+        """
         # proxy_enabled = config.get_value('accounts', 'XMPP', 'proxy_enabled')
         # if proxy_enabled == '1':
         #     values = config.get_value('accounts', 'XMPP', [
@@ -870,6 +888,7 @@ class XmppClient(slixmpp.ClientXMPP):
     # http://jabber.org/protocol/commands#actions
 
     async def _handle_publish(self, iq, session):
+        jid = session['from']
         jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
@@ -911,6 +930,7 @@ class XmppClient(slixmpp.ClientXMPP):
         return session
 
     async def _handle_publish_action(self, payload, session):
+        jid = session['from']
         jid_full = session['from'].full
         function_name = sys._getframe().f_code.co_name
         logger.debug('{}: jid_full: {}'
@@ -1340,7 +1360,7 @@ class XmppClient(slixmpp.ClientXMPP):
         form.add_field(label='Active',
                        ftype='text-single',
                        value=feeds_act)
-        entries = sqlite.get_number_of_items(db_file, 'entries_properties')
+        entries = str(sqlite.get_number_of_items(db_file, 'entries_properties'))
         form.add_field(label='Items',
                        ftype='text-single',
                        value=entries)
@@ -1350,44 +1370,35 @@ class XmppClient(slixmpp.ClientXMPP):
                        value=unread)
         form.add_field(ftype='fixed',
                        label='Options')
-        key_archive = Config.get_setting_value(self, jid_bare, 'archive')
-        key_archive = str(key_archive)
+        key_archive = str(Config.get_setting_value(self, jid_bare, 'archive'))
         form.add_field(label='Archive',
                        ftype='text-single',
                        value=key_archive)
-        key_enabled = Config.get_setting_value(self, jid_bare, 'enabled')
-        key_enabled = str(key_enabled)
+        key_enabled = str(Config.get_setting_value(self, jid_bare, 'enabled'))
         form.add_field(label='Enabled',
                        ftype='text-single',
                        value=key_enabled)
-        key_interval = Config.get_setting_value(self, jid_bare, 'interval')
-        key_interval = str(key_interval)
+        key_interval = str(Config.get_setting_value(self, jid_bare, 'interval'))
         form.add_field(label='Interval',
                        ftype='text-single',
                        value=key_interval)
-        key_length = Config.get_setting_value(self, jid_bare, 'length')
-        key_length = str(key_length)
+        key_length = str(Config.get_setting_value(self, jid_bare, 'length'))
         form.add_field(label='Length',
                        ftype='text-single',
                        value=key_length)
-        key_media = Config.get_setting_value(self, jid_bare, 'media')
-        key_media = str(key_media)
+        key_media = str(Config.get_setting_value(self, jid_bare, 'media'))
         form.add_field(label='Media',
                        ftype='text-single',
                        value=key_media)
-        key_old = Config.get_setting_value(self, jid_bare, 'old')
-        key_old = str(key_old)
+        key_old = str(Config.get_setting_value(self, jid_bare, 'old'))
         form.add_field(label='Old',
                        ftype='text-single',
                        value=key_old)
-        key_quantum = Config.get_setting_value(self, jid_bare, 'quantum')
-        key_quantum = str(key_quantum)
+        key_quantum = str(Config.get_setting_value(self, jid_bare, 'quantum'))
         form.add_field(label='Quantum',
                        ftype='text-single',
                        value=key_quantum)
-        update_interval = Config.get_setting_value(self, jid_bare, 'interval')
-        update_interval = str(update_interval)
-        update_interval = 60 * int(update_interval)
+        update_interval = 60 * Config.get_setting_value(self, jid_bare, 'interval')
         last_update_time = sqlite.get_last_update_time(db_file)
         if last_update_time:
             last_update_time = float(last_update_time)
@@ -2930,7 +2941,7 @@ class XmppClient(slixmpp.ClientXMPP):
                 chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
                 if encrypted:
                     url_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
-                        self, JID(jid_bare), url)
+                        self, JID(jid_bare), 'chat', url)
                     XmppMessage.send_omemo_oob(self, JID(jid_bare), url_encrypted, chat_type)
                 else:
                     XmppMessage.send_oob(self, jid_bare, url, chat_type)

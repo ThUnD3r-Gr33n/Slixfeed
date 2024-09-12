@@ -154,18 +154,23 @@ class XmppChat:
             # await compose.message(self, jid_bare, message)
 
             if self.omemo_present and self['xep_0384'].is_encrypted(message):
-                allow_untrusted=True # Temporary fix. This should be handled by "retry""
-                command, omemo_decrypted, retry = await XmppOmemo.decrypt(
-                    self, message, allow_untrusted)
-                if retry:
-                    command, omemo_decrypted, retry = await XmppOmemo.decrypt(
-                        self, message, allow_untrusted=True)
+                command, omemo_decrypted = await XmppOmemo.decrypt(
+                    self, message)
             else:
                 omemo_decrypted = None
 
             if message_type == 'groupchat':
                 command = command[1:]
-            command_lowercase = command.lower()
+
+            if isinstance(command, str):
+                command_lowercase = command.lower()
+            elif isinstance(command, Message):
+                command_lowercase = command['body'].lower()
+
+            # This is a work-around to empty messages that are caused by function
+            # self.register_handler(CoroutineCallback( of module client.py.
+            # The code was taken from the cho bot xample of slixmpp-omemo.
+            #if not command_lowercase: return
 
             logger.debug([message_from.full, ':', command])
 
@@ -363,7 +368,7 @@ class XmppChat:
                             chat_type = await XmppUtilities.get_chat_type(self, jid_bare)
                             if self.omemo_present and encrypted:
                                 url_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
-                                    self, message_from, url)
+                                    self, message_from, 'chat', url)
                                 XmppMessage.send_omemo_oob(self, message_from, url_encrypted, chat_type)
                             else:
                                 XmppMessage.send_oob(self, jid_bare, url, chat_type)
@@ -632,7 +637,7 @@ class XmppChat:
                 encrypted = True if encrypt_omemo else False
                 if self.omemo_present and encrypted and self['xep_0384'].is_encrypted(message):
                     response_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
-                        self, message_from, response)
+                        self, message_from, 'chat', response)
                     if omemo_decrypted and omemo_encrypted:
                         # message_from = message['from']
                         # message_type = message['type']
@@ -737,7 +742,7 @@ class XmppChatAction:
             if media_url and news_digest:
                 if self.omemo_present and encrypt_omemo:
                     news_digest_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
-                        self, jid, news_digest)
+                        self, jid, 'chat', news_digest)
                 if self.omemo_present and encrypt_omemo and omemo_encrypted:
                     XmppMessage.send_omemo(self, jid, chat_type, news_digest_encrypted)
                 else:
@@ -777,7 +782,7 @@ class XmppChatAction:
                     #     media_url_new = await XmppUpload.start(
                     #         self, jid_bare, Path(pathname), filesize, encrypted=encrypted)
                     media_url_new_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
-                        self, jid, media_url_new)
+                        self, jid, 'chat', media_url_new)
                     if media_url_new_encrypted and omemo_encrypted:
                         # NOTE Tested against Gajim.
                         # FIXME This only works with aesgcm URLs, and it does
@@ -801,7 +806,7 @@ class XmppChatAction:
         if news_digest:
             if self.omemo_present and encrypt_omemo:
                 news_digest_encrypted, omemo_encrypted = await XmppOmemo.encrypt(
-                    self, jid, news_digest)
+                    self, jid, 'chat', news_digest)
             if self.omemo_present and encrypt_omemo and omemo_encrypted:
                 XmppMessage.send_omemo(self, jid, chat_type, news_digest_encrypted)
             else:

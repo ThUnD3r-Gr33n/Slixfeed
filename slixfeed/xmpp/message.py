@@ -41,14 +41,17 @@ class XmppMessage:
 
 
     def send_omemo(self, jid: JID, chat_type, response_encrypted):
-        jid_from = str(self.boundjid) if self.is_component else None
-        message = self.make_message(mto=jid, mfrom=jid_from, mtype=chat_type)
-        eme_ns = 'eu.siacs.conversations.axolotl'
+        # jid_from = str(self.boundjid) if self.is_component else None
+        # message = self.make_message(mto=jid, mfrom=jid_from, mtype=chat_type)
+        # eme_ns = 'eu.siacs.conversations.axolotl'
         # message['eme']['namespace'] = eme_ns
         # message['eme']['name'] = self['xep_0380'].mechanisms[eme_ns]
-        message['eme'] = {'namespace': eme_ns}
         # message['eme'] = {'name': self['xep_0380'].mechanisms[eme_ns]}
-        message.append(response_encrypted)
+        # message['eme'] = {'namespace': eme_ns}
+        # message.append(response_encrypted)
+        for namespace, message in response_encrypted.items():
+            message['eme']['namespace'] = namespace
+            message['eme']['name'] = self['xep_0380'].mechanisms[namespace]
         message.send()
 
 

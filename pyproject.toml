@@ -47,7 +47,6 @@ dependencies = [
     "feedparser",
     "lxml",
     "python-dateutil",
-    "requests",
     "slixmpp",
     "tomli", # Python 3.10
     "tomli_w",
@@ -59,14 +58,7 @@ Repository = "https://git.xmpp-it.net/sch/Slixfeed"
 Issues = "https://gitgud.io/sjehuda/slixfeed/issues"
 
 [project.optional-dependencies]
-omemo = [
-    "DoubleRatchet>=0.7.0,<0.8",
-    "OMEMO>=0.13.0,<0.15",
-    "protobuf==3.20.3",
-    "slixmpp-omemo",
-    "X3DH>=0.5.9,<0.6",
-    "XEdDSA<0.5,>=0.4.7",
-]
+omemo = ["slixmpp-omemo"]
 proxy = ["pysocks"]
 
 # [project.readme]
