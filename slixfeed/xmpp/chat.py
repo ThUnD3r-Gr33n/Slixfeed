@@ -159,13 +159,10 @@ class XmppChat:
             else:
                 omemo_decrypted = None
 
-            if message_type == 'groupchat':
-                command = command[1:]
+            if message_type == 'groupchat': command = command[1:]
+            if isinstance(command, Message): command = command['body']
 
-            if isinstance(command, str):
-                command_lowercase = command.lower()
-            elif isinstance(command, Message):
-                command_lowercase = command['body'].lower()
+            command_lowercase = command.lower()
 
             # This is a work-around to empty messages that are caused by function
             # self.register_handler(CoroutineCallback( of module client.py.
