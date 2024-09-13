@@ -1370,10 +1370,16 @@ class FeedTask:
             #     self.check_updates(jid)
             # )
 
-
 #   Consider an endless loop. See XmppPubsubTask.loop_task
 #   def restart_task(self, jid_bare):
 
+    async def loop_task(self, jid_bare):
+        await asyncio.sleep(60)
+        while True:
+            logger.info('Looping task "check" for JID {}'.format(jid_bare))
+            print('Looping task "check" for JID {}'.format(jid_bare))
+            await FeedTask.check_updates(self, jid_bare)
+            await asyncio.sleep(60 * 60)
 
     def restart_task(self, jid_bare):
         if jid_bare not in self.task_manager:
