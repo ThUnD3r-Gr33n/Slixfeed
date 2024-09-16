@@ -157,9 +157,11 @@ class XmppChat:
             else:
                 omemo_decrypted = None
 
-            # Adding one to the length because of assumption that a comma or a dot is added
-            alias_of_slixfeed_length = len(alias_of_slixfeed) + 1
-            if message_type == 'groupchat': command = (command[alias_of_slixfeed_length:]).lstrip()
+            if message_type == 'groupchat':
+                # Adding one to the length because of
+                # assumption that a comma or a dot is added
+                alias_of_slixfeed_length = len(alias_of_slixfeed) + 1
+                command = (command[alias_of_slixfeed_length:]).lstrip()
             if isinstance(command, Message): command = command['body']
 
             command_lowercase = command.lower()
