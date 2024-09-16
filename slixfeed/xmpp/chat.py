@@ -102,8 +102,9 @@ class XmppChat:
                 # nick = message['from'][message['from'].index('/')+1:]
                 # nick = str(message['from'])
                 # nick = nick[nick.index('/')+1:]
+                alias_of_slixfeed = XmppUtilities.get_self_alias(self, jid_bare)
                 if (alias == self.alias or
-                    not message['body'].startswith('!')):
+                    not message['body'].startswith(alias_of_slixfeed)):
                     return
                 # token = await initdb(
                 #     jid_bare,
@@ -156,7 +157,9 @@ class XmppChat:
             else:
                 omemo_decrypted = None
 
-            if message_type == 'groupchat': command = command[1:]
+            # Adding one to the length because of assumption that a comma or a dot is added
+            alias_of_slixfeed_length = len(alias_of_slixfeed) + 1
+            if message_type == 'groupchat': command = (command[alias_of_slixfeed_length:]).lstrip()
             if isinstance(command, Message): command = command['body']
 
             command_lowercase = command.lower()

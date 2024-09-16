@@ -11,6 +11,12 @@ logger = Logger(__name__)
 
 class XmppUtilities:
 
+    def get_self_alias(self, room):
+        """Get self alias of a given group chat"""
+        jid_full = self.plugin['xep_0045'].get_our_jid_in_room(room)
+        alias = jid_full.split('/')[1]
+        return alias
+
     async def get_chat_type(self, jid):
         """
         Check chat (i.e. JID) type.
