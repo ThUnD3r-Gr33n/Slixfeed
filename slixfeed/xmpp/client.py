@@ -1802,10 +1802,10 @@ class XmppClient(slixmpp.ClientXMPP):
         identifier = values['identifier'] if 'identifier' in values else None
         url = values['subscription']
         jid_bare = session['from'].bare
-        if XmppUtilities.is_operator(self, jid_bare) and 'jid' in values:
-            custom_jid = values['jid']
-            jid_bare = custom_jid[0] if isinstance(custom_jid, list) else jid_bare
-            # jid_bare = custom_jid[0] if custom_jid else jid_bare
+        if 'jid' in values: custom_jid = values['jid']
+        if XmppUtilities.is_operator(self, jid_bare) and custom_jid:
+            if isinstance(custom_jid, list): custom_jid = custom_jid[0]
+            jid_bare = custom_jid or jid_bare
             form.add_field(var='jid',
                            ftype='hidden',
                            value=jid_bare)
@@ -1928,14 +1928,17 @@ class XmppClient(slixmpp.ClientXMPP):
                 feed_id = str(result['index'])
                 entries = sqlite.get_entries_of_feed(db_file, feed_id)
                 renewed, scanned = sqlite.get_last_update_time_of_feed(db_file,
-                                                                     feed_id)
-                last_updated = renewed or scanned
-                last_updated = str(last_updated)
-                options = form.add_field(desc='Recent titles from subscription',
-                                         ftype='list-multi',
-                                         label='Preview')
+                    feed_id)
+                last_updated = DateAndTime.convert_seconds_to_yyyy_mm_dd(
+                    float(renewed or scanned))
+                form.add_field(desc='Recent titles from subscription',
+                               ftype='fixed',
+                               value='Recent updates')
+                recent_updates = ''
                 for entry in entries:
-                    options.addOption(entry[1], entry[2])
+                    recent_updates += '* ' + entry[1] + '\n\n'
+                form.add_field(ftype='text-multi',
+                                value=recent_updates)
                 form.add_field(ftype='fixed',
                                label='Information')
                 form.add_field(ftype='text-single',
@@ -1965,14 +1968,16 @@ class XmppClient(slixmpp.ClientXMPP):
                 feed_id = str(result['index'])
                 entries = sqlite.get_entries_of_feed(db_file, feed_id)
                 renewed, scanned = sqlite.get_last_update_time_of_feed(db_file,
-                                                                     feed_id)
-                last_updated = renewed or scanned
-                last_updated = str(last_updated)
-                options = form.add_field(desc='Recent titles from subscription',
-                                         ftype='list-multi',
-                                         label='Preview')
+                    feed_id)
+                last_updated = DateAndTime.convert_seconds_to_yyyy_mm_dd(
+                    float(renewed or scanned))
+                options = form.add_field(ftype='fixed',
+                                         value='Recent updates')
+                recent_updates = ''
                 for entry in entries:
-                    options.addOption(entry[1], entry[2])
+                    recent_updates += '* ' + entry[1] + '\n\n'
+                form.add_field(ftype='text-multi',
+                                value=recent_updates)
                 form.add_field(ftype='fixed',
                                label='Information')
                 form.add_field(ftype='text-single',

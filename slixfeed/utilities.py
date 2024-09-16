@@ -191,6 +191,12 @@ class DateAndTime:
         return date
 
 
+    def convert_seconds_to_yyyy_mm_dd(seconds_time):
+        date_time = datetime.fromtimestamp(seconds_time)
+        formatted_date = date_time.strftime('%Y-%m-%d')
+        return formatted_date
+
+
     def current_date():
         """
         Print MM DD, YYYY (Weekday Time) timestamp.
